@@ -1,0 +1,4 @@
+# Wrangler Static Assets — paths here are not uploaded (same rules as .gitignore).
+# The repo root was being deployed as assets; .git pack files exceed Workers’ 25 MiB per-file limit.
+.git
+node_modules
