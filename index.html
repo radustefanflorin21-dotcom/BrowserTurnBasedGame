@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="medieval">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser RPG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+  <div class="sidebar">
+    <h2>⚔ Medieval RPG</h2>
+    <select id="themeSelect" class="theme-select hidden" aria-hidden="true" tabindex="-1" aria-label="Game theme">
+      <option value="medieval">Medieval</option>
+      <option value="scifi">Sci‑Fi</option>
+    </select>
+    <div class="sidebar-nav">
+      <button type="button" onclick="navigate('overview')">Overview</button>
+      <button type="button" onclick="navigate('adventure')">Adventure</button>
+      <button type="button" onclick="navigate('arena')">Arena</button>
+      <button type="button" onclick="navigate('alliance')">Alliance</button>
+      <button type="button" onclick="navigate('market')">Market</button>
+    </div>
+    <div class="sidebar-edit-footer">
+      <button type="button" id="editModeToggle" class="sidebar-edit-mode-btn" aria-pressed="false" title="When on, drag and resize editable scene objects, add or remove them. Layout is saved.">
+        Edit Mode
+      </button>
+      <div id="editModeAddPanel" class="sidebar-add-panel hidden">
+        <button type="button" id="editModeAddBtn" class="sidebar-add-btn">Add object…</button>
+        <div id="editModeAddList" class="sidebar-add-list hidden" role="listbox" aria-label="Add editable object"></div>
+      </div>
+    </div>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<div id="fightOverlay" class="fight-overlay hidden" aria-live="polite">
+  <div class="fight-panel fight-panel--turn">
+    <h3 class="fight-title">Combat</h3>
+    <div class="fight-body">
+      <div class="fight-main-column">
+        <div id="fightHud" class="fight-hud"></div>
+        <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
+        <div class="fight-actions">
+          <button type="button" id="fightCloseBtn" class="btn-primary btn-fight-close hidden">Close</button>
+        </div>
+      </div>
+      <aside class="fight-side-column">
+        <div class="fight-log-section">
+          <span class="fight-section-label">Combat log</span>
+          <div id="fightLog" class="fight-log"></div>
+        </div>
+        <div id="fightResults" class="fight-results hidden" aria-live="polite"></div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div id="itemTooltip" class="item-tooltip hidden" role="tooltip" aria-hidden="true"></div>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div id="modalContent"></div>
+    <button type="button" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<div id="worldMapModal" class="world-map-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="worldMapModalTitle">
+  <div class="world-map-modal-panel">
+    <header class="world-map-modal-head">
+      <h2 id="worldMapModalTitle" class="world-map-modal-title">World map</h2>
+      <div class="world-map-modal-head-actions">
+        <div class="world-map-modal-zoom" role="group" aria-label="Map zoom">
+          <button type="button" class="world-map-zoom-btn" id="worldMapZoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+          <span class="world-map-zoom-value" id="worldMapZoomValue" aria-live="polite">—</span>
+          <button type="button" class="world-map-zoom-btn" id="worldMapZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        </div>
+        <button type="button" class="world-map-modal-close" id="worldMapModalClose" aria-label="Close world map">Close</button>
+      </div>
+    </header>
+    <p class="world-map-modal-hint">Scroll wheel or +/−: zoom. Drag: pan.</p>
+    <div class="world-map-modal-scroll" id="worldMapModalScroll">
+      <div class="world-map-modal-canvas-wrap" id="worldMapModalCanvasWrap">
+        <canvas id="worldMapCanvas" class="world-map-canvas" width="1" height="1" aria-label="World map"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="world_map_data.js"></script>
+<script src="config.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
