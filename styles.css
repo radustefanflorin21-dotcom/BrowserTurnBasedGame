@@ -271,7 +271,8 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
   padding: 0;
   border-radius: 0;
   box-shadow: none;
-  overflow: hidden;
+  /* visible so absolutely positioned bg stack is not clipped by this panel */
+  overflow: visible;
   background: var(--adventure-frame-bg, var(--overview-parchment));
 }
 
@@ -1249,13 +1250,14 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
  * Fixed rectangle for map/biome art: inset so panel background shows as a border; nav stays outside.
  * Two layers crossfade when moving between cells (see game.js crossfadeAdventureBackground).
  */
+/* Absolute inside .adventure-page (not fixed): fixed + overflow:hidden ancestors can clip/hide the art. */
 .adventure-bg-stack {
   --adventure-bg-crossfade-ms: 520ms;
-  position: fixed;
-  left: calc(var(--sidebar-width) + max(0px, env(safe-area-inset-left)) + var(--adventure-image-inset-inline));
-  right: calc(max(0px, env(safe-area-inset-right)) + var(--adventure-image-inset-inline));
-  top: calc(max(0px, env(safe-area-inset-top)) + var(--adventure-image-inset-block));
-  bottom: calc(max(0px, env(safe-area-inset-bottom)) + var(--adventure-image-inset-block));
+  position: absolute;
+  left: var(--adventure-image-inset-inline);
+  right: var(--adventure-image-inset-inline);
+  top: var(--adventure-image-inset-block);
+  bottom: var(--adventure-image-inset-block);
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
@@ -1270,7 +1272,7 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.08);
   pointer-events: none;
   border-radius: 12px;
 }
@@ -2349,8 +2351,12 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 }
 
 .fight-panel--turn {
-  width: min(880px, 96vw);
-  max-height: 86vh;
+  width: min(1320px, 99vw);
+  max-width: 100%;
+  /* +25% vertical budget vs previous 86vh; cap so the panel stays on-screen */
+  max-height: min(calc(100vh - 12px), calc(86vh * 1.25));
+  padding-top: calc(10px * 1.25);
+  padding-bottom: calc(10px * 1.25);
   min-height: 0;
 }
 
@@ -2413,6 +2419,12 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+}
+
+/* Extra separation between hero row and enemy row in turn-based combat (6× base 8px gap) */
+.fight-panel--turn .fight-battlefield {
+  gap: calc(8px * 6);
 }
 
 .fight-hero-card {
@@ -2429,24 +2441,67 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-enemies-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: center;
   align-items: flex-start;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
 }
 
 .fight-enemy-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 88px;
-  padding: 5px;
+  align-items: stretch;
+  gap: 6px;
+  width: 120px;
+  min-width: 120px;
+  padding: 6px;
   background: rgba(0, 0, 0, 0.12);
   border-radius: 8px;
   border: 2px solid transparent;
   cursor: pointer;
   transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.fight-enemy-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 4px;
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  border: 1px solid var(--overview-stone-border);
+}
+
+.fight-enemy-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  line-height: 1.2;
+  padding: 0 2px;
+}
+
+.fight-enemy-caption .fight-card-name {
+  font-size: 0.72rem;
+}
+
+.fight-card-level {
+  font-size: 0.65rem;
+  color: var(--overview-muted);
+  font-weight: 600;
+}
+
+.fight-enemy-caption .fight-card-mood {
+  font-size: 0.56rem;
+  margin-top: 1px;
 }
 
 .fight-enemy-card:focus-visible {
@@ -2477,6 +2532,14 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 .fight-hero-card .fight-portrait-img {
   width: 64px;
   height: 64px;
+}
+
+.fight-enemy-panel .fight-portrait-img--enemy {
+  width: 88px;
+  height: 88px;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .fight-card-name {
@@ -2510,6 +2573,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   justify-content: space-between;
   gap: 8px;
   font-size: 0.72rem;
+  margin-top: 14px;
   margin-bottom: 2px;
 }
 
@@ -2521,6 +2585,8 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   color: var(--nameplate-edge);
+  font-size: calc(0.72rem * 3);
+  line-height: 1.1;
 }
 
 .fight-pass-btn {

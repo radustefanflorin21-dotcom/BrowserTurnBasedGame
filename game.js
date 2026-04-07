@@ -2857,11 +2857,16 @@ function renderTurnBattle() {
     const moodLabel = escapeHtml(f.moodName || "—");
     const lvl = typeof f.level === "number" ? f.level : 1;
     enemiesHtml += `<div class="fight-enemy-card ${dead ? "fight-enemy-card--dead" : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
-      <img class="fight-portrait-img" src="${eimg}" alt="" />
-      <span class="fight-card-name">${label}</span>
-      <span class="fight-card-meta">Lv ${lvl} · ${moodLabel}</span>
-      <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
-      <span class="fight-card-hp-text">${Math.max(0, f.hp)} / ${f.maxHp}</span>
+      <div class="fight-enemy-panel">
+        <img class="fight-portrait-img fight-portrait-img--enemy" src="${eimg}" alt="" />
+        <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
+        <span class="fight-card-hp-text">${Math.max(0, f.hp)} / ${f.maxHp}</span>
+      </div>
+      <div class="fight-enemy-caption">
+        <span class="fight-card-name">${label}</span>
+        <span class="fight-card-level">Lv ${lvl}</span>
+        <span class="fight-card-meta fight-card-mood">${moodLabel}</span>
+      </div>
     </div>`;
   });
 
