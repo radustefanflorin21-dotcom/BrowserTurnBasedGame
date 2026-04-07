@@ -286,7 +286,7 @@ function getItemImage(itemName) {
 function getSkillImage(skillName) {
   const def = GAME_CONFIG.skills.find((s) => s.name === skillName);
   if (def && def.image) return def.image;
-  return `assets/skills/${String(skillName)
+  return `Assets/Skills/${String(skillName)
     .toLowerCase()
     .replace(/\s+/g, "-")}.svg`;
 }
@@ -422,7 +422,7 @@ function unequipToInventory(slotId) {
   render();
 }
 
-const HERO_PORTRAIT = "assets/character/hero.png";
+const HERO_PORTRAIT = "Assets/Character/hero.svg";
 
 const PLAYER_TURN_SECONDS = 30;
 /** @type {ReturnType<typeof setInterval> | null} */

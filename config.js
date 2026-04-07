@@ -20,7 +20,7 @@ const GAME_CONFIG = {
       name: "Burrow Hare",
       hp: 40,
       attack: 6,
-      image: "assets/monsters/burrow_hare.png",
+      image: "Assets/Monsters/burrow_hare.png",
       possibleLevels: [1, 2, 3, 4, 5],
       possibleMoods: ["cautious"],
       drops: {
@@ -33,7 +33,7 @@ const GAME_CONFIG = {
       name: "Plains Raptor",
       hp: 60,
       attack: 8,
-      image: "assets/monsters/plains_raptor.png",
+      image: "Assets/Monsters/plains_raptor.png",
       possibleLevels: [4, 5, 6, 7, 8],
       possibleMoods: ["focused"],
       drops: {
@@ -46,7 +46,7 @@ const GAME_CONFIG = {
       name: "Grass Snake",
       hp: 40,
       attack: 12,
-      image: "assets/monsters/grass_snake.png",
+      image: "Assets/Monsters/grass_snake.png",
       possibleLevels: [7, 8, 9, 10, 11],
       possibleMoods: ["focused"],
       drops: {
@@ -59,7 +59,7 @@ const GAME_CONFIG = {
       name: "Tusk Boar",
       hp: 120,
       attack: 10,
-      image: "assets/monsters/tusk_boar.png",
+      image: "Assets/Monsters/tusk_boar.png",
       possibleLevels: [10, 11, 13, 14, 15],
       possibleMoods: ["steady"],
       drops: {
@@ -72,7 +72,7 @@ const GAME_CONFIG = {
       name: "Field Wolf",
       hp: 30,
       attack: 5,
-      image: "assets/monsters/field_wolf.png",
+      image: "Assets/Monsters/field_wolf.png",
       possibleLevels: [15, 16, 17, 19, 20],
       possibleMoods: ["berserk"],
       drops: {
@@ -85,7 +85,7 @@ const GAME_CONFIG = {
       name: "Drone",
       hp: 35,
       attack: 7,
-      image: "assets/monsters/drone.svg",
+      image: "Assets/Monsters/drone.svg",
       possibleLevels: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
       possibleMoods: ["berserk", "cautious", "steady", "grim", "weary", "focused"],
       drops: {
@@ -101,7 +101,7 @@ const GAME_CONFIG = {
       type: "weapon",
       slot: "weapon",
       attack: 3,
-      image: "assets/equips/rusty-sword.svg",
+      image: "Assets/Equips/rusty-sword.svg",
       description: "A notched blade. Better than fists in a brawl.",
       bonusSkills: [],
       bonusStats: {}
@@ -110,7 +110,7 @@ const GAME_CONFIG = {
       type: "weapon",
       slot: "weapon",
       attack: 6,
-      image: "assets/equips/iron-sword.svg",
+      image: "Assets/Equips/iron-sword.svg",
       description: "Well-balanced steel. Favored by city guards.",
       bonusSkills: [],
       bonusStats: {}
@@ -119,7 +119,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "chest",
       defense: 2,
-      image: "assets/equips/leather-armor.svg",
+      image: "Assets/Equips/leather-armor.svg",
       description: "Flexible leather plates. Light and quiet.",
       bonusSkills: [],
       bonusStats: {}
@@ -128,7 +128,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "head",
       defense: 1,
-      image: "assets/equips/iron-helm.svg",
+      image: "Assets/Equips/iron-helm.svg",
       description: "Protects the skull from glancing blows.",
       bonusSkills: [],
       bonusStats: {}
@@ -137,7 +137,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "offhand",
       defense: 3,
-      image: "assets/equips/wooden-shield.svg",
+      image: "Assets/Equips/wooden-shield.svg",
       description: "Reinforced wood. Soaks impact before it reaches you.",
       bonusSkills: [],
       bonusStats: {}
@@ -146,7 +146,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "gloves",
       defense: 1,
-      image: "assets/equips/leather-gloves.svg",
+      image: "Assets/Equips/leather-gloves.svg",
       description: "Grip and a little padding for parries.",
       bonusSkills: [],
       bonusStats: {}
@@ -155,7 +155,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "feet",
       defense: 1,
-      image: "assets/equips/leather-boots.svg",
+      image: "Assets/Equips/leather-boots.svg",
       description: "Sturdy soles for rough ground.",
       bonusSkills: [],
       bonusStats: {}
@@ -164,7 +164,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "legs",
       defense: 2,
-      image: "assets/equips/iron-greaves.svg",
+      image: "Assets/Equips/iron-greaves.svg",
       description: "Metal guards for shins and knees.",
       bonusSkills: [],
       bonusStats: {}
@@ -173,7 +173,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "amulet",
       defense: 1,
-      image: "assets/equips/bronze-amulet.svg",
+      image: "Assets/Equips/bronze-amulet.svg",
       description: "A simple charm on a chain. Slight warding.",
       bonusSkills: [],
       bonusStats: { VIT: 1 }
@@ -182,7 +182,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "ring1",
       defense: 1,
-      image: "assets/equips/band-ring.svg",
+      image: "Assets/Equips/band-ring.svg",
       description: "A plain band. Rumored to bring minor luck.",
       bonusSkills: [],
       bonusStats: { STR: 1 }
@@ -191,21 +191,21 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "ring2",
       defense: 1,
-      image: "assets/equips/emerald-ring.svg",
+      image: "Assets/Equips/emerald-ring.svg",
       description: "Tiny emerald in a silver setting.",
       bonusSkills: ["Quick Reflexes"],
       bonusStats: { AGI: 1 }
     },
     "Wolf Pelt": {
       type: "resource",
-      image: "assets/resources/wolf-pelt.svg",
+      image: "Assets/Resources/wolf-pelt.svg",
       description: "Thick fur. Merchants pay for winter cloaks.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Energy Cell": {
       type: "resource",
-      image: "assets/resources/energy-cell.svg",
+      image: "Assets/Resources/energy-cell.svg",
       description: "Compact power unit. Salvaged tech.",
       bonusSkills: [],
       bonusStats: {}
@@ -214,7 +214,7 @@ const GAME_CONFIG = {
       type: "consumable",
       effect: "heal",
       value: 40,
-      image: "assets/resources/small-potion.svg",
+      image: "Assets/Resources/small-potion.svg",
       description: "Red liquid in a glass vial. Drink to mend wounds.",
       bonusSkills: [],
       bonusStats: {},
@@ -224,7 +224,7 @@ const GAME_CONFIG = {
       type: "consumable",
       effect: "heal",
       value: 80,
-      image: "assets/resources/large-potion.svg",
+      image: "Assets/Resources/large-potion.svg",
       description: "A larger dose of the same restorative brew.",
       bonusSkills: [],
       bonusStats: {},
@@ -252,34 +252,34 @@ const GAME_CONFIG = {
       name: "Power Strike",
       bonus: 5,
       combatMultiplier: 1.55,
-      image: "assets/skills/power-strike.svg",
+      image: "Assets/Skills/power-strike.svg",
       description: "A committed melee swing. Passive: +5 attack. In combat, use as a skill for a high damage multiplier."
     },
     {
       name: "Heavy Blow",
       bonus: 3,
       combatMultiplier: 1.35,
-      image: "assets/skills/heavy-blow.svg",
+      image: "Assets/Skills/heavy-blow.svg",
       description: "A slower, crushing hit. Passive: +3 attack. Combat skill with solid bonus damage."
     },
     {
       name: "Precise Shot",
       bonus: 2,
       combatMultiplier: 1.28,
-      image: "assets/skills/precise-shot.svg",
+      image: "Assets/Skills/precise-shot.svg",
       description: "Aimed strike exploiting weak points. Passive: +2 attack. Lighter multiplier, reliable in long fights."
     },
     {
       name: "Arcane Strike",
       bonus: 4,
       combatMultiplier: 1.42,
-      image: "assets/skills/arcane-strike.svg",
+      image: "Assets/Skills/arcane-strike.svg",
       description: "Infused attack blending force and focus. Passive: +4 attack. Strong combat skill multiplier."
     },
     {
       name: "Quick Reflexes",
       bonus: 2,
-      image: "assets/skills/quick-reflexes.svg",
+      image: "Assets/Skills/quick-reflexes.svg",
       description: "Passive only: +2 attack from better timing. Does not add a combat button; improves your listed damage."
     }
   ],
