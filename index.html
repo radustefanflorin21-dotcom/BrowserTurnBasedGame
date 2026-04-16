@@ -11,30 +11,68 @@
 </head>
 <body>
 <div class="container">
-  <div class="sidebar">
-    <h2>⚔ Medieval RPG</h2>
-    <select id="themeSelect" class="theme-select hidden" aria-hidden="true" tabindex="-1" aria-label="Game theme">
-      <option value="medieval">Medieval</option>
-      <option value="scifi">Sci‑Fi</option>
-    </select>
-    <div class="sidebar-nav">
-      <button type="button" onclick="navigate('overview')">Overview</button>
-      <button type="button" onclick="navigate('adventure')">Adventure</button>
-      <button type="button" onclick="navigate('arena')">Arena</button>
-      <button type="button" onclick="navigate('alliance')">Alliance</button>
-      <button type="button" onclick="navigate('market')">Market</button>
-    </div>
-    <div class="sidebar-edit-footer">
-      <button type="button" id="editModeToggle" class="sidebar-edit-mode-btn" aria-pressed="false" title="When on, drag and resize editable scene objects, add or remove them. Layout is saved.">
-        Edit Mode
-      </button>
-      <div id="editModeAddPanel" class="sidebar-add-panel hidden">
-        <button type="button" id="editModeAddBtn" class="sidebar-add-btn">Add object…</button>
-        <div id="editModeAddList" class="sidebar-add-list hidden" role="listbox" aria-label="Add editable object"></div>
-      </div>
-    </div>
-  </div>
   <div class="content" id="content"></div>
+</div>
+
+<div class="bottom-hud" id="bottomHud">
+  <section class="bottom-hud-chat" aria-label="Chat">
+    <div class="bottom-chat-head">Chat</div>
+    <div class="bottom-chat-log" aria-live="polite">
+      <p><strong>System:</strong> Welcome to the world.</p>
+      <p><strong>Guide:</strong> Open Adventure to explore.</p>
+    </div>
+    <input class="bottom-chat-input" type="text" placeholder="Type a message..." aria-label="Chat message" disabled>
+  </section>
+
+  <section class="bottom-hud-center" aria-label="Character status">
+    <img id="bottomHudPortrait" class="bottom-hud-portrait" src="Assets/Character/hero.svg" alt="Character portrait">
+    <div class="bottom-hud-hp" aria-label="Health">
+      <div class="bottom-hud-hp-fill" id="bottomHudHpFill"></div>
+    </div>
+    <div class="bottom-hud-meta"><span id="bottomHudName">Hero</span> · <span id="bottomHudHpText">100 / 100 HP</span></div>
+  </section>
+
+  <section class="bottom-hud-right">
+    <div class="bottom-menu-row">
+      <nav class="bottom-menu" aria-label="Main menu">
+        <button type="button" id="characterPanelBtn" class="bottom-menu-btn" data-tooltip="Character" onclick="openCharacterPanel()">
+          <img class="bottom-menu-icon" src="Assets/UI/character.png" alt="Character icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
+          <span class="sr-only">Character</span>
+        </button>
+        <button type="button" class="bottom-menu-btn" data-page="adventure" data-tooltip="Adventure" onclick="navigate('adventure')">
+          <img class="bottom-menu-icon" src="Assets/UI/adventure.png" alt="Adventure icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
+          <span class="sr-only">Adventure</span>
+        </button>
+        <button type="button" class="bottom-menu-btn" data-page="arena" data-tooltip="Arena" onclick="navigate('arena')">
+          <img class="bottom-menu-icon" src="Assets/UI/arena.png" alt="Arena icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
+          <span class="sr-only">Arena</span>
+        </button>
+        <button type="button" class="bottom-menu-btn" data-page="alliance" data-tooltip="Alliance" onclick="navigate('alliance')">
+          <img class="bottom-menu-icon" src="Assets/UI/alliance.png" alt="Alliance icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
+          <span class="sr-only">Alliance</span>
+        </button>
+        <button type="button" class="bottom-menu-btn" data-page="market" data-tooltip="Market" onclick="navigate('market')">
+          <img class="bottom-menu-icon" src="Assets/UI/market.png" alt="Market icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
+          <span class="sr-only">Market</span>
+        </button>
+      </nav>
+      <div class="bottom-menu-tools">
+        <button type="button" id="editModeToggle" class="bottom-menu-btn bottom-menu-btn--tool" data-tooltip="Edit Mode" aria-pressed="false" title="When on, drag and resize editable scene objects, add or remove them. Layout is saved.">
+          <img class="bottom-menu-icon" src="Assets/UI/edit.png" alt="Edit mode icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
+          <span class="sr-only">Edit mode</span>
+        </button>
+        <div id="editModeAddPanel" class="sidebar-add-panel hidden">
+          <button type="button" id="editModeAddBtn" class="sidebar-add-btn">Add object…</button>
+          <div id="editModeAddList" class="sidebar-add-list hidden" role="listbox" aria-label="Add editable object"></div>
+        </div>
+      </div>
+      <select id="themeSelect" class="theme-select hidden" aria-hidden="true" tabindex="-1" aria-label="Game theme">
+        <option value="medieval">Medieval</option>
+        <option value="scifi">Sci‑Fi</option>
+      </select>
+    </div>
+    <div class="bottom-hud-minimap" id="bottomHudMinimapSlot" aria-label="Minimap"></div>
+  </section>
 </div>
 
 <div id="fightOverlay" class="fight-overlay hidden" aria-live="polite">
@@ -87,6 +125,16 @@
         <canvas id="worldMapCanvas" class="world-map-canvas" width="1" height="1" aria-label="World map"></canvas>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="characterPanelModal" class="character-panel-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="characterPanelTitle">
+  <div class="character-panel-shell">
+    <header class="character-panel-head">
+      <h2 id="characterPanelTitle" class="character-panel-title">Character</h2>
+      <button type="button" id="characterPanelClose" class="character-panel-close" aria-label="Close character panel">Close</button>
+    </header>
+    <div id="characterPanelContent" class="character-panel-content"></div>
   </div>
 </div>
 

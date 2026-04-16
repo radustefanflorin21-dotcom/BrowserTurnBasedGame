@@ -12,7 +12,7 @@ const EQUIP_SLOTS = [
   { id: "ring2", label: "Ring", cls: "paper-slot--ring2" }
 ];
 
-let currentPage = "overview";
+let currentPage = "adventure";
 let inventoryTab = "equipment";
 /** "characteristics" | "skills" | "professions" — overview stats panel */
 let overviewStatsTab = "characteristics";
@@ -346,6 +346,10 @@ function getEnemyDamageTaken(raw) {
 }
 
 function navigate(p) {
+  if (p === "overview") {
+    openCharacterPanel();
+    return;
+  }
   currentPage = p;
   render();
 }
@@ -359,9 +363,6 @@ function setTheme(themeId) {
 
 function applyTheme(themeId) {
   document.documentElement.dataset.theme = themeId;
-  const t = GAME_CONFIG.themes[themeId];
-  const h = document.querySelector(".sidebar h2");
-  if (h && t) h.textContent = t.sidebarTitle;
 }
 
 function categorizeInventory() {
@@ -869,8 +870,8 @@ const WORLD_MAP_FULL_TEXTURE_URL = "Assets/WorldMap/full_map_texture.png";
 const WORLD_MAP_LABELS_OVERLAY_URL = "Assets/WorldMap/full_map_labels.png";
 
 /** Minimap grid cell size in CSS px — must match .minimap-cell / .minimap-grid in styles.css */
-const MINIMAP_CELL_W_PX = 28;
-const MINIMAP_CELL_H_PX = 14;
+const MINIMAP_CELL_W_PX = 18;
+const MINIMAP_CELL_H_PX = 10;
 
 /** @type {Map<string, HTMLImageElement | 'loading' | 'fail'>} */
 const biomeTextureByUrl = new Map();
@@ -1421,10 +1422,9 @@ function getMinimapCellBackgroundCss(mx, my) {
 }
 
 function refreshAdventureMinimapCellColors() {
-  const root = document.getElementById("adventurePageRoot");
-  if (!root || currentPage !== "adventure") return;
+  if (currentPage !== "adventure") return;
   ensureBiomeTexturesPreloaded();
-  root.querySelectorAll(".minimap-cell[data-map-x]").forEach((el) => {
+  document.querySelectorAll(".minimap-cell[data-map-x]").forEach((el) => {
     const mx = parseInt(el.getAttribute("data-map-x"), 10);
     const my = parseInt(el.getAttribute("data-map-y"), 10);
     if (Number.isNaN(mx) || Number.isNaN(my)) return;
@@ -3602,8 +3602,7 @@ function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey) {
   </div>`;
 }
 
-function renderOverview() {
-  const c = document.getElementById("content");
+function buildOverviewHtml() {
   player.maxHp = computeMaxHp(player);
   const cat = categorizeInventory();
   const tabs = ["equipment", "resources", "consumables"];
@@ -3688,7 +3687,7 @@ function renderOverview() {
   else if (overviewStatsTab === "skills") statsBodyHtml = skillsTabHtml;
   else statsBodyHtml = professionsTabHtml;
 
-  c.innerHTML = `
+  return `
     <div class="overview-page">
       <div class="overview-grid">
         <section class="panel-cell panel-character" aria-label="Character">
@@ -3736,6 +3735,42 @@ function renderOverview() {
       </div>
     </div>
   `;
+}
+
+function renderOverview() {
+  const c = document.getElementById("content");
+  c.innerHTML = buildOverviewHtml();
+}
+
+function isCharacterPanelOpen() {
+  const modal = document.getElementById("characterPanelModal");
+  return !!(modal && !modal.classList.contains("hidden"));
+}
+
+function renderCharacterPanelContent() {
+  const host = document.getElementById("characterPanelContent");
+  if (!host || !isCharacterPanelOpen()) return;
+  host.innerHTML = buildOverviewHtml();
+}
+
+function openCharacterPanel() {
+  const modal = document.getElementById("characterPanelModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  renderCharacterPanelContent();
+  renderBottomHud();
+}
+
+function closeCharacterPanel() {
+  hideItemTooltip();
+  const modal = document.getElementById("characterPanelModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  const host = document.getElementById("characterPanelContent");
+  if (host) host.innerHTML = "";
+  renderBottomHud();
 }
 
 function clearAdventureRespawnTimer() {
@@ -4265,15 +4300,28 @@ function initWorldMapModal() {
 }
 
 function onDocumentKeydown(e) {
+  if (e.key === "Escape" && isCharacterPanelOpen()) {
+    e.preventDefault();
+    closeCharacterPanel();
+    return;
+  }
   if (e.key === "Escape" && isWorldMapModalOpen()) {
     e.preventDefault();
     closeWorldMapModal();
     return;
   }
-  if (e.key !== "m" && e.key !== "M") return;
   if (e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
   if (currentPage !== "adventure") return;
   if (isFightOverlayOpen()) return;
+  if (e.key === "c" || e.key === "C") {
+    e.preventDefault();
+    if (isWorldMapModalOpen()) return;
+    if (isCharacterPanelOpen()) closeCharacterPanel();
+    else openCharacterPanel();
+    return;
+  }
+  if (e.key !== "m" && e.key !== "M") return;
+  if (isCharacterPanelOpen()) return;
   e.preventDefault();
   if (isWorldMapModalOpen()) closeWorldMapModal();
   else openWorldMapModal();
@@ -4410,11 +4458,6 @@ function renderAdventure() {
       <div class="adventure-body">
         <div class="${worldCampsClass}">${campsHtml}</div>
       </div>
-      <div class="adventure-minimap">
-        <div class="minimap-panel">
-          ${buildMinimapHtml(x, y)}
-        </div>
-      </div>
     </div>`;
 
   const pageRoot = document.getElementById("adventurePageRoot");
@@ -4484,6 +4527,31 @@ function renderAdventure() {
   }
 }
 
+function renderBottomHud() {
+  const hpFill = document.getElementById("bottomHudHpFill");
+  const hpText = document.getElementById("bottomHudHpText");
+  const nameEl = document.getElementById("bottomHudName");
+  if (nameEl) nameEl.textContent = player.name || "Hero";
+  const hpPct = player.maxHp > 0 ? Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100)) : 0;
+  if (hpFill) hpFill.style.width = `${hpPct.toFixed(1)}%`;
+  if (hpText) hpText.textContent = `${Math.max(0, Math.floor(player.hp))} / ${Math.max(1, Math.floor(player.maxHp))} HP`;
+
+  document.querySelectorAll(".bottom-menu-btn[data-page]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.getAttribute("data-page") === currentPage);
+  });
+  const characterBtn = document.getElementById("characterPanelBtn");
+  if (characterBtn) characterBtn.classList.toggle("is-active", isCharacterPanelOpen());
+
+  const miniSlot = document.getElementById("bottomHudMinimapSlot");
+  if (!miniSlot) return;
+  if (currentPage === "adventure") {
+    ensureWorldMapPosition();
+    miniSlot.innerHTML = `<div class="minimap-panel">${buildMinimapHtml(player.worldMap.x, player.worldMap.y)}</div>`;
+  } else {
+    miniSlot.innerHTML = "";
+  }
+}
+
 function render() {
   const c = document.getElementById("content");
   if (currentPage !== "adventure") {
@@ -4509,6 +4577,8 @@ function render() {
     c.innerHTML =
       '<div class="game-page"><h1 class="game-page-title">Market</h1><p class="game-page-lead muted">Coming soon.</p></div>';
   }
+  renderBottomHud();
+  if (isCharacterPanelOpen()) renderCharacterPanelContent();
 }
 
 function onDragStart(e) {
@@ -4559,7 +4629,7 @@ function onDrop(e) {
 
 function onContentDblClick(e) {
   const invCell = e.target.closest(".inv-cell[data-item-name]");
-  if (invCell && currentPage === "overview" && inventoryTab === "equipment") {
+  if (invCell && inventoryTab === "equipment") {
     const name = invCell.getAttribute("data-item-name");
     if (name && equipFromInventory(name)) {
       hideItemTooltip();
@@ -4843,6 +4913,16 @@ function initUi() {
 
   const modalEl = document.getElementById("modal");
   if (modalEl) modalEl.addEventListener("click", onPortalNetworkModalClick);
+  const characterPanelModal = document.getElementById("characterPanelModal");
+  const characterPanelClose = document.getElementById("characterPanelClose");
+  if (characterPanelClose) {
+    characterPanelClose.addEventListener("click", () => closeCharacterPanel());
+  }
+  if (characterPanelModal) {
+    characterPanelModal.addEventListener("click", (e) => {
+      if (e.target === characterPanelModal) closeCharacterPanel();
+    });
+  }
 
   const content = document.getElementById("content");
   content.addEventListener("pointerdown", onSceneResizePointerDown, true);
@@ -4855,6 +4935,24 @@ function initUi() {
   content.addEventListener("mouseover", onContentTooltipOver);
   content.addEventListener("mouseout", onContentTooltipOut);
   content.addEventListener("mousemove", onContentTooltipMove);
+  const characterPanelContent = document.getElementById("characterPanelContent");
+  if (characterPanelContent) {
+    characterPanelContent.addEventListener("click", onContentClick);
+    characterPanelContent.addEventListener("dblclick", onContentDblClick);
+    characterPanelContent.addEventListener("dragstart", onDragStart);
+    characterPanelContent.addEventListener("dragover", onDragOver);
+    characterPanelContent.addEventListener("drop", onDrop);
+    characterPanelContent.addEventListener("mouseover", onContentTooltipOver);
+    characterPanelContent.addEventListener("mouseout", onContentTooltipOut);
+    characterPanelContent.addEventListener("mousemove", onContentTooltipMove);
+  }
+
+  const bottomMini = document.getElementById("bottomHudMinimapSlot");
+  if (bottomMini) {
+    bottomMini.addEventListener("mouseover", onContentTooltipOver);
+    bottomMini.addEventListener("mouseout", onContentTooltipOut);
+    bottomMini.addEventListener("mousemove", onContentTooltipMove);
+  }
 
   document.addEventListener("keydown", onDocumentKeydown);
   initWorldMapModal();
