@@ -5059,5 +5059,95 @@ function initUi() {
   initWorldMapModal();
 }
 
+function showLoadingOverlay() {
+  const el = document.getElementById("loadingOverlay");
+  if (el) el.classList.remove("hidden");
+}
+
+function hideLoadingOverlay() {
+  const el = document.getElementById("loadingOverlay");
+  if (el) el.classList.add("hidden");
+}
+
+function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
+  return new Promise((resolve) => {
+    const tracked = new Set();
+    const pending = new Set();
+    let loaded = 0;
+    let total = 0;
+    let lastMutation = Date.now();
+
+    const textEl = document.getElementById("loadingText");
+    const fillEl = document.getElementById("loadingBarFill");
+
+    const setProgress = () => {
+      if (!textEl || !fillEl) return;
+      const safeTotal = Math.max(1, total);
+      const pct = Math.round((loaded / safeTotal) * 100);
+      textEl.textContent = `Loading… ${loaded}/${total}`;
+      fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+    };
+
+    const trackImg = (img) => {
+      if (!img || tracked.has(img)) return;
+      tracked.add(img);
+      total++;
+      const done = () => {
+        if (!pending.has(img)) return;
+        pending.delete(img);
+        loaded++;
+        setProgress();
+      };
+
+      if (img.complete) {
+        loaded++;
+        setProgress();
+        return;
+      }
+
+      pending.add(img);
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    };
+
+    // Track current images.
+    document.querySelectorAll("img").forEach((img) => trackImg(img));
+    setProgress();
+
+    const obs = new MutationObserver((muts) => {
+      lastMutation = Date.now();
+      muts.forEach((m) => {
+        if (m.type !== "childList") return;
+        m.addedNodes.forEach((n) => {
+          if (!(n instanceof Element)) return;
+          if (n.tagName === "IMG") trackImg(n);
+          n.querySelectorAll?.("img")?.forEach((img) => trackImg(img));
+        });
+      });
+    });
+
+    obs.observe(document.body, { childList: true, subtree: true });
+
+    const startedAt = Date.now();
+    const tick = window.setInterval(() => {
+      if (Date.now() - startedAt > maxWaitMs) {
+        obs.disconnect();
+        hideLoadingOverlay();
+        window.clearInterval(tick);
+        resolve();
+        return;
+      }
+      if (pending.size === 0 && Date.now() - lastMutation >= idleMs) {
+        obs.disconnect();
+        hideLoadingOverlay();
+        window.clearInterval(tick);
+        resolve();
+      }
+    }, 150);
+  });
+}
+
 initUi();
+showLoadingOverlay();
 render();
+waitForAllImagesToLoad().catch(() => hideLoadingOverlay());
