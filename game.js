@@ -16,6 +16,7 @@ let currentPage = "adventure";
 let inventoryTab = "equipment";
 /** "characteristics" | "skills" | "professions" — overview stats panel */
 let overviewStatsTab = "characteristics";
+let activeMenuPanel = null;
 let dragPayload = null;
 /** Respawn label updates on adventure (no full re-render — avoids image flash) */
 let adventureRespawnTick = null;
@@ -349,6 +350,14 @@ function navigate(p) {
   if (p === "overview") {
     openCharacterPanel();
     return;
+  }
+  if (p === "arena" || p === "alliance" || p === "market") {
+    openMenuPanel(p);
+    return;
+  }
+  if (p === "adventure") {
+    closeCharacterPanel();
+    closeMenuPanel();
   }
   currentPage = p;
   render();
@@ -3435,29 +3444,20 @@ function buildFightEnemyTooltipHtml(foe) {
 
 function buildWorldCampTooltipHtml(data) {
   if (data && typeof data === "object" && data.kind === "units" && Array.isArray(data.units)) {
-    const n = data.units.length;
-    const tier = typeof data.tier === "string" ? data.tier : "";
-    const totalLv = typeof data.totalLevel === "number" ? data.totalLevel : null;
-    const tierLine =
-      tier && totalLv != null
-        ? `<div class="item-tip-desc">${escapeHtml(tier)} · total level ${totalLv}</div>`
-        : tier
-          ? `<div class="item-tip-desc">${escapeHtml(tier)}</div>`
-          : "";
+    const rolledTotal = data.units.reduce((sum, u) => sum + (typeof u.level === "number" ? u.level : 0), 0);
+    const totalLv = typeof data.totalLevel === "number" ? data.totalLevel : rolledTotal;
     const rows = data.units.map((u) => {
       const name = escapeHtml(u.name);
       const lv = typeof u.level === "number" ? u.level : "?";
       const mood = escapeHtml(u.mood || "—");
       return `<div class="camp-tip-row"><span class="camp-tip-name">${name}</span><span class="camp-tip-detail">Lv ${lv} · ${mood}</span></div>`;
     });
-    return `<div class="item-tip"><div class="item-tip-name">${n} enemies</div>${tierLine}${rows.join("")}</div>`;
+    return `<div class="item-tip"><div class="item-tip-name">Total level ${totalLv}</div>${rows.join("")}</div>`;
   }
   if (data && typeof data === "object" && data.kind === "pool") {
     const pool = data.pool || [];
     const names = pool.map((n) => escapeHtml(n)).join(", ");
-    const mn = typeof data.min === "number" ? data.min : MOB_SIZE_MIN;
-    const mx = typeof data.max === "number" ? data.max : MOB_SIZE_MAX;
-    return `<div class="item-tip"><div class="item-tip-name">Encounter</div><div class="item-tip-desc">Spawns ${mn}–${mx} enemies from: ${names || "—"}.</div><div class="item-tip-desc">Each unit rolls level and mood from its enemy definition.</div></div>`;
+    return `<div class="item-tip"><div class="item-tip-name">Encounter</div><div class="item-tip-desc">Possible enemies: ${names || "—"}.</div><div class="item-tip-desc">Each unit rolls level and mood from its enemy definition.</div></div>`;
   }
   if (!Array.isArray(data) || !data.length) {
     return `<div class="item-tip"><div class="item-tip-desc">Encounter</div></div>`;
@@ -3754,6 +3754,7 @@ function renderCharacterPanelContent() {
 }
 
 function openCharacterPanel() {
+  closeMenuPanel();
   const modal = document.getElementById("characterPanelModal");
   if (!modal) return;
   modal.classList.remove("hidden");
@@ -3771,6 +3772,64 @@ function closeCharacterPanel() {
   const host = document.getElementById("characterPanelContent");
   if (host) host.innerHTML = "";
   renderBottomHud();
+}
+
+function isMenuPanelOpen() {
+  const modal = document.getElementById("menuPanelModal");
+  return !!(modal && !modal.classList.contains("hidden"));
+}
+
+function getMenuPanelMeta(kind) {
+  if (kind === "arena") return { title: "Arena", lead: "To be defined later." };
+  if (kind === "alliance") return { title: "Alliance", lead: "Coming soon." };
+  if (kind === "market") return { title: "Market", lead: "Coming soon." };
+  return null;
+}
+
+function buildMenuPanelHtml(kind) {
+  const meta = getMenuPanelMeta(kind);
+  if (!meta) return '<div class="game-page"><p class="game-page-lead muted">Panel unavailable.</p></div>';
+  return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(
+    meta.lead
+  )}</p></div>`;
+}
+
+function renderMenuPanelContent() {
+  const host = document.getElementById("menuPanelContent");
+  if (!host || !isMenuPanelOpen()) return;
+  host.innerHTML = buildMenuPanelHtml(activeMenuPanel);
+}
+
+function openMenuPanel(kind) {
+  const meta = getMenuPanelMeta(kind);
+  if (!meta) return;
+  closeCharacterPanel();
+  const modal = document.getElementById("menuPanelModal");
+  const title = document.getElementById("menuPanelTitle");
+  if (!modal) return;
+  activeMenuPanel = kind;
+  if (title) title.textContent = meta.title;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  renderMenuPanelContent();
+  renderBottomHud();
+}
+
+function closeMenuPanel() {
+  const modal = document.getElementById("menuPanelModal");
+  if (!modal) return;
+  hideItemTooltip();
+  activeMenuPanel = null;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  const host = document.getElementById("menuPanelContent");
+  if (host) host.innerHTML = "";
+  renderBottomHud();
+}
+
+function toggleMenuPanel(kind) {
+  if (isMenuPanelOpen() && activeMenuPanel === kind) closeMenuPanel();
+  else openMenuPanel(kind);
 }
 
 function clearAdventureRespawnTimer() {
@@ -4305,6 +4364,11 @@ function onDocumentKeydown(e) {
     closeCharacterPanel();
     return;
   }
+  if (e.key === "Escape" && isMenuPanelOpen()) {
+    e.preventDefault();
+    closeMenuPanel();
+    return;
+  }
   if (e.key === "Escape" && isWorldMapModalOpen()) {
     e.preventDefault();
     closeWorldMapModal();
@@ -4313,15 +4377,24 @@ function onDocumentKeydown(e) {
   if (e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
   if (currentPage !== "adventure") return;
   if (isFightOverlayOpen()) return;
-  if (e.key === "c" || e.key === "C") {
+  const k = String(e.key || "").toLowerCase();
+  if (k === "c") {
     e.preventDefault();
     if (isWorldMapModalOpen()) return;
     if (isCharacterPanelOpen()) closeCharacterPanel();
     else openCharacterPanel();
     return;
   }
-  if (e.key !== "m" && e.key !== "M") return;
-  if (isCharacterPanelOpen()) return;
+  if (k === "a" || k === "g" || k === "b") {
+    e.preventDefault();
+    if (isWorldMapModalOpen()) return;
+    if (k === "a") toggleMenuPanel("arena");
+    else if (k === "g") toggleMenuPanel("alliance");
+    else toggleMenuPanel("market");
+    return;
+  }
+  if (k !== "m") return;
+  if (isCharacterPanelOpen() || isMenuPanelOpen()) return;
   e.preventDefault();
   if (isWorldMapModalOpen()) closeWorldMapModal();
   else openWorldMapModal();
@@ -4536,11 +4609,14 @@ function renderBottomHud() {
   if (hpFill) hpFill.style.width = `${hpPct.toFixed(1)}%`;
   if (hpText) hpText.textContent = `${Math.max(0, Math.floor(player.hp))} / ${Math.max(1, Math.floor(player.maxHp))} HP`;
 
-  document.querySelectorAll(".bottom-menu-btn[data-page]").forEach((btn) => {
-    btn.classList.toggle("is-active", btn.getAttribute("data-page") === currentPage);
-  });
   const characterBtn = document.getElementById("characterPanelBtn");
   if (characterBtn) characterBtn.classList.toggle("is-active", isCharacterPanelOpen());
+  const arenaBtn = document.getElementById("arenaPanelBtn");
+  if (arenaBtn) arenaBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "arena");
+  const allianceBtn = document.getElementById("alliancePanelBtn");
+  if (allianceBtn) allianceBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "alliance");
+  const marketBtn = document.getElementById("marketPanelBtn");
+  if (marketBtn) marketBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "market");
 
   const miniSlot = document.getElementById("bottomHudMinimapSlot");
   if (!miniSlot) return;
@@ -4579,6 +4655,7 @@ function render() {
   }
   renderBottomHud();
   if (isCharacterPanelOpen()) renderCharacterPanelContent();
+  if (isMenuPanelOpen()) renderMenuPanelContent();
 }
 
 function onDragStart(e) {
@@ -4915,12 +4992,22 @@ function initUi() {
   if (modalEl) modalEl.addEventListener("click", onPortalNetworkModalClick);
   const characterPanelModal = document.getElementById("characterPanelModal");
   const characterPanelClose = document.getElementById("characterPanelClose");
+  const menuPanelModal = document.getElementById("menuPanelModal");
+  const menuPanelClose = document.getElementById("menuPanelClose");
   if (characterPanelClose) {
     characterPanelClose.addEventListener("click", () => closeCharacterPanel());
+  }
+  if (menuPanelClose) {
+    menuPanelClose.addEventListener("click", () => closeMenuPanel());
   }
   if (characterPanelModal) {
     characterPanelModal.addEventListener("click", (e) => {
       if (e.target === characterPanelModal) closeCharacterPanel();
+    });
+  }
+  if (menuPanelModal) {
+    menuPanelModal.addEventListener("click", (e) => {
+      if (e.target === menuPanelModal) closeMenuPanel();
     });
   }
 

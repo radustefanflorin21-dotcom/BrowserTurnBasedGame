@@ -39,19 +39,15 @@
           <img class="bottom-menu-icon" src="Assets/UI/character.png" alt="Character icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Character</span>
         </button>
-        <button type="button" class="bottom-menu-btn" data-page="adventure" data-tooltip="Adventure" onclick="navigate('adventure')">
-          <img class="bottom-menu-icon" src="Assets/UI/adventure.png" alt="Adventure icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
-          <span class="sr-only">Adventure</span>
-        </button>
-        <button type="button" class="bottom-menu-btn" data-page="arena" data-tooltip="Arena" onclick="navigate('arena')">
+        <button type="button" id="arenaPanelBtn" class="bottom-menu-btn" data-tooltip="Arena" onclick="openMenuPanel('arena')">
           <img class="bottom-menu-icon" src="Assets/UI/arena.png" alt="Arena icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Arena</span>
         </button>
-        <button type="button" class="bottom-menu-btn" data-page="alliance" data-tooltip="Alliance" onclick="navigate('alliance')">
+        <button type="button" id="alliancePanelBtn" class="bottom-menu-btn" data-tooltip="Alliance" onclick="openMenuPanel('alliance')">
           <img class="bottom-menu-icon" src="Assets/UI/alliance.png" alt="Alliance icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Alliance</span>
         </button>
-        <button type="button" class="bottom-menu-btn" data-page="market" data-tooltip="Market" onclick="navigate('market')">
+        <button type="button" id="marketPanelBtn" class="bottom-menu-btn" data-tooltip="Market" onclick="openMenuPanel('market')">
           <img class="bottom-menu-icon" src="Assets/UI/market.png" alt="Market icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Market</span>
         </button>
@@ -135,6 +131,16 @@
       <button type="button" id="characterPanelClose" class="character-panel-close" aria-label="Close character panel">Close</button>
     </header>
     <div id="characterPanelContent" class="character-panel-content"></div>
+  </div>
+</div>
+
+<div id="menuPanelModal" class="character-panel-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="menuPanelTitle">
+  <div class="character-panel-shell menu-panel-shell">
+    <header class="character-panel-head">
+      <h2 id="menuPanelTitle" class="character-panel-title">Panel</h2>
+      <button type="button" id="menuPanelClose" class="character-panel-close" aria-label="Close panel">Close</button>
+    </header>
+    <div id="menuPanelContent" class="character-panel-content"></div>
   </div>
 </div>
 
