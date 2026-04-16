@@ -65,6 +65,20 @@ function emptyEquipment() {
   };
 }
 
+function buildStartingInventory() {
+  const loadout = GAME_CONFIG && Array.isArray(GAME_CONFIG.startingLoadout) ? GAME_CONFIG.startingLoadout : [];
+  const out = [];
+  for (const entry of loadout) {
+    if (!entry || typeof entry.name !== "string") continue;
+    const name = entry.name.trim();
+    if (!name || !Object.prototype.hasOwnProperty.call(GAME_CONFIG.items || {}, name)) continue;
+    const rawCount = typeof entry.count === "number" ? entry.count : 1;
+    const count = Math.max(1, Math.floor(rawCount));
+    for (let i = 0; i < count; i++) out.push(name);
+  }
+  return out;
+}
+
 const defaultPlayer = () => {
   const st = GAME_CONFIG.worldMap.defaultStart;
   return {
@@ -80,7 +94,7 @@ const defaultPlayer = () => {
     charPoints: 0,
     gold: 0,
     skills: ["Power Strike", "Heavy Blow", "Precise Shot", "Arcane Strike", "Quick Reflexes"],
-    inventory: ["Small Potion"],
+    inventory: buildStartingInventory(),
     equipment: emptyEquipment(),
     theme: "medieval",
     charPointsRetroDone: true,

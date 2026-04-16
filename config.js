@@ -11,6 +11,15 @@ const GAME_CONFIG = {
   },
 
   /**
+   * Applied only when a brand-new character is created (new save / reset).
+   * Each entry grants `count` copies of an item into starting inventory.
+   */
+  startingLoadout: [
+    { name: "Small Potion", count: 999 },
+    { name: "Rusty Sword", count: 1 }
+  ],
+
+  /**
    * Enemy drops: xp always applies on victory. gold: either a number (fixed) or { min, max } for a random
    * integer in that range per defeated enemy. items: each entry is either a string (item name, 100% drop) or
    * { name, dropRate } with dropRate in 0–100 (% per kill).
@@ -82,18 +91,71 @@ const GAME_CONFIG = {
       }
     },
     {
-      name: "Drone",
-      hp: 35,
-      attack: 7,
-      image: "Assets/Monsters/drone.svg",
-      possibleLevels: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-      possibleMoods: ["berserk", "cautious", "steady", "grim", "weary", "focused"],
+      name: "Greenleaf Squirrel",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/greenleaf_squirrel.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
       drops: {
-        gold: { min: 8, max: 18 },
-        xp: 20,
-        items: [{ name: "Energy Cell", dropRate: 50 }]
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
-    }
+    },
+    {
+      name: "Greenleaf Parrot",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/greenleaf_parrot.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Greenleaf Fox",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/greenleaf_fox.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Greenleaf Stag",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/forest_stag.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Gorilla",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/greenleaf_gorilla.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+
   ],
 
   items: {
@@ -374,7 +436,7 @@ const GAME_CONFIG = {
      * in localStorage are cleared on load when this value differs from the last applied one
      * (see player.worldMap.mobPreviewGeneration).
      */
-    mobPreviewVersion: 5,
+    mobPreviewVersion: 6,
     /** Cooldown after clearing a mob before it respawns on this map (ms). */
     mobRespawnMs: 60000,
     /** How often encounter panels pick new random positions on the adventure map (ms). Min 3000. */
@@ -530,7 +592,7 @@ const GAME_CONFIG = {
         color: "#1F4F1F",
         enemyScale: 1.1,
         mobDifficulty: { easy: 8, medium: 22, hard: 38 },
-        possibleEnemies: ["Wolf", "Bandit"]
+        possibleEnemies: ["Greenleaf Squirrel", "Greenleaf Parrot", "Greenleaf Fox", "Greenleaf Stag", "Gorilla"]
       },
       {
         name: "Skin of Gaia",
