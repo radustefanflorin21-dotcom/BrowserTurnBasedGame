@@ -211,10 +211,75 @@ const GAME_CONFIG = {
       }
     },
     {
-      name: "Rock Lizzard",
+      name: "Rock Lizard",
       hp: 30,
       attack: 5,
-      image: "Assets/Monsters/rock_lizzard.png",
+      image: "Assets/Monsters/rock_lizard.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Ash Lizard",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/ash_lizard.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Cinder Stalker",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/cinder_stalker.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Ember Scuttler",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/ember_scuttler.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Magma Boar",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/magma_boar.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Lava Basilisk",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/lava_basilisk.png",
       possibleLevels: [15, 16, 17, 19, 20],
       possibleMoods: ["berserk"],
       drops: {
@@ -676,7 +741,7 @@ const GAME_CONFIG = {
         color: "#A63A1F",
         enemyScale: 1.25,
         mobDifficulty: { easy: 12, medium: 28, hard: 45 },
-        possibleEnemies: ["Bandit", "Drone"]
+        possibleEnemies: ["Ash Lizard", "Cinder Stalker", "Ember Scuttler", "Magma Boar", "Lava Basilisk"]
       },
       {
         name: "The held breath",
@@ -684,7 +749,7 @@ const GAME_CONFIG = {
         color: "#6E6A64",
         enemyScale: 1.15,
         mobDifficulty: { easy: 10, medium: 35, hard: 55 },
-        possibleEnemies: ["Stone Marmot", "Rock Lynx", "Rock Ibex", "Rock Serpent", "Rock Lizzard"]
+        possibleEnemies: ["Stone Marmot", "Rock Lynx", "Rock Ibex", "Rock Serpent", "Rock Lizard"]
       },
       {
         name: "Aftermath of War",

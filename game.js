@@ -5316,6 +5316,15 @@ function hideLoadingOverlay() {
   if (el) el.classList.add("hidden");
 }
 
+function getMapAndMinimapPendingCount() {
+  let pending = 0;
+  biomeTextureByUrl.forEach((v) => {
+    if (v === "loading") pending++;
+  });
+  pending += mapCellArtProbePending.size;
+  return pending;
+}
+
 function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
   return new Promise((resolve) => {
     const tracked = new Set();
@@ -5326,12 +5335,20 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
 
     const textEl = document.getElementById("loadingText");
     const fillEl = document.getElementById("loadingBarFill");
+    let externalPeakPending = 0;
 
     const setProgress = () => {
       if (!textEl || !fillEl) return;
-      const safeTotal = Math.max(1, total);
-      const pct = Math.round((loaded / safeTotal) * 100);
-      textEl.textContent = `Loading… ${loaded}/${total}`;
+      const externalPending = getMapAndMinimapPendingCount();
+      if (externalPending > externalPeakPending) externalPeakPending = externalPending;
+      const externalDone = Math.max(0, externalPeakPending - externalPending);
+      const safeTotal = Math.max(1, total + externalPeakPending);
+      const done = Math.min(safeTotal, loaded + externalDone);
+      const pct = Math.round((done / safeTotal) * 100);
+      textEl.textContent =
+        externalPending > 0
+          ? `Loading… ${done}/${safeTotal} (map ${externalPending})`
+          : `Loading… ${done}/${safeTotal}`;
       fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`;
     };
 
@@ -5377,6 +5394,7 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
 
     const startedAt = Date.now();
     const tick = window.setInterval(() => {
+      setProgress();
       if (Date.now() - startedAt > maxWaitMs) {
         obs.disconnect();
         hideLoadingOverlay();
@@ -5384,7 +5402,7 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
         resolve();
         return;
       }
-      if (pending.size === 0 && Date.now() - lastMutation >= idleMs) {
+      if (pending.size === 0 && getMapAndMinimapPendingCount() === 0 && Date.now() - lastMutation >= idleMs) {
         obs.disconnect();
         hideLoadingOverlay();
         window.clearInterval(tick);
