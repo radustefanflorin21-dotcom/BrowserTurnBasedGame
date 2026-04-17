@@ -23,6 +23,9 @@ const GAME_CONFIG = {
    * Enemy drops: xp always applies on victory. gold: either a number (fixed) or { min, max } for a random
    * integer in that range per defeated enemy. items: each entry is either a string (item name, 100% drop) or
    * { name, dropRate } with dropRate in 0–100 (% per kill).
+   * Enemy art supports legacy `image`, state images (`images: { idle, walk, attack }`),
+   * or sprite strips (`sprites: { idle|walk|attack: { sheet, frames, fps, loop?, cols?, rows? } }`).
+   * For atlas layouts (e.g. 10 frames in 2 rows), set `cols` and `rows` (example: cols: 5, rows: 2).
    */
   enemies: [
     {
@@ -147,6 +150,71 @@ const GAME_CONFIG = {
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_gorilla.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Stone Marmot",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/stone_marmot.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Rock Lynx",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/rock_lynx.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Rock Ibex",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/rock_ibex.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Rock Serpent",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/rock_serpent.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Rock Lizzard",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/rock_lizzard.png",
       possibleLevels: [15, 16, 17, 19, 20],
       possibleMoods: ["berserk"],
       drops: {
@@ -616,7 +684,7 @@ const GAME_CONFIG = {
         color: "#6E6A64",
         enemyScale: 1.15,
         mobDifficulty: { easy: 10, medium: 35, hard: 55 },
-        possibleEnemies: ["Wolf", "Bandit"]
+        possibleEnemies: ["Stone Marmot", "Rock Lynx", "Rock Ibex", "Rock Serpent", "Rock Lizzard"]
       },
       {
         name: "Aftermath of War",

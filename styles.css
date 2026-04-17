@@ -2607,6 +2607,13 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   cursor: pointer;
 }
 
+.sprite-anim {
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 100% 100%;
+}
+
 .region-scene .mob-thumb {
   border-color: rgba(255, 255, 255, 0.25);
 }

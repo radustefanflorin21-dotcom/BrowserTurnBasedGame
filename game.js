@@ -446,7 +446,196 @@ function unequipToInventory(slotId) {
   render();
 }
 
-const HERO_PORTRAIT = "Assets/Character/hero.svg";
+const HERO_PORTRAITS = {
+  idle: "Assets/Character/hero.svg",
+  walk: "Assets/Character/hero.svg",
+  attack: "Assets/Character/hero.svg"
+};
+
+function normalizeVisualState(state) {
+  if (state === "walk" || state === "attack") return state;
+  return "idle";
+}
+
+/**
+ * Supports both legacy single image (`image`) and state images (`images.idle|walk|attack`).
+ * @param {{ image?: string, images?: { idle?: string, walk?: string, attack?: string } } | null | undefined} src
+ * @param {"idle"|"walk"|"attack"|string} state
+ */
+function resolveImageByState(src, state) {
+  const visual = normalizeVisualState(state);
+  const images = src && src.images && typeof src.images === "object" ? src.images : null;
+  const legacy = src && typeof src.image === "string" ? src.image : "";
+  if (!images) return legacy;
+  const pick =
+    (typeof images[visual] === "string" && images[visual]) ||
+    (typeof images.idle === "string" && images.idle) ||
+    (typeof images.walk === "string" && images.walk) ||
+    (typeof images.attack === "string" && images.attack) ||
+    legacy;
+  return typeof pick === "string" ? pick : legacy;
+}
+
+/**
+ * Sprite format:
+ * sprites: {
+ *   idle: { sheet: "Assets/Monsters/foo_idle_sprite.png", frames: 12, fps: 12, loop: true, cols: 12, rows: 1 },
+ *   walk: { sheet: "Assets/Monsters/foo_walk_sprite.png", frames: 10, fps: 14, loop: true, cols: 5, rows: 2 },
+ *   attack: { sheet: "Assets/Monsters/foo_attack_sprite.png", frames: 10, fps: 18, loop: true, cols: 10, rows: 1 }
+ * }
+ */
+function normalizeSpriteDef(raw) {
+  if (!raw) return null;
+  if (typeof raw === "string") {
+    return { sheet: raw, frames: 1, fps: 1, loop: true, cols: 1, rows: 1 };
+  }
+  if (typeof raw !== "object" || typeof raw.sheet !== "string" || !raw.sheet) return null;
+  const frames = Math.max(1, Math.floor(Number.isFinite(raw.frames) ? raw.frames : 1));
+  const fps = Math.max(1, Math.floor(Number.isFinite(raw.fps) ? raw.fps : 12));
+  const loop = raw.loop !== false;
+  const colsRaw = Number.isFinite(raw.cols) ? raw.cols : Number.isFinite(raw.columns) ? raw.columns : frames;
+  const rowsRaw = Number.isFinite(raw.rows) ? raw.rows : 1;
+  let cols = Math.max(1, Math.floor(colsRaw));
+  let rows = Math.max(1, Math.floor(rowsRaw));
+  if (cols * rows < frames) rows = Math.max(rows, Math.ceil(frames / cols));
+  cols = Math.max(cols, Math.ceil(frames / rows));
+  return { sheet: raw.sheet, frames, fps, loop, cols, rows };
+}
+
+function resolveSpriteByState(src, state) {
+  const visual = normalizeVisualState(state);
+  const sprites = src && src.sprites && typeof src.sprites === "object" ? src.sprites : null;
+  if (!sprites) return null;
+  const pick = sprites[visual] || sprites.idle || sprites.walk || sprites.attack || null;
+  return normalizeSpriteDef(pick);
+}
+
+function resolveVisualByState(src, state) {
+  return {
+    image: resolveImageByState(src, state),
+    sprite: resolveSpriteByState(src, state)
+  };
+}
+
+function getEnemyDefByName(name) {
+  return GAME_CONFIG.enemies.find((e) => e.name === name);
+}
+
+function getEnemyVisualByName(name, state) {
+  const def = getEnemyDefByName(name);
+  if (!def) return { image: "", sprite: null };
+  return resolveVisualByState(def, state);
+}
+
+function getHeroImageForState(state) {
+  return resolveImageByState({ images: HERO_PORTRAITS, image: HERO_PORTRAITS.idle }, state);
+}
+
+function buildSpriteStyleAttr(sprite) {
+  if (!sprite || !sprite.sheet) return "";
+  return `background-image:url(${JSON.stringify(sprite.sheet)})`;
+}
+
+function buildVisualHtml(asset, className, altText, draggable) {
+  const alt = altText || "";
+  if (asset && asset.sprite && asset.sprite.sheet) {
+    const style = buildSpriteStyleAttr(asset.sprite);
+    const frames = Math.max(1, Math.floor(asset.sprite.frames || 1));
+    const fps = Math.max(1, Math.floor(asset.sprite.fps || 12));
+    const cols = Math.max(1, Math.floor(asset.sprite.cols || frames));
+    const rows = Math.max(1, Math.floor(asset.sprite.rows || 1));
+    const loop = asset.sprite.loop === false ? "0" : "1";
+    return `<div class="${escapeAttr(className)} sprite-anim" style="${escapeAttr(style)}" data-sprite-frames="${frames}" data-sprite-fps="${fps}" data-sprite-cols="${cols}" data-sprite-rows="${rows}" data-sprite-loop="${loop}" role="img" aria-label="${escapeAttr(alt)}"${
+      draggable ? ' draggable="false"' : ""
+    }></div>`;
+  }
+  const img = asset && typeof asset.image === "string" ? asset.image : "";
+  if (!img) return "";
+  return `<img class="${escapeAttr(className)}" src="${escapeAttr(img)}" alt="${escapeAttr(alt)}"${
+    draggable ? ' draggable="false"' : ""
+  } />`;
+}
+
+const spriteEls = new Set();
+let spriteRaf = null;
+
+function readSpriteFrameWidth(el) {
+  const cw = Math.max(1, Math.round(el.clientWidth || 0));
+  if (cw > 1) return cw;
+  const parsed = Math.round(parseFloat(getComputedStyle(el).width || "0"));
+  return Math.max(1, parsed || 1);
+}
+
+function readSpriteFrameHeight(el) {
+  const ch = Math.max(1, Math.round(el.clientHeight || 0));
+  if (ch > 1) return ch;
+  const parsed = Math.round(parseFloat(getComputedStyle(el).height || "0"));
+  return Math.max(1, parsed || 1);
+}
+
+function syncSpriteGeometry(el, cols, rows) {
+  const frameW = readSpriteFrameWidth(el);
+  const frameH = readSpriteFrameHeight(el);
+  const prevW = parseInt(el.dataset.spriteFrameW || "0", 10);
+  const prevH = parseInt(el.dataset.spriteFrameH || "0", 10);
+  if (frameW !== prevW || frameH !== prevH) {
+    el.dataset.spriteFrameW = String(frameW);
+    el.dataset.spriteFrameH = String(frameH);
+    el.style.backgroundSize = `${frameW * Math.max(1, cols)}px ${frameH * Math.max(1, rows)}px`;
+  }
+  return { frameW, frameH };
+}
+
+function registerSpriteElement(el) {
+  if (!el || !(el instanceof HTMLElement)) return;
+  const frames = Math.max(1, parseInt(el.dataset.spriteFrames || "1", 10));
+  const cols = Math.max(1, parseInt(el.dataset.spriteCols || String(frames), 10));
+  const rows = Math.max(1, parseInt(el.dataset.spriteRows || "1", 10));
+  syncSpriteGeometry(el, cols, rows);
+  if (!el.dataset.spriteStart) {
+    // Small random phase offset keeps packs from marching in lockstep.
+    el.dataset.spriteStart = String(performance.now() - Math.floor(Math.random() * 400));
+  }
+  if (!el.dataset.spriteIndex) el.dataset.spriteIndex = "-1";
+  spriteEls.add(el);
+}
+
+function tickSprites(now) {
+  let active = 0;
+  spriteEls.forEach((el) => {
+    if (!el.isConnected) {
+      spriteEls.delete(el);
+      return;
+    }
+    const frames = Math.max(1, parseInt(el.dataset.spriteFrames || "1", 10));
+    const fps = Math.max(1, parseInt(el.dataset.spriteFps || "12", 10));
+    const cols = Math.max(1, parseInt(el.dataset.spriteCols || String(frames), 10));
+    const rows = Math.max(1, parseInt(el.dataset.spriteRows || "1", 10));
+    const capacity = Math.max(1, cols * rows);
+    const frameCount = Math.min(frames, capacity);
+    const loop = el.dataset.spriteLoop !== "0";
+    const { frameW, frameH } = syncSpriteGeometry(el, cols, rows);
+    const start = Number(el.dataset.spriteStart || now);
+    let idx = Math.floor(((now - start) / 1000) * fps);
+    if (loop) idx = ((idx % frameCount) + frameCount) % frameCount;
+    else idx = Math.min(frameCount - 1, Math.max(0, idx));
+    if (String(idx) !== el.dataset.spriteIndex) {
+      el.dataset.spriteIndex = String(idx);
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      el.style.backgroundPosition = `${-col * frameW}px ${-row * frameH}px`;
+    }
+    active++;
+  });
+  if (active > 0) spriteRaf = requestAnimationFrame(tickSprites);
+  else spriteRaf = null;
+}
+
+function hydrateSpriteAnimations(root) {
+  const host = root && root.querySelectorAll ? root : document;
+  host.querySelectorAll(".sprite-anim[data-sprite-frames]").forEach((el) => registerSpriteElement(el));
+  if (spriteEls.size > 0 && spriteRaf == null) spriteRaf = requestAnimationFrame(tickSprites);
+}
 
 const PLAYER_TURN_SECONDS = 30;
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -656,9 +845,8 @@ function buildWorldCampMobThumbsHtmlFromUnits(units) {
   if (!units || !units.length) return "";
   return units
     .map((u) => {
-      const ed = GAME_CONFIG.enemies.find((e) => e.name === u.name);
-      if (!ed) return "";
-      return `<img class="mob-thumb mob-thumb--live" src="${escapeAttr(ed.image)}" alt="${escapeAttr(u.name)}" draggable="false" />`;
+      const visual = getEnemyVisualByName(u.name, "walk");
+      return buildVisualHtml(visual, "mob-thumb mob-thumb--live", u.name, true);
     })
     .join("");
 }
@@ -795,7 +983,9 @@ function spawnEnemiesFromPreview(region, units) {
       attack,
       damageTakenMult,
       drops: def.drops,
-      image: def.image
+      image: resolveImageByState(def, "idle"),
+      images: def.images && typeof def.images === "object" ? def.images : null,
+      sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
     };
   }).filter(Boolean);
 }
@@ -825,7 +1015,9 @@ function spawnEnemies(region, enemyNames) {
       attack,
       damageTakenMult,
       drops: def.drops,
-      image: def.image
+      image: resolveImageByState(def, "idle"),
+      images: def.images && typeof def.images === "object" ? def.images : null,
+      sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
     };
   }).filter(Boolean);
 }
@@ -2684,8 +2876,48 @@ function startWorldMapFight(setIndex) {
   beginTurnCombat(region, { units: preview.units }, { x, y, setIndex });
 }
 
-/** @type {null | { region: object, mob: object, enemyNames: string[], foes: object[], playerHp: number, playerMax: number, phase: 'player'|'enemy'|'ended', selectedUid: number, fightLog: string[], enemyTurnIndex: number, worldMapContext: null | { x: number, y: number, setIndex: number } }} */
+/** @type {null | { region: object, mob: object, enemyNames: string[], foes: object[], playerHp: number, playerMax: number, phase: 'player'|'enemy'|'ended', selectedUid: number, fightLog: string[], enemyTurnIndex: number, heroAttackUntil?: number, worldMapContext: null | { x: number, y: number, setIndex: number } }} */
 let combatState = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let combatVisualTick = null;
+
+function clearCombatVisualTimer() {
+  if (combatVisualTick) {
+    clearTimeout(combatVisualTick);
+    combatVisualTick = null;
+  }
+}
+
+function queueCombatVisualRefresh(delayMs) {
+  clearCombatVisualTimer();
+  combatVisualTick = setTimeout(() => {
+    combatVisualTick = null;
+    if (!combatState || combatState.phase === "ended") return;
+    renderTurnBattle();
+  }, Math.max(0, Number.isFinite(delayMs) ? delayMs : 0));
+}
+
+function getCombatHeroVisualState() {
+  if (!combatState) return "idle";
+  const until = typeof combatState.heroAttackUntil === "number" ? combatState.heroAttackUntil : 0;
+  if (until > Date.now()) return "attack";
+  return "idle";
+}
+
+function getCombatFoeVisualState(foe) {
+  if (!foe || typeof foe !== "object") return "idle";
+  const until = typeof foe.attackUntil === "number" ? foe.attackUntil : 0;
+  if (until > Date.now()) return "attack";
+  return "idle";
+}
+
+function getCombatFoeVisual(foe) {
+  if (!foe || typeof foe !== "object") return { image: "", sprite: null };
+  const state = getCombatFoeVisualState(foe);
+  const out = resolveVisualByState({ image: foe.image, images: foe.images, sprites: foe.sprites }, state);
+  if (!out.image && !out.sprite) out.image = getItemImage(foe.name);
+  return out;
+}
 
 function getActiveCombatSkills() {
   const out = [];
@@ -2867,7 +3099,7 @@ function renderTurnBattle() {
   const pMax = st.playerMax;
   const pHp = Math.max(0, st.playerHp);
   const pPct = pMax ? (pHp / pMax) * 100 : 0;
-  const img = escapeAttr(HERO_PORTRAIT);
+  const img = escapeAttr(getHeroImageForState(getCombatHeroVisualState()));
   const pName = escapeHtml(player.name);
 
   let enemiesHtml = "";
@@ -2875,13 +3107,13 @@ function renderTurnBattle() {
     const dead = f.hp <= 0;
     const pct = f.maxHp ? (Math.max(0, f.hp) / f.maxHp) * 100 : 0;
     const sel = st.selectedUid === f.uid && !dead;
-    const eimg = escapeAttr(f.image || getItemImage(f.name));
     const label = escapeHtml(f.name);
     const moodLabel = escapeHtml(f.moodName || "—");
     const lvl = typeof f.level === "number" ? f.level : 1;
+    const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
     enemiesHtml += `<div class="fight-enemy-card ${dead ? "fight-enemy-card--dead" : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
       <div class="fight-enemy-panel">
-        <img class="fight-portrait-img fight-portrait-img--enemy" src="${eimg}" alt="" />
+        ${foeVisualHtml}
         <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
         <span class="fight-card-hp-text">${Math.max(0, f.hp)} / ${f.maxHp}</span>
       </div>
@@ -2902,6 +3134,7 @@ function renderTurnBattle() {
     </div>
     <div class="fight-enemies-row">${enemiesHtml}</div>
   </div>`;
+  hydrateSpriteAnimations(hud);
 
   if (actionsEl) {
     if (st.phase === "ended") {
@@ -2980,6 +3213,8 @@ function runEnemyPhase() {
       nextHit();
       return;
     }
+    foe.attackUntil = Date.now() + 320;
+    queueCombatVisualRefresh(340);
     const raw = foe.attack;
     const taken = getEnemyDamageTaken(raw);
     cur.playerHp -= taken;
@@ -3110,6 +3345,8 @@ function playerCombatAction(kind, skillName) {
   const takenMult = typeof foe.damageTakenMult === "number" && foe.damageTakenMult > 0 ? foe.damageTakenMult : 1;
   const dmg = Math.max(1, Math.floor(raw * takenMult));
   clearPlayerTurnTimer();
+  st.heroAttackUntil = Date.now() + 320;
+  queueCombatVisualRefresh(340);
   foe.hp -= dmg;
   if (foe.hp < 0) foe.hp = 0;
   appendFightLog(`${player.name} uses ${label} on ${foe.name} for ${dmg} damage.`);
@@ -3188,6 +3425,7 @@ function beginTurnCombat(region, mob, worldMapContext) {
     fightLog: [],
     worldMapContext: worldMapContext || null
   };
+  clearCombatVisualTimer();
   ensureCombatTarget();
 
   const overlay = document.getElementById("fightOverlay");
@@ -3222,6 +3460,7 @@ function applyFightResult(result) {
 
 function closeFightOverlay() {
   clearPlayerTurnTimer();
+  clearCombatVisualTimer();
   combatState = null;
   hideItemTooltip();
   hideFightResults();
@@ -3709,7 +3948,7 @@ function buildOverviewHtml() {
             <div class="nameplate-wrap">
               <div class="nameplate">${escapeHtml(player.name)}</div>
               <div class="portrait-box">
-                <img src="${escapeAttr(HERO_PORTRAIT)}" alt="" class="portrait-img" />
+                <img src="${escapeAttr(getHeroImageForState("idle"))}" alt="" class="portrait-img" />
               </div>
               <button type="button" class="btn-rename" data-rename-hero>Change</button>
               <button type="button" class="btn-reset-char" data-reset-character title="Delete this hero and start fresh">Reset character</button>
@@ -4546,6 +4785,7 @@ function renderAdventure() {
         <div class="${worldCampsClass}">${campsHtml}</div>
       </div>
     </div>`;
+  hydrateSpriteAnimations(c);
 
   const pageRoot = document.getElementById("adventurePageRoot");
   if (pageRoot) {
@@ -4622,6 +4862,13 @@ function renderBottomHud() {
   const hpPct = player.maxHp > 0 ? Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100)) : 0;
   if (hpFill) hpFill.style.width = `${hpPct.toFixed(1)}%`;
   if (hpText) hpText.textContent = `${Math.max(0, Math.floor(player.hp))} / ${Math.max(1, Math.floor(player.maxHp))} HP`;
+  const portraitEl = document.getElementById("bottomHudPortrait");
+  if (portraitEl && "src" in portraitEl) {
+    let heroState = "idle";
+    if (combatState && combatState.phase !== "ended") heroState = getCombatHeroVisualState();
+    else if (currentPage === "adventure") heroState = "walk";
+    portraitEl.src = getHeroImageForState(heroState);
+  }
 
   const characterBtn = document.getElementById("characterPanelBtn");
   if (characterBtn) characterBtn.classList.toggle("is-active", isCharacterPanelOpen());
