@@ -417,7 +417,72 @@ const GAME_CONFIG = {
         xp: 100,
         items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
-    }
+    }, 
+    {
+      name: "Dust Carver",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/dust_carver.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    }, 
+    {
+      name: "Desert Thornback Crawler",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/desert_thornback_crawler.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Mirage Lurker",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/mirage_lurker.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Dune Devourer",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/dune_devourer.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Witherling",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/witherling.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
   ],
 
   items: {
@@ -894,7 +959,7 @@ const GAME_CONFIG = {
         color: "#D2A26B",
         enemyScale: 1.1,
         mobDifficulty: { easy: 8, medium: 25, hard: 42 },
-        possibleEnemies: ["Bandit", "Wolf"]
+        possibleEnemies: ["Dust Carver", "Witherling", "Desert Thornback Crawler", "Mirage Lurker", "Dune Devourer"]
       },
       {
         name: "The apathy of the World",
