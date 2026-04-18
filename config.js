@@ -288,6 +288,71 @@ const GAME_CONFIG = {
         items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
     },
+    {
+      name: "Icy Mink",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/icy_mink.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Icy Serpent",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/icy_serpent.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Glacier Turtoise",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/glacier_turtoise.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Frozen Stalker",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/frozen_stalker.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Frost Skitter",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/frost_skitter.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
 
   ],
 
@@ -773,7 +838,7 @@ const GAME_CONFIG = {
         color: "#8FB7D1",
         enemyScale: 1.3,
         mobDifficulty: { easy: 18, medium: 45, hard: 70 },
-        possibleEnemies: ["Drone", "Bandit", "Wolf"]
+        possibleEnemies: ["Icy Mink", "Icy Serpent", "Glacier Turtoise", "Frozen Stalker", "Frost Skitter"]
       },
       {
         name: "Innocence of North",

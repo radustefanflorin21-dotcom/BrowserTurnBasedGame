@@ -840,6 +840,40 @@ function getWorldMapEncounterSlotCount() {
   return typeof n === "number" && n >= 1 ? Math.floor(n) : 3;
 }
 
+/**
+ * Refreshes monster previews/visual defs from current config without wiping player progression.
+ * By default it keeps encounter cooldowns (`defeated`) and only clears cached `mobPreviews`.
+ * @param {{ resetDefeated?: boolean }} [opts]
+ */
+function reloadMonsters(opts) {
+  const resetDefeated = !!(opts && opts.resetDefeated);
+  if (player && player.worldMap && player.worldMap.cells && typeof player.worldMap.cells === "object") {
+    Object.keys(player.worldMap.cells).forEach((k) => {
+      const rec = player.worldMap.cells[k];
+      if (!rec || typeof rec !== "object") return;
+      rec.mobPreviews = [];
+      if (resetDefeated && Array.isArray(rec.defeated)) rec.defeated = rec.defeated.map(() => null);
+    });
+  }
+
+  if (combatState && Array.isArray(combatState.foes)) {
+    combatState.foes = combatState.foes.map((foe) => {
+      const def = getEnemyDefByName(foe.name);
+      if (!def) return foe;
+      return {
+        ...foe,
+        image: resolveImageByState(def, "idle"),
+        images: def.images && typeof def.images === "object" ? def.images : null,
+        sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
+      };
+    });
+  }
+
+  save();
+  render();
+  if (combatState) renderTurnBattle();
+}
+
 /** One portrait per enemy in the current mob preview. */
 function buildWorldCampMobThumbsHtmlFromUnits(units) {
   if (!units || !units.length) return "";
@@ -4646,6 +4680,18 @@ function onDocumentKeydown(e) {
     else toggleMenuPanel("market");
     return;
   }
+  if (k === "r" && e.shiftKey) {
+    e.preventDefault();
+    reloadMonsters({ resetDefeated: false });
+    return;
+  }
+  if (k === "h" && e.shiftKey) {
+    e.preventDefault();
+    player.hp = player.maxHp;
+    save();
+    render();
+    return;
+  }
   if (k !== "m") return;
   if (isCharacterPanelOpen() || isMenuPanelOpen()) return;
   e.preventDefault();
@@ -5415,4 +5461,5 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
 initUi();
 showLoadingOverlay();
 render();
+window.reloadMonsters = reloadMonsters;
 waitForAllImagesToLoad().catch(() => hideLoadingOverlay());
