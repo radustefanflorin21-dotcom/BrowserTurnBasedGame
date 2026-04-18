@@ -352,8 +352,72 @@ const GAME_CONFIG = {
         xp: 100,
         items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
+    },  
+    {
+      name: "Pinebound Fawn",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/pinebound_fawn.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
     },
-
+    {
+      name: "Frozen Pinecone",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/frozen_pinecone.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Ice-Tusked Boar",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/ice_tusked_boar.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Barkhide Spriggan",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/barkhide_spriggan.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Winter Guardian",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/winter_guardian.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    }
   ],
 
   items: {
@@ -846,7 +910,7 @@ const GAME_CONFIG = {
         color: "#E8EEF2",
         enemyScale: 1,
         mobDifficulty: { easy: 6, medium: 18, hard: 35 },
-        possibleEnemies: ["Wolf", "Bandit", "Drone"]
+        possibleEnemies: ["Pinebound Fawn", "Frozen Pinecone", "Ice-Tusked Boar", "Barkhide Spriggan", "Winter Guardian"]
       },
       {
         name: "Paradise North",
