@@ -483,6 +483,71 @@ const GAME_CONFIG = {
         items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
     },
+    {
+      name: "Remnant of Rust",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/remnant_of_rust.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Faded War Wraith",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/faded_war_wraith.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Ash Horror",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/ash_horror.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Cinder Husk",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/cinder_husk.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Ash Skulker",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/ash_skulker.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
   ],
 
   items: {
@@ -951,7 +1016,7 @@ const GAME_CONFIG = {
         color: "#4B4B4F",
         enemyScale: 1.2,
         mobDifficulty: { easy: 15, medium: 40, hard: 60 },
-        possibleEnemies: ["Bandit", "Drone", "Wolf"]
+        possibleEnemies: ["Ash Horror", "Cinder Husk", "Ash Skulker", "Remnant of Rust", "Faded War Wraith"]
       },
       {
         name: "The misery of life",
