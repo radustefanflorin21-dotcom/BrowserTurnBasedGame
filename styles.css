@@ -2793,6 +2793,44 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   max-width: 140px;
 }
 
+.fight-party-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.fight-ally-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 108px;
+  min-width: 108px;
+  padding: 6px 6px 4px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  border: 1px solid var(--overview-stone-border);
+}
+
+.fight-ally-card--dead {
+  opacity: 0.45;
+}
+
+.fight-portrait-img--ally {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
 .fight-enemies-row {
   display: flex;
   flex-wrap: nowrap;
@@ -2941,6 +2979,32 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   color: var(--nameplate-edge);
   font-size: calc(0.72rem * 3);
   line-height: 1.1;
+}
+
+.fight-stamina-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--overview-stone-border);
+}
+
+.fight-stamina-label {
+  color: var(--overview-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.fight-stamina-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--overview-text);
 }
 
 .fight-pass-btn {

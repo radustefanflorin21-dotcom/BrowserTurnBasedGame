@@ -79,6 +79,30 @@ function buildStartingInventory() {
   return out;
 }
 
+function getLevelingConfig() {
+  return GAME_CONFIG.leveling && typeof GAME_CONFIG.leveling === "object" ? GAME_CONFIG.leveling : {};
+}
+
+function getPlayerMaxLevel() {
+  const c = getLevelingConfig();
+  return typeof c.maxLevel === "number" && c.maxLevel > 1 ? Math.floor(c.maxLevel) : 50;
+}
+
+/**
+ * XP required to advance from `level` to `level + 1`. Returns 0 at or above max level.
+ * Default curve from config: 150 + level²×4 (e.g. L1→154, L10→550).
+ */
+function xpToNextLevel(level) {
+  const lv = Math.floor(typeof level === "number" && level > 0 ? level : 1);
+  const maxLv = getPlayerMaxLevel();
+  if (lv >= maxLv) return 0;
+  const c = getLevelingConfig();
+  const a = typeof c.xpToNextConst === "number" && Number.isFinite(c.xpToNextConst) ? c.xpToNextConst : 150;
+  const b =
+    typeof c.xpToNextLevelSquare === "number" && Number.isFinite(c.xpToNextLevelSquare) ? c.xpToNextLevelSquare : 4;
+  return Math.max(1, Math.floor(a + lv * lv * b));
+}
+
 const defaultPlayer = () => {
   const st = GAME_CONFIG.worldMap.defaultStart;
   return {
@@ -88,8 +112,9 @@ const defaultPlayer = () => {
     hp: 100,
     maxHp: 100,
     str: 10,
-    agi: 10,
+    dex: 10,
     vit: 10,
+    int: 10,
     baseAttack: 10,
     charPoints: 0,
     gold: 0,
@@ -199,9 +224,16 @@ function loadPlayer() {
 
 function migratePlayer(p) {
   if (typeof p.name !== "string" || !p.name.trim()) p.name = "Hero";
+  const maxLv = getPlayerMaxLevel();
+  if (typeof p.level !== "number" || p.level < 1) p.level = 1;
+  else if (p.level > maxLv) p.level = maxLv;
   if (typeof p.str !== "number") p.str = 10;
-  if (typeof p.agi !== "number") p.agi = 10;
+  if (typeof p.dex !== "number") {
+    p.dex = typeof p.agi === "number" && Number.isFinite(p.agi) ? p.agi : 10;
+  }
+  if (Object.prototype.hasOwnProperty.call(p, "agi")) delete p.agi;
   if (typeof p.vit !== "number") p.vit = 10;
+  if (typeof p.int !== "number") p.int = 10;
   if (!p.theme || !GAME_CONFIG.themes[p.theme]) p.theme = "medieval";
   if (!Array.isArray(p.inventory)) p.inventory = [];
   if (!Array.isArray(p.skills)) p.skills = defaultPlayer().skills.slice();
@@ -224,9 +256,11 @@ function migratePlayer(p) {
     const level = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
     const earned = Math.max(0, (level - 1) * 5);
     const s = Math.max(0, p.str - 10);
-    const a = Math.max(0, p.agi - 10);
+    const dexVal = typeof p.dex === "number" ? p.dex : 10;
+    const a = Math.max(0, dexVal - 10);
     const v = Math.max(0, p.vit - 10);
-    const allocatedToStats = s + a + v;
+    const inc = Math.max(0, (typeof p.int === "number" ? p.int : 10) - 10);
+    const allocatedToStats = s + a + v + inc;
     p.charPoints = Math.max(0, earned - allocatedToStats);
     p.charPointsRetroDone = true;
   }
@@ -286,8 +320,40 @@ function save() {
   localStorage.setItem("player", JSON.stringify(player));
 }
 
+function sumEquippedBonusStatsFromEquipment(equipment) {
+  const out = { str: 0, dex: 0, vit: 0, int: 0, stamina: 0 };
+  const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
+  EQUIP_SLOTS.forEach((s) => {
+    const n = eq[s.id];
+    if (!n) return;
+    const def = getItemDef(n);
+    if (!def || !def.bonusStats || typeof def.bonusStats !== "object") return;
+    for (const [k, v] of Object.entries(def.bonusStats)) {
+      const nk = normalizeEquipmentStatKey(k);
+      if (!nk || typeof v !== "number" || !Number.isFinite(v)) continue;
+      if (nk === "stamina") {
+        out.stamina += Math.floor(v);
+        continue;
+      }
+      out[nk] += v;
+    }
+  });
+  return out;
+}
+
+function totalVitFromPlayerRecord(p) {
+  if (!p) return 0;
+  const base = typeof p.vit === "number" && Number.isFinite(p.vit) ? p.vit : 10;
+  const gearVit = sumEquippedBonusStatsFromEquipment(p.equipment).vit;
+  return base + gearVit;
+}
+
 function computeMaxHp(p) {
-  return 50 + (p.level - 1) * 10 + p.vit * 5;
+  const sys = getStatSystem();
+  const lv = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
+  const baseHp = getBaseHpFromLevel(lv);
+  const vitPer = typeof sys.vitHpPerPoint === "number" ? sys.vitHpPerPoint : 12;
+  return Math.max(1, Math.floor(baseHp + vitPer * totalVitFromPlayerRecord(p)));
 }
 
 function getItemDef(name) {
@@ -320,9 +386,379 @@ function getArmorDefense() {
   return d;
 }
 
+function getStatSystem() {
+  return GAME_CONFIG.statSystem && typeof GAME_CONFIG.statSystem === "object" ? GAME_CONFIG.statSystem : {};
+}
+
+function normalizeEquipmentStatKey(k) {
+  const u = String(k).toUpperCase();
+  if (u === "STR" || u === "STRENGTH") return "str";
+  if (u === "DEX" || u === "AGI" || u === "AGILITY" || u === "DEXTERITY") return "dex";
+  if (u === "VIT" || u === "VITALITY") return "vit";
+  if (u === "INT" || u === "INTELLIGENCE") return "int";
+  if (u === "STA" || u === "STAMINA" || u === "STAMINA_MAX" || u === "MAX_STAMINA") return "stamina";
+  return null;
+}
+
+function sumEquippedBonusStats() {
+  return sumEquippedBonusStatsFromEquipment(player.equipment || emptyEquipment());
+}
+
+function getPlayerCombatMaxStamina() {
+  const sys = getStatSystem();
+  const base =
+    typeof sys.staminaPerTurn === "number" && sys.staminaPerTurn > 0 ? Math.floor(sys.staminaPerTurn) : 6;
+  const fromGear = sumEquippedBonusStats().stamina || 0;
+  return Math.max(1, base + fromGear);
+}
+
+function getPlayerStatBase(statKey) {
+  if (statKey === "dex") {
+    if (typeof player.dex === "number" && Number.isFinite(player.dex)) return player.dex;
+    if (typeof player.agi === "number" && Number.isFinite(player.agi)) return player.agi;
+    return 10;
+  }
+  const v = player[statKey];
+  return typeof v === "number" && Number.isFinite(v) ? v : 10;
+}
+
+function getEffectiveStr() {
+  return getPlayerStatBase("str") + sumEquippedBonusStats().str;
+}
+function getEffectiveDex() {
+  return getPlayerStatBase("dex") + sumEquippedBonusStats().dex;
+}
+function getEffectiveVit() {
+  return getPlayerStatBase("vit") + sumEquippedBonusStats().vit;
+}
+function getEffectiveInt() {
+  return getPlayerStatBase("int") + sumEquippedBonusStats().int;
+}
+
+/** Total stats = base + invested + gear (buffs not implemented). */
+function totalStr() {
+  return Math.max(0, getEffectiveStr());
+}
+function totalDex() {
+  return Math.max(0, getEffectiveDex());
+}
+function totalVit() {
+  return Math.max(0, getEffectiveVit());
+}
+function totalInt() {
+  return Math.max(0, getEffectiveInt());
+}
+
+function formulaStrPhysicalDamageBonusPct(str) {
+  str = Math.max(0, str);
+  return (90 * str) / (str + 180);
+}
+function formulaStrArmorPenetrationPct(str) {
+  str = Math.max(0, str);
+  return (25 * str) / (str + 180);
+}
+function formulaStrPhysicalResistPct(str) {
+  str = Math.max(0, str);
+  return (20 * str) / (str + 220);
+}
+function formulaStrStaggerChancePct(str) {
+  str = Math.max(0, str);
+  return (20 * str) / (str + 250);
+}
+function formulaDexCritChancePct(dex) {
+  dex = Math.max(0, dex);
+  return 3 + (32 * dex) / (dex + 240);
+}
+function formulaDexCritDamageBonusPct(dex) {
+  dex = Math.max(0, dex);
+  return (25 * dex) / (dex + 260);
+}
+function formulaDexEvasionPct(dex) {
+  dex = Math.max(0, dex);
+  return (30 * dex) / (dex + 260);
+}
+function formulaDexAccuracyPct(dex) {
+  dex = Math.max(0, dex);
+  return 85 + (15 * dex) / (dex + 120);
+}
+function formulaDexComboChancePct(dex) {
+  dex = Math.max(0, dex);
+  return (15 * dex) / (dex + 300);
+}
+function formulaVitFlatDamageReduction(vit) {
+  vit = Math.max(0, vit);
+  return Math.floor(vit / 40);
+}
+function formulaVitStatusResistPct(vit) {
+  vit = Math.max(0, vit);
+  return (35 * vit) / (vit + 220);
+}
+function formulaVitDotReductionPct(vit) {
+  vit = Math.max(0, vit);
+  return (30 * vit) / (vit + 200);
+}
+function formulaVitHealingReceivedBonusPct(vit) {
+  vit = Math.max(0, vit);
+  return (20 * vit) / (vit + 200);
+}
+function formulaIntSkillPowerBonusPct(int_) {
+  int_ = Math.max(0, int_);
+  return (90 * int_) / (int_ + 180);
+}
+function formulaIntMagicResistPct(int_) {
+  int_ = Math.max(0, int_);
+  return (20 * int_) / (int_ + 220);
+}
+function formulaIntStatusPotencyPct(int_) {
+  int_ = Math.max(0, int_);
+  return (40 * int_) / (int_ + 240);
+}
+function formulaIntStaminaCostReductionPct(int_) {
+  int_ = Math.max(0, int_);
+  return (20 * int_) / (int_ + 300);
+}
+function formulaIntDebuffDurationBonusPct(int_) {
+  int_ = Math.max(0, int_);
+  return (25 * int_) / (int_ + 260);
+}
+
+function getBaseHpFromLevel(level) {
+  const sys = getStatSystem();
+  const base = typeof sys.baseHpFromLevel === "number" ? sys.baseHpFromLevel : 50;
+  const per = typeof sys.hpPerLevel === "number" ? sys.hpPerLevel : 10;
+  const lv = Math.max(1, Math.floor(typeof level === "number" ? level : 1));
+  return base + (lv - 1) * per;
+}
+
+function getEnemyDefCombatFields(foe) {
+  const def = foe && foe.name ? getEnemyDefByName(foe.name) : null;
+  return def && typeof def === "object" ? def : {};
+}
+
+function getFoeEvasionPct(foe) {
+  const d = getEnemyDefCombatFields(foe);
+  const fromDef = typeof d.evasionPct === "number" && Number.isFinite(d.evasionPct) ? Math.max(0, d.evasionPct) : 0;
+  const ms = getMonsterScalingConfig();
+  const dexC = typeof ms.evadeDexCoeff === "number" ? ms.evadeDexCoeff : 0.15;
+  const dex = typeof foe.dex === "number" && Number.isFinite(foe.dex) ? Math.max(0, foe.dex) : 0;
+  return Math.max(0, fromDef + dex * dexC);
+}
+
+function getFoePhysicalResistPct(foe) {
+  const d = getEnemyDefCombatFields(foe);
+  if (typeof d.physicalResistPct === "number" && Number.isFinite(d.physicalResistPct)) return Math.max(0, d.physicalResistPct);
+  return 0;
+}
+
+function getFoeMagicResistPct(foe) {
+  const d = getEnemyDefCombatFields(foe);
+  if (typeof d.magicResistPct === "number" && Number.isFinite(d.magicResistPct)) return Math.max(0, d.magicResistPct);
+  return 0;
+}
+
+function getFoeFlatDamageReduction(foe) {
+  const d = getEnemyDefCombatFields(foe);
+  if (typeof d.flatDamageReduction === "number" && Number.isFinite(d.flatDamageReduction))
+    return Math.max(0, Math.floor(d.flatDamageReduction));
+  return 0;
+}
+
+/**
+ * Full outgoing damage resolution vs one foe (hit, crit, resists, flat, then thick hide / mitigation).
+ * @returns {{ damage: number, missed: boolean, crit: boolean }}
+ */
+function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName) {
+  const sys = getStatSystem();
+  const str = totalStr();
+  const dex = totalDex();
+  const int = totalInt();
+  const sk = skillName ? GAME_CONFIG.skills.find((s) => s.name === skillName) : null;
+  let dmgKind = "physical";
+  if (sk && sk.damageKind === "magic") dmgKind = "magic";
+  if (kind !== "skill") dmgKind = "physical";
+
+  const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
+  const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
+  const acc = formulaDexAccuracyPct(dex);
+  const evF = getFoeEvasionPct(foe);
+  const hitPct = Math.min(maxH, Math.max(minH, acc - evF));
+  if (Math.random() * 100 >= hitPct) return { damage: 0, missed: true, crit: false };
+
+  let d1 = Math.max(1, baseSkillDamage);
+  if (dmgKind === "physical") {
+    d1 *= 1 + formulaStrPhysicalDamageBonusPct(str) / 100;
+  } else {
+    d1 *= 1 + formulaIntSkillPowerBonusPct(int) / 100;
+  }
+
+  const critChance = formulaDexCritChancePct(dex) / 100;
+  const crit = Math.random() < critChance;
+  const baseCrit = typeof sys.baseCritMultiplierPct === "number" ? sys.baseCritMultiplierPct : 150;
+  let d2 = d1;
+  if (crit) {
+    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex);
+    d2 = d1 * (critMulPct / 100);
+  }
+
+  let d3 = d2;
+  if (dmgKind === "physical") {
+    const pen = formulaStrArmorPenetrationPct(str);
+    const resF = getFoePhysicalResistPct(foe);
+    const effRes = Math.max(0, resF - pen);
+    d3 = d2 * (1 - effRes / 100);
+  } else {
+    const mrF = getFoeMagicResistPct(foe);
+    d3 = d2 * (1 - mrF / 100);
+  }
+
+  const foeFlat = getFoeFlatDamageReduction(foe);
+  let flatSub = foeFlat;
+  if (dmgKind === "magic") flatSub = Math.max(0, Math.floor(foeFlat / 2));
+  let fin = Math.max(1, Math.floor(d3 - flatSub));
+
+  const msMon = getMonsterScalingConfig();
+  const vitF = typeof foe.vit === "number" && foe.vit > 0 ? foe.vit : 0;
+  const drPer = typeof msMon.vitDamageReductionPerPoint === "number" ? msMon.vitDamageReductionPerPoint : 0.01;
+  const drCap = typeof msMon.vitDamageReductionCapPct === "number" ? msMon.vitDamageReductionCapPct : 45;
+  const drPct = Math.min(drCap / 100, vitF * drPer);
+  fin = Math.max(1, Math.floor(fin * (1 - drPct)));
+
+  let takenMult = typeof foe.damageTakenMult === "number" && foe.damageTakenMult > 0 ? foe.damageTakenMult : 1;
+  if (foe.combat && typeof foe.combat.thickHideTurns === "number" && foe.combat.thickHideTurns > 0) {
+    const th =
+      typeof foe.combat.thickHideDamagedMult === "number" && foe.combat.thickHideDamagedMult > 0
+        ? foe.combat.thickHideDamagedMult
+        : 0.6;
+    takenMult *= th;
+  }
+  if (
+    foe.combat &&
+    typeof foe.combat.mitigationTurns === "number" &&
+    foe.combat.mitigationTurns > 0 &&
+    typeof foe.combat.mitigationMult === "number" &&
+    foe.combat.mitigationMult > 0
+  ) {
+    takenMult *= foe.combat.mitigationMult;
+  }
+  fin = Math.max(1, Math.floor(fin * takenMult));
+
+  return { damage: fin, missed: false, crit };
+}
+
+function tryApplyStaggerFromSkill(foe, skillCfg) {
+  if (!foe || !foe.combat || !skillCfg || !Array.isArray(skillCfg.combatTags)) return;
+  const tags = skillCfg.combatTags.map((t) => String(t).toLowerCase());
+  if (!tags.includes("heavy") && !tags.includes("crushing")) return;
+  const p = formulaStrStaggerChancePct(totalStr()) / 100;
+  if (Math.random() >= p) return;
+  const sys = getStatSystem();
+  const mult =
+    typeof sys.staggerNextAttackMult === "number" && sys.staggerNextAttackMult > 0 && sys.staggerNextAttackMult < 1
+      ? sys.staggerNextAttackMult
+      : 0.85;
+  foe.combat.staggerNextAttackMult = mult;
+  appendFightLog(`${foe.name} is staggered — next strike is weaker (disrupted tempo).`);
+}
+
+function tryDexComboRefundAfterSkill(st) {
+  if (!st || typeof st.stamina !== "number" || typeof st.maxStamina !== "number") return;
+  if (st.comboRefundedThisTurn) return;
+  const p = formulaDexComboChancePct(totalDex()) / 100;
+  if (Math.random() >= p) return;
+  st.comboRefundedThisTurn = true;
+  st.stamina = Math.min(st.maxStamina, st.stamina + 1);
+  appendFightLog("Combo rhythm: you recover 1 stamina.");
+}
+
+/** @returns {{ taken: number, evaded: boolean }} */
+function computeHeroIncomingDamage(rawDamage) {
+  const sys = getStatSystem();
+  const dexE = totalDex();
+  const strE = totalStr();
+  const intE = totalInt();
+  const vitE = totalVit();
+  const enemyHit =
+    typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
+      ? sys.enemyBaseHitChancePct
+      : 100;
+  const eva = formulaDexEvasionPct(dexE);
+  const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
+  const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
+  const hitPct = Math.min(maxH, Math.max(minH, enemyHit - eva));
+  if (Math.random() * 100 >= hitPct) return { taken: 0, evaded: true };
+
+  const physW =
+    typeof sys.incomingPhysicalWeight === "number" && sys.incomingPhysicalWeight > 0 && sys.incomingPhysicalWeight < 1
+      ? sys.incomingPhysicalWeight
+      : 0.55;
+  const pr = formulaStrPhysicalResistPct(strE) / 100;
+  const mr = formulaIntMagicResistPct(intE) / 100;
+  let r = rawDamage * (physW * (1 - pr) + (1 - physW) * (1 - mr));
+  const flatArmor = getArmorDefense();
+  const flatVit = formulaVitFlatDamageReduction(vitE);
+  const physFlat = flatArmor + flatVit;
+  const magFlat = Math.max(0, Math.floor(physFlat / 2));
+  r -= physW * physFlat + (1 - physW) * magFlat;
+  return { taken: Math.max(1, Math.floor(r)), evaded: false };
+}
+
+function initCombatStamina(st) {
+  const maxS = getPlayerCombatMaxStamina();
+  st.maxStamina = maxS;
+  st.stamina = maxS;
+  st.comboRefundedThisTurn = false;
+}
+
+function refillCombatStamina(st) {
+  if (!st) return;
+  const maxS = getPlayerCombatMaxStamina();
+  st.maxStamina = maxS;
+  st.stamina = maxS;
+}
+
+function getAttackStaminaCost() {
+  const sys = getStatSystem();
+  return typeof sys.attackStaminaCost === "number" && sys.attackStaminaCost > 0 ? Math.floor(sys.attackStaminaCost) : 2;
+}
+
+function getSkillStaminaCost(skillName) {
+  const cfg = skillName ? GAME_CONFIG.skills.find((s) => s.name === skillName) : null;
+  if (cfg && typeof cfg.staminaCost === "number" && cfg.staminaCost > 0) return Math.floor(cfg.staminaCost);
+  return typeof getStatSystem().defaultSkillStamina === "number" && getStatSystem().defaultSkillStamina > 0
+    ? Math.floor(getStatSystem().defaultSkillStamina)
+    : 3;
+}
+
+/** Basic attack: fixed config cost (no Intelligence reduction). */
+function resolveAttackStaminaCost() {
+  const sys = getStatSystem();
+  const b = getAttackStaminaCost();
+  const minA = typeof sys.minAttackStaminaCost === "number" ? Math.max(1, Math.floor(sys.minAttackStaminaCost)) : 1;
+  return Math.max(minA, b);
+}
+
+/** Skills: Intelligence reduces cost; minimum skill cost from config. */
+function resolveSkillStaminaCost(baseCost) {
+  const sys = getStatSystem();
+  const b = Math.max(1, Math.floor(baseCost));
+  const redPct = formulaIntStaminaCostReductionPct(totalInt());
+  let c = Math.ceil(b * (1 - redPct / 100));
+  const minSkill = typeof sys.minSkillStaminaCost === "number" ? Math.max(1, Math.floor(sys.minSkillStaminaCost)) : 2;
+  c = Math.max(minSkill, c);
+  return Math.max(1, c);
+}
+
+function endPlayerTurn() {
+  const st = combatState;
+  if (!st || st.phase !== "player") return;
+  clearPlayerTurnTimer();
+  tickPlayerTurnEndBuffs(st);
+  runEnemyPhase();
+}
+
 /** Core attack before bonuses from skills that define combatMultiplier (those are applied in combat only). */
 function getPlayerDamageCore() {
-  let atk = player.baseAttack + Math.floor(player.str / 2);
+  let atk = player.baseAttack + Math.floor(getEffectiveStr() / 2);
   const w = player.equipment.weapon;
   if (w) atk += getItemDef(w)?.attack || 0;
   player.skills.forEach((s) => {
@@ -338,7 +774,7 @@ function getPlayerDamage() {
     const sk = GAME_CONFIG.skills.find((x) => x.name === s);
     if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier === "number") atk += sk.bonus;
   });
-  return Math.max(1, atk);
+  return Math.max(1, Math.floor(atk));
 }
 
 /** Basic attack uses full listed damage; active combat skills use core + that skill’s bonus × multiplier. */
@@ -354,13 +790,1377 @@ function getCombatDamage(kind, skillName) {
 }
 
 function getDamageRange() {
-  const mid = getPlayerDamage();
+  const base = getCombatDamage("attack");
+  const strB = formulaStrPhysicalDamageBonusPct(totalStr()) / 100;
+  const mid = Math.max(1, Math.floor(base * (1 + strB)));
   return { min: Math.max(1, mid - 2), max: mid + 2 };
 }
 
-function getEnemyDamageTaken(raw) {
-  const flat = Math.floor(player.agi / 4) + getArmorDefense();
-  return Math.max(1, raw - flat);
+/** @param {null | { playerBleed?: { dmg: number, turns: number } | null, playerPoison?: { dmg: number, turns: number } | null, playerAttackDebuffTurns?: number, playerHamstringSlowTurns?: number, packHowlTurns?: number }} [status] */
+function getPlayerOutgoingDamageMultFromStatus(status) {
+  if (!status) return 1;
+  let m = 1;
+  if (typeof status.playerAttackDebuffTurns === "number" && status.playerAttackDebuffTurns > 0) m *= 0.8;
+  if (typeof status.playerHamstringSlowTurns === "number" && status.playerHamstringSlowTurns > 0) m *= 0.9;
+  if (typeof status.playerBrineWeakTurns === "number" && status.playerBrineWeakTurns > 0) m *= 0.85;
+  return m;
+}
+
+function ensureCombatStatus(st) {
+  if (!st.status || typeof st.status !== "object") {
+    st.status = {
+      playerBleed: null,
+      playerPoison: null,
+      playerBurn: null,
+      playerAttackDebuffTurns: 0,
+      playerHamstringSlowTurns: 0,
+      playerBrineWeakTurns: 0,
+      playerFragileTurns: 0,
+      playerStunTurns: 0,
+      packHowlTurns: 0
+    };
+  }
+}
+
+function initFoeCombatRuntime(foe) {
+  const def = getEnemyDefByName(foe.name);
+  const script = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+  foe.combat = {
+    script,
+    skillCd: {},
+    raptorActCount: 0,
+    wolfHowlDone: false,
+    boarOpened: false
+  };
+}
+
+function getFoeEffectiveAttackForCombat(foe) {
+  const ms = getMonsterScalingConfig();
+  const strCoeff = typeof ms.damageStrCoeff === "number" ? ms.damageStrCoeff : 0.015;
+  const base = typeof foe.attack === "number" && foe.attack > 0 ? foe.attack : 1;
+  const str = typeof foe.str === "number" && foe.str > 0 ? foe.str : 0;
+  let a = Math.max(1, Math.floor(base * (1 + str * strCoeff)));
+  if (foe.combat && foe.combat.script === "tusk_boar" && typeof foe.combat.rageStacks === "number" && foe.combat.rageStacks > 0) {
+    a = Math.max(1, Math.floor(a * (1 + 0.05 * foe.combat.rageStacks)));
+  }
+  if (foe.combat && foe.combat.script === "gorilla" && typeof foe.combat.gorillaRampStacks === "number" && foe.combat.gorillaRampStacks > 0) {
+    a = Math.max(1, Math.floor(a * (1 + 0.1 * Math.min(6, foe.combat.gorillaRampStacks))));
+  }
+  if (foe.combat && typeof foe.combat.staggerNextAttackMult === "number" && foe.combat.staggerNextAttackMult > 0 && foe.combat.staggerNextAttackMult < 1) {
+    a = Math.max(1, Math.floor(a * foe.combat.staggerNextAttackMult));
+    foe.combat.staggerNextAttackMult = undefined;
+  }
+  return a;
+}
+
+function getFoeOutgoingDamageMultiplier(st, foe) {
+  let m = 1;
+  if (st && st.status && typeof st.status.packHowlTurns === "number" && st.status.packHowlTurns > 0) {
+    const pm =
+      typeof st.status.packHowlAttackMult === "number" && st.status.packHowlAttackMult > 0
+        ? st.status.packHowlAttackMult
+        : 1.25;
+    m *= pm;
+  }
+  if (foe.combat && typeof foe.combat.echoCryBonusTurns === "number" && foe.combat.echoCryBonusTurns > 0) m *= 1.25;
+  return m;
+}
+
+const COMBAT_PARTY_MAX = 8;
+const COMBAT_FOES_MAX = 8;
+
+function ensureCombatParty(st) {
+  if (Array.isArray(st.party) && st.party.length) {
+    syncCombatPartyHeroMirror(st);
+    return;
+  }
+  const maxH = typeof st.playerMax === "number" && st.playerMax > 0 ? st.playerMax : player.maxHp;
+  const hp = Math.max(0, Math.min(maxH, typeof st.playerHp === "number" ? st.playerHp : player.hp));
+  st.party = [
+    {
+      uid: 0,
+      name: player.name,
+      hp,
+      maxHp: maxH,
+      kind: "hero",
+      dex: getEffectiveDex(),
+      flatArmor: getArmorDefense()
+    }
+  ];
+  syncCombatPartyHeroMirror(st);
+}
+
+function syncCombatPartyHeroMirror(st) {
+  if (!Array.isArray(st.party) || !st.party.length) return;
+  const hero = st.party.find((m) => m && m.kind === "hero");
+  if (hero) {
+    st.playerHp = hero.hp;
+    st.playerMax = hero.maxHp;
+  }
+}
+
+function syncHeroHpFromPlayerMirror(st) {
+  ensureCombatParty(st);
+  const hero = st.party.find((m) => m && m.kind === "hero");
+  if (!hero || typeof st.playerHp !== "number") return;
+  if (st.playerHp < 0) st.playerHp = 0;
+  if (st.playerHp > hero.maxHp) st.playerHp = hero.maxHp;
+  hero.hp = st.playerHp;
+}
+
+function isPartyAlive(st) {
+  return Array.isArray(st.party) && st.party.some((m) => m && m.hp > 0);
+}
+
+function isAnyPartyMemberHpFractionBelow(st, frac) {
+  ensureCombatParty(st);
+  return st.party.some((m) => m && m.hp > 0 && m.maxHp > 0 && m.hp / m.maxHp < frac);
+}
+
+function buildCombatPartyForMob(mob) {
+  const heroHp = Math.min(player.hp, player.maxHp);
+  const party = [
+    {
+      uid: 0,
+      name: player.name,
+      hp: heroHp,
+      maxHp: player.maxHp,
+      kind: "hero",
+      dex: getEffectiveDex(),
+      flatArmor: getArmorDefense()
+    }
+  ];
+  const extras = mob && Array.isArray(mob.partyAllies) ? mob.partyAllies : [];
+  let uid = 1;
+  for (let i = 0; i < extras.length && party.length < COMBAT_PARTY_MAX; i++) {
+    const a = extras[i] || {};
+    const name = typeof a.name === "string" && a.name.trim() ? a.name.trim() : "Companion";
+    const maxHp = Math.max(12, Math.floor(typeof a.maxHp === "number" && a.maxHp > 0 ? a.maxHp : player.maxHp * 0.55));
+    const hp = Math.max(1, Math.min(maxHp, typeof a.hp === "number" ? a.hp : maxHp));
+    party.push({
+      uid: uid++,
+      name,
+      hp,
+      maxHp,
+      kind: "companion",
+      dex: typeof a.dex === "number" ? a.dex : typeof a.agi === "number" ? a.agi : Math.max(4, Math.floor(getEffectiveDex() * 0.65)),
+      flatArmor: typeof a.armor === "number" ? a.armor : 0
+    });
+  }
+  return party;
+}
+
+function pickPartyTargetLowestHpUid(st) {
+  ensureCombatParty(st);
+  const living = st.party.filter((m) => m && m.hp > 0);
+  if (!living.length) return null;
+  return living.reduce((a, b) => a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b).uid;
+}
+
+function formatPartyHitLog(foeName, logVerb, memberName, taken) {
+  const v = typeof logVerb === "string" ? logVerb.trim() : "hits you";
+  const phrase = /\byou\b/i.test(v) ? v.replace(/\byou\b/gi, memberName) : `${v} on ${memberName}`;
+  return `${foeName} ${phrase} for ${taken} damage.`;
+}
+
+function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
+  ensureCombatParty(st);
+  const m = st.party.find((x) => x && x.uid === partyUid);
+  if (!m || m.hp <= 0) return;
+  let raw = rawDamage;
+  if (m.kind === "hero") {
+    ensureCombatStatus(st);
+    if (typeof st.status.playerFragileTurns === "number" && st.status.playerFragileTurns > 0) raw += 2;
+    const hit = computeHeroIncomingDamage(raw);
+    if (hit.evaded) {
+      appendFightLog(`${foeName} attacks ${m.name} — ${m.name} evades!`);
+      syncCombatPartyHeroMirror(st);
+      return;
+    }
+    const taken = hit.taken;
+    m.hp -= taken;
+    if (m.hp < 0) m.hp = 0;
+    appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
+  } else {
+    const dexPart = typeof m.dex === "number" ? m.dex : m.agi || 0;
+    const taken = Math.max(1, raw - Math.floor(dexPart / 4) - (m.flatArmor || 0));
+    m.hp -= taken;
+    if (m.hp < 0) m.hp = 0;
+    appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
+  }
+  syncCombatPartyHeroMirror(st);
+}
+
+/**
+ * Damages one party member (default: lowest % HP) or the whole party when `opts.aoeAllParty` is true.
+ * @param {object} st
+ * @param {number} rawDamage
+ * @param {string} foeName
+ * @param {string} logVerb
+ * @param {{ aoeAllParty?: boolean, partyUid?: number } | null} [opts]
+ */
+function dealRawDamageToPlayer(st, rawDamage, foeName, logVerb, opts) {
+  let rawDamageAdj = rawDamage;
+  const src = st && st.__monsterDamageSourceFoe;
+  if (src && src.name === foeName && typeof src.dex === "number") {
+    rawDamageAdj = applyMonsterCritToRaw(src, rawDamageAdj);
+  }
+  ensureCombatParty(st);
+  const o = opts && typeof opts === "object" ? opts : null;
+  if (o && o.aoeAllParty) {
+    const living = st.party.filter((m) => m && m.hp > 0);
+    for (const m of living) {
+      dealRawDamageToPartyMember(st, m.uid, rawDamageAdj, foeName, logVerb);
+    }
+    return;
+  }
+  const uid = o && typeof o.partyUid === "number" ? o.partyUid : pickPartyTargetLowestHpUid(st);
+  if (uid == null) return;
+  dealRawDamageToPartyMember(st, uid, rawDamageAdj, foeName, logVerb);
+}
+
+function tickEnemySkillCooldownsEndOfTurn(foe) {
+  if (!foe.combat || !foe.combat.skillCd || typeof foe.combat.skillCd !== "object") return;
+  for (const k of Object.keys(foe.combat.skillCd)) {
+    const v = foe.combat.skillCd[k];
+    if (typeof v === "number" && v > 0) foe.combat.skillCd[k] = v - 1;
+  }
+}
+
+/** Bleed/poison damage and DoT duration — runs when your turn begins (after the enemy phase). */
+function tickEffectsAtStartOfPlayerTurn(st) {
+  ensureCombatStatus(st);
+  const s = st.status;
+  if (s.playerPoison && s.playerPoison.turns > 0 && s.playerPoison.dmg > 0) {
+    const dotRed = formulaVitDotReductionPct(totalVit()) / 100;
+    const d = Math.max(1, Math.floor(s.playerPoison.dmg * (1 - dotRed)));
+    st.playerHp -= d;
+    appendFightLog(`Poison deals ${d} damage to you.`);
+    s.playerPoison.turns -= 1;
+    if (s.playerPoison.turns <= 0) s.playerPoison = null;
+  }
+  if (s.playerBleed && s.playerBleed.turns > 0 && s.playerBleed.dmg > 0) {
+    const dotRed = formulaVitDotReductionPct(totalVit()) / 100;
+    const d = Math.max(1, Math.floor(s.playerBleed.dmg * (1 - dotRed)));
+    st.playerHp -= d;
+    appendFightLog(`Bleeding deals ${d} damage to you.`);
+    s.playerBleed.turns -= 1;
+    if (s.playerBleed.turns <= 0) s.playerBleed = null;
+  }
+  if (s.playerBurn && s.playerBurn.turns > 0 && s.playerBurn.dmg > 0) {
+    const dotRed = formulaVitDotReductionPct(totalVit()) / 100;
+    const d = Math.max(1, Math.floor(s.playerBurn.dmg * (1 - dotRed)));
+    st.playerHp -= d;
+    appendFightLog(`Burn deals ${d} damage to you.`);
+    s.playerBurn.turns -= 1;
+    if (s.playerBurn.turns <= 0) s.playerBurn = null;
+  }
+  syncHeroHpFromPlayerMirror(st);
+}
+
+/** Buff/debuff durations counted in “player turns” — end of your turn, before the enemy phase. */
+function tickPlayerTurnEndBuffs(st) {
+  ensureCombatStatus(st);
+  const s = st.status;
+  if (typeof s.playerAttackDebuffTurns === "number" && s.playerAttackDebuffTurns > 0) s.playerAttackDebuffTurns -= 1;
+  if (typeof s.playerHamstringSlowTurns === "number" && s.playerHamstringSlowTurns > 0) s.playerHamstringSlowTurns -= 1;
+  if (typeof s.packHowlTurns === "number" && s.packHowlTurns > 0) s.packHowlTurns -= 1;
+  if (typeof s.playerBrineWeakTurns === "number" && s.playerBrineWeakTurns > 0) s.playerBrineWeakTurns -= 1;
+  if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) s.playerFragileTurns -= 1;
+  st.foes.forEach((f) => {
+    if (!f.combat) return;
+    if (typeof f.combat.thickHideTurns === "number" && f.combat.thickHideTurns > 0) f.combat.thickHideTurns -= 1;
+    if (typeof f.combat.echoCryBonusTurns === "number" && f.combat.echoCryBonusTurns > 0) f.combat.echoCryBonusTurns -= 1;
+    if (typeof f.combat.mitigationTurns === "number" && f.combat.mitigationTurns > 0) f.combat.mitigationTurns -= 1;
+    if (typeof f.combat.reflectTurns === "number" && f.combat.reflectTurns > 0) f.combat.reflectTurns -= 1;
+  });
+}
+
+function applyBleedToPlayer(st, dmgPerTurn, turns) {
+  ensureCombatStatus(st);
+  const sr = formulaVitStatusResistPct(totalVit()) / 100;
+  const t = Math.max(1, Math.min(3, Math.round(Math.floor(turns) * (1 - sr))));
+  const d = Math.max(1, Math.floor(dmgPerTurn));
+  const prev = st.status.playerBleed;
+  st.status.playerBleed = {
+    dmg: Math.max(prev && prev.dmg ? prev.dmg : 0, d),
+    turns: Math.max(prev && prev.turns ? prev.turns : 0, t)
+  };
+}
+
+function applyPoisonToPlayer(st, dmgPerTurn, turns) {
+  ensureCombatStatus(st);
+  const sr = formulaVitStatusResistPct(totalVit()) / 100;
+  const t = Math.max(1, Math.min(4, Math.round(Math.floor(turns) * (1 - sr))));
+  const d = Math.max(1, Math.floor(dmgPerTurn));
+  st.status.playerPoison = { dmg: d, turns: t };
+}
+
+function applyBurnToPlayer(st, dmgPerTurn, turns) {
+  ensureCombatStatus(st);
+  const sr = formulaVitStatusResistPct(totalVit()) / 100;
+  const t = Math.max(1, Math.min(4, Math.round(Math.floor(turns) * (1 - sr))));
+  const d = Math.max(1, Math.floor(dmgPerTurn));
+  const prev = st.status.playerBurn;
+  st.status.playerBurn = {
+    dmg: Math.max(prev && prev.dmg ? prev.dmg : 0, d),
+    turns: Math.max(prev && prev.turns ? prev.turns : 0, t)
+  };
+}
+
+function tryPlayerStun(st, chance) {
+  ensureCombatStatus(st);
+  const p = Math.min(1, Math.max(0, chance));
+  const resist = formulaVitStatusResistPct(totalVit()) / 100;
+  const finalP = p * (1 - resist);
+  if (finalP >= 1 || Math.random() < finalP) {
+    st.status.playerStunTurns = (st.status.playerStunTurns || 0) + 1;
+    appendFightLog("You are stunned!");
+    return true;
+  }
+  return false;
+}
+
+function getNextCombatFoeUid(st) {
+  let m = -1;
+  for (const f of st.foes) {
+    if (typeof f.uid === "number" && f.uid > m) m = f.uid;
+  }
+  return m + 1;
+}
+
+function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
+  const baseAtk = summoner.attack || 1;
+  const hp = Math.max(1, Math.floor((summoner.maxHp || 40) * hpFrac));
+  const frac = Math.max(0.12, Math.min(1, atkFrac));
+  const matt = Math.max(1, Math.floor(baseAtk * atkFrac));
+  const uid = getNextCombatFoeUid(st);
+  const minion = {
+    uid,
+    name: label,
+    level: typeof summoner.level === "number" ? summoner.level : 1,
+    moodId: summoner.moodId,
+    moodName: summoner.moodName || "Neutral",
+    str: Math.max(1, Math.round((summoner.str || 10) * frac)),
+    dex: Math.max(1, Math.round((summoner.dex || 10) * frac)),
+    vit: Math.max(1, Math.round((summoner.vit || 10) * frac)),
+    int: Math.max(1, Math.round((summoner.int || 10) * frac)),
+    hp,
+    maxHp: hp,
+    attack: matt,
+    damageTakenMult: 1,
+    drops: null,
+    image: summoner.image,
+    images: summoner.images,
+    sprites: summoner.sprites
+  };
+  initFoeCombatRuntime(minion);
+  minion.combat.script = "";
+  st.foes.push(minion);
+  appendFightLog(`${summoner.name} summons ${label}!`);
+}
+
+function healLowestHpFractionAlly(st, healer, pctOfMax) {
+  const allies = st.foes.filter((f) => f.hp > 0 && f.uid !== healer.uid);
+  if (!allies.length) return false;
+  const target = allies.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+  const amt = Math.max(1, Math.floor(target.maxHp * pctOfMax));
+  target.hp = Math.min(target.maxHp, target.hp + amt);
+  appendFightLog(`${healer.name} heals ${target.name} for ${amt}.`);
+  return true;
+}
+
+function buffStrongestAllyEcho(st, buffer, turns) {
+  const allies = st.foes.filter((f) => f.hp > 0 && f.uid !== buffer.uid);
+  if (!allies.length) return false;
+  const target = allies.reduce((a, b) => ((a.attack || 0) >= (b.attack || 0) ? a : b));
+  if (!target.combat) initFoeCombatRuntime(target);
+  target.combat.echoCryBonusTurns = Math.max(target.combat.echoCryBonusTurns || 0, turns);
+  appendFightLog(`${buffer.name} uses Echo Cry — ${target.name} hits harder (${turns} rounds).`);
+  return true;
+}
+
+function setFoeMitigation(foe, turns, mult) {
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  foe.combat.mitigationTurns = Math.max(foe.combat.mitigationTurns || 0, turns);
+  foe.combat.mitigationMult = mult;
+}
+
+function setFoeReflect(foe, turns, frac) {
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  foe.combat.reflectTurns = Math.max(foe.combat.reflectTurns || 0, turns);
+  foe.combat.reflectFrac = frac;
+}
+
+/**
+ * @returns {boolean} true if this script handled the turn
+ */
+function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd, ready) {
+  if (scriptId === "tide_hopper") {
+    const low = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.5;
+    if (low && ready("evasive_leap")) {
+      setCd("evasive_leap", 3);
+      foe.combat.evadeNextChance = 0.45;
+      appendFightLog(`${foe.name} uses Evasive Leap.`);
+      return true;
+    }
+    if (ready("splash_kick")) {
+      setCd("splash_kick", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Splash Kicks you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      appendFightLog("You feel sluggish.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "kicks you");
+    return true;
+  }
+
+  if (scriptId === "hermit_crab") {
+    foe.combat.hermitRot = (foe.combat.hermitRot || 0) + 1;
+    const defend = foe.combat.hermitRot % 2 === 1;
+    if (defend && ready("shell_guard")) {
+      setCd("shell_guard", 3);
+      setFoeMitigation(foe, 1, 0.5);
+      appendFightLog(`${foe.name} uses Shell Guard (-50% damage taken).`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Claw Snaps you");
+    return true;
+  }
+
+  if (scriptId === "driftling") {
+    foe.combat.driftPhase = (foe.combat.driftPhase || 0) + 1;
+    const healTurn = foe.combat.driftPhase % 2 === 0;
+    if (healTurn && ready("tidal_mend")) {
+      setCd("tidal_mend", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.22)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
+        appendFightLog(`${foe.name} uses Tidal Mend on itself.`);
+      }
+      return true;
+    }
+    if (ready("salt_rot")) {
+      setCd("salt_rot", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Salt Rots you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.12)), 2);
+      appendFightLog("Salt eats at you.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "tidemeld_revenant") {
+    const summoned = st.foes.some((f) => f.name === "Drowned Thrall");
+    if (!summoned && ready("drowned_call")) {
+      setCd("drowned_call", 4);
+      summonCombatMinion(st, foe, "Drowned Thrall", 0.12, 0.22);
+      return true;
+    }
+    if (ready("brine_curse")) {
+      setCd("brine_curse", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Brine Curses you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+      ensureCombatStatus(st);
+      st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 2);
+      appendFightLog("Brine weakens your strikes.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "coastal_horror") {
+    const useControl = !foe.combat.altPhase;
+    foe.combat.altPhase = !foe.combat.altPhase;
+    if (useControl && ready("grasping_tentacles")) {
+      setCd("grasping_tentacles", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "Grasping Tentacles lash you");
+      tryPlayerStun(st, 0.35);
+      return true;
+    }
+    if (ready("abyssal_pulse")) {
+      setCd("abyssal_pulse", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "unleashes Abyssal Pulse", { aoeAllParty: true });
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "greenleaf_squirrel") {
+    if (ready("forest_gift")) {
+      setCd("forest_gift", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.18)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.12)));
+        appendFightLog(`${foe.name} nibbles a nut (small self-heal).`);
+      }
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Nut Tosses you");
+    return true;
+  }
+
+  if (scriptId === "greenleaf_parrot") {
+    if (ready("echo_cry")) {
+      setCd("echo_cry", 3);
+      buffStrongestAllyEcho(st, foe, 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "Pecks you");
+    return true;
+  }
+
+  if (scriptId === "greenleaf_fox") {
+    const full = st.playerMax > 0 && st.playerHp >= st.playerMax * 0.97;
+    if (ready("ambush_bite")) {
+      setCd("ambush_bite", 2);
+      const mul = full ? 1.45 : 1;
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.85 * mul * outMult)), foe.name, "Ambush Bites you");
+      return true;
+    }
+    if (ready("fade_step")) {
+      setCd("fade_step", 3);
+      foe.combat.evadeNextChance = 0.4;
+      appendFightLog(`${foe.name} uses Fade Step.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "bites you");
+    return true;
+  }
+
+  if (scriptId === "greenleaf_stag") {
+    if (ready("natures_blessing")) {
+      setCd("natures_blessing", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.28)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.2)));
+        appendFightLog(`${foe.name} heals itself with Nature's Blessing.`);
+      }
+      return true;
+    }
+    if (ready("root_bind")) {
+      setCd("root_bind", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Root Binds you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
+      appendFightLog("You are slowed and weakened.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "charges you");
+    return true;
+  }
+
+  if (scriptId === "gorilla") {
+    if (ready("rage_beat")) {
+      setCd("rage_beat", 3);
+      foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;
+      appendFightLog(`${foe.name} uses Rage Beat (+damage ramp).`);
+      return true;
+    }
+    if (ready("crushing_slam")) {
+      setCd("crushing_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Crushing Slams you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.75 * outMult)), foe.name, "hits you");
+    return true;
+  }
+
+  if (scriptId === "ash_lizard") {
+    if (ready("heat_skin")) {
+      setCd("heat_skin", 3);
+      setFoeReflect(foe, 2, 0.22);
+      appendFightLog(`${foe.name} uses Heat Skin (reflects damage).`);
+      return true;
+    }
+    if (ready("ember_bite")) {
+      setCd("ember_bite", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Ember Bites you");
+      applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.12)), 2);
+      appendFightLog("You are burning.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "bites you");
+    return true;
+  }
+
+  if (scriptId === "cinder_stalker") {
+    if (ready("blazing_pounce")) {
+      setCd("blazing_pounce", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Blazing Pounces you");
+      return true;
+    }
+    if (ready("smoke_veil")) {
+      setCd("smoke_veil", 3);
+      foe.combat.evadeNextChance = 0.42;
+      appendFightLog(`${foe.name} uses Smoke Veil.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "scratches you");
+    return true;
+  }
+
+  if (scriptId === "ember_scuttler") {
+    if (ready("fire_web")) {
+      setCd("fire_web", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "Fire Webs you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      appendFightLog("You are slowed.");
+      return true;
+    }
+    if (ready("ignite")) {
+      setCd("ignite", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Ignites you");
+      applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.11)), 2);
+      appendFightLog("Flames cling to you.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "nips you");
+    return true;
+  }
+
+  if (scriptId === "magma_boar") {
+    foe.combat.magmaRot = (foe.combat.magmaRot || 0) + 1;
+    const tank = foe.combat.magmaRot % 2 === 1;
+    if (tank && ready("lava_armor")) {
+      setCd("lava_armor", 4);
+      setFoeMitigation(foe, 2, 0.55);
+      appendFightLog(`${foe.name} uses Lava Armor.`);
+      return true;
+    }
+    if (!tank && ready("molten_charge")) {
+      setCd("molten_charge", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.08 * outMult)), foe.name, "Molten Charges you");
+      return true;
+    }
+    if (ready("molten_charge")) {
+      setCd("molten_charge", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.08 * outMult)), foe.name, "Molten Charges you");
+      return true;
+    }
+    if (ready("lava_armor")) {
+      setCd("lava_armor", 4);
+      setFoeMitigation(foe, 2, 0.55);
+      appendFightLog(`${foe.name} uses Lava Armor.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "charges you");
+    return true;
+  }
+
+  if (scriptId === "lava_basilisk") {
+    if (ready("petrifying_heat")) {
+      setCd("petrifying_heat", 3);
+      const gazePhys = Math.floor(monsterPhysicalDamageFromBase(foe, 30, 0.015) * outMult);
+      dealRawDamageToPlayer(st, Math.max(1, gazePhys), foe.name, "Petrifying Heats you");
+      tryPlayerStun(st, Math.min(0.95, 0.2 + (typeof foe.int === "number" ? foe.int : 0) * 0.0025));
+      appendFightLog(`${foe.name} channels Petrifying Heat.`);
+      return true;
+    }
+    if (ready("inferno_gaze")) {
+      setCd("inferno_gaze", 2);
+      const inferno = Math.floor(monsterPhysicalDamageFromBase(foe, 30, 0.015) * outMult);
+      dealRawDamageToPlayer(st, Math.max(1, inferno), foe.name, "Inferno Gazes you");
+      const burnDmg = Math.max(2, Math.floor(monsterIntScaledValue(foe, 10, "dot")));
+      const burnTurns = Math.max(1, Math.round(2 + (typeof foe.int === "number" ? foe.int : 0) / 50));
+      applyBurnToPlayer(st, burnDmg, burnTurns);
+      appendFightLog("Searing burn!");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "stone_marmot") {
+    if (ready("burrow_guard")) {
+      setCd("burrow_guard", 3);
+      setFoeMitigation(foe, 2, 0.55);
+      appendFightLog(`${foe.name} uses Burrow Guard.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "Pebble Tosses you");
+    return true;
+  }
+
+  if (scriptId === "rock_lynx") {
+    if (ready("cliff_strike")) {
+      setCd("cliff_strike", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.92 * outMult)), foe.name, "Cliff Strikes you");
+      return true;
+    }
+    if (ready("agile_reflex")) {
+      setCd("agile_reflex", 3);
+      foe.combat.evadeNextChance = 0.38;
+      appendFightLog(`${foe.name} uses Agile Reflex.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "claws you");
+    return true;
+  }
+
+  if (scriptId === "rock_ibex") {
+    foe.combat.ibexRot = (foe.combat.ibexRot || 0) + 1;
+    const attackTurn = foe.combat.ibexRot % 2 === 1;
+    if (attackTurn && ready("headbutt")) {
+      setCd("headbutt", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Headbutts you");
+      return true;
+    }
+    if (!attackTurn && ready("stone_skin")) {
+      setCd("stone_skin", 3);
+      setFoeMitigation(foe, 2, 0.65);
+      appendFightLog(`${foe.name} uses Stone Skin.`);
+      return true;
+    }
+    if (ready("headbutt")) {
+      setCd("headbutt", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Headbutts you");
+      return true;
+    }
+    if (ready("stone_skin")) {
+      setCd("stone_skin", 3);
+      setFoeMitigation(foe, 2, 0.65);
+      appendFightLog(`${foe.name} uses Stone Skin.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "rams you");
+    return true;
+  }
+
+  if (scriptId === "rock_serpent") {
+    if (ready("dust_suffocation")) {
+      setCd("dust_suffocation", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Dust Suffocates you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+      return true;
+    }
+    if (ready("crush_coil")) {
+      setCd("crush_coil", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Crush Coils you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "rock_lizard") {
+    if (ready("harden")) {
+      setCd("harden", 4);
+      setFoeMitigation(foe, 2, 0.45);
+      appendFightLog(`${foe.name} uses Harden.`);
+      return true;
+    }
+    if (ready("tail_slam")) {
+      setCd("tail_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.02 * outMult)), foe.name, "Tail Slams you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "ash_horror") {
+    if (ready("ash_touch")) {
+      setCd("ash_touch", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Ash Touches you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.07)), 2);
+      return true;
+    }
+    if (ready("decay_aura")) {
+      setCd("decay_aura", 3);
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
+      appendFightLog(`${foe.name} radiates Decay Aura.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "cinder_husk") {
+    if (ready("dead_flesh")) {
+      setCd("dead_flesh", 3);
+      setFoeMitigation(foe, 2, 0.5);
+      appendFightLog(`${foe.name} uses Dead Flesh.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Slow Swings at you");
+    return true;
+  }
+
+  if (scriptId === "ash_skulker") {
+    if (ready("backstab")) {
+      setCd("backstab", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Backstabs you");
+      return true;
+    }
+    if (ready("fade")) {
+      setCd("fade", 3);
+      foe.combat.evadeNextChance = 0.4;
+      appendFightLog(`${foe.name} Fades into shadow.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "remnant_of_rust") {
+    if (ready("corrode_armor")) {
+      setCd("corrode_armor", 3);
+      ensureCombatStatus(st);
+      st.status.playerFragileTurns = Math.max(st.status.playerFragileTurns || 0, 2);
+      appendFightLog(`${foe.name} Corrodes your armor (+incoming damage).`);
+      return true;
+    }
+    if (ready("rust_strike")) {
+      setCd("rust_strike", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Rust Strikes you");
+      ensureCombatStatus(st);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
+      appendFightLog("Rust weakens your arms.");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "faded_war_wraith") {
+    const hasFallen = st.foes.some((f) => f.name === "Fallen Echo");
+    if (!hasFallen && ready("call_fallen")) {
+      setCd("call_fallen", 4);
+      summonCombatMinion(st, foe, "Fallen Echo", 0.14, 0.2);
+      return true;
+    }
+    if (ready("haunt")) {
+      setCd("haunt", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Haunts you");
+      ensureCombatStatus(st);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "chills you");
+    return true;
+  }
+
+  if (scriptId === "dust_carver") {
+    if (ready("blind_dust")) {
+      setCd("blind_dust", 3);
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      appendFightLog(`${foe.name} throws Blind Dust.`);
+      return true;
+    }
+    if (ready("sand_slash")) {
+      setCd("sand_slash", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.82 * outMult)), foe.name, "Sand Slashes you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "slashes you");
+    return true;
+  }
+
+  if (scriptId === "witherling") {
+    if (ready("life_drain")) {
+      setCd("life_drain", 2);
+      const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Life Drains you");
+      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.4)));
+      appendFightLog(`${foe.name} steals vitality.`);
+      return true;
+    }
+    if (ready("decay_bite")) {
+      setCd("decay_bite", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Decay Bites you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "desert_thornback_crawler") {
+    if (ready("spiked_shell")) {
+      setCd("spiked_shell", 3);
+      setFoeMitigation(foe, 2, 0.5);
+      appendFightLog(`${foe.name} raises a Spiked Shell.`);
+      return true;
+    }
+    if (ready("impale")) {
+      setCd("impale", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.92 * outMult)), foe.name, "Impales you");
+      applyBleedToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "mirage_lurker") {
+    if (ready("mirage_shift")) {
+      setCd("mirage_shift", 3);
+      foe.combat.evadeNextChance = 0.45;
+      appendFightLog(`${foe.name} Mirage Shifts.`);
+      return true;
+    }
+    if (ready("illusion_strike")) {
+      setCd("illusion_strike", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Illusion Strikes you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "dune_devourer") {
+    if (ready("burrow_ambush")) {
+      setCd("burrow_ambush", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Burrow Ambushes you");
+      return true;
+    }
+    if (ready("sand_devour")) {
+      setCd("sand_devour", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Sand Devours you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "icy_mink") {
+    if (ready("slipstep")) {
+      setCd("slipstep", 3);
+      foe.combat.evadeNextChance = 0.42;
+      appendFightLog(`${foe.name} uses Slipstep.`);
+      return true;
+    }
+    if (ready("frost_bite")) {
+      setCd("frost_bite", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Frost Bites you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "nips you");
+    return true;
+  }
+
+  if (scriptId === "icy_serpent") {
+    if (ready("freeze_skin")) {
+      setCd("freeze_skin", 3);
+      setFoeReflect(foe, 2, 0.15);
+      appendFightLog(`${foe.name} uses Freeze Skin.`);
+      return true;
+    }
+    if (ready("cold_venom")) {
+      setCd("cold_venom", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Cold Venoms you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "glacier_turtoise") {
+    if (ready("ice_shell")) {
+      setCd("ice_shell", 4);
+      setFoeMitigation(foe, 2, 0.45);
+      appendFightLog(`${foe.name} uses Ice Shell.`);
+      return true;
+    }
+    if (ready("slow_crush")) {
+      setCd("slow_crush", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Slow Crushes you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "bites you");
+    return true;
+  }
+
+  if (scriptId === "frozen_stalker") {
+    if (ready("frozen_ambush")) {
+      setCd("frozen_ambush", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Frozen Ambushes you");
+      return true;
+    }
+    if (ready("chill_mark")) {
+      setCd("chill_mark", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Chill Marks you");
+      applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "frost_skitter") {
+    if (ready("absolute_zero")) {
+      setCd("absolute_zero", 4);
+      ensureCombatStatus(st);
+      const freezeTurns = Math.max(1, 1 + Math.floor((typeof foe.int === "number" ? foe.int : 0) / 60));
+      st.status.playerStunTurns = Math.max(st.status.playerStunTurns || 0, freezeTurns);
+      appendFightLog(`${foe.name} unleashes Absolute Zero!`);
+      return true;
+    }
+    if (ready("ice_web")) {
+      setCd("ice_web", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Ice Webs you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      applyBurnToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 8, "dot"))), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "pinebound_fawn") {
+    if (ready("gentle_heal")) {
+      setCd("gentle_heal", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.2)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
+        appendFightLog(`${foe.name} heals itself gently.`);
+      }
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "Kicks you");
+    return true;
+  }
+
+  if (scriptId === "frozen_pinecone") {
+    if (ready("freeze_burst")) {
+      setCd("freeze_burst", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Freeze Bursts you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      return true;
+    }
+    if (ready("drop_strike")) {
+      setCd("drop_strike", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Drop Strikes you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "bumps you");
+    return true;
+  }
+
+  if (scriptId === "ice_tusked_boar") {
+    if (ready("ice_armor")) {
+      setCd("ice_armor", 3);
+      setFoeMitigation(foe, 2, 0.55);
+      appendFightLog(`${foe.name} uses Ice Armor.`);
+      return true;
+    }
+    if (ready("frost_charge")) {
+      setCd("frost_charge", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1 * outMult)), foe.name, "Frost Charges you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "charges you");
+    return true;
+  }
+
+  if (scriptId === "barkhide_spriggan") {
+    if (ready("nature_guard")) {
+      setCd("nature_guard", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.24)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.18)));
+        appendFightLog(`${foe.name} Nature Guards itself.`);
+      }
+      return true;
+    }
+    if (ready("root_bind_sg")) {
+      setCd("root_bind_sg", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Root Binds you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "winter_guardian") {
+    if (ready("shield_wall")) {
+      setCd("shield_wall", 4);
+      setFoeMitigation(foe, 2, 0.4);
+      appendFightLog(`${foe.name} raises Shield Wall.`);
+      return true;
+    }
+    if (ready("frozen_slam")) {
+      setCd("frozen_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Frozen Slams you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "saltwind_skimmer") {
+    if (ready("glide")) {
+      setCd("glide", 3);
+      foe.combat.evadeNextChance = 0.38;
+      appendFightLog(`${foe.name} Glides aside.`);
+      return true;
+    }
+    if (ready("wind_slice")) {
+      setCd("wind_slice", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Wind Slices you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "brinegullet_spitter") {
+    if (ready("corrosive_pool")) {
+      setCd("corrosive_pool", 3);
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+      appendFightLog(`${foe.name} spits a Corrosive Pool.`);
+      return true;
+    }
+    if (ready("acid_spit")) {
+      setCd("acid_spit", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Acid Spits you");
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "spits at you");
+    return true;
+  }
+
+  if (scriptId === "wavebreaker_idol") {
+    if (ready("stone_guard")) {
+      setCd("stone_guard", 4);
+      setFoeMitigation(foe, 2, 0.42);
+      appendFightLog(`${foe.name} uses Stone Guard.`);
+      return true;
+    }
+    if (ready("wave_slam")) {
+      setCd("wave_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Wave Slams you");
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "cliff_lurker") {
+    if (ready("ambush_drop")) {
+      setCd("ambush_drop", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Ambush Drops on you");
+      return true;
+    }
+    if (ready("grip_strike")) {
+      setCd("grip_strike", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Grip Strikes you");
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  if (scriptId === "tideharrow") {
+    const ctrl = !foe.combat.altPhase;
+    foe.combat.altPhase = !foe.combat.altPhase;
+    if (ctrl && ready("riptide_pull")) {
+      setCd("riptide_pull", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Riptide Pulls you");
+      tryPlayerStun(st, 0.3);
+      return true;
+    }
+    if (ready("drown_pulse")) {
+      setCd("drown_pulse", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Drown Pulses you", { aoeAllParty: true });
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+    return true;
+  }
+
+  return false;
+}
+
+function enemyCombatRunScript(scriptId, foe, st) {
+  ensureCombatStatus(st);
+  const prevSrc = st.__monsterDamageSourceFoe;
+  st.__monsterDamageSourceFoe = foe;
+  try {
+    enemyCombatRunScriptInner(scriptId, foe, st);
+  } finally {
+    st.__monsterDamageSourceFoe = prevSrc;
+  }
+}
+
+function enemyCombatRunScriptInner(scriptId, foe, st) {
+  const atk = getFoeEffectiveAttackForCombat(foe);
+  const outMult = getFoeOutgoingDamageMultiplier(st, foe);
+  const cd = foe.combat.skillCd;
+  const setCd = (key, n) => {
+    cd[key] = Math.max(0, Math.floor(n));
+  };
+  const ready = (key) => !cd[key] || cd[key] <= 0;
+
+  if (scriptId === "burrow_hare") {
+    const lowHp = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.5;
+    if (lowHp && ready("burrow_instinct")) {
+      setCd("burrow_instinct", 3);
+      foe.combat.evadeNextChance = 0.4;
+      appendFightLog(`${foe.name} uses Burrow Instinct (40% evade on your next hit).`);
+      return;
+    }
+    const bite = Math.max(1, Math.floor(atk * 0.48 * outMult));
+    dealRawDamageToPlayer(st, bite, foe.name, "bites you with Quick Bite");
+    applyBleedToPlayer(st, Math.max(1, Math.floor(atk * 0.14)), 1 + Math.floor(Math.random() * 2));
+    appendFightLog("You are bleeding.");
+    return;
+  }
+
+  if (scriptId === "plains_raptor") {
+    foe.combat.raptorActCount = (foe.combat.raptorActCount || 0) + 1;
+    const fullHpPlayer = st.playerMax > 0 && st.playerHp >= st.playerMax * 0.99;
+    if (foe.combat.raptorActCount === 1 && ready("pounce")) {
+      const mul = fullHpPlayer ? 1.5 : 1;
+      const dmg = Math.max(1, Math.floor(atk * mul * outMult));
+      setCd("pounce", 2);
+      dealRawDamageToPlayer(st, dmg, foe.name, "Pounces you");
+      return;
+    }
+    if (ready("claw_rend")) {
+      setCd("claw_rend", 1);
+      const dmg = Math.max(1, Math.floor(atk * 0.82 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Claw Rends you");
+      applyBleedToPlayer(st, Math.max(1, Math.floor(atk * 0.12)), 2);
+      appendFightLog("You are bleeding.");
+      return;
+    }
+    if (ready("pounce")) {
+      const mul = fullHpPlayer ? 1.5 : 1;
+      const dmg = Math.max(1, Math.floor(atk * mul * outMult));
+      setCd("pounce", 2);
+      dealRawDamageToPlayer(st, dmg, foe.name, "Pounces you");
+      return;
+    }
+    const dmg = Math.max(1, Math.floor(atk * outMult));
+    dealRawDamageToPlayer(st, dmg, foe.name, "hits you");
+    return;
+  }
+
+  if (scriptId === "grass_snake") {
+    const debuffed = !!(foe.combat.markedByPlayer || foe.combat.snakeDebuffed);
+    if (ready("shed_skin") && debuffed) {
+      setCd("shed_skin", 4);
+      foe.combat.markedByPlayer = false;
+      foe.combat.snakeDebuffed = false;
+      appendFightLog(`${foe.name} uses Shed Skin and shakes off debuffs.`);
+      return;
+    }
+    const venomReady = ready("venom_bite");
+    const noPoison = !st.status.playerPoison || st.status.playerPoison.turns <= 0;
+    if (venomReady && noPoison) {
+      setCd("venom_bite", 2);
+      const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Venom Bites you");
+      applyPoisonToPlayer(st, Math.max(2, Math.floor(atk * 0.22)), 3);
+      appendFightLog("Strong poison courses through you.");
+      return;
+    }
+    if (ready("constriction")) {
+      setCd("constriction", 3);
+      const dmg = Math.max(1, Math.floor(atk * 0.7 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Constricts you");
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
+      appendFightLog("Your attacks are weakened (2 turns).");
+      return;
+    }
+    if (venomReady) {
+      setCd("venom_bite", 2);
+      const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Venom Bites you");
+      applyPoisonToPlayer(st, Math.max(2, Math.floor(atk * 0.22)), 3);
+      appendFightLog("Strong poison courses through you.");
+      return;
+    }
+    const dmg = Math.max(1, Math.floor(atk * 0.65 * outMult));
+    dealRawDamageToPlayer(st, dmg, foe.name, "bites you");
+    return;
+  }
+
+  if (scriptId === "tusk_boar") {
+    if (!foe.combat.boarOpened) {
+      foe.combat.boarOpened = true;
+      if (ready("thick_hide")) {
+        setCd("thick_hide", 4);
+        const ms = getMonsterScalingConfig();
+        const cap = typeof ms.thickHideReductionCap === "number" ? ms.thickHideReductionCap : 0.65;
+        const b = typeof ms.thickHideBase === "number" ? ms.thickHideBase : 0.25;
+        const pv = typeof ms.thickHidePerVit === "number" ? ms.thickHidePerVit : 0.002;
+        const red = Math.min(cap, b + (typeof foe.vit === "number" ? foe.vit : 0) * pv);
+        foe.combat.thickHideDamagedMult = 1 - red;
+        foe.combat.thickHideTurns = 2;
+        appendFightLog(`${foe.name} uses Thick Hide (~${Math.round(red * 100)}% damage reduction, 2 rounds).`);
+        return;
+      }
+    }
+    if (ready("gore_charge")) {
+      setCd("gore_charge", 2);
+      const gore = Math.floor(monsterPhysicalDamageFromBase(foe, 22, 0.02) * outMult);
+      dealRawDamageToPlayer(st, Math.max(1, gore), foe.name, "Gore Charges you");
+      return;
+    }
+    const dmg = Math.max(1, Math.floor(atk * 0.75 * outMult));
+    dealRawDamageToPlayer(st, dmg, foe.name, "hits you");
+    return;
+  }
+
+  if (scriptId === "field_wolf") {
+    if (!foe.combat.wolfHowlDone && ready("pack_howl")) {
+      foe.combat.wolfHowlDone = true;
+      setCd("pack_howl", 4);
+      ensureCombatStatus(st);
+      st.status.packHowlTurns = Math.max(st.status.packHowlTurns || 0, 2);
+      const ms = getMonsterScalingConfig();
+      const pb = typeof ms.packHowlBase === "number" ? ms.packHowlBase : 0.2;
+      const pi = typeof ms.packHowlPerInt === "number" ? ms.packHowlPerInt : 0.003;
+      st.status.packHowlAttackMult = 1 + pb + (typeof foe.int === "number" ? foe.int : 0) * pi;
+      appendFightLog(`${foe.name} uses Pack Howl (allies deal extra damage, 2 rounds).`);
+      return;
+    }
+    const low = isAnyPartyMemberHpFractionBelow(st, 0.3);
+    if (low && ready("execution_bite")) {
+      setCd("execution_bite", 1);
+      const baseExec = monsterPhysicalDamageFromBase(foe, 25, 0.02) * 2 * outMult;
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(baseExec)), foe.name, "Execution Bites you");
+      return;
+    }
+    if (ready("hamstring")) {
+      setCd("hamstring", 2);
+      const dmg = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 18, 0.015) * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Hamstring Bites you");
+      applyBleedToPlayer(
+        st,
+        Math.max(1, Math.floor(monsterIntScaledValue(foe, 5, "dot"))),
+        2
+      );
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      appendFightLog("You are bleeding and slowed.");
+      return;
+    }
+    const dmg = Math.max(1, Math.floor(atk * outMult));
+    dealRawDamageToPlayer(st, dmg, foe.name, "bites you");
+    return;
+  }
+
+  if (runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd, ready)) return;
+
+  const dmg = Math.max(1, Math.floor(atk * outMult));
+  dealRawDamageToPlayer(st, dmg, foe.name, "hits you");
 }
 
 function navigate(p) {
@@ -418,7 +2218,10 @@ function useConsumable(itemName) {
   const def = getItemDef(itemName);
   if (!def || def.type !== "consumable") return;
   if (def.effect === "heal") {
-    player.hp = Math.min(player.maxHp, player.hp + (def.value || 0));
+    const base = def.value || 0;
+    const bonus = formulaVitHealingReceivedBonusPct(totalVit()) / 100;
+    const amt = Math.max(1, Math.floor(base * (1 + bonus)));
+    player.hp = Math.min(player.maxHp, player.hp + amt);
     removeOneFromInventory(itemName);
     save();
     render();
@@ -1056,70 +2859,191 @@ function ensureMobPreview(x, y, si) {
   return roll;
 }
 
+function getMonsterScalingConfig() {
+  return GAME_CONFIG.monsterScaling && typeof GAME_CONFIG.monsterScaling === "object" ? GAME_CONFIG.monsterScaling : {};
+}
+
+/** @type {Record<string, "tank"|"assassin"|"bruiser"|"mage"|"support"|"controller">} */
+const MONSTER_ROLE_BY_SCRIPT_ID = {
+  burrow_hare: "assassin",
+  plains_raptor: "assassin",
+  grass_snake: "mage",
+  tusk_boar: "bruiser",
+  field_wolf: "assassin",
+  greenleaf_squirrel: "support",
+  greenleaf_parrot: "support",
+  greenleaf_fox: "assassin",
+  greenleaf_stag: "bruiser",
+  gorilla: "bruiser",
+  stone_marmot: "tank",
+  rock_lynx: "assassin",
+  rock_ibex: "bruiser",
+  rock_serpent: "mage",
+  rock_lizard: "bruiser",
+  ash_lizard: "mage",
+  cinder_stalker: "assassin",
+  ember_scuttler: "assassin",
+  magma_boar: "bruiser",
+  lava_basilisk: "controller",
+  icy_mink: "assassin",
+  icy_serpent: "mage",
+  glacier_turtoise: "tank",
+  frozen_stalker: "assassin",
+  frost_skitter: "mage",
+  pinebound_fawn: "support",
+  frozen_pinecone: "mage",
+  ice_tusked_boar: "bruiser",
+  barkhide_spriggan: "support",
+  winter_guardian: "tank",
+  dust_carver: "assassin",
+  desert_thornback_crawler: "mage",
+  mirage_lurker: "assassin",
+  dune_devourer: "bruiser",
+  witherling: "mage",
+  remnant_of_rust: "bruiser",
+  faded_war_wraith: "controller",
+  ash_horror: "mage",
+  cinder_husk: "bruiser",
+  ash_skulker: "assassin",
+  tide_hopper: "assassin",
+  hermit_crab: "tank",
+  driftling: "mage",
+  tidemeld_revenant: "controller",
+  coastal_horror: "mage",
+  saltwind_skimmer: "assassin",
+  brinegullet_spitter: "mage",
+  wavebreaker_idol: "tank",
+  cliff_lurker: "assassin",
+  tideharrow: "controller"
+};
+
+function inferMonsterCombatRole(scriptId) {
+  const s = typeof scriptId === "string" ? scriptId.trim() : "";
+  return MONSTER_ROLE_BY_SCRIPT_ID[s] || "bruiser";
+}
+
+function getEnemyCombatRoleKey(def) {
+  if (def && typeof def.combatRole === "string" && def.combatRole.trim()) {
+    const k = def.combatRole.trim().toLowerCase();
+    const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : null;
+    if (roles && roles[k]) return k;
+  }
+  const sid = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+  return inferMonsterCombatRole(sid);
+}
+
+function distributeMonsterStatBudget(level, roleKey) {
+  const ms = getMonsterScalingConfig();
+  const per = typeof ms.statsPerLevel === "number" && ms.statsPerLevel > 0 ? ms.statsPerLevel : 4.5;
+  const budget = Math.max(4, Math.round(level * per));
+  const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
+  const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
+  const ws = { str: w.STR, dex: w.DEX, vit: w.VIT, int: w.INT };
+  const keys = ["str", "dex", "vit", "int"];
+  const raw = keys.map((k) => budget * ws[k]);
+  const fl = raw.map((x) => Math.floor(x));
+  let rem = budget - fl.reduce((a, b) => a + b, 0);
+  const fracs = keys.map((k, i) => ({ i, f: raw[i] - fl[i] }));
+  fracs.sort((a, b) => b.f - a.f);
+  const out = { str: fl[0], dex: fl[1], vit: fl[2], int: fl[3] };
+  for (let j = 0; j < rem; j++) out[keys[fracs[j % fracs.length].i]]++;
+  return out;
+}
+
+function monsterPhysicalDamageFromBase(foe, baseDamage, strCoeffOverride) {
+  const ms = getMonsterScalingConfig();
+  const k =
+    typeof strCoeffOverride === "number"
+      ? strCoeffOverride
+      : typeof ms.damageStrCoeff === "number"
+        ? ms.damageStrCoeff
+        : 0.015;
+  const str = typeof foe.str === "number" && foe.str > 0 ? foe.str : 0;
+  return Math.max(1, baseDamage * (1 + str * k));
+}
+
+function monsterIntScaledValue(foe, base, coeffKey) {
+  const ms = getMonsterScalingConfig();
+  const ck = coeffKey === "effect" ? "effectIntCoeff" : "dotIntCoeff";
+  const k = typeof ms[ck] === "number" ? ms[ck] : 0.02;
+  const intv = typeof foe.int === "number" && foe.int > 0 ? foe.int : 0;
+  return Math.max(1, base * (1 + intv * k));
+}
+
+function applyMonsterCritToRaw(foe, raw) {
+  const ms = getMonsterScalingConfig();
+  const dex = typeof foe.dex === "number" && foe.dex > 0 ? foe.dex : 0;
+  const base = typeof ms.enemyCritBasePct === "number" ? ms.enemyCritBasePct : 5;
+  const perDex = typeof ms.enemyCritPerDexPct === "number" ? ms.enemyCritPerDexPct : 0.2;
+  const p = Math.min(0.55, (base + dex * perDex) / 100);
+  const mult = typeof ms.enemyCritDamageMult === "number" ? ms.enemyCritDamageMult : 1.5;
+  if (Math.random() < p) return Math.max(1, Math.floor(raw * mult));
+  return raw;
+}
+
+function buildSpawnedFoe(region, def, uid, level, mood) {
+  const scale = region && typeof region.enemyScale === "number" ? region.enemyScale : 1;
+  const attackBonus = typeof mood.attackBonus === "number" ? mood.attackBonus : 0;
+  const attackMult = typeof mood.attackMult === "number" ? mood.attackMult : 1;
+  const hpMult = typeof mood.hpMult === "number" ? mood.hpMult : 1;
+  const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
+  const roleKey = getEnemyCombatRoleKey(def);
+  const stats = distributeMonsterStatBudget(level, roleKey);
+  const ms = getMonsterScalingConfig();
+  const hpPerVit = typeof ms.hpPerVit === "number" ? ms.hpPerVit : 8;
+  const baseHp = (typeof def.hp === "number" ? def.hp : 20) * scale;
+  const hp = Math.max(1, Math.round((baseHp + stats.vit * hpPerVit) * hpMult));
+  const baseAtk = (typeof def.attack === "number" ? def.attack : 5) * scale;
+  const attack = Math.max(1, Math.round(baseAtk * attackMult + attackBonus));
+  const foe = {
+    uid,
+    name: def.name,
+    level,
+    str: stats.str,
+    dex: stats.dex,
+    vit: stats.vit,
+    int: stats.int,
+    moodId: mood.id,
+    moodName: mood.name,
+    hp,
+    maxHp: hp,
+    attack,
+    damageTakenMult,
+    drops: def.drops,
+    image: resolveImageByState(def, "idle"),
+    images: def.images && typeof def.images === "object" ? def.images : null,
+    sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
+  };
+  initFoeCombatRuntime(foe);
+  return foe;
+}
+
 function spawnEnemiesFromPreview(region, units) {
-  const scale = region.enemyScale || 1;
-  return units.map((u, uid) => {
-    const def = GAME_CONFIG.enemies.find((e) => e.name === u.name);
-    if (!def) return null;
-    const moods = GAME_CONFIG.enemyMoods;
-    const mood =
-      (u.moodId && moods && moods.find((m) => m.id === u.moodId)) || pickMoodFromEnemyDef(def);
-    const level = typeof u.level === "number" ? u.level : pickLevelFromEnemyDef(def);
-    const levelMult = 1 + Math.max(0, level - 1) * 0.08;
-    const attackBonus = typeof mood.attackBonus === "number" ? mood.attackBonus : 0;
-    const attackMult = typeof mood.attackMult === "number" ? mood.attackMult : 1;
-    const hpMult = typeof mood.hpMult === "number" ? mood.hpMult : 1;
-    const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
-    const hp = Math.max(1, Math.round(def.hp * scale * levelMult * hpMult));
-    const attack = Math.max(1, Math.round((def.attack * scale * levelMult + attackBonus) * attackMult));
-    return {
-      uid,
-      name: def.name,
-      level,
-      moodId: mood.id,
-      moodName: mood.name,
-      hp,
-      maxHp: hp,
-      attack,
-      damageTakenMult,
-      drops: def.drops,
-      image: resolveImageByState(def, "idle"),
-      images: def.images && typeof def.images === "object" ? def.images : null,
-      sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
-    };
-  }).filter(Boolean);
+  const slice = (units || []).slice(0, COMBAT_FOES_MAX);
+  return slice
+    .map((u, uid) => {
+      const def = GAME_CONFIG.enemies.find((e) => e.name === u.name);
+      if (!def) return null;
+      const moods = GAME_CONFIG.enemyMoods;
+      const mood =
+        (u.moodId && moods && moods.find((m) => m.id === u.moodId)) || pickMoodFromEnemyDef(def);
+      const level = typeof u.level === "number" ? u.level : pickLevelFromEnemyDef(def);
+      return buildSpawnedFoe(region, def, uid, level, mood);
+    })
+    .filter(Boolean);
 }
 
 function spawnEnemies(region, enemyNames) {
-  const scale = region.enemyScale || 1;
-  return enemyNames.map((n, uid) => {
-    const def = GAME_CONFIG.enemies.find((e) => e.name === n);
-    if (!def) return null;
-    const mood = pickMoodFromEnemyDef(def);
-    const level = pickLevelFromEnemyDef(def);
-    const levelMult = 1 + Math.max(0, level - 1) * 0.08;
-    const attackBonus = typeof mood.attackBonus === "number" ? mood.attackBonus : 0;
-    const attackMult = typeof mood.attackMult === "number" ? mood.attackMult : 1;
-    const hpMult = typeof mood.hpMult === "number" ? mood.hpMult : 1;
-    const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
-    const hp = Math.max(1, Math.round(def.hp * scale * levelMult * hpMult));
-    const attack = Math.max(1, Math.round((def.attack * scale * levelMult + attackBonus) * attackMult));
-    return {
-      uid,
-      name: def.name,
-      level,
-      moodId: mood.id,
-      moodName: mood.name,
-      hp,
-      maxHp: hp,
-      attack,
-      damageTakenMult,
-      drops: def.drops,
-      image: resolveImageByState(def, "idle"),
-      images: def.images && typeof def.images === "object" ? def.images : null,
-      sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
-    };
-  }).filter(Boolean);
+  const slice = (enemyNames || []).slice(0, COMBAT_FOES_MAX);
+  return slice
+    .map((n, uid) => {
+      const def = GAME_CONFIG.enemies.find((e) => e.name === n);
+      if (!def) return null;
+      const mood = pickMoodFromEnemyDef(def);
+      const level = pickLevelFromEnemyDef(def);
+      return buildSpawnedFoe(region, def, uid, level, mood);
+    })
+    .filter(Boolean);
 }
 
 function getWorldMapData() {
@@ -3050,7 +4974,7 @@ function startWorldMapFight(setIndex) {
   beginTurnCombat(region, { units: preview.units }, { x, y, setIndex });
 }
 
-/** @type {null | { region: object, mob: object, enemyNames: string[], foes: object[], playerHp: number, playerMax: number, phase: 'player'|'enemy'|'ended', selectedUid: number, fightLog: string[], enemyTurnIndex: number, heroAttackUntil?: number, worldMapContext: null | { x: number, y: number, setIndex: number } }} */
+/** @type {null | { region: object, mob: object, enemyNames: string[], foes: object[], party: { uid: number, name: string, hp: number, maxHp: number, kind: 'hero'|'companion', dex?: number, agi?: number, flatArmor: number }[], playerHp: number, playerMax: number, stamina?: number, maxStamina?: number, comboRefundedThisTurn?: boolean, phase: 'player'|'enemy'|'ended', selectedUid: number, fightLog: string[], enemyTurnIndex: number, heroAttackUntil?: number, worldMapContext: null | { x: number, y: number, setIndex: number } }} */
 let combatState = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let combatVisualTick = null;
@@ -3146,15 +5070,61 @@ function rollGoldDrop(spec) {
   return 0;
 }
 
-function computeVictoryLoot(enemyNames) {
+/**
+ * Kill XP: `baseXP` from rarity, then `floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiff)))` — see `GAME_CONFIG.victoryXp`.
+ * @param {{ name: string, level?: number }} foe
+ * @param {number} playerLevel
+ */
+function computeVictoryXpForFoe(foe, playerLevel) {
+  const def = getEnemyDefByName(foe.name);
+  const mlRaw =
+    typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
+  const ml = Math.max(1, Math.floor(mlRaw));
+  const pl = Math.max(1, Math.floor(typeof playerLevel === "number" && playerLevel > 0 ? playerLevel : 1));
+  const cfg = GAME_CONFIG.victoryXp;
+  if (!cfg || typeof cfg !== "object") {
+    if (def && def.drops && typeof def.drops.xp === "number") return Math.max(1, Math.floor(def.drops.xp));
+    return 1;
+  }
+  const rarityId =
+    def && typeof def.spawnRarity === "string" && def.spawnRarity.trim()
+      ? def.spawnRarity.trim().toLowerCase()
+      : "common";
+  const byRarity = cfg.baseXpByRarity && typeof cfg.baseXpByRarity === "object" ? cfg.baseXpByRarity : {};
+  let baseXp =
+    typeof byRarity[rarityId] === "number" && byRarity[rarityId] > 0 ? byRarity[rarityId] : byRarity.common || 20;
+  if (!(baseXp > 0)) baseXp = 20;
+  const diffCo =
+    typeof cfg.levelDiffPerPlayerLevel === "number" && Number.isFinite(cfg.levelDiffPerPlayerLevel)
+      ? cfg.levelDiffPerPlayerLevel
+      : 0.025;
+  const minM = typeof cfg.minXpMult === "number" && Number.isFinite(cfg.minXpMult) ? cfg.minXpMult : 0.2;
+  const maxM = typeof cfg.maxXpMult === "number" && Number.isFinite(cfg.maxXpMult) ? cfg.maxXpMult : 3;
+  let addMult = 1 + (ml - pl) * diffCo;
+  if (cfg.minLevelDiffMultiplier != null && Number.isFinite(cfg.minLevelDiffMultiplier)) {
+    addMult = Math.max(cfg.minLevelDiffMultiplier, addMult);
+  }
+  if (cfg.maxLevelDiffMultiplier != null && Number.isFinite(cfg.maxLevelDiffMultiplier)) {
+    addMult = Math.min(cfg.maxLevelDiffMultiplier, addMult);
+  }
+  addMult = Math.max(minM, Math.min(maxM, addMult));
+  return Math.max(1, Math.floor(baseXp * addMult));
+}
+
+/**
+ * @param {Array<{ name: string, level?: number }>} foes Defeated encounter units (use `combatState.foes`).
+ */
+function computeVictoryLoot(foes) {
   let gold = 0;
   let xp = 0;
   const items = [];
-  enemyNames.forEach((n) => {
-    const def = GAME_CONFIG.enemies.find((e) => e.name === n);
+  const pl = typeof player.level === "number" && player.level > 0 ? player.level : 1;
+  (foes || []).forEach((foe) => {
+    if (!foe || typeof foe.name !== "string") return;
+    const def = getEnemyDefByName(foe.name);
     if (!def || !def.drops) return;
     gold += rollGoldDrop(def.drops.gold);
-    xp += def.drops.xp;
+    xp += computeVictoryXpForFoe(foe, pl);
     (def.drops.items || []).forEach((entry) => {
       const rolled = rollItemDropEntry(entry);
       if (rolled) items.push(rolled);
@@ -3270,11 +5240,23 @@ function renderTurnBattle() {
   hideItemTooltip();
 
   ensureCombatTarget();
-  const pMax = st.playerMax;
-  const pHp = Math.max(0, st.playerHp);
-  const pPct = pMax ? (pHp / pMax) * 100 : 0;
-  const img = escapeAttr(getHeroImageForState(getCombatHeroVisualState()));
-  const pName = escapeHtml(player.name);
+  ensureCombatParty(st);
+
+  let partyHtml = "";
+  (st.party || []).forEach((m) => {
+    const dead = !m || m.hp <= 0;
+    const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
+    const imgSrc =
+      m.kind === "hero"
+        ? escapeAttr(getHeroImageForState(getCombatHeroVisualState()))
+        : escapeAttr(getItemImage(m.name));
+    partyHtml += `<div class="fight-ally-card ${dead ? "fight-ally-card--dead" : ""}" data-party-member="${m.uid}">
+      <img class="fight-portrait-img fight-portrait-img--ally" src="${imgSrc}" alt="" />
+      <span class="fight-card-name">${escapeHtml(m.name)}</span>
+      <div class="hp-bar fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
+      <span class="fight-card-hp-text">${Math.max(0, m.hp)} / ${m.maxHp}</span>
+    </div>`;
+  });
 
   let enemiesHtml = "";
   st.foes.forEach((f) => {
@@ -3300,12 +5282,7 @@ function renderTurnBattle() {
   });
 
   hud.innerHTML = `<div class="fight-battlefield">
-    <div class="fight-hero-card">
-      <img class="fight-portrait-img" src="${img}" alt="" />
-      <span class="fight-card-name">${pName}</span>
-      <div class="hp-bar fight-card-hp"><div class="hp-bar-fill" style="width:${pPct}%"></div></div>
-      <span class="fight-card-hp-text">${pHp} / ${pMax}</span>
-    </div>
+    <div class="fight-party-row">${partyHtml}</div>
     <div class="fight-enemies-row">${enemiesHtml}</div>
   </div>`;
   hydrateSpriteAnimations(hud);
@@ -3317,16 +5294,29 @@ function renderTurnBattle() {
     } else if (st.phase === "player") {
       actionsEl.classList.remove("hidden");
       const skills = getActiveCombatSkills();
+      const hasAoeSkill = skills.some((s) => s.combatAoe === "all_enemies");
+      const stam = typeof st.stamina === "number" ? st.stamina : 0;
+      const maxS = typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina();
+      const atkBase = resolveAttackStaminaCost();
+      const canAtk = stam >= atkBase;
       let skillBtns = "";
       skills.forEach((sk) => {
         const sImg = escapeAttr(getSkillImage(sk.name));
-        skillBtns += `<button type="button" class="btn-secondary fight-skill-btn" data-fight-skill="${escapeAttr(sk.name)}" title="${escapeAttr(sk.name)}"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" /></button>`;
+        const sc = resolveSkillStaminaCost(getSkillStaminaCost(sk.name));
+        const canSk = stam >= sc;
+        const dis = canSk ? "" : " disabled";
+        skillBtns += `<button type="button" class="btn-secondary fight-skill-btn"${dis} data-fight-skill="${escapeAttr(sk.name)}" title="${escapeAttr(sk.name)} (${sc} stamina)"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" /></button>`;
       });
+      const hint = hasAoeSkill
+        ? "Stamina refills each turn. Spend it on attacks and skills; End turn when you are done. Area skills hit all enemies."
+        : "Stamina refills each turn. Spend it on attacks and skills; End turn when you are done.";
+      const atkDis = canAtk ? "" : " disabled";
       actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
-        <p class="fight-hint">Select an enemy, then choose an action.</p>
+        <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
+        <p class="fight-hint">${hint}</p>
         <div class="fight-action-row">
-          <button type="button" class="btn-primary" data-fight-action="attack">Attack</button>
-          <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">Pass</button>
+          <button type="button" class="btn-primary"${atkDis} data-fight-action="attack">Attack (${atkBase})</button>
+          <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">End turn</button>
           ${skillBtns}
         </div>`;
     } else {
@@ -3371,13 +5361,30 @@ function runEnemyPhase() {
   function nextHit() {
     const cur = combatState;
     if (!cur || cur.phase !== "enemy") return;
-    if (cur.playerHp <= 0) {
+    if (!isPartyAlive(cur)) {
       finishCombatDefeat();
       return;
     }
     if (i >= living.length) {
+      tickEffectsAtStartOfPlayerTurn(cur);
+      if (!isPartyAlive(cur)) {
+        syncCombatPartyHeroMirror(cur);
+        setTimeout(() => finishCombatDefeat(), 200);
+        return;
+      }
+      ensureCombatStatus(cur);
+      if ((cur.status.playerStunTurns || 0) > 0) {
+        cur.status.playerStunTurns -= 1;
+        appendFightLog("You are stunned and lose your turn!");
+        tickPlayerTurnEndBuffs(cur);
+        renderTurnBattle();
+        setTimeout(() => runEnemyPhase(), 380);
+        return;
+      }
       cur.phase = "player";
       ensureCombatTarget();
+      refillCombatStamina(cur);
+      cur.comboRefundedThisTurn = false;
       renderTurnBattle();
       return;
     }
@@ -3389,14 +5396,25 @@ function runEnemyPhase() {
     }
     foe.attackUntil = Date.now() + 320;
     queueCombatVisualRefresh(340);
-    const raw = foe.attack;
-    const taken = getEnemyDamageTaken(raw);
-    cur.playerHp -= taken;
-    appendFightLog(`${foe.name} hits you for ${taken} damage.`);
+    const def = getEnemyDefByName(foe.name);
+    const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+    if (scriptId) {
+      enemyCombatRunScript(scriptId, foe, cur);
+    } else {
+      const prev = cur.__monsterDamageSourceFoe;
+      cur.__monsterDamageSourceFoe = foe;
+      try {
+        const raw = getFoeEffectiveAttackForCombat(foe) * getFoeOutgoingDamageMultiplier(cur, foe);
+        dealRawDamageToPlayer(cur, raw, foe.name, "hits you");
+      } finally {
+        cur.__monsterDamageSourceFoe = prev;
+      }
+    }
+    tickEnemySkillCooldownsEndOfTurn(foe);
     renderTurnBattle();
     shakeFightOverlay();
-    if (cur.playerHp <= 0) {
-      cur.playerHp = 0;
+    if (!isPartyAlive(cur)) {
+      syncCombatPartyHeroMirror(cur);
       setTimeout(() => finishCombatDefeat(), 400);
       return;
     }
@@ -3456,7 +5474,8 @@ function finishCombatVictory() {
   const st = combatState;
   if (!st) return;
   st.phase = "ended";
-  const { gold, xp, items } = computeVictoryLoot(st.enemyNames);
+  syncCombatPartyHeroMirror(st);
+  const { gold, xp, items } = computeVictoryLoot(st.foes);
   const result = {
     victory: true,
     finalPlayerHp: Math.max(0, st.playerHp),
@@ -3489,6 +5508,7 @@ function finishCombatDefeat() {
   const st = combatState;
   if (!st) return;
   st.phase = "ended";
+  syncCombatPartyHeroMirror(st);
   const result = {
     victory: false,
     finalPlayerHp: Math.max(1, st.playerHp),
@@ -3503,41 +5523,178 @@ function finishCombatDefeat() {
   if (closeBtn) closeBtn.onclick = () => closeFightOverlay();
 }
 
+function applyReflectDamageToPartyHero(st, dmgDealtToFoe, foe) {
+  if (
+    dmgDealtToFoe <= 0 ||
+    !foe.combat ||
+    typeof foe.combat.reflectTurns !== "number" ||
+    foe.combat.reflectTurns <= 0 ||
+    typeof foe.combat.reflectFrac !== "number" ||
+    foe.combat.reflectFrac <= 0
+  ) {
+    return;
+  }
+  const ref = Math.max(1, Math.floor(dmgDealtToFoe * foe.combat.reflectFrac));
+  ensureCombatParty(st);
+  const hero = st.party.find((m) => m && m.kind === "hero");
+  if (hero) {
+    hero.hp -= ref;
+    if (hero.hp < 0) hero.hp = 0;
+    st.playerHp = hero.hp;
+  } else {
+    st.playerHp -= ref;
+  }
+  appendFightLog(`${foe.name} reflects ${ref} damage.`);
+}
+
 function playerCombatAction(kind, skillName) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
   ensureCombatTarget();
+  if (typeof st.stamina !== "number") initCombatStamina(st);
+
+  const skCfg = kind === "skill" && skillName ? GAME_CONFIG.skills.find((s) => s.name === skillName) : null;
+  const aoeAllEnemies = skCfg && skCfg.combatAoe === "all_enemies";
+  const baseStaminaCost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
+  const cost =
+    kind === "skill" && skillName ? resolveSkillStaminaCost(baseStaminaCost) : resolveAttackStaminaCost();
+  if (st.stamina < cost) {
+    appendFightLog(`Not enough stamina (need ${cost}, have ${st.stamina}).`);
+    return;
+  }
+  st.stamina -= cost;
+
+  function resolveOutgoingBaseDamage() {
+    let raw =
+      kind === "skill" && skillName ? getCombatDamage("skill", skillName) : getCombatDamage("attack");
+    raw = Math.max(1, Math.floor(raw * getPlayerOutgoingDamageMultFromStatus(st.status)));
+    return raw;
+  }
+
+  function afterHitsCommit() {
+    if (kind === "skill") tryDexComboRefundAfterSkill(st);
+    if (!isPartyAlive(st)) {
+      syncCombatPartyHeroMirror(st);
+      finishCombatDefeat();
+      return;
+    }
+    if (!st.foes.some((f) => f.hp > 0)) {
+      finishCombatVictory();
+      return;
+    }
+    if (st.stamina <= 0) {
+      endPlayerTurn();
+      return;
+    }
+    renderTurnBattle();
+    startPlayerTurnTimer();
+  }
+
+  if (aoeAllEnemies) {
+    const living = st.foes.filter((f) => f.hp > 0);
+    if (!living.length) {
+      st.stamina += cost;
+      appendFightLog("No enemies to hit.");
+      return;
+    }
+    const label = skillName || "Attack";
+    const baseDmg = resolveOutgoingBaseDamage();
+    clearPlayerTurnTimer();
+    st.heroAttackUntil = Date.now() + 320;
+    queueCombatVisualRefresh(340);
+    for (const foe of living) {
+      if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
+        const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
+        foe.combat.evadeNextChance = 0;
+        if (Math.random() < p) {
+          appendFightLog(`${foe.name} evades ${label}!`);
+          continue;
+        }
+      }
+      const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
+      if (res.missed) {
+        appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+        continue;
+      }
+      const dmg = res.damage;
+      foe.hp -= dmg;
+      if (foe.hp < 0) foe.hp = 0;
+      appendFightLog(
+        `${player.name} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
+      );
+      if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg);
+      applyReflectDamageToPartyHero(st, dmg, foe);
+      if (foe.combat && foe.combat.script === "tusk_boar") {
+        foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
+      }
+      if (foe.combat && foe.combat.script === "grass_snake") {
+        foe.combat.markedByPlayer = true;
+      }
+    }
+    afterHitsCommit();
+    return;
+  }
+
   const uid = st.selectedUid;
   const foe = st.foes.find((f) => f.uid === uid && f.hp > 0);
   if (!foe) {
+    st.stamina += cost;
     appendFightLog("Select a living enemy.");
     return;
   }
 
-  const raw = kind === "skill" ? getCombatDamage("skill", skillName) : getCombatDamage("attack");
   const label = kind === "skill" && skillName ? skillName : "Attack";
-  const takenMult = typeof foe.damageTakenMult === "number" && foe.damageTakenMult > 0 ? foe.damageTakenMult : 1;
-  const dmg = Math.max(1, Math.floor(raw * takenMult));
+  if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
+    const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
+    foe.combat.evadeNextChance = 0;
+    if (Math.random() < p) {
+      clearPlayerTurnTimer();
+      st.heroAttackUntil = Date.now() + 320;
+      queueCombatVisualRefresh(340);
+      appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades!`);
+      if (!st.foes.some((f) => f.hp > 0)) {
+        finishCombatVictory();
+        return;
+      }
+      afterHitsCommit();
+      return;
+    }
+  }
+
+  const baseDmg = resolveOutgoingBaseDamage();
+  const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
   clearPlayerTurnTimer();
   st.heroAttackUntil = Date.now() + 320;
   queueCombatVisualRefresh(340);
-  foe.hp -= dmg;
-  if (foe.hp < 0) foe.hp = 0;
-  appendFightLog(`${player.name} uses ${label} on ${foe.name} for ${dmg} damage.`);
-
-  if (!st.foes.some((f) => f.hp > 0)) {
-    finishCombatVictory();
+  if (res.missed) {
+    appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+    afterHitsCommit();
     return;
   }
-  runEnemyPhase();
+  const dmg = res.damage;
+  foe.hp -= dmg;
+  if (foe.hp < 0) foe.hp = 0;
+  appendFightLog(
+    `${player.name} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
+  );
+  if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg);
+  applyReflectDamageToPartyHero(st, dmg, foe);
+  if (foe.combat && foe.combat.script === "tusk_boar") {
+    foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
+  }
+  if (foe.combat && foe.combat.script === "grass_snake") {
+    foe.combat.markedByPlayer = true;
+  }
+
+  afterHitsCommit();
 }
 
 function playerCombatPass(auto) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
   clearPlayerTurnTimer();
-  appendFightLog(auto ? `${player.name} runs out of time and passes.` : `${player.name} passes.`);
-  runEnemyPhase();
+  appendFightLog(auto ? `${player.name} runs out of time and ends their turn.` : `${player.name} ends their turn.`);
+  endPlayerTurn();
 }
 
 function onFightOverlayDblClick(ev) {
@@ -3583,22 +5740,27 @@ function onFightOverlayClick(ev) {
 }
 
 function beginTurnCombat(region, mob, worldMapContext) {
-  const foes = mob.units
-    ? spawnEnemiesFromPreview(region, mob.units)
-    : spawnEnemies(region, mob.enemies.slice());
-  const enemyNames = mob.units ? mob.units.map((u) => u.name) : mob.enemies.slice();
+  const cappedUnits = mob.units ? mob.units.slice(0, COMBAT_FOES_MAX) : null;
+  const cappedEnemies = !mob.units && mob.enemies ? mob.enemies.slice(0, COMBAT_FOES_MAX) : [];
+  const foes = mob.units ? spawnEnemiesFromPreview(region, cappedUnits) : spawnEnemies(region, cappedEnemies);
+  const enemyNames = mob.units ? cappedUnits.map((u) => u.name) : cappedEnemies.slice();
+  const party = buildCombatPartyForMob(mob);
   combatState = {
     region,
     mob,
     enemyNames,
     foes,
-    playerHp: Math.min(player.hp, player.maxHp),
-    playerMax: player.maxHp,
+    party,
+    playerHp: party[0] ? party[0].hp : Math.min(player.hp, player.maxHp),
+    playerMax: party[0] ? party[0].maxHp : player.maxHp,
     phase: "player",
     selectedUid: null,
     fightLog: [],
-    worldMapContext: worldMapContext || null
+    worldMapContext: worldMapContext || null,
+    status: null
   };
+  ensureCombatStatus(combatState);
+  initCombatStamina(combatState);
   clearCombatVisualTimer();
   ensureCombatTarget();
 
@@ -3661,8 +5823,11 @@ function startFight(region, mob) {
 }
 
 function levelUp() {
-  while (player.xp >= 100) {
-    player.xp -= 100;
+  const maxLv = getPlayerMaxLevel();
+  while (player.level < maxLv) {
+    const need = xpToNextLevel(player.level);
+    if (need <= 0 || player.xp < need) break;
+    player.xp -= need;
     player.level++;
     player.charPoints += 5;
     player.baseAttack += 2;
@@ -3672,7 +5837,7 @@ function levelUp() {
 }
 
 function spendCharPoint(statKey) {
-  if (!["str", "agi", "vit"].includes(statKey)) return;
+  if (!["str", "dex", "vit", "int"].includes(statKey)) return;
   if (player.charPoints <= 0) return;
   if (player[statKey] >= STAT_CAP) return;
   player.charPoints--;
@@ -3812,8 +5977,9 @@ const STAT_TIP_LABELS = {
   xp: "Experience",
   charPoints: "Characteristic points",
   str: "Strength",
-  agi: "Agility",
+  dex: "Dexterity",
   vit: "Vitality",
+  int: "Intelligence",
   armor: "Armor",
   damage: "Damage"
 };
@@ -3840,7 +6006,17 @@ function buildSkillTooltipHtml(skillName) {
   if (def.image) {
     parts.push(`<img class="item-tip-skill-icon" src="${escapeAttr(def.image)}" alt="" />`);
   }
-  const desc = def.description || "Learned skill with passive or combat effects.";
+  let desc = def.description || "Learned skill with passive or combat effects.";
+  if (typeof def.combatMultiplier === "number") {
+    const baseSt = getSkillStaminaCost(skillName);
+    const st = resolveSkillStaminaCost(baseSt);
+    desc +=
+      st !== baseSt
+        ? ` Stamina cost: ${st} (base ${baseSt}; Intelligence can reduce this).`
+        : ` Stamina cost: ${st}.`;
+  } else {
+    desc += " No stamina cost in turn combat (passive only).";
+  }
   parts.push(`<div class="item-tip-desc">${escapeHtml(desc)}</div>`);
   const extra = [];
   if (typeof def.bonus === "number") extra.push(`Passive attack +${def.bonus}`);
@@ -4058,7 +6234,12 @@ function buildOverviewHtml() {
   }).join("");
 
   const dmg = getDamageRange();
-  const xpPct = Math.min(100, (player.xp / 100) * 100);
+  const maxLv = getPlayerMaxLevel();
+  const xpNeed = player.level >= maxLv ? 0 : xpToNextLevel(player.level);
+  const xpPct =
+    player.level >= maxLv ? 100 : xpNeed > 0 ? Math.min(100, (player.xp / xpNeed) * 100) : 0;
+  const xpNum =
+    player.level >= maxLv ? `${player.xp} (max L${maxLv})` : `${player.xp} / ${xpNeed}`;
   const hpPct = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
 
   const hpRow = `<div class="stat-bar-row stat-tip-row" data-stat-tip="hp">
@@ -4068,7 +6249,7 @@ function buildOverviewHtml() {
   </div>`;
   const xpRow = `<div class="stat-bar-row stat-tip-row" data-stat-tip="xp">
     <span class="stat-bar-label">Experience</span>
-    <span class="stat-bar-num">${player.xp} / 100</span>
+    <span class="stat-bar-num">${xpNum}</span>
     <div class="stat-bar-track stat-bar-xp"><div class="stat-bar-fill" style="width:${xpPct}%"></div></div>
   </div>`;
 
@@ -4078,13 +6259,14 @@ function buildOverviewHtml() {
   </div>`;
 
   const characteristicsTabHtml = `
-    ${statBarRow("Level", player.level, Math.max(20, player.level + 5), "level", "level")}
+    ${statBarRow("Level", player.level, getPlayerMaxLevel(), "level", "level")}
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
     ${statBarRowWithSpend("Strength", player.str, STAT_CAP, "str", "str", "str")}
-    ${statBarRowWithSpend("Agility", player.agi, STAT_CAP, "agi", "agi", "agi")}
+    ${statBarRowWithSpend("Dexterity", player.dex, STAT_CAP, "dex", "dex", "dex")}
     ${statBarRowWithSpend("Vitality", player.vit, STAT_CAP, "vit", "vit", "vit")}
+    ${statBarRowWithSpend("Intelligence", player.int, STAT_CAP, "int", "int", "int")}
     <div class="stat-plain-row stat-tip-row" data-stat-tip="armor">
       <span>Armor</span><strong>${getArmorDefense()}</strong>
     </div>

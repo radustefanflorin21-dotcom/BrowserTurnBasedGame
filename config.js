@@ -20,18 +20,23 @@ const GAME_CONFIG = {
   ],
 
   /**
-   * Enemy drops: xp always applies on victory. gold: either a number (fixed) or { min, max } for a random
-   * integer in that range per defeated enemy. items: each entry is either a string (item name, 100% drop) or
-   * { name, dropRate } with dropRate in 0–100 (% per kill).
+   * Enemy drops: gold: either a number (fixed) or { min, max } for a random integer in that range per defeated
+   * enemy. items: each entry is either a string (item name, 100% drop) or { name, dropRate } with dropRate in 0–100 (% per kill).
+   * `drops.xp` is optional metadata only; kill XP uses `victoryXp` (rarity base, level gap, and M/P ratio clamp).
    * Enemy art supports legacy `image`, state images (`images: { idle, walk, attack }`),
    * or sprite strips (`sprites: { idle|walk|attack: { sheet, frames, fps, loop?, cols?, rows? } }`).
    * For atlas layouts (e.g. 10 frames in 2 rows), set `cols` and `rows` (example: cols: 5, rows: 2).
    * Optional `spawnRarity`: "common" | "rare" | "epic" | "myth" | "ancient" — used with `enemySpawnRarityWeights`
    * when rolling mobs from a biome or region pool (see game.js). Omitted defaults to common.
+   * Optional `combatScript`: id for scripted enemy turns (skills, cooldowns, AI); see game.js `enemyCombatRunScript`.
+   * Optional `combatRole`: "tank" | "assassin" | "bruiser" | "mage" | "support" | "controller" — splits level×statsPerLevel
+   * budget (see monsterScaling). If omitted, role is inferred from combatScript.
+   * `hp` and `attack` are anchors: max HP ≈ hp×scale + VIT×hpPerVit; attack is the damage base before STR scaling in combat.
    */
   enemies: [
     {
       name: "Burrow Hare",
+      combatScript: "burrow_hare",
       spawnRarity: "common",
       hp: 40,
       attack: 6,
@@ -46,6 +51,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Plains Raptor",
+      combatScript: "plains_raptor",
       spawnRarity: "common",
       hp: 60,
       attack: 8,
@@ -60,6 +66,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Grass Snake",
+      combatScript: "grass_snake",
       spawnRarity: "rare",
       hp: 40,
       attack: 12,
@@ -74,6 +81,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tusk Boar",
+      combatScript: "tusk_boar",
       spawnRarity: "epic",
       hp: 120,
       attack: 10,
@@ -88,6 +96,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Field Wolf",
+      combatScript: "field_wolf",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -102,6 +111,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Squirrel",
+      combatScript: "greenleaf_squirrel",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -116,6 +126,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Parrot",
+      combatScript: "greenleaf_parrot",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -130,6 +141,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Fox",
+      combatScript: "greenleaf_fox",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -144,6 +156,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Stag",
+      combatScript: "greenleaf_stag",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -158,6 +171,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Gorilla",
+      combatScript: "gorilla",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -172,6 +186,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Stone Marmot",
+      combatScript: "stone_marmot",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -186,6 +201,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Lynx",
+      combatScript: "rock_lynx",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -200,6 +216,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Ibex",
+      combatScript: "rock_ibex",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -214,6 +231,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Serpent",
+      combatScript: "rock_serpent",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -228,6 +246,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Lizard",
+      combatScript: "rock_lizard",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -242,6 +261,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ash Lizard",
+      combatScript: "ash_lizard",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -256,6 +276,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Cinder Stalker",
+      combatScript: "cinder_stalker",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -270,6 +291,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ember Scuttler",
+      combatScript: "ember_scuttler",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -284,6 +306,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Magma Boar",
+      combatScript: "magma_boar",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -298,6 +321,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Lava Basilisk",
+      combatScript: "lava_basilisk",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -312,6 +336,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Icy Mink",
+      combatScript: "icy_mink",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -326,6 +351,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Icy Serpent",
+      combatScript: "icy_serpent",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -340,6 +366,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Glacier Turtoise",
+      combatScript: "glacier_turtoise",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -354,6 +381,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Frozen Stalker",
+      combatScript: "frozen_stalker",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -368,6 +396,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Frost Skitter",
+      combatScript: "frost_skitter",
       spawnRarity: "myth",
       hp: 30,
       attack: 5,
@@ -382,6 +411,7 @@ const GAME_CONFIG = {
     },  
     {
       name: "Pinebound Fawn",
+      combatScript: "pinebound_fawn",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -396,6 +426,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Frozen Pinecone",
+      combatScript: "frozen_pinecone",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -410,6 +441,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ice-Tusked Boar",
+      combatScript: "ice_tusked_boar",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -424,6 +456,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Barkhide Spriggan",
+      combatScript: "barkhide_spriggan",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -438,6 +471,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Winter Guardian",
+      combatScript: "winter_guardian",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -452,6 +486,7 @@ const GAME_CONFIG = {
     }, 
     {
       name: "Dust Carver",
+      combatScript: "dust_carver",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -466,6 +501,7 @@ const GAME_CONFIG = {
     }, 
     {
       name: "Desert Thornback Crawler",
+      combatScript: "desert_thornback_crawler",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -480,6 +516,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Mirage Lurker",
+      combatScript: "mirage_lurker",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -494,6 +531,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Dune Devourer",
+      combatScript: "dune_devourer",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -508,6 +546,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Witherling",
+      combatScript: "witherling",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -522,6 +561,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Remnant of Rust",
+      combatScript: "remnant_of_rust",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -536,6 +576,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Faded War Wraith",
+      combatScript: "faded_war_wraith",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -550,6 +591,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ash Horror",
+      combatScript: "ash_horror",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -564,6 +606,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Cinder Husk",
+      combatScript: "cinder_husk",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -578,6 +621,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ash Skulker",
+      combatScript: "ash_skulker",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -592,6 +636,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tide Hopper",
+      combatScript: "tide_hopper",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -606,6 +651,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Hermit Crab",
+      combatScript: "hermit_crab",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -620,6 +666,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Driftling",
+      combatScript: "driftling",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -634,6 +681,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tidemeld Revenant",
+      combatScript: "tidemeld_revenant",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -648,6 +696,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Coastal Horror",
+      combatScript: "coastal_horror",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -662,6 +711,7 @@ const GAME_CONFIG = {
     }, 
     {
       name: "Saltwind Skimmer",
+      combatScript: "saltwind_skimmer",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -676,6 +726,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Brinegullet Spitter",
+      combatScript: "brinegullet_spitter",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
@@ -690,6 +741,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Wavebreaker Idol",
+      combatScript: "wavebreaker_idol",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
@@ -704,6 +756,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Cliff Lurker",
+      combatScript: "cliff_lurker",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -718,6 +771,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tideharrow",
+      combatScript: "tideharrow",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
@@ -772,6 +826,74 @@ const GAME_CONFIG = {
     epic: 10,
     myth: 5,
     ancient: 1
+  },
+
+  /**
+   * Character leveling: XP per level rises with level² so early levels stay fast and later ones slower.
+   * `xpToNextLevel(L) = xpToNextConst + (L² * xpToNextLevelSquare)` is the XP needed to go from level L to L+1 (default 150 + L²×4).
+   * At `maxLevel`, further XP is banked but does not increase level.
+   */
+  leveling: {
+    maxLevel: 50,
+    xpToNextConst: 150,
+    xpToNextLevelSquare: 4
+  },
+
+  /**
+   * Kill XP per defeated foe (gold/items still use each enemy’s `drops`).
+   * Let M = monster level, P = player level, `baseXP = baseXpByRarity[spawnRarity]`.
+   * `xp = floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiffPerPlayerLevel))`.
+   * Optional: set `minLevelDiffMultiplier` / `maxLevelDiffMultiplier` to clamp only the `(1 + …)` factor.
+   */
+  victoryXp: {
+    /** `xp = floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiffPerPlayerLevel)))` — level ratio factor removed. */
+    levelDiffPerPlayerLevel: 0.025,
+    minXpMult: 0.2,
+    maxXpMult: 3,
+    levelRatioMin: 0.5,
+    levelRatioMax: 1.5,
+    minLevelDiffMultiplier: null,
+    maxLevelDiffMultiplier: null,
+    baseXpByRarity: {
+      common: 20,
+      rare: 40,
+      epic: 80,
+      myth: 150,
+      ancient: 220
+    }
+  },
+
+  /**
+   * Monster total stat budget ≈ level × statsPerLevel (split by role). Optional per-enemy `combatRole` overrides script inference.
+   * Damage / DoT / crit / evade formulas for enemies are applied in game.js using these coefficients.
+   */
+  monsterScaling: {
+    statsPerLevel: 4.5,
+    hpPerVit: 8,
+    damageStrCoeff: 0.015,
+    dotIntCoeff: 0.02,
+    effectIntCoeff: 0.02,
+    enemyCritBasePct: 5,
+    enemyCritPerDexPct: 0.2,
+    enemyCritDamageMult: 1.5,
+    evadeDexCoeff: 0.15,
+    vitDamageReductionPerPoint: 0.01,
+    vitDamageReductionCapPct: 45,
+    thickHideBase: 0.25,
+    thickHidePerVit: 0.002,
+    thickHideReductionCap: 0.65,
+    packHowlBase: 0.2,
+    packHowlPerInt: 0.003
+  },
+
+  /** Weights sum to 1. Keys: tank | assassin | bruiser | mage | support | controller */
+  enemyRoles: {
+    tank: { STR: 0.25, DEX: 0.15, VIT: 0.4, INT: 0.2 },
+    assassin: { STR: 0.3, DEX: 0.4, VIT: 0.1, INT: 0.2 },
+    bruiser: { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 },
+    mage: { STR: 0.15, DEX: 0.25, VIT: 0.2, INT: 0.4 },
+    support: { STR: 0.1, DEX: 0.2, VIT: 0.3, INT: 0.4 },
+    controller: { STR: 0.1, DEX: 0.3, VIT: 0.15, INT: 0.45 }
   },
 
   items: {
@@ -872,7 +994,7 @@ const GAME_CONFIG = {
       image: "Assets/Equips/emerald-ring.svg",
       description: "Tiny emerald in a silver setting.",
       bonusSkills: ["Quick Reflexes"],
-      bonusStats: { AGI: 1 }
+      bonusStats: { DEX: 1 }
     },
     "Wolf Pelt": {
       type: "resource",
@@ -910,19 +1032,43 @@ const GAME_CONFIG = {
     }
   },
 
+  /**
+   * Combat tuning. Core stat curves (STR/DEX/VIT/INT) are implemented in game.js as documented formulas.
+   * Optional on enemies: `evasionPct`, `physicalResistPct`, `magicResistPct`, `flatDamageReduction` (numbers, % or flat as named).
+   */
+  statSystem: {
+    staminaPerTurn: 6,
+    attackStaminaCost: 2,
+    minSkillStaminaCost: 2,
+    minAttackStaminaCost: 1,
+    baseCritMultiplierPct: 150,
+    minHitChancePct: 15,
+    maxHitChancePct: 100,
+    enemyBaseHitChancePct: 100,
+    /** Max HP = baseHpFromLevel + vitHpPerPoint * total Vitality (base + gear). */
+    baseHpFromLevel: 50,
+    hpPerLevel: 10,
+    vitHpPerPoint: 12,
+    /** Incoming damage split before resists (physical fraction 0–1). */
+    incomingPhysicalWeight: 0.55,
+    staggerNextAttackMult: 0.85
+  },
+
   /** Short blurbs for overview tooltips; combat math lives in game.js */
   statHelp: {
     level:
-      "Your overall tier. Each level grants 5 characteristic points, +2 base attack, and refills HP. You gain a level every 100 XP.",
+      "Your overall tier. Each level grants 5 characteristic points, +2 base attack, and refills HP. XP required per level grows with the curve in config (leveling).",
     hp: "Hit points: when this reaches 0 in combat, you are defeated. Max HP grows with level and Vitality.",
-    xp: "Experience toward the next level. At 100 XP you level up, earn characteristic points, gain base attack, and HP refills.",
+    xp: "Experience toward the next level. The bar shows progress vs the XP required for your current level (see leveling formula in config).",
     charPoints:
-      "Earned each time you level (5 per level). Spend 1 point per click on Strength, Agility, or Vitality (max 50 each).",
-    str: "Strength adds to melee attack damage (half your Strength, rounded down, plus weapon and skills). Spend characteristic points to raise it.",
-    agi: "Agility reduces damage taken from enemies: each 4 Agility subtracts 1 from incoming hit damage (before armor). Spend characteristic points to raise it.",
-    vit: "Vitality increases max HP (5 HP per point). Spending a point on Vitality also increases current HP by the same amount (up to your new max).",
-    armor: "Total armor from equipped gear. Each point reduces enemy damage by 1 (combined with Agility’s reduction).",
-    damage: "Approximate damage range per attack: your attack stat varies slightly around the middle value shown."
+      "Earned each time you level (5 per level). Spend 1 point on Strength, Dexterity, Vitality, or Intelligence (max 50 each).",
+    str: "Strength (total): physical damage %, armor penetration %, physical resist %, and stagger on Heavy-tagged skills.",
+    dex: "Dexterity (total): crit chance, crit damage bonus, evasion, accuracy vs misses, and combo stamina refunds after skills.",
+    vit: "Vitality (total): max HP from a flat per-VIT formula, flat damage reduction, status resist, DoT reduction, and heal bonus.",
+    int: "Intelligence (total): magic/skill power %, magic resist %, status potency, stamina cost reduction on skills, debuff duration vs foes.",
+    armor: "Armor from gear: flat reduction on incoming hits (combined with Vitality and resistances).",
+    damage:
+      "Approximate physical attack damage after Strength bonus (no crit); skills use the same weapon core with per-skill multipliers, then stat curves resolve in combat."
   },
 
   skills: [
@@ -930,29 +1076,41 @@ const GAME_CONFIG = {
       name: "Power Strike",
       bonus: 5,
       combatMultiplier: 1.55,
+      staminaCost: 4,
+      damageKind: "physical",
+      combatTags: ["heavy"],
       image: "Assets/Skills/power-strike.svg",
-      description: "A committed melee swing. Passive: +5 attack. In combat, use as a skill for a high damage multiplier."
+      description: "A committed melee swing. Passive: +5 attack. In combat, uses stamina; high multiplier, scales with Strength and Intelligence."
     },
     {
       name: "Heavy Blow",
       bonus: 3,
       combatMultiplier: 1.35,
+      staminaCost: 3,
+      damageKind: "physical",
+      combatTags: ["heavy", "crushing"],
       image: "Assets/Skills/heavy-blow.svg",
-      description: "A slower, crushing hit. Passive: +3 attack. Combat skill with solid bonus damage."
+      description: "A slower, crushing hit. Passive: +3 attack. Combat skill; solid damage, moderate stamina."
     },
     {
       name: "Precise Shot",
       bonus: 2,
       combatMultiplier: 1.28,
+      staminaCost: 3,
+      damageKind: "physical",
       image: "Assets/Skills/precise-shot.svg",
-      description: "Aimed strike exploiting weak points. Passive: +2 attack. Lighter multiplier, reliable in long fights."
+      description: "Aimed strike exploiting weak points. Passive: +2 attack. Benefits from Dexterity (crit) and Intelligence."
     },
     {
       name: "Arcane Strike",
       bonus: 4,
       combatMultiplier: 1.42,
+      staminaCost: 4,
+      damageKind: "magic",
+      /** In turn combat, hits every living foe (respects mitigation, reflect, evade per enemy). */
+      combatAoe: "all_enemies",
       image: "Assets/Skills/arcane-strike.svg",
-      description: "Infused attack blending force and focus. Passive: +4 attack. Strong combat skill multiplier."
+      description: "Infused attack blending force and focus. Passive: +4 attack. AoE in fights; Intelligence improves its output."
     },
     {
       name: "Quick Reflexes",
@@ -1027,7 +1185,8 @@ const GAME_CONFIG = {
    * World map (Excel World_map.xlsx → world_map_data.js). Biome index matches cell color legend (rows 104+).
    * Layout and presentation are baselined as complete in v2.4 (see `version` above).
    * Export uses the grid from column B; row 2+ maps to y=0,… — height is capped so the last playable y is 99 (rows below in Excel are margin, ignored).
-   * Each passable biome lists possibleEnemies; mobs roll 1–8 units from that pool (see game.js).
+   * Each passable biome lists possibleEnemies; mobs roll up to 8 units from that pool (see game.js); combat caps at 8v8 (party + foes).
+   * Optional `partyAllies` on the mob passed to combat: array of `{ name?, maxHp?, hp?, agi?, armor? }` companions (hero always slot 0; max 8 party members total).
    * Per-slot picks use each enemy's `spawnRarity` with `enemySpawnRarityWeights` (weighted tier, then uniform within tier).
    * Optional mobDifficulty: { easy, medium, hard } anchor levels — encounter slots 0/1/2 use easy/medium/hard;
    * the mob's total level (sum of all unit levels) is rolled in ±25% of that anchor (integer bounds).
