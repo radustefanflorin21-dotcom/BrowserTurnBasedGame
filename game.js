@@ -120,6 +120,9 @@ function applyCityPortalsFromConfig() {
     const label = typeof p.label === "string" && p.label.trim() ? p.label.trim() : "Waygate";
     const portalId = `portal_${anchorKey}`;
     const portalEl = { type: "portal", id: portalId, label, city: nameTrim, theme, editable: true };
+    if (typeof p.leftPct === "number" && Number.isFinite(p.leftPct)) portalEl.leftPct = clampScenePct(p.leftPct);
+    if (typeof p.topPct === "number" && Number.isFinite(p.topPct)) portalEl.topPct = clampScenePct(p.topPct);
+    if (typeof p.scalePct === "number" && Number.isFinite(p.scalePct)) portalEl.scalePct = clampSceneScalePct(p.scalePct);
     const prev = wm.coordinateCells[anchorKey];
     if (prev && prev.kind === "scene") {
       const raw = Array.isArray(prev.elements) ? prev.elements : [];
@@ -521,6 +524,69 @@ function getEnemyDefByName(name) {
   return GAME_CONFIG.enemies.find((e) => e.name === name);
 }
 
+/** @type {readonly string[]} */
+const ENEMY_SPAWN_RARITY_ORDER = ["common", "rare", "epic", "myth", "ancient"];
+
+function normalizeEnemySpawnRarity(raw) {
+  const s = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (ENEMY_SPAWN_RARITY_ORDER.includes(s)) return s;
+  return "common";
+}
+
+function pickMobSpawnRarityTier() {
+  const cfg = GAME_CONFIG.enemySpawnRarityWeights;
+  let entries = ENEMY_SPAWN_RARITY_ORDER.map((id) => {
+    const w =
+      cfg && typeof cfg === "object" && typeof cfg[id] === "number" && Number.isFinite(cfg[id])
+        ? Math.max(0, cfg[id])
+        : 0;
+    return { id, w };
+  });
+  let sum = entries.reduce((a, e) => a + e.w, 0);
+  if (sum <= 0) {
+    entries = ENEMY_SPAWN_RARITY_ORDER.map((id) => ({ id, w: 1 }));
+    sum = entries.length;
+  }
+  let r = Math.random() * sum;
+  for (const e of entries) {
+    r -= e.w;
+    if (r <= 0) return e.id;
+  }
+  return entries[entries.length - 1].id;
+}
+
+/**
+ * Picks an enemy name from a biome/region pool using `GAME_CONFIG.enemySpawnRarityWeights`
+ * and each enemy's `spawnRarity` (defaults to common).
+ * @param {string[]} pool
+ * @returns {string | null}
+ */
+function pickRandomEnemyNameFromPool(pool) {
+  if (!pool || !pool.length) return null;
+  /** @type {Record<string, string[]>} */
+  const byTier = {};
+  for (const id of ENEMY_SPAWN_RARITY_ORDER) byTier[id] = [];
+  const missingDef = [];
+  for (const name of pool) {
+    const def = getEnemyDefByName(name);
+    if (!def) {
+      missingDef.push(name);
+      continue;
+    }
+    const t = normalizeEnemySpawnRarity(def.spawnRarity);
+    byTier[t].push(name);
+  }
+  for (let i = 0; i < 16; i++) {
+    const tier = pickMobSpawnRarityTier();
+    const arr = byTier[tier];
+    if (arr && arr.length) return randomFrom(arr);
+  }
+  const merged = [...missingDef];
+  for (const id of ENEMY_SPAWN_RARITY_ORDER) merged.push(...byTier[id]);
+  if (!merged.length) return null;
+  return randomFrom(merged);
+}
+
 function getEnemyVisualByName(name, state) {
   const def = getEnemyDefByName(name);
   if (!def) return { image: "", sprite: null };
@@ -807,7 +873,7 @@ function pickTargetTotalLevel(minT, maxT, defs) {
 }
 
 function rollMobCompositionFallbackTotalAnchor(pool, anchor, tier, minTotal, maxTotal) {
-  const name = randomFrom(pool);
+  const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
   const def = GAME_CONFIG.enemies.find((e) => e.name === name);
   if (!def) {
     return { units: [], mobTotalLevel: 0, difficultyTier: tier, difficultyAnchor: anchor };
@@ -890,7 +956,7 @@ function rollMobCompositionLegacy(pool) {
   const count = Math.floor(Math.random() * (MOB_SIZE_MAX - MOB_SIZE_MIN + 1)) + MOB_SIZE_MIN;
   const units = [];
   for (let i = 0; i < count; i++) {
-    const name = randomFrom(pool);
+    const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
     const def = GAME_CONFIG.enemies.find((e) => e.name === name);
     if (!def) continue;
     const mood = pickMoodFromEnemyDef(def);
@@ -898,7 +964,7 @@ function rollMobCompositionLegacy(pool) {
     units.push({ name, level, moodId: mood.id, moodName: mood.name });
   }
   if (!units.length && pool.length) {
-    const name = randomFrom(pool);
+    const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
     const def = GAME_CONFIG.enemies.find((e) => e.name === name);
     if (def) {
       const mood = pickMoodFromEnemyDef(def);
@@ -930,7 +996,7 @@ function rollMobComposition(pool, slotIndex, biomeLike) {
     const count = Math.floor(Math.random() * (MOB_SIZE_MAX - MOB_SIZE_MIN + 1)) + MOB_SIZE_MIN;
     const defs = [];
     for (let i = 0; i < count; i++) {
-      const name = randomFrom(pool);
+      const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
       const def = GAME_CONFIG.enemies.find((e) => e.name === name);
       if (def) defs.push(def);
     }
@@ -2441,22 +2507,44 @@ function clampSceneScalePct(n) {
   return Math.min(200, Math.max(25, Math.round(n)));
 }
 
+/**
+ * Layout baked on scene elements (e.g. city waygates from `cityPortals` in config). Used when the player has no `sceneLayout` override.
+ * @returns {{ leftPct: number, topPct: number, scalePct: number } | null}}
+ */
+function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
+  const cfg = getCoordinateCellConfig(x, y);
+  if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
+  const el = cfg.elements.find((e) => e && e.id === elId);
+  if (!el || typeof el !== "object") return null;
+  const hasPos = typeof el.leftPct === "number" && typeof el.topPct === "number" && Number.isFinite(el.leftPct) && Number.isFinite(el.topPct);
+  const hasScale = typeof el.scalePct === "number" && Number.isFinite(el.scalePct);
+  if (!hasPos && !hasScale) return null;
+  return {
+    leftPct: hasPos ? clampScenePct(el.leftPct) : 50,
+    topPct: hasPos ? clampScenePct(el.topPct) : 50,
+    scalePct: hasScale ? clampSceneScalePct(el.scalePct) : 100
+  };
+}
+
 function getSceneLayoutTransform(x, y, elId) {
-  let leftPct = 50;
-  let topPct = 50;
-  let scalePct = 100;
+  const key = sceneLayoutStorageKey(x, y, elId);
   if (player.worldMap.sceneLayout && typeof player.worldMap.sceneLayout === "object") {
-    const key = sceneLayoutStorageKey(x, y, elId);
     const o = player.worldMap.sceneLayout[key];
     if (o && typeof o.leftPct === "number" && typeof o.topPct === "number") {
-      leftPct = clampScenePct(o.leftPct);
-      topPct = clampScenePct(o.topPct);
-    }
-    if (o && typeof o.scalePct === "number" && Number.isFinite(o.scalePct)) {
-      scalePct = clampSceneScalePct(o.scalePct);
+      let scalePct = 100;
+      if (typeof o.scalePct === "number" && Number.isFinite(o.scalePct)) {
+        scalePct = clampSceneScalePct(o.scalePct);
+      }
+      return {
+        leftPct: clampScenePct(o.leftPct),
+        topPct: clampScenePct(o.topPct),
+        scalePct
+      };
     }
   }
-  return { leftPct, topPct, scalePct };
+  const fromEl = getSceneLayoutDefaultsFromSceneElement(x, y, elId);
+  if (fromEl) return fromEl;
+  return { leftPct: 50, topPct: 50, scalePct: 100 };
 }
 
 function saveSceneLayoutPosition(x, y, elId, leftPct, topPct) {
@@ -2476,6 +2564,58 @@ function saveSceneLayoutScale(x, y, elId, scalePct) {
   const topPct = typeof prev.topPct === "number" ? clampScenePct(prev.topPct) : 50;
   player.worldMap.sceneLayout[key] = { leftPct, topPct, scalePct: clampSceneScalePct(scalePct) };
   save();
+}
+
+/**
+ * `cityPortals`-shaped list with `leftPct` / `topPct` / `scalePct` from the active save (player `sceneLayout` overrides config defaults).
+ * Omit layout keys when still centered default so pasted config stays small.
+ */
+function buildCityPortalsLayoutExportObjects() {
+  const wm = GAME_CONFIG.worldMap;
+  const list = wm && Array.isArray(wm.cityPortals) ? wm.cityPortals : [];
+  return list.map((p) => {
+    const out = { ...p };
+    if (typeof p.x !== "number" || typeof p.y !== "number" || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return out;
+    const portalId = `portal_${worldMapKey(p.x, p.y)}`;
+    const pos = getSceneLayoutTransform(p.x, p.y, portalId);
+    const isDefault = pos.leftPct === 50 && pos.topPct === 50 && pos.scalePct === 100;
+    const hadAny =
+      (typeof p.leftPct === "number" && Number.isFinite(p.leftPct)) ||
+      (typeof p.topPct === "number" && Number.isFinite(p.topPct)) ||
+      (typeof p.scalePct === "number" && Number.isFinite(p.scalePct));
+    if (!isDefault || hadAny) {
+      out.leftPct = pos.leftPct;
+      out.topPct = pos.topPct;
+      out.scalePct = pos.scalePct;
+    } else {
+      delete out.leftPct;
+      delete out.topPct;
+      delete out.scalePct;
+    }
+    return out;
+  });
+}
+
+function buildCityPortalsLayoutExportSnippet() {
+  return JSON.stringify(buildCityPortalsLayoutExportObjects(), null, 2);
+}
+
+async function copyCityPortalLayoutExportToClipboard() {
+  const text = buildCityPortalsLayoutExportSnippet();
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      showModal("Copied city portal list (with positions and sizes) to the clipboard. Replace `cityPortals` in config.js and reload.");
+    } else {
+      console.warn("cityPortals layout export (clipboard unavailable):\n", text);
+      showModal("Clipboard API unavailable. The full JSON was written to the browser console (F12 → Console).");
+    }
+  } catch (err) {
+    console.warn("cityPortals layout export:\n", text);
+    showModal(
+      `Could not copy to clipboard (${err && err.message ? err.message : String(err)}). The full JSON was written to the console.`
+    );
+  }
 }
 
 let sceneLayoutDragSuppressedClick = false;
@@ -5283,6 +5423,12 @@ function initUi() {
       const id = b.getAttribute("data-catalog-add");
       if (id) addSceneEditableObjectFromCatalog(id);
       editModeAddList.classList.add("hidden");
+    });
+  }
+  const exportPortalLayoutBtn = document.getElementById("exportPortalLayoutBtn");
+  if (exportPortalLayoutBtn) {
+    exportPortalLayoutBtn.addEventListener("click", () => {
+      void copyCityPortalLayoutExportToClipboard();
     });
   }
 

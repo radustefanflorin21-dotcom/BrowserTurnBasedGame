@@ -26,10 +26,13 @@ const GAME_CONFIG = {
    * Enemy art supports legacy `image`, state images (`images: { idle, walk, attack }`),
    * or sprite strips (`sprites: { idle|walk|attack: { sheet, frames, fps, loop?, cols?, rows? } }`).
    * For atlas layouts (e.g. 10 frames in 2 rows), set `cols` and `rows` (example: cols: 5, rows: 2).
+   * Optional `spawnRarity`: "common" | "rare" | "epic" | "myth" | "ancient" — used with `enemySpawnRarityWeights`
+   * when rolling mobs from a biome or region pool (see game.js). Omitted defaults to common.
    */
   enemies: [
     {
       name: "Burrow Hare",
+      spawnRarity: "common",
       hp: 40,
       attack: 6,
       image: "Assets/Monsters/burrow_hare.png",
@@ -43,6 +46,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Plains Raptor",
+      spawnRarity: "common",
       hp: 60,
       attack: 8,
       image: "Assets/Monsters/plains_raptor.png",
@@ -56,6 +60,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Grass Snake",
+      spawnRarity: "rare",
       hp: 40,
       attack: 12,
       image: "Assets/Monsters/grass_snake.png",
@@ -69,6 +74,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tusk Boar",
+      spawnRarity: "epic",
       hp: 120,
       attack: 10,
       image: "Assets/Monsters/tusk_boar.png",
@@ -82,6 +88,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Field Wolf",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/field_wolf.png",
@@ -95,6 +102,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Squirrel",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_squirrel.png",
@@ -108,6 +116,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Parrot",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_parrot.png",
@@ -121,6 +130,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Fox",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_fox.png",
@@ -134,6 +144,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Greenleaf Stag",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/forest_stag.png",
@@ -147,6 +158,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Gorilla",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_gorilla.png",
@@ -160,6 +172,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Stone Marmot",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/stone_marmot.png",
@@ -173,6 +186,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Lynx",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_lynx.png",
@@ -186,6 +200,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Ibex",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_ibex.png",
@@ -199,6 +214,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Serpent",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_serpent.png",
@@ -212,6 +228,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Rock Lizard",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_lizard.png",
@@ -225,6 +242,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ash Lizard",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ash_lizard.png",
@@ -238,6 +256,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Cinder Stalker",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/cinder_stalker.png",
@@ -251,6 +270,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ember Scuttler",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ember_scuttler.png",
@@ -264,6 +284,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Magma Boar",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/magma_boar.png",
@@ -277,6 +298,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Lava Basilisk",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/lava_basilisk.png",
@@ -290,6 +312,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Icy Mink",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/icy_mink.png",
@@ -303,6 +326,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Icy Serpent",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/icy_serpent.png",
@@ -316,6 +340,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Glacier Turtoise",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/glacier_turtoise.png",
@@ -329,6 +354,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Frozen Stalker",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/frozen_stalker.png",
@@ -342,6 +368,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Frost Skitter",
+      spawnRarity: "myth",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/frost_skitter.png",
@@ -355,6 +382,7 @@ const GAME_CONFIG = {
     },  
     {
       name: "Pinebound Fawn",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/pinebound_fawn.png",
@@ -368,6 +396,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Frozen Pinecone",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/frozen_pinecone.png",
@@ -381,6 +410,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ice-Tusked Boar",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ice_tusked_boar.png",
@@ -394,6 +424,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Barkhide Spriggan",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/barkhide_spriggan.png",
@@ -407,6 +438,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Winter Guardian",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/winter_guardian.png",
@@ -420,6 +452,7 @@ const GAME_CONFIG = {
     }, 
     {
       name: "Dust Carver",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/dust_carver.png",
@@ -433,6 +466,7 @@ const GAME_CONFIG = {
     }, 
     {
       name: "Desert Thornback Crawler",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/desert_thornback_crawler.png",
@@ -446,6 +480,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Mirage Lurker",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/mirage_lurker.png",
@@ -459,6 +494,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Dune Devourer",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/dune_devourer.png",
@@ -472,6 +508,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Witherling",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/witherling.png",
@@ -485,6 +522,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Remnant of Rust",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/remnant_of_rust.png",
@@ -498,6 +536,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Faded War Wraith",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/faded_war_wraith.png",
@@ -511,6 +550,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ash Horror",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ash_horror.png",
@@ -524,6 +564,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Cinder Husk",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/cinder_husk.png",
@@ -537,6 +578,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Ash Skulker",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ash_skulker.png",
@@ -550,6 +592,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tide Hopper",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/tide_hopper.png",
@@ -563,6 +606,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Hermit Crab",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/hermit_crab.png",
@@ -576,6 +620,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Driftling",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/driftling.png",
@@ -589,6 +634,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tidemeld Revenant",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/tidemeld_revenant.png",
@@ -602,6 +648,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Coastal Horror",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/coastal_horror.png",
@@ -615,6 +662,7 @@ const GAME_CONFIG = {
     }, 
     {
       name: "Saltwind Skimmer",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/saltwind_skimmer.png",
@@ -628,6 +676,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Brinegullet Spitter",
+      spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/brinegullet_spitter.png",
@@ -641,6 +690,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Wavebreaker Idol",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/wavebreaker_idol.png",
@@ -654,6 +704,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Cliff Lurker",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/cliff_lurker.png",
@@ -667,6 +718,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tideharrow",
+      spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/tideharrow.png",
@@ -677,8 +729,50 @@ const GAME_CONFIG = {
         xp: 100,
         items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
-    }, 
+    },
+    {
+      name: "Bandit",
+      spawnRarity: "common",
+      hp: 45,
+      attack: 7,
+      image: "Assets/Monsters/burrow_hare.png",
+      possibleLevels: [1, 2, 3, 4, 5],
+      possibleMoods: ["cautious", "focused"],
+      drops: { gold: { min: 2, max: 14 }, xp: 30, items: [] }
+    },
+    {
+      name: "Wolf",
+      spawnRarity: "rare",
+      hp: 55,
+      attack: 9,
+      image: "Assets/Monsters/field_wolf.png",
+      possibleLevels: [3, 4, 5, 6, 7],
+      possibleMoods: ["berserk", "focused"],
+      drops: { gold: { min: 3, max: 18 }, xp: 45, items: [{ name: "Wolf Pelt", dropRate: 40 }] }
+    },
+    {
+      name: "Drone",
+      spawnRarity: "epic",
+      hp: 80,
+      attack: 12,
+      image: "Assets/Monsters/plains_raptor.png",
+      possibleLevels: [8, 10, 12, 14, 16],
+      possibleMoods: ["focused", "steady"],
+      drops: { gold: { min: 8, max: 28 }, xp: 70, items: [{ name: "Energy Cell", dropRate: 35 }] }
+    }
   ],
+
+  /**
+   * Relative weights for picking a spawn tier before choosing a monster in the biome/region pool.
+   * Values need not sum to 100; they are normalized. Default matches intended ratios 70:20:10:5:1 (common→ancient).
+   */
+  enemySpawnRarityWeights: {
+    common: 70,
+    rare: 20,
+    epic: 10,
+    myth: 5,
+    ancient: 1
+  },
 
   items: {
     "Rusty Sword": {
@@ -934,6 +1028,7 @@ const GAME_CONFIG = {
    * Layout and presentation are baselined as complete in v2.4 (see `version` above).
    * Export uses the grid from column B; row 2+ maps to y=0,… — height is capped so the last playable y is 99 (rows below in Excel are margin, ignored).
    * Each passable biome lists possibleEnemies; mobs roll 1–8 units from that pool (see game.js).
+   * Per-slot picks use each enemy's `spawnRarity` with `enemySpawnRarityWeights` (weighted tier, then uniform within tier).
    * Optional mobDifficulty: { easy, medium, hard } anchor levels — encounter slots 0/1/2 use easy/medium/hard;
    * the mob's total level (sum of all unit levels) is rolled in ±25% of that anchor (integer bounds).
    * Omit mobDifficulty to use legacy per-unit level rolling.
@@ -958,7 +1053,7 @@ const GAME_CONFIG = {
      * in localStorage are cleared on load when this value differs from the last applied one
      * (see player.worldMap.mobPreviewGeneration).
      */
-    mobPreviewVersion: 6,
+    mobPreviewVersion: 7,
     /** Cooldown after clearing a mob before it respawns on this map (ms). */
     mobRespawnMs: 60000,
     /** How often encounter panels pick new random positions on the adventure map (ms). Min 3000. */
@@ -983,73 +1078,99 @@ const GAME_CONFIG = {
     /**
      * Inter-city waygates: one scene + portal per entry, only on the anchor tile (x,y). Adventure backgrounds
      * use Assets/Biomes/{cityName}/{1|2|3|4} per cell (see getCityAdventureBackgroundVariant). Optional bg is unused.
+     * Optional layout: leftPct / topPct (0–100, adventure playfield), scalePct (25–200). Player edit-mode overrides
+     * are stored in save `sceneLayout`; use Edit mode → “Export portal layout” to copy resolved values into config.
      */
-    cityPortals: [
-      {
-        name: "Maidenfrost",
-        x: 17,
-        y: 10,
-        bg: "Assets/Biomes/Maidenfrost/1.png",
-        theme: "portal-theme-frost",
-        label: "Frost Waygate"
-      },
-      {
-        name: "Widow\u2019s Ash",
-        x: 42,
-        y: 13,
-        bg: "Assets/Biomes/Widow\u2019s Ash/1.png",
-        theme: "portal-theme-ash",
-        label: "Ash Gate"
-      },
-      {
-        name: "Iceveil",
-        x: 6,
-        y: 34,
-        bg: "Assets/Biomes/Iceveil/1.png",
-        theme: "portal-theme-ice",
-        label: "Ice Threshold"
-      },
-      {
-        name: "Dolorhame",
-        x: 36,
-        y: 37,
-        bg: "Assets/Biomes/Dolorhame/1.png",
-        theme: "portal-theme-dune",
-        label: "Dune Arch"
-      },
-      {
-        name: "Breathless Vale",
-        x: 33,
-        y: 61,
-        bg: "Assets/Biomes/Breathless Vale/1.png",
-        theme: "portal-theme-vale",
-        label: "Vale Portal"
-      },
-      {
-        name: "Greenhollow",
-        x: 5,
-        y: 63,
-        bg: "Assets/Biomes/Greenhollow/1.png",
-        theme: "portal-theme-hollow",
-        label: "Hollow Gate"
-      },
-      {
-        name: "Blazewound",
-        x: 43,
-        y: 83,
-        bg: "Assets/Biomes/Blazewound/1.png",
-        theme: "portal-theme-blaze",
-        label: "Molten Door"
-      },
-      {
-        name: "Windmere",
-        x: 17,
-        y: 85,
-        bg: "Assets/Biomes/Windmere/1.png",
-        theme: "portal-theme-wind",
-        label: "Wind Arch"
-      }
-    ],
+    cityPortals:[
+  {
+    "name": "Maidenfrost",
+    "x": 17,
+    "y": 10,
+    "bg": "Assets/Biomes/Maidenfrost/1.png",
+    "theme": "portal-theme-frost",
+    "label": "Maidenfrost",
+    "leftPct": 59.67442306569248,
+    "topPct": 94.20303320743713,
+    "scalePct": 100
+  },
+  {
+    "name": "Widow’s Ash",
+    "x": 42,
+    "y": 13,
+    "bg": "Assets/Biomes/Widow’s Ash/1.png",
+    "theme": "portal-theme-ash",
+    "label": "Widow’s Ash",
+    "leftPct": 29.800670535065404,
+    "topPct": 92.40494071126665,
+    "scalePct": 100
+  },
+  {
+    "name": "Iceveil",
+    "x": 6,
+    "y": 34,
+    "bg": "Assets/Biomes/Iceveil/1.png",
+    "theme": "portal-theme-ice",
+    "label": "Iceveil",
+    "leftPct": 86.88230008984726,
+    "topPct": 68.48944394885518,
+    "scalePct": 100
+  },
+  {
+    "name": "Dolorhame",
+    "x": 36,
+    "y": 37,
+    "bg": "Assets/Biomes/Dolorhame/1.png",
+    "theme": "portal-theme-dune",
+    "label": "Dolorhame",
+    "leftPct": 32.45847784403551,
+    "topPct": 85.61216292624863,
+    "scalePct": 100
+  },
+  {
+    "name": "Breathless Vale",
+    "x": 33,
+    "y": 61,
+    "bg": "Assets/Biomes/Breathless Vale/1.png",
+    "theme": "portal-theme-vale",
+    "label": "Breathless Vale",
+    "leftPct": 72.00665546810112,
+    "topPct": 89.20834029729306,
+    "scalePct": 73
+  },
+  {
+    "name": "Greenhollow",
+    "x": 5,
+    "y": 63,
+    "bg": "Assets/Biomes/Greenhollow/1.png",
+    "theme": "portal-theme-hollow",
+    "label": "Greenhollow",
+    "leftPct": 61.48172879139846,
+    "topPct": 82.21577022309135,
+    "scalePct": 83
+  },
+  {
+    "name": "Blazewound",
+    "x": 43,
+    "y": 83,
+    "bg": "Assets/Biomes/Blazewound/1.png",
+    "theme": "portal-theme-blaze",
+    "label": "Blazewound",
+    "leftPct": 70.8372137633669,
+    "topPct": 90.40706354720902,
+    "scalePct": 68
+  },
+  {
+    "name": "Windmere",
+    "x": 17,
+    "y": 85,
+    "bg": "Assets/Biomes/Windmere/1.png",
+    "theme": "portal-theme-wind",
+    "label": "Windmere",
+    "leftPct": 12.3654489105326,
+    "topPct": 70.02872257085843,
+    "scalePct": 76
+  }
+],
     biomes: [
       {
         name: "World's Belt",
