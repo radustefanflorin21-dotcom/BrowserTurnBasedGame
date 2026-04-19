@@ -548,6 +548,136 @@ const GAME_CONFIG = {
         items: [{ name: "Rusty Sword", dropRate: 55 }]
       }
     },
+    {
+      name: "Tide Hopper",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/tide_hopper.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Hermit Crab",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/hermit_crab.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Driftling",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/driftling.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Tidemeld Revenant",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/tidemeld_revenant.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Coastal Horror",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/coastal_horror.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    }, 
+    {
+      name: "Saltwind Skimmer",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/saltwind_skimmer.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Brinegullet Spitter",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/brinegullet_spitter.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Wavebreaker Idol",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/wavebreaker_idol.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Cliff Lurker",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/cliff_lurker.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    },
+    {
+      name: "Tideharrow",
+      hp: 30,
+      attack: 5,
+      image: "Assets/Monsters/tideharrow.png",
+      possibleLevels: [15, 16, 17, 19, 20],
+      possibleMoods: ["berserk"],
+      drops: {
+        gold: { min: 10, max: 20 },
+        xp: 100,
+        items: [{ name: "Rusty Sword", dropRate: 55 }]
+      }
+    }, 
   ],
 
   items: {
@@ -976,7 +1106,7 @@ const GAME_CONFIG = {
         color: "#E6C48A",
         enemyScale: 1,
         mobDifficulty: { easy: 5, medium: 15, hard: 25 },
-        possibleEnemies: ["Bandit", "Wolf"]
+        possibleEnemies: ["Tide Hopper", "Hermit Crab", "Driftling", "Tidemeld Revenant", "Coastal Horror"]
       },
       {
         name: "Heart of Gaia",
@@ -1048,7 +1178,7 @@ const GAME_CONFIG = {
         color: "#E6C48A",
         enemyScale: 1,
         mobDifficulty: { easy: 5, medium: 15, hard: 25 },
-        possibleEnemies: ["Bandit", "Wolf"]
+        possibleEnemies: ["Saltwind Skimmer", "Brinegullet Spitter", "Wavebreaker Idol", "Cliff Lurker", "Tideharrow"]
       }
     ]
   },
