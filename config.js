@@ -977,6 +977,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
+    "Fantastic Polearm": {
+      type: "weapon",
+      slot: "weapon",
+      attack: 13,
+      image: "Assets/Equips/fantastic_polearm.png",
+      description: "A long-hafted weapon with uncanny reach and balance.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
     "Leather Armor": {
       type: "armor",
       slot: "chest",

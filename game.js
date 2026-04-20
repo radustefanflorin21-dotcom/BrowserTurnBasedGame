@@ -716,7 +716,7 @@ function getNoWeaponOverlayImage() {
 
 const DEFAULT_PORTRAIT_LAYOUT = {
   weapon: {
-    offsetXPct: -132.29209536414584,
+    offsetXPct: -110.8936351363587,
     offsetYPct: -45.6886037087376,
     rotDeg: 3,
     scalePct: 196
@@ -5980,6 +5980,7 @@ async function copyCityPortalLayoutExportToClipboard() {
 
 let sceneLayoutDragSuppressedClick = false;
 let portraitLayoutDragSuppressedClick = false;
+let pendingDiscardInventoryItemName = null;
 
 function applyPortraitLayerTransformStyle(layerEl, layout) {
   if (!layerEl || !layout) return;
@@ -6731,11 +6732,14 @@ function getActiveCombatSkills() {
 function rollItemDropEntry(entry, dropRateMult) {
   if (typeof entry === "string") {
     const t = entry.trim();
-    return t ? t : null;
+    if (!t) return null;
+    if (t === "Rusty Sword") return null;
+    return t;
   }
   if (!entry || typeof entry !== "object" || typeof entry.name !== "string") return null;
   const name = entry.name.trim();
   if (!name) return null;
+  if (name === "Rusty Sword") return null;
   let pct = entry.dropRate;
   if (pct == null || pct === "") pct = 100;
   pct = Number(pct);
@@ -9586,6 +9590,17 @@ function onDragStart(e) {
   }
 }
 
+function promptDiscardDraggedInventoryItem(itemName) {
+  const name = String(itemName || "").trim();
+  if (!name) return;
+  pendingDiscardInventoryItemName = name;
+  showModalHtml(
+    `<h3 class="portal-network-title">Discard item</h3><p class="portal-network-lead muted">Are you sure you want to discard ${escapeHtml(
+      `- ${name} -`
+    )}?</p><div class="portal-network-list"><button type="button" class="btn-primary portal-network-dest" data-discard-choice="yes">Yes</button><button type="button" class="btn-secondary portal-network-dest" data-discard-choice="no">No</button></div>`
+  );
+}
+
 function onDragOver(e) {
   const drop = e.target.closest(".slot-drop");
   const inv = e.target.closest(".inv-grid") || e.target.closest(".inv-grid-scroll");
@@ -9606,10 +9621,22 @@ function onDrop(e) {
   }
 
   const invGrid = e.target.closest(".inv-grid") || e.target.closest(".inv-grid-scroll");
+  if (invGrid && dragPayload.kind === "inventory") {
+    dragPayload = null;
+    return;
+  }
   if (invGrid && dragPayload.kind === "equipped") {
     unequipToInventory(dragPayload.slot);
   }
 
+  dragPayload = null;
+}
+
+function onDragEnd(e) {
+  if (!dragPayload) return;
+  if (dragPayload.kind === "inventory" && dragPayload.item) {
+    promptDiscardDraggedInventoryItem(dragPayload.item);
+  }
   dragPayload = null;
 }
 
@@ -9847,6 +9874,7 @@ function openPortalNetworkModal(excludePortalId) {
 }
 
 function closeModal() {
+  pendingDiscardInventoryItemName = null;
   const m = document.getElementById("modal");
   const mc = document.getElementById("modalContent");
   if (m) {
@@ -9860,6 +9888,21 @@ function closeModal() {
 }
 
 function onPortalNetworkModalClick(e) {
+  const discardBtn = e.target.closest("[data-discard-choice]");
+  if (discardBtn && pendingDiscardInventoryItemName) {
+    const choice = discardBtn.getAttribute("data-discard-choice");
+    if (choice === "yes") {
+      const idx = player.inventory.indexOf(pendingDiscardInventoryItemName);
+      if (idx !== -1) {
+        player.inventory.splice(idx, 1);
+        save();
+        render();
+      }
+    }
+    pendingDiscardInventoryItemName = null;
+    closeModal();
+    return;
+  }
   const b = e.target.closest(".portal-network-dest");
   if (!b || !document.getElementById("modal") || document.getElementById("modal").classList.contains("hidden")) return;
   const destId = b.getAttribute("data-portal-dest-id");
@@ -9986,6 +10029,7 @@ function initUi() {
   content.addEventListener("click", onContentClick);
   content.addEventListener("dblclick", onContentDblClick);
   content.addEventListener("dragstart", onDragStart);
+  content.addEventListener("dragend", onDragEnd);
   content.addEventListener("dragover", onDragOver);
   content.addEventListener("drop", onDrop);
   content.addEventListener("mouseover", onContentTooltipOver);
@@ -9999,6 +10043,7 @@ function initUi() {
     characterPanelContent.addEventListener("click", onContentClick);
     characterPanelContent.addEventListener("dblclick", onContentDblClick);
     characterPanelContent.addEventListener("dragstart", onDragStart);
+    characterPanelContent.addEventListener("dragend", onDragEnd);
     characterPanelContent.addEventListener("dragover", onDragOver);
     characterPanelContent.addEventListener("drop", onDrop);
     characterPanelContent.addEventListener("mouseover", onContentTooltipOver);
