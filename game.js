@@ -314,6 +314,24 @@ function syncPlayerClassSkillList(p) {
   p.skills = outSkills;
 }
 
+function getDefaultPortraitBaseLayout() {
+  return {
+    offsetXPct: 8.096714680784341,
+    offsetYPct: -0.5783367629131666,
+    rotDeg: 0,
+    scalePct: 124
+  };
+}
+
+function getDefaultBottomHudPortraitLayout() {
+  return {
+    offsetXPct: 0,
+    offsetYPct: 0,
+    rotDeg: 0,
+    scalePct: 100
+  };
+}
+
 function findNearestScrollableContainer(el) {
   let cur = el;
   while (cur && cur !== document.body) {
@@ -393,6 +411,10 @@ const defaultPlayer = () => {
     skills: starter.starterSkills.slice(),
     inventory: buildStartingInventory(),
     equipment: emptyEquipment(),
+    portraitLayout: {},
+    portraitBaseLayout: getDefaultPortraitBaseLayout(),
+    bottomHudPortraitLayout: getDefaultBottomHudPortraitLayout(),
+    portraitLayoutLastExport: "",
     theme: "medieval",
     charPointsRetroDone: true,
     worldMap: {
@@ -539,6 +561,14 @@ function migratePlayer(p) {
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   if (typeof p.charPoints !== "number" || p.charPoints < 0) p.charPoints = 0;
+  if (!p.portraitLayout || typeof p.portraitLayout !== "object") p.portraitLayout = {};
+  if (!p.portraitBaseLayout || typeof p.portraitBaseLayout !== "object") {
+    p.portraitBaseLayout = getDefaultPortraitBaseLayout();
+  }
+  if (!p.bottomHudPortraitLayout || typeof p.bottomHudPortraitLayout !== "object") {
+    p.bottomHudPortraitLayout = getDefaultBottomHudPortraitLayout();
+  }
+  if (typeof p.portraitLayoutLastExport !== "string") p.portraitLayoutLastExport = "";
   /** One-time retrospective: earned = (level−1)×5; STR/AGI/VIT above 10 count as already spent (1:1). */
   if (!p.charPointsRetroDone) {
     const level = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
@@ -678,18 +708,275 @@ function getEquipmentOverlayImage(itemName) {
   return getItemImage(itemName);
 }
 
-function buildLayeredHeroPortraitHtml() {
-  const base = escapeAttr(getHeroImageForState("idle"));
-  const slotOrder = ["legs", "feet", "chest", "gloves", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
-  const layers = slotOrder
-    .map((slotId) => {
-      const itemName = player.equipment[slotId];
-      if (!itemName) return "";
-      const src = escapeAttr(getEquipmentOverlayImage(itemName));
-      return `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(slotId)}" src="${src}" alt="" draggable="false" title="${escapeAttr(itemName)}" />`;
+const NO_WEAPON_OVERLAY_PATH = "Assets/Equips/no_weapon.png";
+
+function getNoWeaponOverlayImage() {
+  return NO_WEAPON_OVERLAY_PATH;
+}
+
+const DEFAULT_PORTRAIT_LAYOUT = {
+  weapon: {
+    offsetXPct: -132.29209536414584,
+    offsetYPct: -45.6886037087376,
+    rotDeg: 3,
+    scalePct: 196
+  },
+  no_weapon: {
+    offsetXPct: -111.03675583574235,
+    offsetYPct: -73.59188958935583,
+    rotDeg: 9,
+    scalePct: 20
+  }
+};
+
+const HERO_WEAPON_OCCLUSION_BY_BASE_IMAGE = {
+  "Assets/Character/male_vanguard.png": {
+    // Hand/palm portion that should stay behind the weapon.
+    backHandClip: "polygon(58% 52%, 74% 49%, 86% 56%, 88% 71%, 79% 83%, 63% 81%, 56% 67%)",
+    // Body/front hand portion that should stay above the weapon.
+    frontBodyClip: "polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, 52% 49%, 57% 63%, 55% 79%, 43% 83%, 36% 72%, 38% 56%)"
+  }
+};
+
+function normalizeAssetPath(pathLike) {
+  return String(pathLike || "").replace(/\\/g, "/").trim();
+}
+
+function getHeroWeaponOcclusionConfig(baseImagePath) {
+  return HERO_WEAPON_OCCLUSION_BY_BASE_IMAGE[normalizeAssetPath(baseImagePath)] || null;
+}
+
+function clampPortraitLayoutPct(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-300, Math.min(300, n));
+}
+
+function clampPortraitLayoutScalePct(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 100;
+  return Math.max(15, Math.min(600, Math.round(n)));
+}
+
+function clampPortraitLayoutRotDeg(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-180, Math.min(180, n));
+}
+
+function ensurePortraitLayoutStore() {
+  if (!player.portraitLayout || typeof player.portraitLayout !== "object") player.portraitLayout = {};
+}
+
+function ensurePortraitBaseLayoutStore() {
+  if (!player.portraitBaseLayout || typeof player.portraitBaseLayout !== "object") {
+    player.portraitBaseLayout = getDefaultPortraitBaseLayout();
+  }
+}
+
+function ensureBottomHudPortraitLayoutStore() {
+  if (!player.bottomHudPortraitLayout || typeof player.bottomHudPortraitLayout !== "object") {
+    player.bottomHudPortraitLayout = getDefaultBottomHudPortraitLayout();
+  }
+}
+
+function getPortraitEquipLayout(slotId) {
+  ensurePortraitLayoutStore();
+  const raw = player.portraitLayout[slotId] || DEFAULT_PORTRAIT_LAYOUT[slotId];
+  if (!raw || typeof raw !== "object") return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
+  return {
+    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(raw.scalePct)
+  };
+}
+
+function getPortraitBaseLayout() {
+  ensurePortraitBaseLayoutStore();
+  return {
+    offsetXPct: clampPortraitLayoutPct(player.portraitBaseLayout.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(player.portraitBaseLayout.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(player.portraitBaseLayout.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(player.portraitBaseLayout.scalePct)
+  };
+}
+
+function getBottomHudPortraitLayout() {
+  ensureBottomHudPortraitLayoutStore();
+  return {
+    offsetXPct: clampPortraitLayoutPct(player.bottomHudPortraitLayout.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(player.bottomHudPortraitLayout.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(player.bottomHudPortraitLayout.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(player.bottomHudPortraitLayout.scalePct)
+  };
+}
+
+function setPortraitBaseLayout(patch) {
+  const prev = getPortraitBaseLayout();
+  player.portraitBaseLayout = {
+    offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
+  };
+}
+
+function setBottomHudPortraitLayout(patch) {
+  const prev = getBottomHudPortraitLayout();
+  player.bottomHudPortraitLayout = {
+    offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
+  };
+}
+
+function setPortraitEquipLayout(slotId, patch) {
+  ensurePortraitLayoutStore();
+  const prev = getPortraitEquipLayout(slotId);
+  const next = {
+    offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
+  };
+  player.portraitLayout[slotId] = next;
+}
+
+function buildPortraitLayoutExportSnippet() {
+  ensurePortraitLayoutStore();
+  ensurePortraitBaseLayoutStore();
+  const out = {};
+  Object.keys(player.portraitLayout)
+    .sort()
+    .forEach((slotId) => {
+    out[slotId] = getPortraitEquipLayout(slotId);
+    });
+  return JSON.stringify({ base: getPortraitBaseLayout(), equipment: out }, null, 2);
+}
+
+async function copyPortraitLayoutExportToClipboard(opts) {
+  const text = buildPortraitLayoutExportSnippet();
+  const onlyIfChanged = !!(opts && opts.onlyIfChanged);
+  if (onlyIfChanged && text === (player.portraitLayoutLastExport || "")) {
+    showModal("No portrait layout changes since last export.");
+    return;
+  }
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      console.warn("portrait layout export:\n", text);
+      showModal("Clipboard unavailable. Portrait layout JSON was printed to the console.");
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    player.portraitLayoutLastExport = text;
+    save();
+    showModal("Portrait equipment layout copied to clipboard.");
+  } catch (err) {
+    console.warn("portrait layout export:\n", text);
+    showModal(
+      `Could not copy to clipboard (${err && err.message ? err.message : String(err)}). The full JSON was written to the console.`
+    );
+  }
+}
+
+function getEditableInventoryItemNames() {
+  const items = GAME_CONFIG.items && typeof GAME_CONFIG.items === "object" ? GAME_CONFIG.items : {};
+  return Object.keys(items).sort((a, b) => a.localeCompare(b));
+}
+
+function tryAddInventoryItemByName(itemName) {
+  const name = typeof itemName === "string" ? itemName.trim() : "";
+  if (!name || !getItemDef(name)) return false;
+  player.inventory.push(name);
+  save();
+  render();
+  return true;
+}
+
+function buildEditModeItemSpawnListHtml() {
+  const names = getEditableInventoryItemNames();
+  if (!names.length) {
+    return `<div class="item-spawn-empty">No defined items found.</div>`;
+  }
+  const rows = names
+    .map((name) => {
+      const src = escapeAttr(getItemImage(name));
+      return `<button type="button" class="item-spawn-row" data-add-item-name="${escapeAttr(name)}"><img class="item-spawn-row-img" src="${src}" alt="" draggable="false" /><span class="item-spawn-row-name">${escapeHtml(
+        name
+      )}</span></button>`;
     })
     .join("");
-  return `<div class="portrait-stack"><img src="${base}" alt="" class="portrait-img portrait-img--base" />${layers}</div>`;
+  return `<div class="item-spawn-list">${rows}</div>`;
+}
+
+function openEditModeItemSpawnModal() {
+  const body = buildEditModeItemSpawnListHtml();
+  showModalHtml(
+    `<h3 class="portal-network-title">Add Item To Inventory</h3><p class="portal-network-lead muted">Double-click an item to add it.</p>${body}`
+  );
+}
+
+function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
+  const base = escapeAttr(baseRaw);
+  const slotOrder = ["legs", "feet", "chest", "gloves", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
+  const hasWeapon = !!(player.equipment.weapon || getNoWeaponOverlayImage());
+  const occ = hasWeapon ? getHeroWeaponOcclusionConfig(baseRaw) : null;
+  const layerBySlot = {};
+  slotOrder.forEach((slotId) => {
+    let itemName = player.equipment[slotId];
+    let layoutKey = slotId;
+    let src = "";
+    if (slotId === "weapon") {
+      if (itemName) {
+        src = getEquipmentOverlayImage(itemName);
+      } else {
+        itemName = "No weapon";
+        layoutKey = "no_weapon";
+        src = getNoWeaponOverlayImage();
+      }
+    } else {
+      if (!itemName) return;
+      src = getEquipmentOverlayImage(itemName);
+    }
+    if (!src) return;
+    const layout = getPortraitEquipLayout(layoutKey);
+    const style = `transform: translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100});`;
+    const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
+    layerBySlot[slotId] = `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(slotId)}${backCls}" src="${escapeAttr(
+      src
+    )}" alt="" draggable="false" title="${escapeAttr(
+      itemName
+    )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(style)}" />`;
+  });
+  const backLayers = [layerBySlot.weapon || ""].join("");
+  const rootTransformStyle = `transform: translate(${rootLayout.offsetXPct}%, ${rootLayout.offsetYPct}%) rotate(${rootLayout.rotDeg}deg) scale(${rootLayout.scalePct / 100});`;
+  const backHandHtml =
+    occ && occ.backHandClip
+      ? `<img src="${base}" alt="" class="portrait-occlusion portrait-occlusion--backhand" style="clip-path:${escapeAttr(
+          occ.backHandClip
+        )};" draggable="false" />`
+      : "";
+  const baseStyle = occ && occ.frontBodyClip ? ` style="clip-path:${escapeAttr(occ.frontBodyClip)};"` : "";
+  const frontLayers = slotOrder
+    .filter((slotId) => slotId !== "weapon")
+    .map((slotId) => {
+      return layerBySlot[slotId] || "";
+    })
+    .join("");
+  const rootAttr = rootDataAttr ? ` ${rootDataAttr}` : "";
+  return `<div class="portrait-stack"><div class="portrait-root-group"${rootAttr} style="${escapeAttr(
+    rootTransformStyle
+  )}">${backHandHtml}${backLayers}<img src="${base}" alt="" class="portrait-img portrait-img--base"${baseStyle} />${frontLayers}</div></div>`;
+}
+
+function buildLayeredHeroPortraitHtml() {
+  return buildPortraitLayeredStackHtml(getHeroImageForState("idle"), getPortraitBaseLayout(), "data-portrait-root");
+}
+
+function buildBottomHudLayeredPortraitHtml(state) {
+  return buildPortraitLayeredStackHtml(getHeroImageForState(state), getBottomHudPortraitLayout(), "data-bottom-hud-portrait-root");
 }
 
 function getSkillImage(skillName) {
@@ -3227,9 +3514,9 @@ function unequipToInventory(slotId) {
 }
 
 const HERO_PORTRAITS = {
-  idle: "Assets/Character/hero.svg",
-  walk: "Assets/Character/hero.svg",
-  attack: "Assets/Character/hero.svg"
+  idle: "Assets/Character/male_vanguard.png",
+  walk: "Assets/Character/male_vanguard.png",
+  attack: "Assets/Character/male_vanguard.png"
 };
 
 function normalizeVisualState(state) {
@@ -5692,6 +5979,267 @@ async function copyCityPortalLayoutExportToClipboard() {
 }
 
 let sceneLayoutDragSuppressedClick = false;
+let portraitLayoutDragSuppressedClick = false;
+
+function applyPortraitLayerTransformStyle(layerEl, layout) {
+  if (!layerEl || !layout) return;
+  layerEl.style.transform = `translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100})`;
+}
+
+function onPortraitLayerContextMenu(e) {
+  if (!player.editMode) return;
+  const stack = e.target.closest(".portrait-stack");
+  if (!stack) return;
+  e.preventDefault();
+}
+
+function onPortraitLayerPointerDown(e) {
+  if (!player.editMode) return;
+  const stackFromTarget = e.target.closest(".portrait-stack");
+  const layer = e.target.closest(".portrait-equip-layer[data-portrait-slot]");
+  if (stackFromTarget && !layer) {
+    if (e.button !== 0 && e.button !== 2) return;
+    const stack = stackFromTarget;
+    e.preventDefault();
+    e.stopPropagation();
+    const start = getPortraitBaseLayout();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
+    let last = { ...start };
+    let ended = false;
+    stack.classList.add(
+      mode === "rotate"
+        ? "portrait-stack--editing-rotate"
+        : mode === "scale"
+          ? "portrait-stack--editing-scale"
+          : "portrait-stack--editing"
+    );
+    const applyBaseLive = () => {
+      const root = stack.querySelector("[data-portrait-root]");
+      if (!root) return;
+      root.style.transform = `translate(${last.offsetXPct}%, ${last.offsetYPct}%) rotate(${last.rotDeg}deg) scale(${last.scalePct / 100})`;
+    };
+    const move = (ev) => {
+      const rect = stack.getBoundingClientRect();
+      if (mode === "rotate") {
+        const dx = ev.clientX - startX;
+        last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
+      } else if (mode === "scale") {
+        const dy = ev.clientY - startY;
+        last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45);
+      } else {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        last.offsetXPct = clampPortraitLayoutPct(start.offsetXPct + (dx / w) * 100);
+        last.offsetYPct = clampPortraitLayoutPct(start.offsetYPct + (dy / h) * 100);
+      }
+      applyBaseLive();
+    };
+    const done = (ev) => {
+      if (ended) return;
+      ended = true;
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", done);
+      document.removeEventListener("pointercancel", done);
+      stack.classList.remove("portrait-stack--editing");
+      stack.classList.remove("portrait-stack--editing-rotate");
+      stack.classList.remove("portrait-stack--editing-scale");
+      const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
+      if (dist > 2) portraitLayoutDragSuppressedClick = true;
+      setPortraitBaseLayout(last);
+      save();
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", done);
+    document.addEventListener("pointercancel", done);
+    return;
+  }
+  // Equipment edit path.
+  if (!layer) return;
+  if (e.button !== 0 && e.button !== 2) return;
+  const slotId = layer.getAttribute("data-portrait-slot");
+  if (!slotId) return;
+  const stack = layer.closest(".portrait-stack");
+  if (!stack) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const start = getPortraitEquipLayout(slotId);
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
+  let last = { ...start };
+  let ended = false;
+  layer.classList.add(
+    mode === "rotate"
+      ? "portrait-equip-layer--editing-rotate"
+      : mode === "scale"
+        ? "portrait-equip-layer--editing-scale"
+        : "portrait-equip-layer--editing"
+  );
+  try {
+    layer.setPointerCapture(e.pointerId);
+  } catch (_) {}
+  const move = (ev) => {
+    const rect = stack.getBoundingClientRect();
+    if (mode === "rotate") {
+      const dx = ev.clientX - startX;
+      last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
+    } else if (mode === "scale") {
+      const dy = ev.clientY - startY;
+      last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45);
+    } else {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const w = Math.max(1, rect.width);
+      const h = Math.max(1, rect.height);
+      last.offsetXPct = clampPortraitLayoutPct(start.offsetXPct + (dx / w) * 100);
+      last.offsetYPct = clampPortraitLayoutPct(start.offsetYPct + (dy / h) * 100);
+    }
+    applyPortraitLayerTransformStyle(layer, last);
+  };
+  const done = (ev) => {
+    if (ended) return;
+    ended = true;
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", done);
+    document.removeEventListener("pointercancel", done);
+    layer.classList.remove("portrait-equip-layer--editing");
+    layer.classList.remove("portrait-equip-layer--editing-rotate");
+    layer.classList.remove("portrait-equip-layer--editing-scale");
+    try {
+      layer.releasePointerCapture(ev.pointerId);
+    } catch (_) {}
+    const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
+    if (dist > 2) portraitLayoutDragSuppressedClick = true;
+    setPortraitEquipLayout(slotId, last);
+    save();
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", done);
+  document.addEventListener("pointercancel", done);
+}
+
+function onPortraitLayerWheel(e) {
+  if (!player.editMode) return;
+  const layer = e.target.closest(".portrait-equip-layer[data-portrait-slot]");
+  const stack = e.target.closest(".portrait-stack");
+  if (stack && !layer) {
+    e.preventDefault();
+    e.stopPropagation();
+    const cur = getPortraitBaseLayout();
+    const step = e.shiftKey ? 12 : 6;
+    const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
+    setPortraitBaseLayout({ scalePct: nextScale });
+    const root = stack.querySelector("[data-portrait-root]");
+    if (root) {
+      const base = getPortraitBaseLayout();
+      root.style.transform = `translate(${base.offsetXPct}%, ${base.offsetYPct}%) rotate(${base.rotDeg}deg) scale(${base.scalePct / 100})`;
+    }
+    save();
+    return;
+  }
+  if (!layer) return;
+  const slotId = layer.getAttribute("data-portrait-slot");
+  if (!slotId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const cur = getPortraitEquipLayout(slotId);
+  const step = e.shiftKey ? 12 : 6;
+  const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
+  setPortraitEquipLayout(slotId, { scalePct: nextScale });
+  applyPortraitLayerTransformStyle(layer, getPortraitEquipLayout(slotId));
+  save();
+}
+
+function onBottomHudPortraitContextMenu(e) {
+  if (!player.editMode) return;
+  if (e.target && e.target.closest && e.target.closest("#bottomHudPortrait")) e.preventDefault();
+}
+
+function onBottomHudPortraitPointerDown(e) {
+  if (!player.editMode || currentPage !== "adventure") return;
+  const portrait = e.target.closest("#bottomHudPortrait");
+  if (!portrait) return;
+  if (e.button !== 0 && e.button !== 2) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const start = getBottomHudPortraitLayout();
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
+  let last = { ...start };
+  let ended = false;
+  portrait.classList.add(
+    mode === "rotate"
+      ? "bottom-hud-portrait--editing-rotate"
+      : mode === "scale"
+        ? "bottom-hud-portrait--editing-scale"
+        : "bottom-hud-portrait--editing"
+  );
+  try {
+    portrait.setPointerCapture(e.pointerId);
+  } catch (_) {}
+  const move = (ev) => {
+    const rect = portrait.getBoundingClientRect();
+    if (mode === "rotate") {
+      const dx = ev.clientX - startX;
+      last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
+    } else if (mode === "scale") {
+      const dy = ev.clientY - startY;
+      last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45);
+    } else {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const w = Math.max(1, rect.width);
+      const h = Math.max(1, rect.height);
+      last.offsetXPct = clampPortraitLayoutPct(start.offsetXPct + (dx / w) * 100);
+      last.offsetYPct = clampPortraitLayoutPct(start.offsetYPct + (dy / h) * 100);
+    }
+    const root = portrait.querySelector("[data-bottom-hud-portrait-root]");
+    if (root) {
+      root.style.transform = `translate(${last.offsetXPct}%, ${last.offsetYPct}%) rotate(${last.rotDeg}deg) scale(${last.scalePct / 100})`;
+    }
+  };
+  const done = (ev) => {
+    if (ended) return;
+    ended = true;
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", done);
+    document.removeEventListener("pointercancel", done);
+    portrait.classList.remove("bottom-hud-portrait--editing");
+    portrait.classList.remove("bottom-hud-portrait--editing-rotate");
+    portrait.classList.remove("bottom-hud-portrait--editing-scale");
+    try {
+      portrait.releasePointerCapture(ev.pointerId);
+    } catch (_) {}
+    setBottomHudPortraitLayout(last);
+    save();
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", done);
+  document.addEventListener("pointercancel", done);
+}
+
+function onBottomHudPortraitWheel(e) {
+  if (!player.editMode || currentPage !== "adventure") return;
+  const portrait = e.target.closest("#bottomHudPortrait");
+  if (!portrait) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const cur = getBottomHudPortraitLayout();
+  const step = e.shiftKey ? 12 : 6;
+  const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
+  setBottomHudPortraitLayout({ scalePct: nextScale });
+  const l = getBottomHudPortraitLayout();
+  const root = portrait.querySelector("[data-bottom-hud-portrait-root]");
+  if (root) {
+    root.style.transform = `translate(${l.offsetXPct}%, ${l.offsetYPct}%) rotate(${l.rotDeg}deg) scale(${l.scalePct / 100})`;
+  }
+  save();
+}
 
 function parseSceneLayoutStorageKey(key) {
   const i = key.indexOf("|");
@@ -7881,6 +8429,13 @@ function buildOverviewHtml() {
       <div class="slot-drop" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
     </div>`;
   }).join("");
+  const editInvOptions = getEditableInventoryItemNames()
+    .map((name) => `<option value="${escapeAttr(name)}">${escapeHtml(name)}</option>`)
+    .join("");
+  const portraitEditControlsHtml = player.editMode
+    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay"><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
+      <p class="portrait-edit-hint">Edit mode: equip = left move, right rotate, Shift+drag/wheel resize. Character = same controls on base image area.</p>`
+    : "";
 
   const dmg = getDamageRange();
   const maxLv = getPlayerMaxLevel();
@@ -7948,12 +8503,11 @@ function buildOverviewHtml() {
         <section class="panel-cell panel-character" aria-label="Character">
           <div class="character-panel">
             <div class="nameplate-wrap">
+              ${portraitEditControlsHtml}
               <div class="nameplate">${escapeHtml(player.name)}</div>
               <div class="portrait-box">
                 ${buildLayeredHeroPortraitHtml()}
               </div>
-              <button type="button" class="btn-rename" data-rename-hero>Change</button>
-              <button type="button" class="btn-reset-char" data-reset-character title="Delete this hero and start fresh">Reset character</button>
             </div>
           </div>
         </section>
@@ -8688,9 +9242,31 @@ function onDocumentKeydown(e) {
     return;
   }
   if (e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
+  const k = String(e.key || "").toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "s") {
+    if (player.editMode) {
+      e.preventDefault();
+      void copyPortraitLayoutExportToClipboard({ onlyIfChanged: true });
+      return;
+    }
+  }
+  if (k === "i" && e.shiftKey) {
+    e.preventDefault();
+    if (!player.editMode) {
+      showModal("Enable Edit Mode first (Shift+E).");
+      return;
+    }
+    if (isFightOverlayOpen()) return;
+    openEditModeItemSpawnModal();
+    return;
+  }
+  if (k === "e" && e.shiftKey) {
+    e.preventDefault();
+    setEditMode(!player.editMode);
+    return;
+  }
   if (currentPage !== "adventure") return;
   if (isFightOverlayOpen()) return;
-  const k = String(e.key || "").toLowerCase();
   if (k === "c") {
     e.preventDefault();
     if (isWorldMapModalOpen()) return;
@@ -8935,11 +9511,11 @@ function renderBottomHud() {
   if (hpFill) hpFill.style.width = `${hpPct.toFixed(1)}%`;
   if (hpText) hpText.textContent = `${Math.max(0, Math.floor(player.hp))} / ${Math.max(1, Math.floor(player.maxHp))} HP`;
   const portraitEl = document.getElementById("bottomHudPortrait");
-  if (portraitEl && "src" in portraitEl) {
+  if (portraitEl) {
     let heroState = "idle";
     if (combatState && combatState.phase !== "ended") heroState = getCombatHeroVisualState();
     else if (currentPage === "adventure") heroState = "walk";
-    portraitEl.src = getHeroImageForState(heroState);
+    portraitEl.innerHTML = buildBottomHudLayeredPortraitHtml(heroState);
   }
 
   const characterBtn = document.getElementById("characterPanelBtn");
@@ -9054,6 +9630,10 @@ function onContentDblClick(e) {
 }
 
 function onContentClick(e) {
+  if (portraitLayoutDragSuppressedClick) {
+    portraitLayoutDragSuppressedClick = false;
+    return;
+  }
   if (player.editMode) {
     const rm = e.target.closest(".scene-object-remove[data-scene-remove]");
     if (rm) {
@@ -9073,6 +9653,28 @@ function onContentClick(e) {
   const clsUp = e.target.closest("[data-class-skill-up]");
   if (clsUp && clsUp.dataset.classSkillUp) {
     unlockOrUpgradeClassSkill(clsUp.dataset.classSkillUp, clsUp);
+    return;
+  }
+  if (e.target.closest("[data-portrait-layout-reset]")) {
+    player.portraitLayout = {};
+    player.portraitBaseLayout = getDefaultPortraitBaseLayout();
+    save();
+    render();
+    return;
+  }
+  if (e.target.closest("[data-portrait-layout-export]")) {
+    void copyPortraitLayoutExportToClipboard();
+    return;
+  }
+  if (e.target.closest("[data-portrait-add-item]")) {
+    const host = e.target.closest(".portrait-edit-tools");
+    const sel = host ? host.querySelector("[data-portrait-add-item-select]") : null;
+    const name = sel && typeof sel.value === "string" ? sel.value : "";
+    if (name && getItemDef(name)) {
+      player.inventory.push(name);
+      save();
+      render();
+    }
     return;
   }
   if (e.target.closest("[data-reset-character]")) {
@@ -9277,6 +9879,17 @@ function onPortalNetworkModalClick(e) {
   render();
 }
 
+function onModalDblClick(e) {
+  const row = e.target.closest("[data-add-item-name]");
+  if (!row) return;
+  const itemName = row.getAttribute("data-add-item-name");
+  if (!itemName) return;
+  if (tryAddInventoryItemByName(itemName)) {
+    row.classList.add("item-spawn-row--added");
+    setTimeout(() => row.classList.remove("item-spawn-row--added"), 420);
+  }
+}
+
 function initUi() {
   if (GAME_CONFIG.version) {
     document.title = `Browser RPG — ${GAME_CONFIG.version}`;
@@ -9333,7 +9946,16 @@ function initUi() {
   }
 
   const modalEl = document.getElementById("modal");
-  if (modalEl) modalEl.addEventListener("click", onPortalNetworkModalClick);
+  if (modalEl) {
+    modalEl.addEventListener("click", onPortalNetworkModalClick);
+    modalEl.addEventListener("dblclick", onModalDblClick);
+  }
+  const bottomPortrait = document.getElementById("bottomHudPortrait");
+  if (bottomPortrait) {
+    bottomPortrait.addEventListener("contextmenu", onBottomHudPortraitContextMenu);
+    bottomPortrait.addEventListener("pointerdown", onBottomHudPortraitPointerDown);
+    bottomPortrait.addEventListener("wheel", onBottomHudPortraitWheel, { passive: false });
+  }
   const characterPanelModal = document.getElementById("characterPanelModal");
   const characterPanelClose = document.getElementById("characterPanelClose");
   const menuPanelModal = document.getElementById("menuPanelModal");
@@ -9356,6 +9978,9 @@ function initUi() {
   }
 
   const content = document.getElementById("content");
+  content.addEventListener("contextmenu", onPortraitLayerContextMenu);
+  content.addEventListener("pointerdown", onPortraitLayerPointerDown, true);
+  content.addEventListener("wheel", onPortraitLayerWheel, { passive: false });
   content.addEventListener("pointerdown", onSceneResizePointerDown, true);
   content.addEventListener("pointerdown", onSceneLayoutPointerDown, true);
   content.addEventListener("click", onContentClick);
@@ -9368,6 +9993,9 @@ function initUi() {
   content.addEventListener("mousemove", onContentTooltipMove);
   const characterPanelContent = document.getElementById("characterPanelContent");
   if (characterPanelContent) {
+    characterPanelContent.addEventListener("contextmenu", onPortraitLayerContextMenu);
+    characterPanelContent.addEventListener("pointerdown", onPortraitLayerPointerDown, true);
+    characterPanelContent.addEventListener("wheel", onPortraitLayerWheel, { passive: false });
     characterPanelContent.addEventListener("click", onContentClick);
     characterPanelContent.addEventListener("dblclick", onContentDblClick);
     characterPanelContent.addEventListener("dragstart", onDragStart);

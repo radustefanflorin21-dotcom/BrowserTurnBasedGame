@@ -954,7 +954,7 @@ const GAME_CONFIG = {
       type: "weapon",
       slot: "weapon",
       attack: 3,
-      image: "Assets/Equips/rusty-sword.svg",
+      image: "Assets/Equips/rusty-sword.png",
       description: "A notched blade. Better than fists in a brawl.",
       bonusSkills: [],
       bonusStats: {}
@@ -965,6 +965,15 @@ const GAME_CONFIG = {
       attack: 6,
       image: "Assets/Equips/iron-sword.svg",
       description: "Well-balanced steel. Favored by city guards.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fantastic Sword": {
+      type: "weapon",
+      slot: "weapon",
+      attack: 12,
+      image: "Assets/Equips/fantastic_sword.png",
+      description: "A brilliant blade with an otherworldly edge.",
       bonusSkills: [],
       bonusStats: {}
     },
