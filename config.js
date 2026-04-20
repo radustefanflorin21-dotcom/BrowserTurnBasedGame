@@ -29,7 +29,7 @@ const GAME_CONFIG = {
    * Optional `spawnRarity`: "common" | "rare" | "epic" | "myth" | "ancient" — used with `enemySpawnRarityWeights`
    * when rolling mobs from a biome or region pool (see game.js). Omitted defaults to common.
    * Optional `combatScript`: id for scripted enemy turns (skills, cooldowns, AI); see game.js `enemyCombatRunScript`.
-   * Optional `combatRole`: "tank" | "assassin" | "bruiser" | "mage" | "support" | "controller" — splits level×statsPerLevel
+   * Optional `combatRole`: "tank" | "assassin" | "bruiser" | "mage" | "support" | "controller" | "summoner" — splits level×statsPerLevel
    * budget (see monsterScaling). If omitted, role is inferred from combatScript.
    * `hp` and `attack` are anchors: max HP ≈ hp×scale + VIT×hpPerVit; attack is the damage base before STR scaling in combat.
    */
@@ -37,11 +37,12 @@ const GAME_CONFIG = {
     {
       name: "Burrow Hare",
       combatScript: "burrow_hare",
+      combatRole: "controller",
       spawnRarity: "common",
       hp: 40,
       attack: 6,
       image: "Assets/Monsters/burrow_hare.png",
-      possibleLevels: [1, 2, 3, 4, 5],
+      possibleLevels: [11, 12, 13, 14, 15],
       possibleMoods: ["cautious"],
       drops: {
         gold: { min: 1, max: 10 },
@@ -52,11 +53,12 @@ const GAME_CONFIG = {
     {
       name: "Plains Raptor",
       combatScript: "plains_raptor",
+      combatRole: "bruiser",
       spawnRarity: "common",
       hp: 60,
       attack: 8,
       image: "Assets/Monsters/plains_raptor.png",
-      possibleLevels: [4, 5, 6, 7, 8],
+      possibleLevels: [13, 14, 15, 16, 17],
       possibleMoods: ["focused"],
       drops: {
         gold: { min: 2, max: 12 },
@@ -67,11 +69,12 @@ const GAME_CONFIG = {
     {
       name: "Grass Snake",
       combatScript: "grass_snake",
+      combatRole: "mage",
       spawnRarity: "rare",
       hp: 40,
       attack: 12,
       image: "Assets/Monsters/grass_snake.png",
-      possibleLevels: [7, 8, 9, 10, 11],
+      possibleLevels: [15, 16, 17, 18, 19],
       possibleMoods: ["focused"],
       drops: {
         gold: { min: 5, max: 15 },
@@ -82,11 +85,12 @@ const GAME_CONFIG = {
     {
       name: "Tusk Boar",
       combatScript: "tusk_boar",
+      combatRole: "tank",
       spawnRarity: "epic",
       hp: 120,
       attack: 10,
       image: "Assets/Monsters/tusk_boar.png",
-      possibleLevels: [10, 11, 13, 14, 15],
+      possibleLevels: [17, 18, 19, 20],
       possibleMoods: ["steady"],
       drops: {
         gold: { min: 8, max: 15 },
@@ -97,11 +101,12 @@ const GAME_CONFIG = {
     {
       name: "Field Wolf",
       combatScript: "field_wolf",
+      combatRole: "assassin",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/field_wolf.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [19, 20, 21],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -112,11 +117,12 @@ const GAME_CONFIG = {
     {
       name: "Greenleaf Squirrel",
       combatScript: "greenleaf_squirrel",
+      combatRole: "support",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_squirrel.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [31, 32, 33, 34, 35],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -127,11 +133,12 @@ const GAME_CONFIG = {
     {
       name: "Greenleaf Parrot",
       combatScript: "greenleaf_parrot",
+      combatRole: "support",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_parrot.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [33, 34, 35, 36, 37],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -142,11 +149,12 @@ const GAME_CONFIG = {
     {
       name: "Greenleaf Fox",
       combatScript: "greenleaf_fox",
+      combatRole: "assassin",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_fox.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [35, 36, 37, 38, 39],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -157,11 +165,12 @@ const GAME_CONFIG = {
     {
       name: "Greenleaf Stag",
       combatScript: "greenleaf_stag",
+      combatRole: "support",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/forest_stag.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [37, 38, 39, 40],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -172,11 +181,12 @@ const GAME_CONFIG = {
     {
       name: "Gorilla",
       combatScript: "gorilla",
+      combatRole: "bruiser",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/greenleaf_gorilla.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [39, 40, 41, 42],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -187,11 +197,12 @@ const GAME_CONFIG = {
     {
       name: "Stone Marmot",
       combatScript: "stone_marmot",
+      combatRole: "tank",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/stone_marmot.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [21, 22, 23, 24, 25],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -202,11 +213,12 @@ const GAME_CONFIG = {
     {
       name: "Rock Lynx",
       combatScript: "rock_lynx",
+      combatRole: "assassin",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_lynx.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [23, 24, 25, 26, 27],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -217,11 +229,12 @@ const GAME_CONFIG = {
     {
       name: "Rock Ibex",
       combatScript: "rock_ibex",
+      combatRole: "bruiser",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_ibex.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [25, 26, 27, 28, 29],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -232,11 +245,12 @@ const GAME_CONFIG = {
     {
       name: "Rock Serpent",
       combatScript: "rock_serpent",
+      combatRole: "controller",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_serpent.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [27, 28, 29, 30],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -247,11 +261,12 @@ const GAME_CONFIG = {
     {
       name: "Rock Lizard",
       combatScript: "rock_lizard",
+      combatRole: "tank",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/rock_lizard.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [29, 30, 31],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -262,11 +277,12 @@ const GAME_CONFIG = {
     {
       name: "Ash Lizard",
       combatScript: "ash_lizard",
+      combatRole: "bruiser",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ash_lizard.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [41, 42, 43, 44, 45],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -277,11 +293,12 @@ const GAME_CONFIG = {
     {
       name: "Cinder Stalker",
       combatScript: "cinder_stalker",
+      combatRole: "assassin",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/cinder_stalker.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [43, 44, 45, 46, 47],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -292,11 +309,12 @@ const GAME_CONFIG = {
     {
       name: "Ember Scuttler",
       combatScript: "ember_scuttler",
+      combatRole: "controller",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ember_scuttler.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [45, 46, 47, 48, 49],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -307,11 +325,12 @@ const GAME_CONFIG = {
     {
       name: "Magma Boar",
       combatScript: "magma_boar",
+      combatRole: "bruiser",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/magma_boar.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [47, 48, 49, 50],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -322,11 +341,12 @@ const GAME_CONFIG = {
     {
       name: "Lava Basilisk",
       combatScript: "lava_basilisk",
+      combatRole: "controller",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/lava_basilisk.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [49, 50, 51, 52, 53],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -337,11 +357,12 @@ const GAME_CONFIG = {
     {
       name: "Icy Mink",
       combatScript: "icy_mink",
+      combatRole: "assassin",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/icy_mink.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [41, 42, 43, 44, 45],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -352,11 +373,12 @@ const GAME_CONFIG = {
     {
       name: "Icy Serpent",
       combatScript: "icy_serpent",
+      combatRole: "mage",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/icy_serpent.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [43, 44, 45, 46, 47],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -367,11 +389,12 @@ const GAME_CONFIG = {
     {
       name: "Glacier Turtoise",
       combatScript: "glacier_turtoise",
+      combatRole: "tank",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/glacier_turtoise.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [45, 46, 47, 48, 49],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -382,11 +405,12 @@ const GAME_CONFIG = {
     {
       name: "Frozen Stalker",
       combatScript: "frozen_stalker",
+      combatRole: "assassin",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/frozen_stalker.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [47, 48, 49, 50],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -397,11 +421,12 @@ const GAME_CONFIG = {
     {
       name: "Frost Skitter",
       combatScript: "frost_skitter",
+      combatRole: "controller",
       spawnRarity: "myth",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/frost_skitter.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [49, 50, 51, 52, 53],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -412,11 +437,12 @@ const GAME_CONFIG = {
     {
       name: "Pinebound Fawn",
       combatScript: "pinebound_fawn",
+      combatRole: "support",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/pinebound_fawn.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [21, 22, 23, 24, 25],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -427,11 +453,12 @@ const GAME_CONFIG = {
     {
       name: "Frozen Pinecone",
       combatScript: "frozen_pinecone",
+      combatRole: "controller",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/frozen_pinecone.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [23, 24, 25, 26, 27],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -442,11 +469,12 @@ const GAME_CONFIG = {
     {
       name: "Ice-Tusked Boar",
       combatScript: "ice_tusked_boar",
+      combatRole: "tank",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ice_tusked_boar.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [25, 26, 27, 28, 29],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -457,11 +485,12 @@ const GAME_CONFIG = {
     {
       name: "Barkhide Spriggan",
       combatScript: "barkhide_spriggan",
+      combatRole: "support",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/barkhide_spriggan.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [27, 28, 29, 30],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -472,11 +501,12 @@ const GAME_CONFIG = {
     {
       name: "Winter Guardian",
       combatScript: "winter_guardian",
+      combatRole: "tank",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/winter_guardian.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [29, 30, 31],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -487,11 +517,12 @@ const GAME_CONFIG = {
     {
       name: "Dust Carver",
       combatScript: "dust_carver",
+      combatRole: "assassin",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/dust_carver.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [11, 12, 13, 14, 15],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -502,11 +533,12 @@ const GAME_CONFIG = {
     {
       name: "Desert Thornback Crawler",
       combatScript: "desert_thornback_crawler",
+      combatRole: "tank",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/desert_thornback_crawler.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [15, 16, 17, 18, 19],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -517,11 +549,12 @@ const GAME_CONFIG = {
     {
       name: "Mirage Lurker",
       combatScript: "mirage_lurker",
+      combatRole: "controller",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/mirage_lurker.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [17, 18, 19, 20],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -532,11 +565,12 @@ const GAME_CONFIG = {
     {
       name: "Dune Devourer",
       combatScript: "dune_devourer",
+      combatRole: "bruiser",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/dune_devourer.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [19, 20, 21],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -547,11 +581,12 @@ const GAME_CONFIG = {
     {
       name: "Witherling",
       combatScript: "witherling",
+      combatRole: "mage",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/witherling.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [13, 14, 15, 16, 17],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -562,11 +597,12 @@ const GAME_CONFIG = {
     {
       name: "Remnant of Rust",
       combatScript: "remnant_of_rust",
+      combatRole: "controller",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/remnant_of_rust.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [37, 38, 39, 40],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -577,11 +613,12 @@ const GAME_CONFIG = {
     {
       name: "Faded War Wraith",
       combatScript: "faded_war_wraith",
+      combatRole: "summoner",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/faded_war_wraith.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [39, 40, 41, 42],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -592,11 +629,12 @@ const GAME_CONFIG = {
     {
       name: "Ash Horror",
       combatScript: "ash_horror",
+      combatRole: "mage",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ash_horror.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [31, 32, 33, 34, 35],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -607,11 +645,12 @@ const GAME_CONFIG = {
     {
       name: "Cinder Husk",
       combatScript: "cinder_husk",
+      combatRole: "tank",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/cinder_husk.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [33, 34, 35, 36, 37],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -622,11 +661,12 @@ const GAME_CONFIG = {
     {
       name: "Ash Skulker",
       combatScript: "ash_skulker",
+      combatRole: "assassin",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/ash_skulker.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [35, 36, 37, 38, 39],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -637,11 +677,12 @@ const GAME_CONFIG = {
     {
       name: "Tide Hopper",
       combatScript: "tide_hopper",
+      combatRole: "controller",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/tide_hopper.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [1, 2, 3, 4, 5],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -652,11 +693,12 @@ const GAME_CONFIG = {
     {
       name: "Hermit Crab",
       combatScript: "hermit_crab",
+      combatRole: "tank",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/hermit_crab.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [3, 4, 5, 6, 7],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -667,11 +709,12 @@ const GAME_CONFIG = {
     {
       name: "Driftling",
       combatScript: "driftling",
+      combatRole: "support",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/driftling.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [5, 6, 7, 8, 9],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -682,11 +725,12 @@ const GAME_CONFIG = {
     {
       name: "Tidemeld Revenant",
       combatScript: "tidemeld_revenant",
+      combatRole: "summoner",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/tidemeld_revenant.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [7, 8, 9, 10],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -697,11 +741,12 @@ const GAME_CONFIG = {
     {
       name: "Coastal Horror",
       combatScript: "coastal_horror",
+      combatRole: "controller",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/coastal_horror.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [9, 10, 11],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -712,11 +757,12 @@ const GAME_CONFIG = {
     {
       name: "Saltwind Skimmer",
       combatScript: "saltwind_skimmer",
+      combatRole: "assassin",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/saltwind_skimmer.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [1, 2, 3, 4, 5],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -727,11 +773,12 @@ const GAME_CONFIG = {
     {
       name: "Brinegullet Spitter",
       combatScript: "brinegullet_spitter",
+      combatRole: "mage",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/brinegullet_spitter.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [3, 4, 5, 6, 7],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -742,11 +789,12 @@ const GAME_CONFIG = {
     {
       name: "Wavebreaker Idol",
       combatScript: "wavebreaker_idol",
+      combatRole: "tank",
       spawnRarity: "rare",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/wavebreaker_idol.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [5, 6, 7, 8, 9],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -757,11 +805,12 @@ const GAME_CONFIG = {
     {
       name: "Cliff Lurker",
       combatScript: "cliff_lurker",
+      combatRole: "assassin",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/cliff_lurker.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [7, 8, 9, 10],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -772,11 +821,12 @@ const GAME_CONFIG = {
     {
       name: "Tideharrow",
       combatScript: "tideharrow",
+      combatRole: "controller",
       spawnRarity: "epic",
       hp: 30,
       attack: 5,
       image: "Assets/Monsters/tideharrow.png",
-      possibleLevels: [15, 16, 17, 19, 20],
+      possibleLevels: [9, 10, 11],
       possibleMoods: ["berserk"],
       drops: {
         gold: { min: 10, max: 20 },
@@ -848,18 +898,18 @@ const GAME_CONFIG = {
   victoryXp: {
     /** `xp = floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiffPerPlayerLevel)))` — level ratio factor removed. */
     levelDiffPerPlayerLevel: 0.025,
-    minXpMult: 0.2,
-    maxXpMult: 3,
+    minXpMult: 0.75,
+    maxXpMult: 1.6,
     levelRatioMin: 0.5,
     levelRatioMax: 1.5,
     minLevelDiffMultiplier: null,
     maxLevelDiffMultiplier: null,
     baseXpByRarity: {
-      common: 20,
-      rare: 40,
-      epic: 80,
-      myth: 150,
-      ancient: 220
+      common: 25,
+      rare: 50,
+      epic: 100,
+      myth: 180,
+      ancient: 240
     }
   },
 
@@ -886,14 +936,15 @@ const GAME_CONFIG = {
     packHowlPerInt: 0.003
   },
 
-  /** Weights sum to 1. Keys: tank | assassin | bruiser | mage | support | controller */
+  /** Weights sum to 1. Keys: tank | assassin | bruiser | mage | support | controller | summoner */
   enemyRoles: {
     tank: { STR: 0.25, DEX: 0.15, VIT: 0.4, INT: 0.2 },
     assassin: { STR: 0.3, DEX: 0.4, VIT: 0.1, INT: 0.2 },
     bruiser: { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 },
     mage: { STR: 0.15, DEX: 0.25, VIT: 0.2, INT: 0.4 },
     support: { STR: 0.1, DEX: 0.2, VIT: 0.3, INT: 0.4 },
-    controller: { STR: 0.1, DEX: 0.3, VIT: 0.15, INT: 0.45 }
+    controller: { STR: 0.1, DEX: 0.3, VIT: 0.15, INT: 0.45 },
+    summoner: { STR: 0.15, DEX: 0.2, VIT: 0.25, INT: 0.4 }
   },
 
   items: {
@@ -1215,6 +1266,17 @@ const GAME_CONFIG = {
     mobPreviewVersion: 7,
     /** Cooldown after clearing a mob before it respawns on this map (ms). */
     mobRespawnMs: 60000,
+    /**
+     * Dynamic encounter pressure per region (biome name), centered on `mobRespawnMs`.
+     * Spawn rate multiplier = `1 + spawnRateImpactPct * pressure/100` (pressure clamped to -100..100),
+     * and respawn time uses the inverse of that multiplier so positive pressure respawns faster.
+     */
+    spawnPressure: {
+      windowMs: 10 * 60 * 1000,
+      windowStrength: 12,
+      recoveryFactor: 0.08,
+      spawnRateImpactPct: 0.2
+    },
     /** How often encounter panels pick new random positions on the adventure map (ms). Min 3000. */
     mobPanelWanderMs: 60000,
     /** Duration of each wander move (ms). Transitions apply only after the map has finished its first layout (no jump on load). */
@@ -1385,7 +1447,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#E6C48A",
         enemyScale: 1,
-        mobDifficulty: { easy: 5, medium: 15, hard: 25 },
+        mobDifficulty: { easy: 3, medium: 6, hard: 10 },
         possibleEnemies: ["Tide Hopper", "Hermit Crab", "Driftling", "Tidemeld Revenant", "Coastal Horror"]
       },
       {
@@ -1393,7 +1455,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#1F4F1F",
         enemyScale: 1.1,
-        mobDifficulty: { easy: 8, medium: 22, hard: 38 },
+        mobDifficulty: { easy: 32, medium: 36, hard: 40 },
         possibleEnemies: ["Greenleaf Squirrel", "Greenleaf Parrot", "Greenleaf Fox", "Greenleaf Stag", "Gorilla"]
       },
       {
@@ -1401,7 +1463,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#6DA544",
         enemyScale: 1.1,
-        mobDifficulty: { easy: 10, medium: 50, hard: 100 },
+        mobDifficulty: { easy: 12, medium: 16, hard: 20 },
         possibleEnemies: ["Burrow Hare", "Plains Raptor", "Grass Snake", "Tusk Boar", "Field Wolf"]
       },
       {
@@ -1409,7 +1471,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#A63A1F",
         enemyScale: 1.25,
-        mobDifficulty: { easy: 12, medium: 28, hard: 45 },
+        mobDifficulty: { easy: 42, medium: 46, hard: 50 },
         possibleEnemies: ["Ash Lizard", "Cinder Stalker", "Ember Scuttler", "Magma Boar", "Lava Basilisk"]
       },
       {
@@ -1417,7 +1479,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#6E6A64",
         enemyScale: 1.15,
-        mobDifficulty: { easy: 10, medium: 35, hard: 55 },
+        mobDifficulty: { easy: 22, medium: 26, hard: 30 },
         possibleEnemies: ["Stone Marmot", "Rock Lynx", "Rock Ibex", "Rock Serpent", "Rock Lizard"]
       },
       {
@@ -1425,7 +1487,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#4B4B4F",
         enemyScale: 1.2,
-        mobDifficulty: { easy: 15, medium: 40, hard: 60 },
+        mobDifficulty: { easy: 32, medium: 36, hard: 40 },
         possibleEnemies: ["Ash Horror", "Cinder Husk", "Ash Skulker", "Remnant of Rust", "Faded War Wraith"]
       },
       {
@@ -1433,7 +1495,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#D2A26B",
         enemyScale: 1.1,
-        mobDifficulty: { easy: 8, medium: 25, hard: 42 },
+        mobDifficulty: { easy: 12, medium: 16, hard: 20 },
         possibleEnemies: ["Dust Carver", "Witherling", "Desert Thornback Crawler", "Mirage Lurker", "Dune Devourer"]
       },
       {
@@ -1441,7 +1503,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#8FB7D1",
         enemyScale: 1.3,
-        mobDifficulty: { easy: 18, medium: 45, hard: 70 },
+        mobDifficulty: { easy: 42, medium: 46, hard: 50 },
         possibleEnemies: ["Icy Mink", "Icy Serpent", "Glacier Turtoise", "Frozen Stalker", "Frost Skitter"]
       },
       {
@@ -1449,7 +1511,7 @@ const GAME_CONFIG = {
         passable: true,
         color: "#E8EEF2",
         enemyScale: 1,
-        mobDifficulty: { easy: 6, medium: 18, hard: 35 },
+        mobDifficulty: { easy: 22, medium: 26, hard: 30 },
         possibleEnemies: ["Pinebound Fawn", "Frozen Pinecone", "Ice-Tusked Boar", "Barkhide Spriggan", "Winter Guardian"]
       },
       {
@@ -1457,33 +1519,9 @@ const GAME_CONFIG = {
         passable: true,
         color: "#E6C48A",
         enemyScale: 1,
-        mobDifficulty: { easy: 5, medium: 15, hard: 25 },
+        mobDifficulty: { easy: 3, medium: 6, hard: 10 },
         possibleEnemies: ["Saltwind Skimmer", "Brinegullet Spitter", "Wavebreaker Idol", "Cliff Lurker", "Tideharrow"]
       }
     ]
-  },
-
-  regions: [
-    {
-      name: "Dark Forest",
-      background: "linear-gradient(180deg,#1a2a1a 0%,#0d180d 100%)",
-      enemyScale: 1,
-      mobDifficulty: { easy: 5, medium: 15, hard: 25 },
-      possibleEnemies: ["Bandit", "Wolf"]
-    },
-    {
-      name: "Rust Wastes",
-      background: "linear-gradient(180deg,#2a1a0d 0%,#1a0f08 100%)",
-      enemyScale: 1.35,
-      mobDifficulty: { easy: 12, medium: 35, hard: 55 },
-      possibleEnemies: ["Bandit", "Wolf"]
-    },
-    {
-      name: "Orbital Fringe",
-      background: "linear-gradient(180deg,#0a1628 0%,#050a12 100%)",
-      enemyScale: 1.6,
-      mobDifficulty: { easy: 20, medium: 55, hard: 90 },
-      possibleEnemies: ["Drone", "Bandit"]
-    }
-  ]
+  }
 };
