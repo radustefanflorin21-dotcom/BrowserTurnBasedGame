@@ -666,6 +666,32 @@ function getItemImage(itemName) {
   return `https://via.placeholder.com/72/3d3d3d/ddd?text=${t}`;
 }
 
+function getEquipmentOverlayImage(itemName) {
+  const def = getItemDef(itemName);
+  if (!def) return getItemImage(itemName);
+  const custom =
+    (typeof def.paperDollImage === "string" && def.paperDollImage.trim()) ||
+    (typeof def.paperdollImage === "string" && def.paperdollImage.trim()) ||
+    (typeof def.overlayImage === "string" && def.overlayImage.trim()) ||
+    "";
+  if (custom) return custom;
+  return getItemImage(itemName);
+}
+
+function buildLayeredHeroPortraitHtml() {
+  const base = escapeAttr(getHeroImageForState("idle"));
+  const slotOrder = ["legs", "feet", "chest", "gloves", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
+  const layers = slotOrder
+    .map((slotId) => {
+      const itemName = player.equipment[slotId];
+      if (!itemName) return "";
+      const src = escapeAttr(getEquipmentOverlayImage(itemName));
+      return `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(slotId)}" src="${src}" alt="" draggable="false" title="${escapeAttr(itemName)}" />`;
+    })
+    .join("");
+  return `<div class="portrait-stack"><img src="${base}" alt="" class="portrait-img portrait-img--base" />${layers}</div>`;
+}
+
 function getSkillImage(skillName) {
   const def = getSkillDef(skillName);
   if (def && def.image) return def.image;
@@ -3455,13 +3481,25 @@ const MOB_SIZE_MAX = 8;
 const MOB_DIFFICULTY_LEVEL_VARIANCE = 0.25;
 
 const MOB_DIFFICULTY_TIER_LABELS = ["easy", "medium", "hard"];
+const ENEMY_MOOD_SPAWN_CHANCE = 0.1;
+const MOOD_XP_BONUS_MULT = 1.12;
+const MOOD_LOOT_DROP_RATE_MULT = 1.1;
 
 function randomFrom(arr) {
   if (!arr || !arr.length) return null;
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function getNeutralEnemyMood() {
+  return { id: null, name: "", attackBonus: 0, attackMult: 1, hpMult: 1, damageTakenMult: 1, description: "" };
+}
+
+function hasActiveMood(foeLike) {
+  return !!(foeLike && typeof foeLike.moodId === "string" && foeLike.moodId.trim());
+}
+
 function pickMoodFromEnemyDef(def) {
+  if (Math.random() >= ENEMY_MOOD_SPAWN_CHANCE) return getNeutralEnemyMood();
   const moods = GAME_CONFIG.enemyMoods;
   const ids = def && def.possibleMoods;
   if (Array.isArray(ids) && ids.length) {
@@ -3470,7 +3508,29 @@ function pickMoodFromEnemyDef(def) {
     if (m) return m;
   }
   if (Array.isArray(moods) && moods.length) return randomFrom(moods);
-  return { id: "neutral", name: "Neutral", attackBonus: 0, attackMult: 1, hpMult: 1, damageTakenMult: 1, description: "" };
+  return getNeutralEnemyMood();
+}
+
+function resolveMoodFromPreviewUnit(unit, def) {
+  const moods = Array.isArray(GAME_CONFIG.enemyMoods) ? GAME_CONFIG.enemyMoods : [];
+  if (unit && typeof unit === "object" && Object.prototype.hasOwnProperty.call(unit, "moodId")) {
+    if (typeof unit.moodId === "string" && unit.moodId.trim()) {
+      const found = moods.find((m) => m.id === unit.moodId.trim());
+      if (found) return found;
+    }
+    return getNeutralEnemyMood();
+  }
+  const legacyMoodName =
+    unit && typeof unit.moodName === "string" && unit.moodName.trim()
+      ? unit.moodName.trim()
+      : unit && typeof unit.mood === "string" && unit.mood.trim()
+        ? unit.mood.trim()
+        : "";
+  if (legacyMoodName) {
+    const found = moods.find((m) => m.name === legacyMoodName || m.id === legacyMoodName.toLowerCase());
+    if (found) return found;
+  }
+  return pickMoodFromEnemyDef(def);
 }
 
 function pickLevelFromEnemyDef(def) {
@@ -3934,6 +3994,8 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
   const baseAtk = (typeof def.attack === "number" ? def.attack : 5) * scale;
   const attack = Math.max(1, Math.round(baseAtk * attackMult + attackBonus));
   const maxStamina = getFoeCombatMaxStamina(def);
+  const moodId = typeof mood.id === "string" && mood.id.trim() ? mood.id.trim() : null;
+  const moodName = typeof mood.name === "string" ? mood.name.trim() : "";
   const foe = {
     uid,
     name: def.name,
@@ -3942,8 +4004,8 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
     dex: stats.dex,
     vit: stats.vit,
     int: stats.int,
-    moodId: mood.id,
-    moodName: mood.name,
+    moodId,
+    moodName,
     hp,
     maxHp: hp,
     attack,
@@ -3965,9 +4027,7 @@ function spawnEnemiesFromPreview(region, units) {
     .map((u, uid) => {
       const def = GAME_CONFIG.enemies.find((e) => e.name === u.name);
       if (!def) return null;
-      const moods = GAME_CONFIG.enemyMoods;
-      const mood =
-        (u.moodId && moods && moods.find((m) => m.id === u.moodId)) || pickMoodFromEnemyDef(def);
+      const mood = resolveMoodFromPreviewUnit(u, def);
       const level = typeof u.level === "number" ? u.level : pickLevelFromEnemyDef(def);
       return buildSpawnedFoe(region, def, uid, level, mood);
     })
@@ -6120,7 +6180,7 @@ function getActiveCombatSkills() {
  * Resolves one loot table entry. String = guaranteed drop (100%).
  * Object: { name, dropRate } with dropRate in 0–100 (% chance per kill).
  */
-function rollItemDropEntry(entry) {
+function rollItemDropEntry(entry, dropRateMult) {
   if (typeof entry === "string") {
     const t = entry.trim();
     return t ? t : null;
@@ -6132,6 +6192,8 @@ function rollItemDropEntry(entry) {
   if (pct == null || pct === "") pct = 100;
   pct = Number(pct);
   if (!Number.isFinite(pct)) return null;
+  const mult = Number.isFinite(dropRateMult) && dropRateMult > 0 ? dropRateMult : 1;
+  pct *= mult;
   pct = Math.max(0, Math.min(100, pct));
   if (pct <= 0) return null;
   if (pct >= 100) return name;
@@ -6198,7 +6260,9 @@ function computeVictoryXpForFoe(foe, playerLevel) {
     addMult = Math.min(cfg.maxLevelDiffMultiplier, addMult);
   }
   addMult = Math.max(minM, Math.min(maxM, addMult));
-  return Math.max(1, Math.floor(baseXp * addMult));
+  let out = Math.max(1, Math.floor(baseXp * addMult));
+  if (hasActiveMood(foe)) out = Math.max(1, Math.floor(out * MOOD_XP_BONUS_MULT));
+  return out;
 }
 
 /**
@@ -6215,8 +6279,9 @@ function computeVictoryLoot(foes) {
     if (!def || !def.drops) return;
     gold += rollGoldDrop(def.drops.gold);
     xp += computeVictoryXpForFoe(foe, pl);
+    const moodLootMult = hasActiveMood(foe) ? MOOD_LOOT_DROP_RATE_MULT : 1;
     (def.drops.items || []).forEach((entry) => {
-      const rolled = rollItemDropEntry(entry);
+      const rolled = rollItemDropEntry(entry, moodLootMult);
       if (rolled) items.push(rolled);
     });
   });
@@ -6354,7 +6419,8 @@ function renderTurnBattle() {
     const pct = f.maxHp ? (Math.max(0, f.hp) / f.maxHp) * 100 : 0;
     const sel = st.selectedUid === f.uid && !dead;
     const label = escapeHtml(f.name);
-    const moodLabel = escapeHtml(f.moodName || "—");
+    const moodLabel = typeof f.moodName === "string" ? f.moodName.trim() : "";
+    const moodHtml = moodLabel ? `<span class="fight-card-meta fight-card-mood">${escapeHtml(moodLabel)}</span>` : "";
     const lvl = typeof f.level === "number" ? f.level : 1;
     const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
     enemiesHtml += `<div class="fight-enemy-card ${dead ? "fight-enemy-card--dead" : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
@@ -6366,7 +6432,7 @@ function renderTurnBattle() {
       <div class="fight-enemy-caption">
         <span class="fight-card-name">${label}</span>
         <span class="fight-card-level">Lv ${lvl}</span>
-        <span class="fight-card-meta fight-card-mood">${moodLabel}</span>
+        ${moodHtml}
       </div>
     </div>`;
   });
@@ -7552,9 +7618,10 @@ function getFightPartyStatusLabels(st, member) {
 }
 
 function buildFightEnemyTooltipHtml(foe) {
-  const moodDef = Array.isArray(GAME_CONFIG.enemyMoods) ? GAME_CONFIG.enemyMoods.find((m) => m.id === foe.moodId) : null;
+  const moodName = typeof foe.moodName === "string" ? foe.moodName.trim() : "";
+  const moodDef = moodName && Array.isArray(GAME_CONFIG.enemyMoods) ? GAME_CONFIG.enemyMoods.find((m) => m.id === foe.moodId) : null;
   const desc = moodDef && moodDef.description ? moodDef.description : "";
-  const moodLine = desc ? `${escapeHtml(foe.moodName || "—")} — ${escapeHtml(desc)}` : escapeHtml(foe.moodName || "—");
+  const moodLine = moodName ? (desc ? `${escapeHtml(moodName)} — ${escapeHtml(desc)}` : escapeHtml(moodName)) : "";
   const lv = typeof foe.level === "number" ? foe.level : 1;
   const statusLabels = getFightEnemyStatusLabels(foe);
   const def = getEnemyDefByName(foe.name);
@@ -7564,7 +7631,8 @@ function buildFightEnemyTooltipHtml(foe) {
     typeof foe.maxStamina === "number" ? foe.maxStamina : fallbackMax
   );
   const statusLine = statusLabels.length ? statusLabels.join(" · ") : "None";
-  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(foe.name)}</div><div class="item-tip-desc">Level ${lv}</div><div class="item-tip-desc">${moodLine}</div><div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div><div class="item-tip-section"><span class="item-tip-label">Statuses</span><div class="item-tip-mechanics">${escapeHtml(statusLine)}</div></div></div>`;
+  const moodHtml = moodLine ? `<div class="item-tip-desc">${moodLine}</div>` : "";
+  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(foe.name)}</div><div class="item-tip-desc">Level ${lv}</div>${moodHtml}<div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div><div class="item-tip-section"><span class="item-tip-label">Statuses</span><div class="item-tip-mechanics">${escapeHtml(statusLine)}</div></div></div>`;
 }
 
 function buildFightPartyTooltipHtml(member, st) {
@@ -7584,15 +7652,21 @@ function buildWorldCampTooltipHtml(data) {
     const rows = data.units.map((u) => {
       const name = escapeHtml(u.name);
       const lv = typeof u.level === "number" ? u.level : "?";
-      const mood = escapeHtml(u.mood || "—");
-      return `<div class="camp-tip-row"><span class="camp-tip-name">${name}</span><span class="camp-tip-detail">Lv ${lv} · ${mood}</span></div>`;
+      const moodRaw =
+        typeof u.mood === "string" && u.mood.trim()
+          ? u.mood.trim()
+          : typeof u.moodName === "string" && u.moodName.trim()
+            ? u.moodName.trim()
+            : "";
+      const moodSuffix = moodRaw ? ` · ${escapeHtml(moodRaw)}` : "";
+      return `<div class="camp-tip-row"><span class="camp-tip-name">${name}</span><span class="camp-tip-detail">Lv ${lv}${moodSuffix}</span></div>`;
     });
     return `<div class="item-tip"><div class="item-tip-name">Total level ${totalLv}</div>${rows.join("")}</div>`;
   }
   if (data && typeof data === "object" && data.kind === "pool") {
     const pool = data.pool || [];
     const names = pool.map((n) => escapeHtml(n)).join(", ");
-    return `<div class="item-tip"><div class="item-tip-name">Encounter</div><div class="item-tip-desc">Possible enemies: ${names || "—"}.</div><div class="item-tip-desc">Each unit rolls level and mood from its enemy definition.</div></div>`;
+    return `<div class="item-tip"><div class="item-tip-name">Encounter</div><div class="item-tip-desc">Possible enemies: ${names || "—"}.</div><div class="item-tip-desc">Each unit rolls level; mood appears on ~10% of spawns.</div></div>`;
   }
   if (!Array.isArray(data) || !data.length) {
     return `<div class="item-tip"><div class="item-tip-desc">Encounter</div></div>`;
@@ -7600,8 +7674,14 @@ function buildWorldCampTooltipHtml(data) {
   const rows = data.map((e) => {
     const name = escapeHtml(e.name);
     const lv = typeof e.level === "number" ? e.level : "?";
-    const mood = escapeHtml(e.mood || "—");
-    return `<div class="camp-tip-row"><span class="camp-tip-name">${name}</span><span class="camp-tip-detail">Lv ${lv} · ${mood}</span></div>`;
+    const moodRaw =
+      typeof e.mood === "string" && e.mood.trim()
+        ? e.mood.trim()
+        : typeof e.moodName === "string" && e.moodName.trim()
+          ? e.moodName.trim()
+          : "";
+    const moodSuffix = moodRaw ? ` · ${escapeHtml(moodRaw)}` : "";
+    return `<div class="camp-tip-row"><span class="camp-tip-name">${name}</span><span class="camp-tip-detail">Lv ${lv}${moodSuffix}</span></div>`;
   });
   return `<div class="item-tip"><div class="item-tip-name">Encounter</div>${rows.join("")}</div>`;
 }
@@ -7870,7 +7950,7 @@ function buildOverviewHtml() {
             <div class="nameplate-wrap">
               <div class="nameplate">${escapeHtml(player.name)}</div>
               <div class="portrait-box">
-                <img src="${escapeAttr(getHeroImageForState("idle"))}" alt="" class="portrait-img" />
+                ${buildLayeredHeroPortraitHtml()}
               </div>
               <button type="button" class="btn-rename" data-rename-hero>Change</button>
               <button type="button" class="btn-reset-char" data-reset-character title="Delete this hero and start fresh">Reset character</button>

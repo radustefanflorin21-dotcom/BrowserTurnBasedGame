@@ -1265,7 +1265,7 @@ const GAME_CONFIG = {
      * in localStorage are cleared on load when this value differs from the last applied one
      * (see player.worldMap.mobPreviewGeneration).
      */
-    mobPreviewVersion: 7,
+    mobPreviewVersion: 8,
     /** Cooldown after clearing a mob before it respawns on this map (ms). */
     mobRespawnMs: 60000,
     /**
