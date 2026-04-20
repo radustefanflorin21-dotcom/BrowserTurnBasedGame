@@ -16,6 +16,8 @@ let currentPage = "adventure";
 let inventoryTab = "equipment";
 /** "characteristics" | "skills" | "professions" — overview stats panel */
 let overviewStatsTab = "characteristics";
+let overviewSkillsScrollTop = 0;
+let overviewSkillsScrollAnchor = null;
 let activeMenuPanel = null;
 let dragPayload = null;
 /** Respawn label updates on adventure (no full re-render — avoids image flash) */
@@ -103,8 +105,275 @@ function xpToNextLevel(level) {
   return Math.max(1, Math.floor(a + lv * lv * b));
 }
 
+const DEFAULT_CLASS_ID = "vanguard";
+const CLASS_TIER_MIN_LEVEL = { early: 1, mid: 15, late: 30 };
+
+/** @type {Record<string, { id: string, label: string, passive: string, primaryStats: string[], starterSkills: string[], skills: Array<{ name: string, tier: "early"|"mid"|"late", staminaCost: number, combatMultiplier?: number, damageKind?: "physical"|"magic", combatAoe?: "all_enemies", combatTags?: string[], description: string, passiveOnly?: boolean }> }>} */
+const CLASS_DEFS = {
+  vanguard: {
+    id: "vanguard",
+    label: "Vanguard",
+    passive: "Unbreakable Trait: flat mitigation, counter-stagger chance when hit, stronger minimum damage.",
+    primaryStats: ["STR", "VIT"],
+    starterSkills: ["Shield Slam", "Brace", "Heavy Strike"],
+    skills: [
+      { name: "Shield Slam", tier: "early", staminaCost: 2, combatMultiplier: 1.18, combatTags: ["heavy"], description: "Damage with stagger chance." },
+      { name: "Brace", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Reduce incoming damage next turn." },
+      { name: "Heavy Strike", tier: "early", staminaCost: 3, combatMultiplier: 1.45, combatTags: ["heavy"], description: "High STR scaling hit." },
+      { name: "Fortress Stance", tier: "mid", staminaCost: 3, combatMultiplier: 1.05, description: "Multi-turn mitigation stance." },
+      { name: "Crushing Blow", tier: "mid", staminaCost: 3, combatMultiplier: 1.4, combatTags: ["crushing"], description: "Armor-ignoring strike." },
+      { name: "Taunt", tier: "mid", staminaCost: 2, combatMultiplier: 0.95, description: "Disrupt enemy damage focus." },
+      { name: "Last Bastion", tier: "late", staminaCost: 4, combatMultiplier: 1.1, description: "Massive defense while low HP." },
+      { name: "Earthshatter", tier: "late", staminaCost: 4, combatMultiplier: 1.38, combatAoe: "all_enemies", combatTags: ["heavy"], description: "AoE impact and stagger." },
+      { name: "Indomitable", tier: "late", staminaCost: 2, passiveOnly: true, description: "Limit max HP loss per turn." }
+    ]
+  },
+  duelist: {
+    id: "duelist",
+    label: "Duelist",
+    passive: "Momentum: crits can restore stamina and kills grant one quick follow-up action.",
+    primaryStats: ["DEX", "STR"],
+    starterSkills: ["Piercing Thrust", "Quick Slash", "Riposte"],
+    skills: [
+      { name: "Piercing Thrust", tier: "early", staminaCost: 2, combatMultiplier: 1.22, description: "Armor-piercing strike." },
+      { name: "Quick Slash", tier: "early", staminaCost: 2, combatMultiplier: 1.2, description: "High-crit quick hit." },
+      { name: "Riposte", tier: "early", staminaCost: 2, combatMultiplier: 1.05, description: "Counter-focused attack setup." },
+      { name: "Combo Strike", tier: "mid", staminaCost: 3, combatMultiplier: 1.35, description: "Crit chains into extra hit." },
+      { name: "Expose Weakness", tier: "mid", staminaCost: 2, combatMultiplier: 1.0, description: "Increase target damage taken." },
+      { name: "Flow State", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Raises proc cap efficiency." },
+      { name: "Execution", tier: "late", staminaCost: 4, combatMultiplier: 1.65, description: "Heavy finisher on low targets." },
+      { name: "Perfect Chain", tier: "late", staminaCost: 3, combatMultiplier: 1.15, description: "Crit-driven stamina refund chain." },
+      { name: "Blade Dance", tier: "late", staminaCost: 4, combatMultiplier: 1.45, description: "Multi-hit burst combo." }
+    ]
+  },
+  arcanist: {
+    id: "arcanist",
+    label: "Arcanist",
+    passive: "Arcane Efficiency: skills trend cheaper (floor 2), effects and durations are amplified.",
+    primaryStats: ["INT"],
+    starterSkills: ["Arcane Bolt", "Burning Mark", "Frost Bind"],
+    skills: [
+      { name: "Arcane Bolt", tier: "early", staminaCost: 2, combatMultiplier: 1.22, damageKind: "magic", description: "Efficient magic bolt." },
+      { name: "Burning Mark", tier: "early", staminaCost: 2, combatMultiplier: 1.08, damageKind: "magic", description: "DoT setup strike." },
+      { name: "Frost Bind", tier: "early", staminaCost: 2, combatMultiplier: 1.0, damageKind: "magic", description: "Tempo and effectiveness debuff." },
+      { name: "Chain Pulse", tier: "mid", staminaCost: 3, combatMultiplier: 1.25, damageKind: "magic", combatAoe: "all_enemies", description: "Multi-target pulse." },
+      { name: "Mana Surge", tier: "mid", staminaCost: 2, combatMultiplier: 1.12, damageKind: "magic", description: "Empower next casting window." },
+      { name: "Static Field", tier: "mid", staminaCost: 3, combatMultiplier: 1.18, damageKind: "magic", combatAoe: "all_enemies", description: "AoE ticking pressure." },
+      { name: "Meteor", tier: "late", staminaCost: 5, combatMultiplier: 1.75, damageKind: "magic", combatAoe: "all_enemies", description: "Large AoE burst." },
+      { name: "Time Warp", tier: "late", staminaCost: 3, combatMultiplier: 1.0, damageKind: "magic", description: "Extends active effects." },
+      { name: "Overload", tier: "late", staminaCost: 2, passiveOnly: true, description: "Multi-hit magic gains bonus scaling." }
+    ]
+  },
+  skirmisher: {
+    id: "skirmisher",
+    label: "Skirmisher",
+    passive: "Quick Reflexes: chance for efficiency gain and one quick action per turn cap.",
+    primaryStats: ["DEX"],
+    starterSkills: ["Flurry", "Evasive Roll", "Light Shot"],
+    skills: [
+      { name: "Flurry", tier: "early", staminaCost: 2, combatMultiplier: 1.2, description: "Fast multi-hit opener." },
+      { name: "Evasive Roll", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Defensive tempo reset." },
+      { name: "Light Shot", tier: "early", staminaCost: 2, combatMultiplier: 1.15, description: "Consistent pressure shot." },
+      { name: "Relentless Assault", tier: "mid", staminaCost: 3, combatMultiplier: 1.35, description: "Chain-based strike sequence." },
+      { name: "Focus Fire", tier: "mid", staminaCost: 2, combatMultiplier: 1.1, description: "Crit and accuracy setup." },
+      { name: "Agility", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Raises proc consistency." },
+      { name: "Storm of Blades", tier: "late", staminaCost: 4, combatMultiplier: 1.55, description: "High hit-count burst." },
+      { name: "Perfect Tempo", tier: "late", staminaCost: 2, passiveOnly: true, description: "Stronger chaining rhythm." },
+      { name: "Phantom Chain", tier: "late", staminaCost: 3, combatMultiplier: 1.25, description: "Chance to repeat action." }
+    ]
+  },
+  reaver: {
+    id: "reaver",
+    label: "Reaver",
+    passive: "Bloodlust: kill pressure fuels next turn stamina and low-HP damage scaling.",
+    primaryStats: ["STR", "DEX"],
+    starterSkills: ["Reckless Strike", "Rage", "Frenzy Hit"],
+    skills: [
+      { name: "Reckless Strike", tier: "early", staminaCost: 3, combatMultiplier: 1.55, description: "High damage with self-cost risk." },
+      { name: "Rage", tier: "early", staminaCost: 2, combatMultiplier: 1.08, description: "Short STR-leaning damage buff." },
+      { name: "Frenzy Hit", tier: "early", staminaCost: 2, combatMultiplier: 1.2, description: "Chance for bonus follow-up hit." },
+      { name: "Blood Chain", tier: "mid", staminaCost: 3, combatMultiplier: 1.35, description: "Kill chains into pressure." },
+      { name: "Savage Roar", tier: "mid", staminaCost: 2, combatMultiplier: 1.05, description: "Enemy defense shred setup." },
+      { name: "Unhinged", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Crit damage amplification." },
+      { name: "Massacre", tier: "late", staminaCost: 4, combatMultiplier: 1.55, combatAoe: "all_enemies", description: "AoE payoff after picks." },
+      { name: "Endless Rage", tier: "late", staminaCost: 2, passiveOnly: true, description: "Buff durations extended." },
+      { name: "Execution Rush", tier: "late", staminaCost: 3, combatMultiplier: 1.4, description: "Kill-reset once per turn." }
+    ]
+  },
+  warden: {
+    id: "warden",
+    label: "Warden",
+    passive: "Sanctified Core: stronger healing and longer team buffs.",
+    primaryStats: ["VIT", "INT"],
+    starterSkills: ["Heal", "Guard Ally", "Purify"],
+    skills: [
+      { name: "Heal", tier: "early", staminaCost: 2, combatMultiplier: 0.9, damageKind: "magic", description: "Single-target recovery." },
+      { name: "Guard Ally", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Protective intercept stance." },
+      { name: "Purify", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Cleanse and resistance pulse." },
+      { name: "Sanctuary", tier: "mid", staminaCost: 3, combatMultiplier: 1.0, description: "Team mitigation field." },
+      { name: "Regeneration", tier: "mid", staminaCost: 2, combatMultiplier: 1.0, description: "Heal-over-time aura." },
+      { name: "Resolve", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Status resistance passive." },
+      { name: "Divine Aegis", tier: "late", staminaCost: 4, combatMultiplier: 1.0, description: "Large shield application." },
+      { name: "Revitalize", tier: "late", staminaCost: 3, combatMultiplier: 1.05, description: "Heal + team buff." },
+      { name: "Eternal Light", tier: "late", staminaCost: 2, passiveOnly: true, description: "Buff persistence passive." }
+    ]
+  },
+  alchemist: {
+    id: "alchemist",
+    label: "Alchemist",
+    passive: "Catalysis: status applications can trigger instantly with stronger effect windows.",
+    primaryStats: ["INT", "DEX"],
+    starterSkills: ["Toxic Flask", "Weakening Brew", "Acid Splash"],
+    skills: [
+      { name: "Toxic Flask", tier: "early", staminaCost: 2, combatMultiplier: 1.08, damageKind: "magic", description: "Poison application strike." },
+      { name: "Weakening Brew", tier: "early", staminaCost: 2, combatMultiplier: 1.0, damageKind: "magic", description: "Enemy damage debuff." },
+      { name: "Acid Splash", tier: "early", staminaCost: 2, combatMultiplier: 1.12, damageKind: "magic", combatAoe: "all_enemies", description: "Small corrosive AoE." },
+      { name: "Corrosive Cloud", tier: "mid", staminaCost: 3, combatMultiplier: 1.2, damageKind: "magic", combatAoe: "all_enemies", description: "AoE DoT cloud." },
+      { name: "Catalyst", tier: "mid", staminaCost: 2, combatMultiplier: 1.0, damageKind: "magic", description: "Trigger active effects." },
+      { name: "Volatile Mix", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Improves effect strength." },
+      { name: "Plague Storm", tier: "late", staminaCost: 4, combatMultiplier: 1.45, damageKind: "magic", combatAoe: "all_enemies", description: "Stacking AoE DoT pressure." },
+      { name: "Chain Reaction", tier: "late", staminaCost: 3, combatMultiplier: 1.2, damageKind: "magic", description: "Spread active effects." },
+      { name: "Perfect Formula", tier: "late", staminaCost: 2, passiveOnly: true, description: "Partial resistance bypass." }
+    ]
+  }
+};
+
+const CLASS_SKILL_MAP = Object.values(CLASS_DEFS).reduce((acc, cls) => {
+  cls.skills.forEach((sk) => {
+    acc[sk.name] = { ...sk, classId: cls.id };
+  });
+  return acc;
+}, {});
+
+function injectClassSkillsIntoConfig() {
+  const skillArr = Array.isArray(GAME_CONFIG.skills) ? GAME_CONFIG.skills : [];
+  const existing = new Set(skillArr.map((s) => (s && typeof s.name === "string" ? s.name : "")).filter(Boolean));
+  Object.values(CLASS_SKILL_MAP).forEach((sk) => {
+    if (existing.has(sk.name)) return;
+    skillArr.push({
+      name: sk.name,
+      bonus: 0,
+      combatMultiplier: typeof sk.combatMultiplier === "number" ? sk.combatMultiplier : undefined,
+      staminaCost: sk.staminaCost,
+      damageKind: sk.damageKind || "physical",
+      combatAoe: sk.combatAoe,
+      combatTags: Array.isArray(sk.combatTags) ? sk.combatTags : [],
+      image: getSkillImage(sk.name),
+      description: sk.description
+    });
+  });
+  GAME_CONFIG.skills = skillArr;
+}
+
+injectClassSkillsIntoConfig();
+
+function getClassDef(classId) {
+  const id = typeof classId === "string" ? classId : "";
+  return CLASS_DEFS[id] || CLASS_DEFS[DEFAULT_CLASS_ID];
+}
+
+function getClassSkillDefByName(skillName) {
+  return CLASS_SKILL_MAP[skillName] || null;
+}
+
+function getSkillDef(skillName) {
+  if (!skillName) return null;
+  return GAME_CONFIG.skills.find((s) => s.name === skillName) || null;
+}
+
+function isClassSkill(skillName) {
+  return !!getClassSkillDefByName(skillName);
+}
+
+function getSkillTierMinLevel(tier) {
+  return CLASS_TIER_MIN_LEVEL[tier] || 1;
+}
+
+function getPlayerSkillLevel(skillName) {
+  if (!isClassSkill(skillName)) return 1;
+  const map = player && player.classSkillLevels && typeof player.classSkillLevels === "object" ? player.classSkillLevels : {};
+  const lv = map[skillName];
+  if (typeof lv !== "number" || !Number.isFinite(lv) || lv <= 0) return 0;
+  return Math.max(0, Math.min(5, Math.floor(lv)));
+}
+
+function getClassSkillPowerMultiplier(skillName) {
+  const lv = getPlayerSkillLevel(skillName);
+  if (!lv) return 1;
+  return 1 + 0.2 * (lv - 1);
+}
+
+function syncPlayerClassSkillList(p) {
+  const cls = getClassDef(p.classId);
+  if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
+  const outSkills = [];
+  cls.skills.forEach((sk) => {
+    const lv = p.classSkillLevels[sk.name];
+    if (typeof lv === "number" && lv > 0) outSkills.push(sk.name);
+  });
+  p.skills = outSkills;
+}
+
+function findNearestScrollableContainer(el) {
+  let cur = el;
+  while (cur && cur !== document.body) {
+    if (cur instanceof HTMLElement && cur.scrollHeight > cur.clientHeight + 1) return cur;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
+function unlockOrUpgradeClassSkill(skillName, sourceEl) {
+  const sk = getClassSkillDefByName(skillName);
+  if (!sk) return false;
+  if (overviewStatsTab === "skills") {
+    const near = sourceEl ? findNearestScrollableContainer(sourceEl) : null;
+    if (near) {
+      overviewSkillsScrollTop = Math.max(0, Math.floor(near.scrollTop || 0));
+      const row = sourceEl ? sourceEl.closest("[data-class-skill-row]") : null;
+      if (row) {
+        const hostRect = near.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        overviewSkillsScrollAnchor = {
+          skillName,
+          offsetY: Math.max(0, Math.floor(rowRect.top - hostRect.top))
+        };
+      } else {
+        overviewSkillsScrollAnchor = null;
+      }
+    } else {
+      captureOverviewSkillsScroll();
+    }
+  }
+  if (!player.classSkillLevels || typeof player.classSkillLevels !== "object") player.classSkillLevels = {};
+  const cur = getPlayerSkillLevel(skillName);
+  const reqLv = getSkillTierMinLevel(sk.tier);
+  if (player.level < reqLv) {
+    showModal(`Requires level ${reqLv} (${sk.tier} tier).`);
+    return false;
+  }
+  if (typeof player.skillPoints !== "number" || player.skillPoints < 1) {
+    showModal("Not enough skill points.");
+    return false;
+  }
+  if (cur >= 5) return false;
+  player.classSkillLevels[skillName] = cur + 1;
+  player.skillPoints -= 1;
+  syncPlayerClassSkillList(player);
+  save();
+  const inPlace = overviewStatsTab === "skills" ? refreshOverviewSkillsSubpanelInPlace() : false;
+  if (!inPlace) render();
+  restoreOverviewSkillsScroll();
+  return true;
+}
+
 const defaultPlayer = () => {
   const st = GAME_CONFIG.worldMap.defaultStart;
+  const starter = getClassDef(DEFAULT_CLASS_ID);
+  const classSkillLevels = {};
+  starter.starterSkills.forEach((name) => {
+    classSkillLevels[name] = 1;
+  });
   return {
     name: "Hero",
     level: 1,
@@ -118,7 +387,10 @@ const defaultPlayer = () => {
     baseAttack: 10,
     charPoints: 0,
     gold: 0,
-    skills: ["Power Strike", "Heavy Blow", "Precise Shot", "Arcane Strike", "Quick Reflexes"],
+    classId: DEFAULT_CLASS_ID,
+    skillPoints: 0,
+    classSkillLevels,
+    skills: starter.starterSkills.slice(),
     inventory: buildStartingInventory(),
     equipment: emptyEquipment(),
     theme: "medieval",
@@ -245,13 +517,20 @@ function migratePlayer(p) {
   if (typeof p.int !== "number") p.int = 10;
   if (!p.theme || !GAME_CONFIG.themes[p.theme]) p.theme = "medieval";
   if (!Array.isArray(p.inventory)) p.inventory = [];
-  if (!Array.isArray(p.skills)) p.skills = defaultPlayer().skills.slice();
-  else {
-    ["Heavy Blow", "Precise Shot", "Arcane Strike"].forEach((name) => {
-      const def = GAME_CONFIG.skills.find((s) => s.name === name);
-      if (def && !p.skills.includes(name)) p.skills.push(name);
+  const legacyHasClass = typeof p.classId === "string" && !!CLASS_DEFS[p.classId];
+  if (!legacyHasClass) {
+    p.classId = DEFAULT_CLASS_ID;
+    p.classSkillLevels = {};
+    const starter = getClassDef(p.classId);
+    starter.starterSkills.forEach((name) => {
+      p.classSkillLevels[name] = 1;
     });
+    p.skillPoints = Math.max(0, (typeof p.level === "number" ? p.level : 1) - 1);
+  } else {
+    if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
+    if (typeof p.skillPoints !== "number" || p.skillPoints < 0) p.skillPoints = 0;
   }
+  syncPlayerClassSkillList(p);
   const eq = p.equipment || {};
   const base = emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
@@ -388,11 +667,28 @@ function getItemImage(itemName) {
 }
 
 function getSkillImage(skillName) {
-  const def = GAME_CONFIG.skills.find((s) => s.name === skillName);
+  const def = getSkillDef(skillName);
   if (def && def.image) return def.image;
-  return `Assets/Skills/${String(skillName)
-    .toLowerCase()
-    .replace(/\s+/g, "-")}.svg`;
+  const sk = getClassSkillDefByName(skillName);
+  const cls = sk ? getClassDef(sk.classId) : null;
+  const hueByClass = {
+    vanguard: 18,
+    duelist: 2,
+    arcanist: 270,
+    skirmisher: 215,
+    reaver: 348,
+    warden: 140,
+    alchemist: 95
+  };
+  const hue = cls && hueByClass[cls.id] != null ? hueByClass[cls.id] : 220;
+  const initial = String(skillName || "?")
+    .split(/\s+/)
+    .map((p) => p[0] || "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},72%,56%)'/><stop offset='1' stop-color='hsl(${(hue + 36) % 360},72%,40%)'/></linearGradient></defs><rect x='4' y='4' width='64' height='64' rx='12' fill='url(#g)'/><rect x='10' y='10' width='52' height='52' rx='10' fill='rgba(255,255,255,.12)'/><text x='36' y='44' text-anchor='middle' font-family='Segoe UI,Arial,sans-serif' font-size='21' fill='white' font-weight='700'>${initial}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 function getArmorDefense() {
@@ -608,7 +904,7 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const str = totalStr();
   const dex = totalDex();
   const int = totalInt();
-  const sk = skillName ? GAME_CONFIG.skills.find((s) => s.name === skillName) : null;
+  const sk = skillName ? getSkillDef(skillName) : null;
   let dmgKind = "physical";
   if (sk && sk.damageKind === "magic") dmgKind = "magic";
   if (kind !== "skill") dmgKind = "physical";
@@ -660,6 +956,7 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   fin = Math.max(1, Math.floor(fin * (1 - drPct)));
 
   let takenMult = typeof foe.damageTakenMult === "number" && foe.damageTakenMult > 0 ? foe.damageTakenMult : 1;
+  if (foe.combat && typeof foe.combat.armorBreakTurns === "number" && foe.combat.armorBreakTurns > 0) takenMult *= 1.16;
   if (foe.combat && typeof foe.combat.thickHideTurns === "number" && foe.combat.thickHideTurns > 0) {
     const th =
       typeof foe.combat.thickHideDamagedMult === "number" && foe.combat.thickHideDamagedMult > 0
@@ -698,11 +995,14 @@ function tryApplyStaggerFromSkill(foe, skillCfg) {
 
 function tryDexComboRefundAfterSkill(st) {
   if (!st || typeof st.stamina !== "number" || typeof st.maxStamina !== "number") return;
+  const refunded = typeof st.staminaRefundedThisTurn === "number" ? st.staminaRefundedThisTurn : 0;
+  if (refunded >= 2) return;
   if (st.comboRefundedThisTurn) return;
   const p = formulaDexComboChancePct(totalDex()) / 100;
   if (Math.random() >= p) return;
   st.comboRefundedThisTurn = true;
   st.stamina = Math.min(st.maxStamina, st.stamina + 1);
+  st.staminaRefundedThisTurn = refunded + 1;
   appendFightLog("Combo rhythm: you recover 1 stamina.");
 }
 
@@ -743,6 +1043,8 @@ function initCombatStamina(st) {
   st.maxStamina = maxS;
   st.stamina = maxS;
   st.comboRefundedThisTurn = false;
+  st.staminaRefundedThisTurn = 0;
+  st.quickActionsUsedThisTurn = 0;
 }
 
 function refillCombatStamina(st) {
@@ -750,6 +1052,8 @@ function refillCombatStamina(st) {
   const maxS = getPlayerCombatMaxStamina();
   st.maxStamina = maxS;
   st.stamina = maxS;
+  st.staminaRefundedThisTurn = 0;
+  st.quickActionsUsedThisTurn = 0;
 }
 
 function getAttackStaminaCost() {
@@ -758,7 +1062,7 @@ function getAttackStaminaCost() {
 }
 
 function getSkillStaminaCost(skillName) {
-  const cfg = skillName ? GAME_CONFIG.skills.find((s) => s.name === skillName) : null;
+  const cfg = skillName ? getSkillDef(skillName) : null;
   if (cfg && typeof cfg.staminaCost === "number" && cfg.staminaCost > 0) return Math.floor(cfg.staminaCost);
   return typeof getStatSystem().defaultSkillStamina === "number" && getStatSystem().defaultSkillStamina > 0
     ? Math.floor(getStatSystem().defaultSkillStamina)
@@ -774,11 +1078,15 @@ function resolveAttackStaminaCost() {
 }
 
 /** Skills: Intelligence reduces cost; minimum skill cost from config. */
-function resolveSkillStaminaCost(baseCost) {
+function resolveSkillStaminaCost(baseCost, skillName) {
   const sys = getStatSystem();
   const b = Math.max(1, Math.floor(baseCost));
   const redPct = formulaIntStaminaCostReductionPct(totalInt());
   let c = Math.ceil(b * (1 - redPct / 100));
+  const cls = getClassDef(player.classId);
+  const cs = combatState ? ensurePlayerClassCombatState(combatState) : null;
+  if (cls.id === "arcanist" && skillName) c -= 1;
+  if (cs && cs.manaSurgeTurns > 0 && cls.id === "arcanist") c -= 1;
   const minSkill = typeof sys.minSkillStaminaCost === "number" ? Math.max(1, Math.floor(sys.minSkillStaminaCost)) : 2;
   c = Math.max(minSkill, c);
   return Math.max(1, c);
@@ -788,6 +1096,7 @@ function endPlayerTurn() {
   const st = combatState;
   if (!st || st.phase !== "player") return;
   clearPlayerTurnTimer();
+  tickPlayerClassEndOfTurn(st);
   tickPlayerTurnEndBuffs(st);
   runEnemyPhase();
 }
@@ -798,7 +1107,7 @@ function getPlayerDamageCore() {
   const w = player.equipment.weapon;
   if (w) atk += getItemDef(w)?.attack || 0;
   player.skills.forEach((s) => {
-    const sk = GAME_CONFIG.skills.find((x) => x.name === s);
+    const sk = getSkillDef(s);
     if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier !== "number") atk += sk.bonus;
   });
   return Math.max(1, atk);
@@ -807,7 +1116,7 @@ function getPlayerDamageCore() {
 function getPlayerDamage() {
   let atk = getPlayerDamageCore();
   player.skills.forEach((s) => {
-    const sk = GAME_CONFIG.skills.find((x) => x.name === s);
+    const sk = getSkillDef(s);
     if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier === "number") atk += sk.bonus;
   });
   return Math.max(1, Math.floor(atk));
@@ -816,13 +1125,13 @@ function getPlayerDamage() {
 /** Basic attack uses full listed damage; active combat skills use core + that skill’s bonus × multiplier. */
 function getCombatDamage(kind, skillName) {
   if (kind !== "skill" || !skillName) return getPlayerDamage();
-  const cfg = GAME_CONFIG.skills.find((x) => x.name === skillName);
+  const cfg = getSkillDef(skillName);
   if (!cfg || typeof cfg.combatMultiplier !== "number" || !player.skills.includes(skillName)) {
     return getPlayerDamage();
   }
   const core = getPlayerDamageCore();
   const base = core + (typeof cfg.bonus === "number" ? cfg.bonus : 0);
-  return Math.max(1, Math.floor(base * cfg.combatMultiplier));
+  return Math.max(1, Math.floor(base * cfg.combatMultiplier * getClassSkillPowerMultiplier(skillName)));
 }
 
 function getDamageRange() {
@@ -858,6 +1167,111 @@ function ensureCombatStatus(st) {
   }
 }
 
+function ensurePlayerClassCombatState(st) {
+  if (!st.classState || typeof st.classState !== "object") {
+    st.classState = {
+      braceTurns: 0,
+      fortressTurns: 0,
+      lastBastionTurns: 0,
+      tauntTurns: 0,
+      riposteTurns: 0,
+      flowStateTurns: 0,
+      exposeWeaknessTurns: 0,
+      manaSurgeTurns: 0,
+      focusFireTurns: 0,
+      rageTurns: 0,
+      bloodlustNextTurnStamina: 0,
+      guardAllyTurns: 0,
+      sanctuaryTurns: 0,
+      regenTurns: 0,
+      regenAmt: 0,
+      divineAegisShield: 0,
+      revitalizeTurns: 0,
+      catalystReadyTurns: 0,
+      plagueStacks: 0
+    };
+  }
+  return st.classState;
+}
+
+function getClassSkillDurationBonus(skillName) {
+  const lv = getPlayerSkillLevel(skillName);
+  if (lv >= 5) return 2;
+  if (lv >= 3) return 1;
+  return 0;
+}
+
+function getClassSkillProcBonus(skillName) {
+  const lv = getPlayerSkillLevel(skillName);
+  return Math.max(0, (lv - 1) * 0.03);
+}
+
+function getClassSkillDamageScale(skillName) {
+  return getClassSkillPowerMultiplier(skillName);
+}
+
+function grantStaminaRefund(st, amt, reason) {
+  if (!st || !Number.isFinite(amt) || amt <= 0) return 0;
+  const used = typeof st.staminaRefundedThisTurn === "number" ? st.staminaRefundedThisTurn : 0;
+  const room = Math.max(0, 2 - used);
+  if (!room) return 0;
+  const give = Math.min(room, Math.floor(amt));
+  if (!give) return 0;
+  st.stamina = Math.min(st.maxStamina, st.stamina + give);
+  st.staminaRefundedThisTurn = used + give;
+  if (reason) appendFightLog(`${reason} (+${give} stamina).`);
+  return give;
+}
+
+function grantQuickAction(st, reason) {
+  if (!st) return false;
+  const used = typeof st.quickActionsUsedThisTurn === "number" ? st.quickActionsUsedThisTurn : 0;
+  if (used >= 1) return false;
+  st.quickActionsUsedThisTurn = used + 1;
+  st.stamina = Math.min(st.maxStamina, st.stamina + 1);
+  if (reason) appendFightLog(`${reason} (quick action).`);
+  return true;
+}
+
+function tickPlayerClassStartOfTurn(st) {
+  const cs = ensurePlayerClassCombatState(st);
+  if (cs.bloodlustNextTurnStamina > 0) {
+    const add = Math.max(0, Math.floor(cs.bloodlustNextTurnStamina));
+    st.stamina = Math.min(st.maxStamina, st.stamina + add);
+    cs.bloodlustNextTurnStamina = 0;
+    appendFightLog(`Bloodlust surges: +${add} stamina.`);
+  }
+  if (cs.regenTurns > 0 && cs.regenAmt > 0) {
+    const heal = Math.max(1, Math.floor(cs.regenAmt));
+    st.playerHp = Math.min(st.playerMax, st.playerHp + heal);
+    syncHeroHpFromPlayerMirror(st);
+    cs.regenTurns -= 1;
+    appendFightLog(`Regeneration restores ${heal} HP.`);
+  }
+}
+
+function tickPlayerClassEndOfTurn(st) {
+  const cs = ensurePlayerClassCombatState(st);
+  [
+    "braceTurns",
+    "fortressTurns",
+    "lastBastionTurns",
+    "tauntTurns",
+    "riposteTurns",
+    "flowStateTurns",
+    "exposeWeaknessTurns",
+    "manaSurgeTurns",
+    "focusFireTurns",
+    "rageTurns",
+    "guardAllyTurns",
+    "sanctuaryTurns",
+    "revitalizeTurns",
+    "catalystReadyTurns"
+  ].forEach((k) => {
+    if (typeof cs[k] === "number" && cs[k] > 0) cs[k] -= 1;
+  });
+}
+
 function initFoeCombatRuntime(foe) {
   const def = getEnemyDefByName(foe.name);
   const script = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
@@ -891,6 +1305,7 @@ function getFoeEffectiveAttackForCombat(foe) {
 
 function getFoeOutgoingDamageMultiplier(st, foe) {
   let m = 1;
+  const cs = st ? ensurePlayerClassCombatState(st) : null;
   if (st && st.status && typeof st.status.packHowlTurns === "number" && st.status.packHowlTurns > 0) {
     const pm =
       typeof st.status.packHowlAttackMult === "number" && st.status.packHowlAttackMult > 0
@@ -899,6 +1314,8 @@ function getFoeOutgoingDamageMultiplier(st, foe) {
     m *= pm;
   }
   if (foe.combat && typeof foe.combat.echoCryBonusTurns === "number" && foe.combat.echoCryBonusTurns > 0) m *= 1.25;
+  if (foe.combat && typeof foe.combat.weakenTurns === "number" && foe.combat.weakenTurns > 0) m *= 0.88;
+  if (cs && cs.tauntTurns > 0) m *= 0.94;
   return m;
 }
 
@@ -1029,22 +1446,55 @@ function formatPartyHitLog(foeName, logVerb, memberName, taken) {
 
 function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
   ensureCombatParty(st);
+  const cls = getClassDef(player.classId);
+  const cs = ensurePlayerClassCombatState(st);
   const m = st.party.find((x) => x && x.uid === partyUid);
   if (!m || m.hp <= 0) return;
   let raw = rawDamage;
   if (m.kind === "hero") {
     ensureCombatStatus(st);
     if (typeof st.status.playerFragileTurns === "number" && st.status.playerFragileTurns > 0) raw += 2;
+    if (cls.id === "vanguard") {
+      const flat = Math.max(0, Math.floor(totalVit() / 30));
+      raw = Math.max(1, raw - flat);
+      if (cs.braceTurns > 0) raw = Math.max(1, Math.floor(raw * 0.8));
+      if (cs.fortressTurns > 0) raw = Math.max(1, Math.floor(raw * 0.78));
+      if (cs.lastBastionTurns > 0 && m.maxHp > 0 && m.hp / m.maxHp <= 0.4) raw = Math.max(1, Math.floor(raw * 0.68));
+    }
+    if (cls.id === "warden") {
+      if (cs.sanctuaryTurns > 0) raw = Math.max(1, Math.floor(raw * 0.86));
+      if (cs.guardAllyTurns > 0) raw = Math.max(1, Math.floor(raw * 0.88));
+    }
     const hit = computeHeroIncomingDamage(raw);
     if (hit.evaded) {
       appendFightLog(`${foeName} attacks ${m.name} — ${m.name} evades!`);
       syncCombatPartyHeroMirror(st);
       return;
     }
-    const taken = hit.taken;
+    let taken = hit.taken;
+    if (cs.divineAegisShield > 0) {
+      const blocked = Math.min(cs.divineAegisShield, taken);
+      cs.divineAegisShield -= blocked;
+      taken -= blocked;
+      if (blocked > 0) appendFightLog(`Divine Aegis absorbs ${blocked} damage.`);
+    }
+    if (taken < 0) taken = 0;
     m.hp -= taken;
     if (m.hp < 0) m.hp = 0;
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
+    if (cls.id === "vanguard") {
+      const p = Math.min(0.32, 0.1 + totalVit() * 0.0008 + getClassSkillProcBonus("Shield Slam"));
+      if (Math.random() < p) appendFightLog("Unbreakable: the attacker is staggered.");
+    }
+    if (cs.riposteTurns > 0) {
+      const target = st.foes.find((f) => f && f.hp > 0 && f.name === foeName) || st.foes.find((f) => f && f.hp > 0);
+      if (target) {
+        const rip = Math.max(1, Math.floor(getCombatDamage("attack") * 0.4));
+        target.hp = Math.max(0, target.hp - rip);
+        appendFightLog(`Riposte deals ${rip} counter damage to ${target.name}.`);
+      }
+      cs.riposteTurns = 0;
+    }
   } else {
     const dexPart = typeof m.dex === "number" ? m.dex : m.agi || 0;
     const taken = Math.max(1, raw - Math.floor(dexPart / 4) - (m.flatArmor || 0));
@@ -1132,11 +1582,26 @@ function tickPlayerTurnEndBuffs(st) {
   if (typeof s.playerBrineWeakTurns === "number" && s.playerBrineWeakTurns > 0) s.playerBrineWeakTurns -= 1;
   if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) s.playerFragileTurns -= 1;
   st.foes.forEach((f) => {
-    if (!f.combat) return;
+    if (!f || f.hp <= 0 || !f.combat) return;
     if (typeof f.combat.thickHideTurns === "number" && f.combat.thickHideTurns > 0) f.combat.thickHideTurns -= 1;
     if (typeof f.combat.echoCryBonusTurns === "number" && f.combat.echoCryBonusTurns > 0) f.combat.echoCryBonusTurns -= 1;
     if (typeof f.combat.mitigationTurns === "number" && f.combat.mitigationTurns > 0) f.combat.mitigationTurns -= 1;
     if (typeof f.combat.reflectTurns === "number" && f.combat.reflectTurns > 0) f.combat.reflectTurns -= 1;
+    if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
+    if (typeof f.combat.weakenTurns === "number" && f.combat.weakenTurns > 0) f.combat.weakenTurns -= 1;
+    if (typeof f.combat.staggerLockedTurns === "number" && f.combat.staggerLockedTurns > 0) f.combat.staggerLockedTurns -= 1;
+    if (typeof f.combat.poisonTurns === "number" && f.combat.poisonTurns > 0 && (f.combat.poisonDamage || 0) > 0) {
+      const d = Math.max(1, Math.floor(f.combat.poisonDamage));
+      f.hp = Math.max(0, f.hp - d);
+      f.combat.poisonTurns -= 1;
+      appendFightLog(`${f.name} takes ${d} poison damage.`);
+    }
+    if (typeof f.combat.burnTurns === "number" && f.combat.burnTurns > 0 && (f.combat.burnDamage || 0) > 0) {
+      const d = Math.max(1, Math.floor(f.combat.burnDamage));
+      f.hp = Math.max(0, f.hp - d);
+      f.combat.burnTurns -= 1;
+      appendFightLog(`${f.name} takes ${d} burn damage.`);
+    }
   });
 }
 
@@ -5645,7 +6110,7 @@ function getCombatFoeVisual(foe) {
 function getActiveCombatSkills() {
   const out = [];
   player.skills.forEach((name) => {
-    const cfg = GAME_CONFIG.skills.find((s) => s.name === name);
+    const cfg = getSkillDef(name);
     if (cfg && typeof cfg.combatMultiplier === "number") out.push(cfg);
   });
   return out;
@@ -5927,7 +6392,7 @@ function renderTurnBattle() {
       let skillBtns = "";
       skills.forEach((sk) => {
         const sImg = escapeAttr(getSkillImage(sk.name));
-        const sc = resolveSkillStaminaCost(getSkillStaminaCost(sk.name));
+        const sc = resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name);
         const canSk = stam >= sc;
         const dis = canSk ? "" : " disabled";
         skillBtns += `<button type="button" class="btn-secondary fight-skill-btn"${dis} data-fight-skill="${escapeAttr(sk.name)}" title="${escapeAttr(sk.name)} (${sc} stamina)"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" /></button>`;
@@ -6010,6 +6475,7 @@ function runEnemyPhase() {
       ensureCombatTarget();
       refillCombatStamina(cur);
       cur.comboRefundedThisTurn = false;
+      tickPlayerClassStartOfTurn(cur);
       renderTurnBattle();
       return;
     }
@@ -6017,6 +6483,13 @@ function runEnemyPhase() {
     i++;
     if (foe.hp <= 0) {
       nextHit();
+      return;
+    }
+    if (foe.combat && typeof foe.combat.staggerLockedTurns === "number" && foe.combat.staggerLockedTurns > 0) {
+      appendFightLog(`${foe.name} is staggered and cannot act.`);
+      tickEnemySkillCooldownsEndOfTurn(foe);
+      renderTurnBattle();
+      setTimeout(nextHit, 240);
       return;
     }
     foe.attackUntil = Date.now() + 320;
@@ -6177,27 +6650,318 @@ function applyReflectDamageToPartyHero(st, dmgDealtToFoe, foe) {
   appendFightLog(`${foe.name} reflects ${ref} damage.`);
 }
 
+function getClassSkillTurnScaled(skillName, turns) {
+  return Math.max(1, Math.floor(turns + getClassSkillDurationBonus(skillName)));
+}
+
+function getPlayerClassOutgoingMult(st, skillName, foe) {
+  const cls = getClassDef(player.classId);
+  const cs = ensurePlayerClassCombatState(st);
+  let mult = 1;
+  if (cs.flowStateTurns > 0) mult *= 1.08;
+  if (cs.focusFireTurns > 0) mult *= 1.12;
+  if (cs.rageTurns > 0) mult *= 1.15;
+  if (cs.exposeWeaknessTurns > 0 && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.5) mult *= 1.18;
+  if (cls.id === "reaver" && st.playerMax > 0 && st.playerHp / st.playerMax <= 0.5) mult *= 1.12;
+  if (cls.id === "arcanist" && cs.manaSurgeTurns > 0) mult *= 1.1;
+  if (skillName === "Execution" && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.35) mult *= 1.38;
+  if (skillName === "Execution Rush" && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.4) mult *= 1.3;
+  return mult * (skillName ? getClassSkillDamageScale(skillName) : 1);
+}
+
+function maybeTriggerClassPassivesOnHit(st, foe, crit, killed) {
+  const cls = getClassDef(player.classId);
+  if (cls.id === "duelist") {
+    if (crit && Math.random() < 0.27) grantStaminaRefund(st, 1, "Momentum");
+    if (killed && Math.random() < 0.35) grantQuickAction(st, "Momentum chain");
+  } else if (cls.id === "skirmisher") {
+    if (Math.random() < 0.11) grantQuickAction(st, "Quick Reflexes");
+    if (crit && Math.random() < 0.16 + getClassSkillProcBonus("Flurry")) grantStaminaRefund(st, 1, "Skirmisher tempo");
+  } else if (cls.id === "reaver") {
+    if (killed) {
+      const cs = ensurePlayerClassCombatState(st);
+      cs.bloodlustNextTurnStamina = Math.min(2, (cs.bloodlustNextTurnStamina || 0) + 1);
+      appendFightLog("Bloodlust builds for next turn.");
+    }
+  } else if (cls.id === "alchemist") {
+    const cs = ensurePlayerClassCombatState(st);
+    if (foe && foe.combat && (foe.combat.poisonTurns > 0 || foe.combat.burnTurns > 0 || foe.combat.weakenTurns > 0)) {
+      if (Math.random() < 0.16 + getClassSkillProcBonus("Catalyst") * 0.8) cs.catalystReadyTurns = 1;
+    }
+  }
+}
+
+function applyPlayerClassSkillCast(st, skillName, targetFoe) {
+  if (!skillName) return;
+  const cs = ensurePlayerClassCombatState(st);
+  const healScale = 1 + Math.floor(totalVit() / 80) * 0.05;
+  switch (skillName) {
+    case "Brace":
+      cs.braceTurns = Math.max(cs.braceTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Brace hardens your stance.");
+      break;
+    case "Fortress":
+    case "Fortress Stance":
+      cs.fortressTurns = Math.max(cs.fortressTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Fortress raises a resilient guard.");
+      break;
+    case "Taunt":
+      cs.tauntTurns = Math.max(cs.tauntTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("You taunt and draw enemy focus.");
+      break;
+    case "Last Bastion":
+      cs.lastBastionTurns = Math.max(cs.lastBastionTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Last Bastion prepares emergency resilience.");
+      break;
+    case "Riposte":
+      cs.riposteTurns = Math.max(cs.riposteTurns, getClassSkillTurnScaled(skillName, 1));
+      appendFightLog("Riposte is primed for the next incoming hit.");
+      break;
+    case "Flow State":
+      cs.flowStateTurns = Math.max(cs.flowStateTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Flow State boosts precision and tempo.");
+      break;
+    case "Expose Weakness":
+      cs.exposeWeaknessTurns = Math.max(cs.exposeWeaknessTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Expose Weakness improves finish potential.");
+      break;
+    case "Mana Surge":
+      cs.manaSurgeTurns = Math.max(cs.manaSurgeTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Mana Surge empowers your next spells.");
+      break;
+    case "Focus Fire":
+      cs.focusFireTurns = Math.max(cs.focusFireTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Focus Fire increases focused damage.");
+      break;
+    case "Rage":
+      cs.rageTurns = Math.max(cs.rageTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Rage fuels your strikes.");
+      break;
+    case "Guard Ally":
+      cs.guardAllyTurns = Math.max(cs.guardAllyTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Guard Ally reduces incoming pressure.");
+      break;
+    case "Sanctuary":
+      cs.sanctuaryTurns = Math.max(cs.sanctuaryTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Sanctuary grants defensive blessing.");
+      break;
+    case "Regeneration":
+      cs.regenTurns = Math.max(cs.regenTurns, getClassSkillTurnScaled(skillName, 3));
+      cs.regenAmt = Math.max(cs.regenAmt, Math.max(2, Math.floor((4 + totalVit() * 0.11) * healScale)));
+      appendFightLog("Regeneration takes effect.");
+      break;
+    case "Divine Aegis":
+      cs.divineAegisShield = Math.max(cs.divineAegisShield, Math.floor((14 + totalVit() * 0.45) * healScale));
+      appendFightLog("Divine Aegis shields you.");
+      break;
+    case "Revitalize":
+      cs.revitalizeTurns = Math.max(cs.revitalizeTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Revitalize amplifies your healing.");
+      break;
+    case "Catalyst":
+      cs.catalystReadyTurns = Math.max(cs.catalystReadyTurns, getClassSkillTurnScaled(skillName, 2));
+      appendFightLog("Catalyst primes your next affliction.");
+      break;
+    case "Purify":
+      ensureCombatStatus(st);
+      st.status.playerPoison = null;
+      st.status.playerBurn = null;
+      st.status.playerBleed = null;
+      st.status.playerHamstringSlowTurns = 0;
+      st.status.playerBrineWeakTurns = 0;
+      appendFightLog("Purify clears harmful effects.");
+      break;
+    case "Heal":
+      {
+        const bonus = cs.revitalizeTurns > 0 ? 1.25 : 1;
+        const heal = Math.max(6, Math.floor((14 + totalVit() * 0.36) * healScale * bonus * getClassSkillDamageScale(skillName)));
+        st.playerHp = Math.min(st.playerMax, st.playerHp + heal);
+        syncHeroHpFromPlayerMirror(st);
+        appendFightLog(`Heal restores ${heal} HP.`);
+      }
+      break;
+    default:
+      if (targetFoe && skillName === "Frost Bind") {
+        if (!targetFoe.combat) targetFoe.combat = {};
+        if (targetFoe.combat.staggerLockedTurns > 0) break;
+        targetFoe.combat.staggerLockedTurns = getClassSkillTurnScaled(skillName, 1);
+      }
+      break;
+  }
+}
+
+function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
+  if (!skillName || !foe) return;
+  const cs = ensurePlayerClassCombatState(st);
+  const killed = foe.hp <= 0;
+  if (!foe.combat) foe.combat = {};
+  switch (skillName) {
+    case "Shield Slam":
+      foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      break;
+    case "Crushing Blow":
+      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      break;
+    case "Piercing Thrust":
+      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      break;
+    case "Quick Slash":
+      grantStaminaRefund(st, 1, "Quick Slash");
+      break;
+    case "Combo Strike":
+      if (Math.random() < 0.38 + getClassSkillProcBonus(skillName)) {
+        const extra = Math.max(1, Math.floor(dmg * 0.4));
+        foe.hp = Math.max(0, foe.hp - extra);
+        appendFightLog(`Combo Strike follow-up hits ${foe.name} for ${extra}.`);
+      }
+      break;
+    case "Perfect Form":
+    case "Perfect Chain":
+      grantStaminaRefund(st, 1, "Perfect Form");
+      break;
+    case "Blade Dance":
+      if (Math.random() < 0.28 + getClassSkillProcBonus(skillName)) {
+        const extra = Math.max(1, Math.floor(dmg * 0.3));
+        foe.hp = Math.max(0, foe.hp - extra);
+        appendFightLog(`Blade Dance cuts again for ${extra}.`);
+      }
+      break;
+    case "Burning Mark":
+      foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, Math.max(2, Math.floor(totalInt() * 0.1)));
+      break;
+    case "Frost Bind":
+      foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      break;
+    case "Chain Pulse":
+    case "Static Field":
+      foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      break;
+    case "Meteor":
+      foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, Math.max(3, Math.floor(totalInt() * 0.13)));
+      break;
+    case "Time Warp":
+      ["flowStateTurns", "exposeWeaknessTurns", "manaSurgeTurns", "focusFireTurns", "rageTurns"].forEach((k) => {
+        if (typeof cs[k] === "number" && cs[k] > 0) cs[k] += 1;
+      });
+      appendFightLog("Time Warp extends your active combat effects.");
+      break;
+    case "Flurry":
+      if (Math.random() < 0.32 + getClassSkillProcBonus(skillName)) grantStaminaRefund(st, 1, "Flurry tempo");
+      break;
+    case "Evasive Roll":
+      if (Math.random() < 0.5) appendFightLog("Evasive Roll positions you safely.");
+      break;
+    case "Light Shot":
+      if (Math.random() < 0.28 + getClassSkillProcBonus(skillName)) {
+        const extra = Math.max(1, Math.floor(dmg * 0.35));
+        foe.hp = Math.max(0, foe.hp - extra);
+        appendFightLog(`Light Shot bounces for ${extra} extra damage.`);
+      }
+      break;
+    case "Relentless":
+    case "Relentless Assault":
+      if (killed) grantQuickAction(st, "Relentless");
+      break;
+    case "Storm":
+    case "Storm of Blades":
+      foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, 1);
+      break;
+    case "Phantom":
+    case "Phantom Chain":
+      grantStaminaRefund(st, 1, "Phantom");
+      break;
+    case "Reckless Strike":
+      {
+        const recoil = Math.max(1, Math.floor(dmg * 0.1));
+        st.playerHp = Math.max(1, st.playerHp - recoil);
+        syncHeroHpFromPlayerMirror(st);
+        appendFightLog(`Reckless backlash: you lose ${recoil} HP.`);
+      }
+      break;
+    case "Blood Frenzy":
+    case "Blood Chain":
+      if (killed) {
+        st.playerHp = Math.min(st.playerMax, st.playerHp + Math.max(4, Math.floor(st.playerMax * 0.06)));
+        syncHeroHpFromPlayerMirror(st);
+        appendFightLog("Blood Frenzy restores vitality on kill.");
+      }
+      break;
+    case "Savage Execution":
+    case "Frenzy Hit":
+    case "Execution Rush":
+      if (killed) grantStaminaRefund(st, 1, "Execution surge");
+      break;
+    case "Massacre":
+      cs.rageTurns = Math.max(cs.rageTurns, getClassSkillTurnScaled(skillName, 2));
+      break;
+    case "Savage Roar":
+      foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      break;
+    case "Toxic Flask":
+      foe.combat.poisonTurns = Math.max(foe.combat.poisonTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      foe.combat.poisonDamage = Math.max(foe.combat.poisonDamage || 0, Math.max(2, Math.floor(totalInt() * 0.14)));
+      break;
+    case "Weakening Bomb":
+    case "Weakening Brew":
+      foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      break;
+    case "Acid Rain":
+    case "Acid Splash":
+      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      break;
+    case "Corrosive Strike":
+    case "Corrosive Cloud":
+      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      break;
+    case "Plague":
+    case "Plague Storm":
+      cs.plagueStacks = Math.min(6, (cs.plagueStacks || 0) + 1);
+      foe.combat.poisonTurns = Math.max(foe.combat.poisonTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      foe.combat.poisonDamage = Math.max(foe.combat.poisonDamage || 0, 2 + Math.floor(cs.plagueStacks / 2));
+      break;
+    case "Chain Reaction":
+      if (cs.catalystReadyTurns > 0) {
+        const burst = Math.max(2, Math.floor(totalInt() * 0.2));
+        foe.hp = Math.max(0, foe.hp - burst);
+        cs.catalystReadyTurns = 0;
+        appendFightLog(`Catalyst detonates for ${burst} bonus damage.`);
+      }
+      break;
+    default:
+      break;
+  }
+  maybeTriggerClassPassivesOnHit(st, foe, crit, foe.hp <= 0);
+}
+
 function playerCombatAction(kind, skillName) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
+  ensurePlayerClassCombatState(st);
   ensureCombatTarget();
   if (typeof st.stamina !== "number") initCombatStamina(st);
 
-  const skCfg = kind === "skill" && skillName ? GAME_CONFIG.skills.find((s) => s.name === skillName) : null;
+  const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
   const aoeAllEnemies = skCfg && skCfg.combatAoe === "all_enemies";
   const baseStaminaCost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
   const cost =
-    kind === "skill" && skillName ? resolveSkillStaminaCost(baseStaminaCost) : resolveAttackStaminaCost();
+    kind === "skill" && skillName ? resolveSkillStaminaCost(baseStaminaCost, skillName) : resolveAttackStaminaCost();
   if (st.stamina < cost) {
     appendFightLog(`Not enough stamina (need ${cost}, have ${st.stamina}).`);
     return;
   }
   st.stamina -= cost;
+  if (getClassDef(player.classId).id === "skirmisher" && kind === "skill" && Math.random() < 0.18) {
+    grantStaminaRefund(st, 1, "Quick Reflexes");
+  }
 
-  function resolveOutgoingBaseDamage() {
+  function resolveOutgoingBaseDamage(targetFoe) {
     let raw =
       kind === "skill" && skillName ? getCombatDamage("skill", skillName) : getCombatDamage("attack");
     raw = Math.max(1, Math.floor(raw * getPlayerOutgoingDamageMultFromStatus(st.status)));
+    raw = Math.max(1, Math.floor(raw * getPlayerClassOutgoingMult(st, kind === "skill" ? skillName : null, targetFoe || null)));
     return raw;
   }
 
@@ -6228,7 +6992,8 @@ function playerCombatAction(kind, skillName) {
       return;
     }
     const label = skillName || "Attack";
-    const baseDmg = resolveOutgoingBaseDamage();
+    applyPlayerClassSkillCast(st, skillName, living[0] || null);
+    const baseDmg = resolveOutgoingBaseDamage(null);
     clearPlayerTurnTimer();
     st.heroAttackUntil = Date.now() + 320;
     queueCombatVisualRefresh(340);
@@ -6253,6 +7018,7 @@ function playerCombatAction(kind, skillName) {
         `${player.name} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
       );
       if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg);
+      applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
       applyReflectDamageToPartyHero(st, dmg, foe);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
@@ -6274,6 +7040,7 @@ function playerCombatAction(kind, skillName) {
   }
 
   const label = kind === "skill" && skillName ? skillName : "Attack";
+  applyPlayerClassSkillCast(st, skillName, foe);
   if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
     const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
     foe.combat.evadeNextChance = 0;
@@ -6291,7 +7058,7 @@ function playerCombatAction(kind, skillName) {
     }
   }
 
-  const baseDmg = resolveOutgoingBaseDamage();
+  const baseDmg = resolveOutgoingBaseDamage(foe);
   const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
   clearPlayerTurnTimer();
   st.heroAttackUntil = Date.now() + 320;
@@ -6308,6 +7075,7 @@ function playerCombatAction(kind, skillName) {
     `${player.name} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
   );
   if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg);
+  applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
   applyReflectDamageToPartyHero(st, dmg, foe);
   if (foe.combat && foe.combat.script === "tusk_boar") {
     foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
@@ -6387,7 +7155,8 @@ function beginTurnCombat(region, mob, worldMapContext) {
     selectedUid: null,
     fightLog: [],
     worldMapContext: worldMapContext || null,
-    status: null
+    status: null,
+    classState: null
   };
   ensureCombatStatus(combatState);
   initCombatStamina(combatState);
@@ -6460,6 +7229,7 @@ function levelUp() {
     player.xp -= need;
     player.level++;
     player.charPoints += 5;
+    player.skillPoints = (typeof player.skillPoints === "number" ? player.skillPoints : 0) + 1;
     player.baseAttack += 2;
     player.maxHp = computeMaxHp(player);
     player.hp = player.maxHp;
@@ -6627,7 +7397,8 @@ function showStatTooltip(statKey, clientX, clientY) {
 }
 
 function buildSkillTooltipHtml(skillName) {
-  const def = GAME_CONFIG.skills.find((s) => s.name === skillName);
+  const def = getSkillDef(skillName);
+  const classDef = getClassSkillDefByName(skillName);
   const parts = [`<div class="item-tip-name">${escapeHtml(skillName)}</div>`];
   if (!def) {
     parts.push(`<div class="item-tip-desc">Unknown skill.</div>`);
@@ -6636,29 +7407,61 @@ function buildSkillTooltipHtml(skillName) {
   if (def.image) {
     parts.push(`<img class="item-tip-skill-icon" src="${escapeAttr(def.image)}" alt="" />`);
   }
-  let desc = def.description || "Learned skill with passive or combat effects.";
-  if (typeof def.combatMultiplier === "number") {
+  const lv = getPlayerSkillLevel(skillName);
+  const effectText =
+    (classDef && classDef.description) || def.description || "Learned skill with passive or combat effects.";
+  parts.push(`<div class="item-tip-desc">Level ${Math.max(1, lv)}/5</div>`);
+  parts.push(`<div class="item-tip-section"><span class="item-tip-label">Effect when used</span><div class="item-tip-mechanics">${escapeHtml(effectText)}</div></div>`);
+
+  if (typeof def.combatMultiplier === "number" && !classDef?.passiveOnly) {
     const baseSt = getSkillStaminaCost(skillName);
-    const st = resolveSkillStaminaCost(baseSt);
-    desc +=
+    const st = resolveSkillStaminaCost(baseSt, skillName);
+    const staminaText =
       st !== baseSt
-        ? ` Stamina cost: ${st} (base ${baseSt}; Intelligence can reduce this).`
-        : ` Stamina cost: ${st}.`;
-  } else {
-    desc += " No stamina cost in turn combat (passive only).";
-  }
-  parts.push(`<div class="item-tip-desc">${escapeHtml(desc)}</div>`);
-  const extra = [];
-  if (typeof def.bonus === "number") extra.push(`Passive attack +${def.bonus}`);
-  if (typeof def.combatMultiplier === "number") {
-    extra.push(`Combat skill: ×${def.combatMultiplier} (core + this skill’s bonus)`);
-  } else {
-    extra.push("Passive only — no combat skill button.");
-  }
-  if (extra.length) {
+        ? `${st} (base ${baseSt}; Intelligence and class effects can reduce this)`
+        : `${st}`;
     parts.push(
-      `<div class="item-tip-section"><span class="item-tip-label">Mechanics</span><div class="item-tip-mechanics">${extra.map((s) => escapeHtml(s)).join(" · ")}</div></div>`
+      `<div class="item-tip-section"><span class="item-tip-label">Stamina points cost</span><div class="item-tip-mechanics">${escapeHtml(
+        staminaText
+      )}</div></div>`
     );
+  } else {
+    parts.push(
+      `<div class="item-tip-section"><span class="item-tip-label">Stamina points cost</span><div class="item-tip-mechanics">None (passive effect)</div></div>`
+    );
+  }
+
+  if (classDef) {
+    const rows = [];
+    for (let l = 1; l <= 5; l++) {
+      const pwr = 1 + 0.2 * (l - 1);
+      const dur = l >= 5 ? 2 : l >= 3 ? 1 : 0;
+      const proc = Math.max(0, (l - 1) * 3);
+      const baseCombat = typeof classDef.combatMultiplier === "number" ? classDef.combatMultiplier : null;
+      const combatText =
+        baseCombat != null ? `skill power ×${(baseCombat * pwr).toFixed(2)} total` : "passive potency increased";
+      rows.push(
+        `<div>Lv ${l}: ${escapeHtml(combatText)} · duration +${dur} turn${dur === 1 ? "" : "s"} · proc bonus +${proc}%${
+          lv === l ? " (current)" : ""
+        }</div>`
+      );
+    }
+    parts.push(
+      `<div class="item-tip-section"><span class="item-tip-label">Upgrade differences</span><div class="item-tip-mechanics">${rows.join(
+        ""
+      )}</div></div>`
+    );
+  } else {
+    const extra = [];
+    if (typeof def.bonus === "number") extra.push(`Passive attack +${def.bonus}`);
+    if (typeof def.combatMultiplier === "number") extra.push(`Combat skill: ×${def.combatMultiplier}`);
+    if (extra.length) {
+      parts.push(
+        `<div class="item-tip-section"><span class="item-tip-label">Mechanics</span><div class="item-tip-mechanics">${extra
+          .map((s) => escapeHtml(s))
+          .join(" · ")}</div></div>`
+      );
+    }
   }
   return `<div class="item-tip">${parts.join("")}</div>`;
 }
@@ -6827,7 +7630,7 @@ function hideItemTooltip() {
 }
 
 const TOOLTIP_HOST_SEL =
-  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies]";
+  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies]";
 
 function onContentTooltipOver(e) {
   const fightAlly = e.target.closest(".fight-ally-card[data-party-member]");
@@ -6898,6 +7701,11 @@ function onContentTooltipOver(e) {
     showSkillTooltip(skillTile.dataset.skillName, e.clientX, e.clientY);
     return;
   }
+  const classSkillRow = e.target.closest(".class-skill-row[data-skill-name]");
+  if (classSkillRow && classSkillRow.dataset.skillName) {
+    showSkillTooltip(classSkillRow.dataset.skillName, e.clientX, e.clientY);
+    return;
+  }
   const statRow = e.target.closest("[data-stat-tip]");
   if (statRow && statRow.dataset.statTip) {
     showStatTooltip(statRow.dataset.statTip, e.clientX, e.clientY);
@@ -6943,6 +7751,27 @@ function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey) {
     </div>
     ${btn}
   </div>`;
+}
+
+function buildClassSkillsRowsHtml(activeClass) {
+  return activeClass.skills
+    .map((sk) => {
+      const lv = getPlayerSkillLevel(sk.name);
+      const reqLv = getSkillTierMinLevel(sk.tier);
+      const unlocked = lv > 0;
+      const canTier = player.level >= reqLv;
+      const maxed = lv >= 5;
+      const hasPts = (player.skillPoints || 0) > 0;
+      const canSpend = canTier && hasPts && !maxed;
+      const btnLabel = unlocked ? (maxed ? "Max" : "Upgrade") : "Unlock";
+      const disabled = canSpend ? "" : " disabled";
+      const reqTxt = canTier ? "" : ` (req Lv ${reqLv})`;
+      return `<div class="stat-plain-row class-skill-row" data-class-skill-row="${escapeAttr(sk.name)}" data-skill-name="${escapeAttr(sk.name)}">
+        <span class="class-skill-row-label"><img class="class-skill-row-img" src="${escapeAttr(getSkillImage(sk.name))}" alt="" draggable="false" />${escapeHtml(sk.name)} <small>Lv ${lv}/5${escapeHtml(reqTxt)}</small></span>
+        <button type="button" class="btn-secondary class-skill-up-btn" data-class-skill-up="${escapeAttr(sk.name)}"${disabled}>${btnLabel}</button>
+      </div>`;
+    })
+    .join("");
 }
 
 function buildOverviewHtml() {
@@ -7014,16 +7843,13 @@ function buildOverviewHtml() {
       <span>Damage</span><strong>${dmg.min} – ${dmg.max}</strong>
     </div>`;
 
+  const activeClass = getClassDef(player.classId);
+  const classSkillsRows = buildClassSkillsRowsHtml(activeClass);
   const skillsTabHtml = `<div class="skills-tab-inner">
-    <div class="skills-label">Learned skills</div>
-    <div class="skills-tile-wrap">
-      ${player.skills
-        .map(
-          (s) =>
-            `<button type="button" class="skill-tile" data-skill-name="${escapeAttr(s)}" title="${escapeAttr(s)}"><img class="skill-tile-img" src="${escapeAttr(getSkillImage(s))}" alt="" draggable="false" /></button>`
-        )
-        .join("")}
-    </div>
+    <div class="skills-label">${escapeHtml(activeClass.label)} class</div>
+    <div class="stat-plain-row"><span>Skill points</span><strong data-skill-points-value="1">${Math.max(0, Math.floor(player.skillPoints || 0))}</strong></div>
+    <div class="item-tip-desc">${escapeHtml(activeClass.passive)}</div>
+    <div class="class-skills-list" data-skills-scroll-host="1" data-class-skills-list="1">${classSkillsRows}</div>
   </div>`;
 
   const profIntro =
@@ -7089,6 +7915,7 @@ function buildOverviewHtml() {
 function renderOverview() {
   const c = document.getElementById("content");
   c.innerHTML = buildOverviewHtml();
+  restoreOverviewSkillsScroll();
 }
 
 function isCharacterPanelOpen() {
@@ -7100,6 +7927,63 @@ function renderCharacterPanelContent() {
   const host = document.getElementById("characterPanelContent");
   if (!host || !isCharacterPanelOpen()) return;
   host.innerHTML = buildOverviewHtml();
+  restoreOverviewSkillsScroll();
+}
+
+function getActiveOverviewRoot() {
+  if (isCharacterPanelOpen()) {
+    const host = document.getElementById("characterPanelContent");
+    if (host) return host;
+  }
+  return document.getElementById("content");
+}
+
+function getOverviewSkillsScrollHost() {
+  const root = getActiveOverviewRoot();
+  if (!root) return null;
+  return root.querySelector("[data-skills-scroll-host]") || root.querySelector(".panel-stats .stats-panel-body");
+}
+
+function refreshOverviewSkillsSubpanelInPlace() {
+  if (overviewStatsTab !== "skills") return false;
+  const root = getActiveOverviewRoot();
+  if (!root) return false;
+  const list = root.querySelector("[data-class-skills-list]");
+  const pts = root.querySelector("[data-skill-points-value]");
+  if (!list || !pts) return false;
+  const activeClass = getClassDef(player.classId);
+  pts.textContent = String(Math.max(0, Math.floor(player.skillPoints || 0)));
+  list.innerHTML = buildClassSkillsRowsHtml(activeClass);
+  return true;
+}
+
+function captureOverviewSkillsScroll() {
+  const host = getOverviewSkillsScrollHost();
+  overviewSkillsScrollTop = host ? Math.max(0, Math.floor(host.scrollTop || 0)) : 0;
+  overviewSkillsScrollAnchor = null;
+}
+
+function restoreOverviewSkillsScroll() {
+  if (overviewStatsTab !== "skills") return;
+  if (overviewSkillsScrollTop <= 0 && !overviewSkillsScrollAnchor) return;
+  const top = overviewSkillsScrollTop;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const host = getOverviewSkillsScrollHost();
+      if (!host) return;
+      if (overviewSkillsScrollAnchor && overviewSkillsScrollAnchor.skillName) {
+        const row = Array.from(host.querySelectorAll("[data-class-skill-row]")).find(
+          (el) => el.getAttribute("data-class-skill-row") === overviewSkillsScrollAnchor.skillName
+        );
+        if (row) {
+          const y = Math.max(0, row.offsetTop - (overviewSkillsScrollAnchor.offsetY || 0));
+          host.scrollTop = Math.min(y, Math.max(0, host.scrollHeight - host.clientHeight));
+          return;
+        }
+      }
+      host.scrollTop = Math.min(top, Math.max(0, host.scrollHeight - host.clientHeight));
+    });
+  });
 }
 
 function openCharacterPanel() {
@@ -8104,6 +8988,11 @@ function onContentClick(e) {
   const alloc = e.target.closest("[data-char-up]");
   if (alloc && alloc.dataset.charUp) {
     spendCharPoint(alloc.dataset.charUp);
+    return;
+  }
+  const clsUp = e.target.closest("[data-class-skill-up]");
+  if (clsUp && clsUp.dataset.classSkillUp) {
+    unlockOrUpgradeClassSkill(clsUp.dataset.classSkillUp, clsUp);
     return;
   }
   if (e.target.closest("[data-reset-character]")) {

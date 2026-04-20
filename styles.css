@@ -888,6 +888,14 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
 
 .skills-tab-inner {
   padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.skills-tab-inner .item-tip-desc {
+  color: var(--overview-ink);
 }
 
 .skills-tile-wrap {
@@ -902,7 +910,7 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 2px;
+  padding: 1px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.08);
@@ -916,11 +924,43 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
 }
 
 .skill-tile-img {
-  width: clamp(28px, 5cqw, 40px);
-  height: clamp(28px, 5cqw, 40px);
+  width: clamp(20px, 3.8cqw, 28px);
+  height: clamp(20px, 3.8cqw, 28px);
   object-fit: contain;
   display: block;
   pointer-events: none;
+}
+
+.class-skills-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.class-skill-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.class-skill-row-img {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.class-skill-row .class-skill-up-btn {
+  height: 14px;
+  min-height: 14px;
+  padding: 0 3px;
+  font-size: 0.48rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
 }
 
 .professions-tab-inner {
