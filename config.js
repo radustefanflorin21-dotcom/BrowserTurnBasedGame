@@ -115,13 +115,13 @@ const GAME_CONFIG = {
       }
     },
     {
-      name: "Greenleaf Squirrel",
+      name: "Leafdart Squirrel",
       combatScript: "greenleaf_squirrel",
-      combatRole: "support",
+      combatRole: "heart_harasser",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
-      image: "Assets/Monsters/greenleaf_squirrel.png",
+      image: "Assets/Monsters/leafdart_squirrel.png",
       possibleLevels: [31, 32, 33, 34, 35],
       possibleMoods: ["berserk"],
       drops: {
@@ -131,13 +131,13 @@ const GAME_CONFIG = {
       }
     },
     {
-      name: "Greenleaf Parrot",
+      name: "Canopy Screecher",
       combatScript: "greenleaf_parrot",
-      combatRole: "support",
+      combatRole: "heart_buffer",
       spawnRarity: "common",
       hp: 30,
       attack: 5,
-      image: "Assets/Monsters/greenleaf_parrot.png",
+      image: "Assets/Monsters/canopy_screecher.png",
       possibleLevels: [33, 34, 35, 36, 37],
       possibleMoods: ["berserk"],
       drops: {
@@ -163,13 +163,13 @@ const GAME_CONFIG = {
       }
     },
     {
-      name: "Greenleaf Stag",
+      name: "Jungle Stag",
       combatScript: "greenleaf_stag",
       combatRole: "support",
-      spawnRarity: "epic",
+      spawnRarity: "rare",
       hp: 30,
       attack: 5,
-      image: "Assets/Monsters/forest_stag.png",
+      image: "Assets/Monsters/jungle_stag.png",
       possibleLevels: [37, 38, 39, 40],
       possibleMoods: ["berserk"],
       drops: {
@@ -936,7 +936,7 @@ const GAME_CONFIG = {
     packHowlPerInt: 0.003
   },
 
-  /** Weights sum to 1. Keys: tank | assassin | bruiser | mage | support | controller | summoner */
+  /** Weights sum to 1. Keys: tank | assassin | bruiser | mage | support | controller | summoner (+ optional custom role keys) */
   enemyRoles: {
     tank: { STR: 0.25, DEX: 0.15, VIT: 0.4, INT: 0.2 },
     assassin: { STR: 0.3, DEX: 0.4, VIT: 0.1, INT: 0.2 },
@@ -944,7 +944,9 @@ const GAME_CONFIG = {
     mage: { STR: 0.15, DEX: 0.25, VIT: 0.2, INT: 0.4 },
     support: { STR: 0.1, DEX: 0.2, VIT: 0.3, INT: 0.4 },
     controller: { STR: 0.1, DEX: 0.3, VIT: 0.15, INT: 0.45 },
-    summoner: { STR: 0.15, DEX: 0.2, VIT: 0.25, INT: 0.4 }
+    summoner: { STR: 0.15, DEX: 0.2, VIT: 0.25, INT: 0.4 },
+    heart_harasser: { STR: 0.1, DEX: 0.4, VIT: 0.2, INT: 0.3 },
+    heart_buffer: { STR: 0.12, DEX: 0.3, VIT: 0.18, INT: 0.4 }
   },
 
   items: {
@@ -1267,9 +1269,9 @@ const GAME_CONFIG = {
     /** Cooldown after clearing a mob before it respawns on this map (ms). */
     mobRespawnMs: 60000,
     /**
-     * Dynamic encounter pressure per region (biome name), centered on `mobRespawnMs`.
-     * Spawn rate multiplier = `1 + spawnRateImpactPct * pressure/100` (pressure clamped to -100..100),
-     * and respawn time uses the inverse of that multiplier so positive pressure respawns faster.
+     * Dynamic encounter pressure per monster type (enemy name), centered on `mobRespawnMs`.
+     * Spawn rate multiplier = `1 + spawnRateImpactPct * pressure/100` (pressure clamped to -100..100).
+     * Rarity-weighted spawn rolls and cooldown time both use this per-monster multiplier.
      */
     spawnPressure: {
       windowMs: 10 * 60 * 1000,
@@ -1456,7 +1458,7 @@ const GAME_CONFIG = {
         color: "#1F4F1F",
         enemyScale: 1.1,
         mobDifficulty: { easy: 32, medium: 36, hard: 40 },
-        possibleEnemies: ["Greenleaf Squirrel", "Greenleaf Parrot", "Greenleaf Fox", "Greenleaf Stag", "Gorilla"]
+        possibleEnemies: ["Leafdart Squirrel", "Canopy Screecher", "Greenleaf Fox", "Jungle Stag", "Gorilla"]
       },
       {
         name: "Skin of Gaia",

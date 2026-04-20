@@ -131,7 +131,7 @@ const defaultPlayer = () => {
       sceneLayout: {},
       sceneEdits: {},
       portalWorldById: {},
-      spawnPressure: { regions: {} }
+      spawnPressure: { monsters: {} }
     },
     editMode: false
   };
@@ -287,7 +287,7 @@ function migratePlayer(p) {
     const prevSpawnPressure =
       p.worldMap && p.worldMap.spawnPressure && typeof p.worldMap.spawnPressure === "object"
         ? p.worldMap.spawnPressure
-        : { regions: {} };
+        : { monsters: {} };
     p.worldMap = {
       x: st.x,
       y: st.y,
@@ -305,9 +305,9 @@ function migratePlayer(p) {
   if (!p.worldMap.sceneLayout || typeof p.worldMap.sceneLayout !== "object") p.worldMap.sceneLayout = {};
   if (!p.worldMap.sceneEdits || typeof p.worldMap.sceneEdits !== "object") p.worldMap.sceneEdits = {};
   if (!p.worldMap.portalWorldById || typeof p.worldMap.portalWorldById !== "object") p.worldMap.portalWorldById = {};
-  if (!p.worldMap.spawnPressure || typeof p.worldMap.spawnPressure !== "object") p.worldMap.spawnPressure = { regions: {} };
-  if (!p.worldMap.spawnPressure.regions || typeof p.worldMap.spawnPressure.regions !== "object") {
-    p.worldMap.spawnPressure.regions = {};
+  if (!p.worldMap.spawnPressure || typeof p.worldMap.spawnPressure !== "object") p.worldMap.spawnPressure = { monsters: {} };
+  if (!p.worldMap.spawnPressure.monsters || typeof p.worldMap.spawnPressure.monsters !== "object") {
+    p.worldMap.spawnPressure.monsters = {};
   }
   if (p.worldMap.cityPortalCoords && typeof p.worldMap.cityPortalCoords === "object") delete p.worldMap.cityPortalCoords;
   if (typeof p.editMode !== "boolean") p.editMode = false;
@@ -315,6 +315,8 @@ function migratePlayer(p) {
     Object.keys(p.worldMap.cells).forEach((k) => {
       const c = p.worldMap.cells[k];
       if (!c || typeof c !== "object") return;
+      if (!Array.isArray(c.defeated)) c.defeated = [];
+      if (!Array.isArray(c.defeatedUnits)) c.defeatedUnits = [];
       if (!Array.isArray(c.mobPreviews)) c.mobPreviews = [];
     });
   }
@@ -1242,6 +1244,17 @@ function buffStrongestAllyEcho(st, buffer, turns) {
   return true;
 }
 
+function buffAllAlliesEcho(st, buffer, turns) {
+  const allies = st.foes.filter((f) => f.hp > 0 && f.uid !== buffer.uid);
+  if (!allies.length) return false;
+  allies.forEach((target) => {
+    if (!target.combat) initFoeCombatRuntime(target);
+    target.combat.echoCryBonusTurns = Math.max(target.combat.echoCryBonusTurns || 0, turns);
+  });
+  appendFightLog(`${buffer.name} uses Echo Cry — allies are empowered (${turns} rounds).`);
+  return true;
+}
+
 function setFoeMitigation(foe, turns, mult) {
   if (!foe.combat) initFoeCombatRuntime(foe);
   foe.combat.mitigationTurns = Math.max(foe.combat.mitigationTurns || 0, turns);
@@ -1429,60 +1442,86 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
   }
 
   if (scriptId === "greenleaf_squirrel") {
-    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.7);
+    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.5);
     if (allyLow && ready("forest_gift")) {
       setCd("forest_gift", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.18)) {
         foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.12)));
-        appendFightLog(`${foe.name} nibbles a nut (small self-heal).`);
+        appendFightLog(`${foe.name} channels Forest Gift on itself.`);
       }
+      appendFightLog(`${foe.name} boosts ally tempo.`);
       return true;
     }
-    if (ready("scurry_signal")) {
+    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.7;
+    if (threatened && ready("scurry_shift")) {
+      setCd("scurry_shift", 3);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, Math.min(0.65, 0.28 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.004));
+      appendFightLog(`${foe.name} uses Scurry Shift.`);
+      return true;
+    }
+    if (ready("scurry_shift")) {
       const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
       if (allies.length) {
-        setCd("scurry_signal", 3);
+        setCd("scurry_shift", 3);
         const target = allies.reduce((a, b) => ((a.attack || 0) >= (b.attack || 0) ? a : b));
         if (!target.combat) initFoeCombatRuntime(target);
-        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.2);
-        appendFightLog(`${foe.name} uses Scurry Signal on ${target.name}.`);
+        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.22);
+        appendFightLog(`${foe.name} enables ${target.name} with Scurry Shift.`);
         return true;
       }
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Nut Tosses you");
+    const leafdart = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 11, 0.017) * outMult));
+    dealRawDamageToPlayer(st, leafdart, foe.name, "Leafdarts you", { partyUid: pickPartyTargetLowestMaxHpUid(st) });
+    if (Math.random() < Math.min(0.32, 0.08 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.0035)) {
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(leafdart * 0.65)), foe.name, "follows up with a second Leafdart");
+    }
     return true;
   }
 
   if (scriptId === "greenleaf_parrot") {
-    if (ready("echo_cry")) {
-      setCd("echo_cry", 3);
-      buffStrongestAllyEcho(st, foe, 2);
+    const hasAllies = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0);
+    if (!foe.combat.parrotOpened && hasAllies && ready("echo_cry")) {
+      foe.combat.parrotOpened = true;
+      setCd("echo_cry", 4);
+      buffAllAlliesEcho(st, foe, 2);
       return true;
     }
     if (ready("distracting_screech")) {
       setCd("distracting_screech", 3);
+      const targetUid = pickPartyTargetStrongestUid(st);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 10, 0.014) * outMult)), foe.name, "uses Disorienting Shriek", targetUid == null ? null : { partyUid: targetUid });
       ensureCombatStatus(st);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
       st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
       appendFightLog(`${foe.name} uses Distracting Screech.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "Pecks you");
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 12, 0.015) * outMult)), foe.name, "Sonic Pecks you", { partyUid: pickPartyTargetStrongestUid(st) });
     return true;
   }
 
   if (scriptId === "greenleaf_fox") {
-    const full = st.playerMax > 0 && st.playerHp >= st.playerMax * 0.97;
+    const full = st.playerMax > 0 && st.playerHp >= st.playerMax * 0.8;
+    const weakExists = st.party && st.party.some((m) => m && m.hp > 0 && m.maxHp > 0 && m.hp / m.maxHp < 0.45);
+    if (weakExists && ready("fade_step")) {
+      setCd("fade_step", 3);
+      foe.combat.evadeNextChance = 0.45;
+      appendFightLog(`${foe.name} uses Fade Step.`);
+      return true;
+    }
     if (ready("ambush_bite")) {
       setCd("ambush_bite", 2);
-      const mul = full ? 1.45 : 1;
+      const mul = full ? 1.5 : 1;
       dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.85 * mul * outMult)), foe.name, "Ambush Bites you");
       return true;
     }
-    if (ready("fade_step")) {
-      setCd("fade_step", 3);
-      foe.combat.evadeNextChance = 0.4;
-      appendFightLog(`${foe.name} uses Fade Step.`);
+    if (ready("rending_snap")) {
+      setCd("rending_snap", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "Rending Snaps you");
+      applyBleedToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 5, 0.012))), 2);
+      if (Math.random() < Math.min(0.35, 0.08 + (typeof foe.str === "number" ? foe.str : 0) * 0.0035)) {
+        tryPlayerStun(st, 1);
+      }
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "bites you");
@@ -1490,7 +1529,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
   }
 
   if (scriptId === "greenleaf_stag") {
-    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.7);
+    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.6);
     if (allyLow && ready("natures_blessing")) {
       setCd("natures_blessing", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.28)) {
@@ -1503,7 +1542,9 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
       if (allies.length) {
         setCd("verdant_ward", 3);
-        const target = allies.reduce((a, b) => ((a.maxHp || 0) >= (b.maxHp || 0) ? a : b));
+        let target =
+          allies.find((a) => a.name === "Gorilla" || a.name === "Greenleaf Fox") ||
+          allies.reduce((a, b) => ((a.maxHp || 0) >= (b.maxHp || 0) ? a : b));
         setFoeMitigation(target, 1, 0.8);
         appendFightLog(`${foe.name} grants Verdant Ward to ${target.name}.`);
         return true;
@@ -1523,23 +1564,24 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
   }
 
   if (scriptId === "gorilla") {
-    if (!foe.combat.gorillaOpened && ready("rage_beat")) {
+    if (!foe.combat.gorillaOpened && ready("rage_roar")) {
       foe.combat.gorillaOpened = true;
-      setCd("rage_beat", 3);
+      setCd("rage_roar", 3);
       foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;
-      appendFightLog(`${foe.name} uses Rage Beat (+damage ramp).`);
+      appendFightLog(`${foe.name} uses Rage Roar (+damage ramp).`);
       return true;
     }
-    if (ready("ground_pound")) {
-      setCd("ground_pound", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Ground Pounds", { aoeAllParty: true });
+    foe.combat.gorillaAlt = !foe.combat.gorillaAlt;
+    if (foe.combat.gorillaAlt && ready("ground_rupture")) {
+      setCd("ground_rupture", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.74 * outMult)), foe.name, "Ground Ruptures", { aoeAllParty: true });
       ensureCombatStatus(st);
       st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
       return true;
     }
-    if (ready("crushing_slam")) {
+    if (!foe.combat.gorillaAlt && ready("crushing_slam")) {
       setCd("crushing_slam", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Crushing Slams you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 24, 0.02) * outMult)), foe.name, "Crushing Slams you", { partyUid: pickPartyTargetStrongestUid(st) });
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.75 * outMult)), foe.name, "hits you");
@@ -2765,7 +2807,16 @@ function resolveVisualByState(src, state) {
 }
 
 function getEnemyDefByName(name) {
-  return GAME_CONFIG.enemies.find((e) => e.name === name);
+  const aliases = {
+    "Greenleaf Squirrel": "Leafdart Squirrel",
+    "Greenleaf Parrot": "Canopy Screecher",
+    "Greenleaf Stag": "Jungle Stag"
+  };
+  const direct = GAME_CONFIG.enemies.find((e) => e.name === name);
+  if (direct) return direct;
+  const mapped = aliases[name];
+  if (!mapped) return null;
+  return GAME_CONFIG.enemies.find((e) => e.name === mapped) || null;
 }
 
 /** @type {readonly string[]} */
@@ -2777,71 +2828,36 @@ function normalizeEnemySpawnRarity(raw) {
   return "common";
 }
 
-function pickMobSpawnRarityTier(regionName) {
-  const cfg = GAME_CONFIG.enemySpawnRarityWeights;
-  const pressure = getRegionSpawnPressure(regionName, Date.now());
-  const impact = getWorldSpawnPressureConfig().spawnRateImpactPct;
-  const p = Math.max(-1, Math.min(1, pressure / 100));
-  const lastIdx = Math.max(1, ENEMY_SPAWN_RARITY_ORDER.length - 1);
-  let entries = ENEMY_SPAWN_RARITY_ORDER.map((id) => {
-    let w =
-      cfg && typeof cfg === "object" && typeof cfg[id] === "number" && Number.isFinite(cfg[id])
-        ? Math.max(0, cfg[id])
-        : 0;
-    const idx = ENEMY_SPAWN_RARITY_ORDER.indexOf(id);
-    if (idx === 0) {
-      // Common tier shifts opposite to pressure (farm pressure lowers non-common pressure first).
-      w *= Math.max(0, 1 - impact * p);
-    } else {
-      const t = idx / lastIdx; // 0..1 across rare->ancient
-      w *= Math.max(0, 1 + impact * p * t);
-    }
-    return { id, w };
-  });
-  let sum = entries.reduce((a, e) => a + e.w, 0);
-  if (sum <= 0) {
-    entries = ENEMY_SPAWN_RARITY_ORDER.map((id) => ({ id, w: 1 }));
-    sum = entries.length;
-  }
-  let r = Math.random() * sum;
-  for (const e of entries) {
-    r -= e.w;
-    if (r <= 0) return e.id;
-  }
-  return entries[entries.length - 1].id;
-}
-
 /**
  * Picks an enemy name from a biome/region pool using `GAME_CONFIG.enemySpawnRarityWeights`
- * and each enemy's `spawnRarity` (defaults to common).
+ * and each enemy's `spawnRarity` (defaults to common), then applies per-monster pressure multipliers.
  * @param {string[]} pool
- * @param {string} [regionName]
  * @returns {string | null}
  */
-function pickRandomEnemyNameFromPool(pool, regionName) {
+function pickRandomEnemyNameFromPool(pool) {
   if (!pool || !pool.length) return null;
-  /** @type {Record<string, string[]>} */
-  const byTier = {};
-  for (const id of ENEMY_SPAWN_RARITY_ORDER) byTier[id] = [];
-  const missingDef = [];
+  const cfg = GAME_CONFIG.enemySpawnRarityWeights;
+  const weighted = [];
+  let sum = 0;
   for (const name of pool) {
     const def = getEnemyDefByName(name);
-    if (!def) {
-      missingDef.push(name);
-      continue;
-    }
-    const t = normalizeEnemySpawnRarity(def.spawnRarity);
-    byTier[t].push(name);
+    const tier = normalizeEnemySpawnRarity(def && def.spawnRarity);
+    const baseWeight =
+      cfg && typeof cfg === "object" && typeof cfg[tier] === "number" && Number.isFinite(cfg[tier])
+        ? Math.max(0, cfg[tier])
+        : 0;
+    const perMonsterMult = getMonsterSpawnRateMultiplier(name);
+    const w = Math.max(0, (baseWeight > 0 ? baseWeight : 1) * perMonsterMult);
+    weighted.push({ name, w });
+    sum += w;
   }
-  for (let i = 0; i < 16; i++) {
-    const tier = pickMobSpawnRarityTier(regionName);
-    const arr = byTier[tier];
-    if (arr && arr.length) return randomFrom(arr);
+  if (sum <= 0) return randomFrom(pool);
+  let r = Math.random() * sum;
+  for (const entry of weighted) {
+    r -= entry.w;
+    if (r <= 0) return entry.name;
   }
-  const merged = [...missingDef];
-  for (const id of ENEMY_SPAWN_RARITY_ORDER) merged.push(...byTier[id]);
-  if (!merged.length) return null;
-  return randomFrom(merged);
+  return weighted[weighted.length - 1] ? weighted[weighted.length - 1].name : randomFrom(pool);
 }
 
 function getEnemyVisualByName(name, state) {
@@ -3130,8 +3146,7 @@ function pickTargetTotalLevel(minT, maxT, defs) {
 }
 
 function rollMobCompositionFallbackTotalAnchor(pool, anchor, tier, minTotal, maxTotal, biomeLike) {
-  const regionName = biomeLike && typeof biomeLike.name === "string" ? biomeLike.name : "";
-  const name = pickRandomEnemyNameFromPool(pool, regionName) || randomFrom(pool);
+  const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
   const def = GAME_CONFIG.enemies.find((e) => e.name === name);
   if (!def) {
     return { units: [], mobTotalLevel: 0, difficultyTier: tier, difficultyAnchor: anchor };
@@ -3211,11 +3226,10 @@ function buildWorldCampMobThumbsHtmlFromUnits(units) {
 
 /** Rolls a full mob without per-slot difficulty (biome lacks mobDifficulty). */
 function rollMobCompositionLegacy(pool, biomeLike) {
-  const regionName = biomeLike && typeof biomeLike.name === "string" ? biomeLike.name : "";
   const count = Math.floor(Math.random() * (MOB_SIZE_MAX - MOB_SIZE_MIN + 1)) + MOB_SIZE_MIN;
   const units = [];
   for (let i = 0; i < count; i++) {
-    const name = pickRandomEnemyNameFromPool(pool, regionName) || randomFrom(pool);
+    const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
     const def = GAME_CONFIG.enemies.find((e) => e.name === name);
     if (!def) continue;
     const mood = pickMoodFromEnemyDef(def);
@@ -3223,7 +3237,7 @@ function rollMobCompositionLegacy(pool, biomeLike) {
     units.push({ name, level, moodId: mood.id, moodName: mood.name });
   }
   if (!units.length && pool.length) {
-    const name = pickRandomEnemyNameFromPool(pool, regionName) || randomFrom(pool);
+    const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
     const def = GAME_CONFIG.enemies.find((e) => e.name === name);
     if (def) {
       const mood = pickMoodFromEnemyDef(def);
@@ -3249,14 +3263,13 @@ function rollMobComposition(pool, slotIndex, biomeLike) {
   if (anchor == null) {
     return rollMobCompositionLegacy(pool, biomeLike);
   }
-  const regionName = biomeLike && typeof biomeLike.name === "string" ? biomeLike.name : "";
   const { minL: minTotal, maxL: maxTotal } = difficultyTotalLevelRangeFromAnchor(anchor);
   const tier = MOB_DIFFICULTY_TIER_LABELS[slotIndex % 3];
   for (let attempt = 0; attempt < 100; attempt++) {
     const count = Math.floor(Math.random() * (MOB_SIZE_MAX - MOB_SIZE_MIN + 1)) + MOB_SIZE_MIN;
     const defs = [];
     for (let i = 0; i < count; i++) {
-      const name = pickRandomEnemyNameFromPool(pool, regionName) || randomFrom(pool);
+      const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
       const def = GAME_CONFIG.enemies.find((e) => e.name === name);
       if (def) defs.push(def);
     }
@@ -3301,20 +3314,20 @@ function ensureMobPreview(x, y, si) {
   const slots = getEncounterSlotCountForCell(x, y, cellCfg);
   if (si < 0 || si >= slots) return null;
   const key = worldMapKey(x, y);
-  if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], mobPreviews: [] };
+  if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], defeatedUnits: [], mobPreviews: [] };
   const rec = player.worldMap.cells[key];
   if (!Array.isArray(rec.defeated)) rec.defeated = [];
+  if (!Array.isArray(rec.defeatedUnits)) rec.defeatedUnits = [];
   if (!Array.isArray(rec.mobPreviews)) rec.mobPreviews = [];
   while (rec.defeated.length < slots) rec.defeated.push(null);
+  while (rec.defeatedUnits.length < slots) rec.defeatedUnits.push(null);
   while (rec.mobPreviews.length < slots) rec.mobPreviews.push(null);
   if (rec.mobPreviews[si] && rec.mobPreviews[si].units && rec.mobPreviews[si].units.length) {
     return rec.mobPreviews[si];
   }
   const roll = rollMobComposition(pool, si, biome);
   rec.mobPreviews[si] = roll;
-  if (roll && Array.isArray(roll.units) && roll.units.length) {
-    recordRegionSpawned(biome && biome.name ? biome.name : "", roll.units.length);
-  }
+  if (roll && Array.isArray(roll.units) && roll.units.length) recordMonsterSpawnsFromUnits(roll.units);
   save();
   return roll;
 }
@@ -3543,23 +3556,27 @@ function getWorldSpawnPressureConfig() {
 function ensureSpawnPressureState() {
   if (!player.worldMap || typeof player.worldMap !== "object") player.worldMap = {};
   if (!player.worldMap.spawnPressure || typeof player.worldMap.spawnPressure !== "object") {
-    player.worldMap.spawnPressure = { regions: {} };
+    player.worldMap.spawnPressure = { monsters: {} };
   }
-  if (!player.worldMap.spawnPressure.regions || typeof player.worldMap.spawnPressure.regions !== "object") {
-    player.worldMap.spawnPressure.regions = {};
+  if (!player.worldMap.spawnPressure.monsters || typeof player.worldMap.spawnPressure.monsters !== "object") {
+    player.worldMap.spawnPressure.monsters = {};
   }
   return player.worldMap.spawnPressure;
 }
 
-function getRegionSpawnPressureRecord(regionName, nowMs) {
-  const nm = typeof regionName === "string" && regionName.trim() ? regionName.trim() : "__default__";
+function normalizeMonsterPressureKey(monsterName) {
+  return typeof monsterName === "string" && monsterName.trim() ? monsterName.trim() : "__unknown__";
+}
+
+function getMonsterSpawnPressureRecord(monsterName, nowMs) {
+  const nm = normalizeMonsterPressureKey(monsterName);
   const now = typeof nowMs === "number" && Number.isFinite(nowMs) ? nowMs : Date.now();
   const root = ensureSpawnPressureState();
-  const regions = root.regions;
-  let rec = regions[nm];
+  const monsters = root.monsters;
+  let rec = monsters[nm];
   if (!rec || typeof rec !== "object") {
     rec = { pressure: 0, spawned: 0, killed: 0, windowStartMs: now };
-    regions[nm] = rec;
+    monsters[nm] = rec;
   }
   if (typeof rec.pressure !== "number" || !Number.isFinite(rec.pressure)) rec.pressure = 0;
   if (typeof rec.spawned !== "number" || !Number.isFinite(rec.spawned) || rec.spawned < 0) rec.spawned = 0;
@@ -3570,10 +3587,10 @@ function getRegionSpawnPressureRecord(regionName, nowMs) {
   return rec;
 }
 
-function advanceRegionSpawnPressure(regionName, nowMs) {
+function advanceMonsterSpawnPressure(monsterName, nowMs) {
   const now = typeof nowMs === "number" && Number.isFinite(nowMs) ? nowMs : Date.now();
   const cfg = getWorldSpawnPressureConfig();
-  const rec = getRegionSpawnPressureRecord(regionName, now);
+  const rec = getMonsterSpawnPressureRecord(monsterName, now);
   if (now <= rec.windowStartMs) return rec.pressure;
   const windows = Math.floor((now - rec.windowStartMs) / cfg.windowMs);
   if (windows <= 0) return rec.pressure;
@@ -3592,40 +3609,79 @@ function advanceRegionSpawnPressure(regionName, nowMs) {
   return rec.pressure;
 }
 
-function getRegionSpawnPressure(regionName, nowMs) {
-  return advanceRegionSpawnPressure(regionName, nowMs);
+function getMonsterSpawnPressure(monsterName, nowMs) {
+  return advanceMonsterSpawnPressure(monsterName, nowMs);
 }
 
-function recordRegionSpawned(regionName, spawnedCount) {
+function recordMonsterSpawned(monsterName, spawnedCount) {
   const n = Math.max(0, Math.floor(typeof spawnedCount === "number" ? spawnedCount : 0));
   if (!n) return;
   const now = Date.now();
-  advanceRegionSpawnPressure(regionName, now);
-  const rec = getRegionSpawnPressureRecord(regionName, now);
+  advanceMonsterSpawnPressure(monsterName, now);
+  const rec = getMonsterSpawnPressureRecord(monsterName, now);
   rec.spawned += n;
 }
 
-function recordRegionKilled(regionName, killedCount) {
+function recordMonsterKilled(monsterName, killedCount) {
   const n = Math.max(0, Math.floor(typeof killedCount === "number" ? killedCount : 0));
   if (!n) return;
   const now = Date.now();
-  advanceRegionSpawnPressure(regionName, now);
-  const rec = getRegionSpawnPressureRecord(regionName, now);
+  advanceMonsterSpawnPressure(monsterName, now);
+  const rec = getMonsterSpawnPressureRecord(monsterName, now);
   rec.killed += n;
 }
 
-function getRegionSpawnRateMultiplier(regionName) {
+function recordMonsterSpawnsFromUnits(units) {
+  if (!Array.isArray(units)) return;
+  units.forEach((u) => {
+    const name = u && typeof u.name === "string" ? u.name : "";
+    if (!name) return;
+    recordMonsterSpawned(name, 1);
+  });
+}
+
+function recordMonsterKillsFromNames(names) {
+  if (!Array.isArray(names)) return;
+  names.forEach((name) => {
+    if (typeof name !== "string" || !name.trim()) return;
+    recordMonsterKilled(name, 1);
+  });
+}
+
+function getMonsterSpawnRateMultiplier(monsterName) {
   const cfg = getWorldSpawnPressureConfig();
-  const p = getRegionSpawnPressure(regionName, Date.now());
+  const p = getMonsterSpawnPressure(monsterName, Date.now());
   return Math.max(0.01, 1 + cfg.spawnRateImpactPct * (p / 100));
 }
 
-function getWorldMobRespawnMsAt(x, y) {
+function getSpawnRateMultiplierForMonsterNames(names) {
+  if (!Array.isArray(names) || !names.length) return 1;
+  let sum = 0;
+  let count = 0;
+  names.forEach((name) => {
+    if (typeof name !== "string" || !name.trim()) return;
+    sum += getMonsterSpawnRateMultiplier(name);
+    count++;
+  });
+  if (!count) return 1;
+  return sum / count;
+}
+
+function getWorldMobRespawnMsAt(x, y, setIndex) {
   const wm = GAME_CONFIG.worldMap && typeof GAME_CONFIG.worldMap === "object" ? GAME_CONFIG.worldMap : {};
   const baseMs = typeof wm.mobRespawnMs === "number" && wm.mobRespawnMs > 0 ? wm.mobRespawnMs : 60000;
-  const biome = getWorldBiomeDefAt(x, y);
-  const regionName = biome && biome.name ? biome.name : "";
-  const spawnRateMult = getRegionSpawnRateMultiplier(regionName);
+  const key = worldMapKey(x, y);
+  const rec = player.worldMap && player.worldMap.cells ? player.worldMap.cells[key] : null;
+  let names = [];
+  if (rec && Array.isArray(rec.defeatedUnits) && typeof setIndex === "number") {
+    const n = rec.defeatedUnits[setIndex];
+    if (Array.isArray(n) && n.length) names = n;
+  }
+  if ((!names || !names.length) && rec && Array.isArray(rec.mobPreviews) && typeof setIndex === "number") {
+    const pv = rec.mobPreviews[setIndex];
+    if (pv && Array.isArray(pv.units)) names = pv.units.map((u) => (u && typeof u.name === "string" ? u.name : "")).filter(Boolean);
+  }
+  const spawnRateMult = getSpawnRateMultiplierForMonsterNames(names);
   return Math.max(1000, Math.floor(baseMs / spawnRateMult));
 }
 
@@ -5485,9 +5541,10 @@ function isWorldMobSetDefeated(x, y, setIndex) {
   if (!rec || !Array.isArray(rec.defeated)) return false;
   const t = rec.defeated[setIndex];
   if (t == null) return false;
-  const ms = getWorldMobRespawnMsAt(x, y);
+  const ms = getWorldMobRespawnMsAt(x, y, setIndex);
   if (Date.now() - t >= ms) {
     rec.defeated[setIndex] = null;
+    if (Array.isArray(rec.defeatedUnits)) rec.defeatedUnits[setIndex] = null;
     save();
     return false;
   }
@@ -5499,7 +5556,7 @@ function worldMobRespawnRemainingMs(x, y, setIndex) {
   if (!rec || !Array.isArray(rec.defeated)) return 0;
   const t = rec.defeated[setIndex];
   if (t == null) return 0;
-  const ms = getWorldMobRespawnMsAt(x, y);
+  const ms = getWorldMobRespawnMsAt(x, y, setIndex);
   return Math.max(0, ms - (Date.now() - t));
 }
 
@@ -5509,7 +5566,7 @@ function slotIsWorldMobOnRespawnCooldown(x, y, setIndex) {
   if (!rec || !Array.isArray(rec.defeated)) return false;
   const t = rec.defeated[setIndex];
   if (t == null) return false;
-  const ms = getWorldMobRespawnMsAt(x, y);
+  const ms = getWorldMobRespawnMsAt(x, y, setIndex);
   return Date.now() - t < ms;
 }
 
@@ -6057,15 +6114,17 @@ function finishCombatVictory() {
     const key = worldMapKey(x, y);
     const cellCfg = getCoordinateCellConfig(x, y);
     const slots = getEncounterSlotCountForCell(x, y, cellCfg);
-    if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], mobPreviews: [] };
+    if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], defeatedUnits: [], mobPreviews: [] };
     if (!Array.isArray(player.worldMap.cells[key].defeated)) player.worldMap.cells[key].defeated = [];
+    if (!Array.isArray(player.worldMap.cells[key].defeatedUnits)) player.worldMap.cells[key].defeatedUnits = [];
     if (!Array.isArray(player.worldMap.cells[key].mobPreviews)) player.worldMap.cells[key].mobPreviews = [];
     while (player.worldMap.cells[key].defeated.length < slots) player.worldMap.cells[key].defeated.push(null);
+    while (player.worldMap.cells[key].defeatedUnits.length < slots) player.worldMap.cells[key].defeatedUnits.push(null);
     while (player.worldMap.cells[key].mobPreviews.length < slots) player.worldMap.cells[key].mobPreviews.push(null);
-    const biome = getWorldBiomeDefAt(x, y);
-    const killedCount = Array.isArray(st.enemyNames) ? st.enemyNames.length : 0;
-    recordRegionKilled(biome && biome.name ? biome.name : "", killedCount);
+    const killedNames = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
+    recordMonsterKillsFromNames(killedNames);
     player.worldMap.cells[key].defeated[setIndex] = Date.now();
+    player.worldMap.cells[key].defeatedUnits[setIndex] = killedNames;
     player.worldMap.cells[key].mobPreviews[setIndex] = null;
     save();
   }
