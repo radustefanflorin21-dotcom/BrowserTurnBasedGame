@@ -955,7 +955,7 @@ const GAME_CONFIG = {
       slot: "weapon",
       equipCategory: "one_handed",
       attack: 3,
-      image: "Assets/Equips/rusty-sword.png",
+      image: "Assets/Equips/template_weapon.png",
       description: "A notched blade. Better than fists in a brawl.",
       bonusSkills: [],
       bonusStats: {}
@@ -1034,7 +1034,7 @@ const GAME_CONFIG = {
       slot: "chest",
       equipCategory: "chest_armor",
       defense: 5,
-      image: "Assets/Equips/fantasy_chest.png",
+      image: "Assets/Equips/template_chest.png",
       description: "Arcane-forged chestplate from a fantasy set.",
       bonusSkills: [],
       bonusStats: {}
@@ -1052,7 +1052,7 @@ const GAME_CONFIG = {
       type: "armor",
       slot: "head",
       defense: 4,
-      image: "Assets/Equips/fantastic_helm.png",
+      image: "Assets/Equips/template_helm.png",
       description: "A splendid helm infused with mythic protection.",
       bonusSkills: [],
       bonusStats: {}
@@ -1090,7 +1090,7 @@ const GAME_CONFIG = {
       slot: "feet",
       equipCategory: "feet_armor",
       defense: 4,
-      image: "Assets/Equips/fantasy_feet.png",
+      image: "Assets/Equips/template_feet.png",
       description: "Enchanted boots tuned for swift footwork.",
       bonusSkills: [],
       bonusStats: {}
@@ -1109,7 +1109,7 @@ const GAME_CONFIG = {
       slot: "legs",
       equipCategory: "leg_armor",
       defense: 5,
-      image: "Assets/Equips/fantasy_leggs.png",
+      image: "Assets/Equips/template_leggs.png",
       description: "Runed leg armor from the fantasy set.",
       bonusSkills: [],
       bonusStats: {}

@@ -316,10 +316,10 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: -1.7350065258263334,
-    offsetYPct: -2.8920423708683325,
+    offsetXPct: 6.940054680784334,
+    offsetYPct: -1.7353768139497636,
     rotDeg: 0,
-    scalePct: 124
+    scalePct: 118
   };
 }
 
@@ -815,28 +815,28 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 172
   },
   chest: {
-    offsetXPct: 0.578341,
-    offsetYPct: 0.578343,
+    offsetXPct: 7.518376474173667,
+    offsetYPct: -32.3869,
     rotDeg: 0,
-    scalePct: 190
+    scalePct: 64
   },
   feet: {
-    offsetXPct: -0.5783,
-    offsetYPct: -79.2322,
+    offsetXPct: 2.3133735258263335,
+    offsetYPct: 5.783326474173667,
     rotDeg: 0,
-    scalePct: 250
+    scalePct: 82
   },
   head: {
-    offsetXPct: 0.578342,
-    offsetYPct: 63.0388,
+    offsetXPct: 2.3133532370868335,
+    offsetYPct: -32.3868,
     rotDeg: 0,
-    scalePct: 244
+    scalePct: 52
   },
   legs: {
-    offsetXPct: -0.000042762913166738414,
-    offsetYPct: -49.7369,
+    offsetXPct: 6.9399664741736675,
+    offsetYPct: -20.241736762913167,
     rotDeg: 0,
-    scalePct: 220
+    scalePct: 106
   },
   offhand: {
     offsetXPct: 102.9440102887395,
