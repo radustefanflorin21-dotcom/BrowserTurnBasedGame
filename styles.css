@@ -18,8 +18,8 @@
   --overview-stone-border: #8a7a5a;
   --nameplate-bg: #8b2222;
   --nameplate-edge: #c9a227;
-  --inv-grid-bg: rgba(0, 0, 0, 0.35);
-  --inv-cell-bg: #4a3828;
+  --inv-grid-bg: rgba(255, 255, 255, 0.18);
+  --inv-cell-bg: rgba(255, 255, 255, 0.14);
   /* World map modal: margin around the canvas (outside the grid) */
   --world-map-scroll-bg: linear-gradient(
     165deg,
@@ -55,8 +55,8 @@
   --overview-stone-border: #2a4a6a;
   --nameplate-bg: #8b1538;
   --nameplate-edge: #00d4ff;
-  --inv-grid-bg: rgba(0, 0, 0, 0.45);
-  --inv-cell-bg: #152030;
+  --inv-grid-bg: rgba(255, 255, 255, 0.12);
+  --inv-cell-bg: rgba(255, 255, 255, 0.14);
   --world-map-scroll-bg: linear-gradient(
     180deg,
     rgba(18, 40, 72, 0.32) 0%,
@@ -1578,7 +1578,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   border-radius: 4px;
   cursor: grab;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.14);
   color: var(--overview-ink);
   display: flex;
   align-items: center;
@@ -1609,7 +1609,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .slot-drop--blocked:hover {
   border-color: var(--overview-stone-border);
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .slot-placeholder--blocked {
@@ -1691,9 +1691,9 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .inv-grid-scroll {
   --inv-gap: 1px;
-  /* Slot side = half of previous (10/16 col) → 5/16 col per side */
-  --inv-col: calc((100cqw - 12px) / 5);
-  --inv-cell: max(2px, calc(var(--inv-col) * 5 / 16));
+  /* 8 slots per row, with larger cells for clearer item icons. */
+  --inv-col: calc((100cqw - 12px) / 8);
+  --inv-cell: max(4px, calc(var(--inv-col) * 10 / 16));
   container-type: inline-size;
   container-name: invscroll;
   flex: 1;
@@ -1708,7 +1708,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .inv-grid {
   display: grid;
-  grid-template-columns: repeat(5, var(--inv-cell));
+  grid-template-columns: repeat(8, var(--inv-cell));
   grid-auto-rows: var(--inv-cell);
   gap: var(--inv-gap);
   padding: 2px;
@@ -1787,9 +1787,17 @@ body.edit-mode-on .portrait-stack--editing-scale {
   pointer-events: none;
 }
 
+.item-tooltip.item-tooltip--inventory-item {
+  background: rgba(52, 44, 34, 0.96);
+}
+
 :root[data-theme="scifi"] .item-tooltip {
   background: rgba(8, 14, 24, 0.97);
   border-color: var(--accent);
+}
+
+:root[data-theme="scifi"] .item-tooltip.item-tooltip--inventory-item {
+  background: rgba(24, 40, 64, 0.97);
 }
 
 .item-tip-name {
@@ -1803,6 +1811,13 @@ body.edit-mode-on .portrait-stack--editing-scale {
 .item-tip-desc {
   color: #ccc;
   margin-bottom: 6px;
+}
+
+.item-tip-item-icon {
+  display: block;
+  margin: 6px auto;
+  object-fit: contain;
+  image-rendering: auto;
 }
 
 .item-tip-desc--city {

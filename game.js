@@ -8127,9 +8127,15 @@ function autoItemDescription(def, itemName) {
   return itemName;
 }
 
-function buildItemTooltipHtml(itemName) {
+function buildItemTooltipHtml(itemName, imageSizePx) {
   const def = getItemDef(itemName);
   const parts = [`<div class="item-tip-name">${escapeHtml(itemName)}</div>`];
+  const src = getItemImage(itemName);
+  const sizeNum = Number(imageSizePx);
+  const iconSize = Number.isFinite(sizeNum) ? Math.max(24, Math.min(256, Math.round(sizeNum))) : 64;
+  parts.push(
+    `<img class="item-tip-item-icon" src="${escapeAttr(src)}" alt="" style="width:${iconSize}px;height:${iconSize}px;" />`
+  );
   if (!def) {
     parts.push(`<div class="item-tip-desc">No catalog entry. Resource or legacy stack.</div>`);
     return `<div class="item-tip">${parts.join("")}</div>`;
@@ -8175,17 +8181,27 @@ function positionItemTooltip(clientX, clientY) {
   el.style.top = `${top}px`;
 }
 
-function showTooltipHtml(html, clientX, clientY) {
+function showTooltipHtml(html, clientX, clientY, opts) {
   const el = document.getElementById("itemTooltip");
   if (!el) return;
+  el.classList.remove("item-tooltip--inventory-item");
+  if (opts && opts.tooltipClass) el.classList.add(String(opts.tooltipClass));
   el.innerHTML = html;
   el.classList.remove("hidden");
   el.setAttribute("aria-hidden", "false");
   requestAnimationFrame(() => positionItemTooltip(clientX, clientY));
 }
 
-function showItemTooltip(itemName, clientX, clientY) {
-  showTooltipHtml(buildItemTooltipHtml(itemName), clientX, clientY);
+function showItemTooltip(itemName, clientX, clientY, sourceEl) {
+  let imageSizePx = 64;
+  if (sourceEl instanceof HTMLElement) {
+    const r = sourceEl.getBoundingClientRect();
+    const base = Math.max(r.width || 0, r.height || 0);
+    if (base > 0) imageSizePx = base * 4;
+  }
+  showTooltipHtml(buildItemTooltipHtml(itemName, imageSizePx), clientX, clientY, {
+    tooltipClass: "item-tooltip--inventory-item"
+  });
 }
 
 const STAT_TIP_LABELS = {
@@ -8508,17 +8524,17 @@ function onContentTooltipOver(e) {
   }
   const fLoot = e.target.closest(".fight-loot-cell[data-item-name]");
   if (fLoot && fLoot.dataset.itemName) {
-    showItemTooltip(fLoot.dataset.itemName, e.clientX, e.clientY);
+    showItemTooltip(fLoot.dataset.itemName, e.clientX, e.clientY, fLoot);
     return;
   }
   const cell = e.target.closest(".inv-cell[data-item-name]");
   if (cell && cell.dataset.itemName) {
-    showItemTooltip(cell.dataset.itemName, e.clientX, e.clientY);
+    showItemTooltip(cell.dataset.itemName, e.clientX, e.clientY, cell);
     return;
   }
   const slotDrop = e.target.closest(".slot-drop[data-item-name]");
   if (slotDrop && slotDrop.dataset.itemName) {
-    showItemTooltip(slotDrop.dataset.itemName, e.clientX, e.clientY);
+    showItemTooltip(slotDrop.dataset.itemName, e.clientX, e.clientY, slotDrop);
     return;
   }
   const fightSkillBtn = e.target.closest(".fight-skill-btn[data-fight-skill]");
