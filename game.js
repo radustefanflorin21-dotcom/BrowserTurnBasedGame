@@ -316,10 +316,10 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: 1.15667,
-    offsetYPct: -1.73501,
+    offsetXPct: -2.3133535258263334,
+    offsetYPct: -4.048706185434167,
     rotDeg: 0,
-    scalePct: 130
+    scalePct: 118
   };
 }
 
@@ -792,10 +792,15 @@ function getEquipmentOverlayImage(itemName) {
 }
 
 const NO_WEAPON_OVERLAY_PATH = "Assets/Equips/no_weapon.png";
+const NO_HELM_OVERLAY_PATH = "Assets/Equips/no_helm.png";
 const OFFHAND_FIXED_ARM_OVERLAY_PATH = "Assets/Equips/offhand_fixed_arm.png";
 
 function getNoWeaponOverlayImage() {
   return NO_WEAPON_OVERLAY_PATH;
+}
+
+function getNoHelmOverlayImage() {
+  return NO_HELM_OVERLAY_PATH;
 }
 
 function getOffhandFixedArmOverlayImage() {
@@ -804,46 +809,58 @@ function getOffhandFixedArmOverlayImage() {
 
 const DEFAULT_PORTRAIT_LAYOUT = {
   weapon: {
-    offsetXPct: -112.62901028873951,
-    offsetYPct: -47.4236102887395,
+    offsetXPct: -106.26729560795518,
+    offsetYPct: -43.375242659607835,
     rotDeg: 3,
     scalePct: 172
   },
   chest: {
-    offsetXPct: -2.8916832370868333,
-    offsetYPct: -1.15667,
+    offsetXPct: 0.578341,
+    offsetYPct: 0.578343,
     rotDeg: 0,
     scalePct: 190
   },
   feet: {
-    offsetXPct: -4.04832,
-    offsetYPct: -85.59388381456584,
+    offsetXPct: 0.5783741033053333,
+    offsetYPct: -79.2321950465526,
     rotDeg: 0,
     scalePct: 250
   },
+  head: {
+    offsetXPct: 0.578342,
+    offsetYPct: 63.0388,
+    rotDeg: 0,
+    scalePct: 244
+  },
   legs: {
-    offsetXPct: -2.89173,
-    offsetYPct: -54.36357352582633,
+    offsetXPct: -0.000042762913166738414,
+    offsetYPct: -49.7369,
     rotDeg: 0,
     scalePct: 220
   },
   offhand: {
-    offsetXPct: 101.209,
-    offsetYPct: -53.207,
+    offsetXPct: 102.9440102887395,
+    offsetYPct: -49.73697911630142,
     rotDeg: 34,
     scalePct: 160
   },
   offhand_fixed_arm: {
-    offsetXPct: -132.439102887395,
-    offsetYPct: -127.81169410330534,
+    offsetXPct: -121.45096913378151,
+    offsetYPct: -115.66730589669466,
     rotDeg: 0,
-    scalePct: 64
+    scalePct: 70
   },
   no_weapon: {
-    offsetXPct: -111.03675583574235,
-    offsetYPct: -73.59188958935583,
+    offsetXPct: -106.98864265960783,
+    offsetYPct: -66.651858845042,
     rotDeg: 9,
     scalePct: 20
+  },
+  no_helm: {
+    offsetXPct: 2.89168,
+    offsetYPct: -32.9652,
+    rotDeg: 0,
+    scalePct: 40
   }
 };
 
@@ -1053,6 +1070,14 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
         itemName = "No weapon";
         layoutKey = "no_weapon";
         src = getNoWeaponOverlayImage();
+      }
+    } else if (slotId === "head") {
+      if (itemName) {
+        src = getEquipmentOverlayImage(itemName);
+      } else {
+        itemName = "No helm";
+        layoutKey = "no_helm";
+        src = getNoHelmOverlayImage();
       }
     } else {
       if (!itemName) return;

@@ -1048,6 +1048,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
+    "Fantastic Helm": {
+      type: "armor",
+      slot: "head",
+      defense: 4,
+      image: "Assets/Equips/fantastic_helm.png",
+      description: "A splendid helm infused with mythic protection.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
     "Wooden Shield": {
       type: "armor",
       slot: "offhand",

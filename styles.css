@@ -895,6 +895,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 40%;
   left: 30%;
   top: 4%;
+  z-index: 3;
 }
 
 .portrait-equip-layer--amulet {
