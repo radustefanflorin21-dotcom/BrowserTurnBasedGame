@@ -851,6 +851,10 @@ body.edit-mode-on .portrait-img--base {
   pointer-events: none;
 }
 
+.portrait-equip-layer--no-helm {
+  filter: none;
+}
+
 .portrait-equip-layer--back {
   z-index: 1;
 }

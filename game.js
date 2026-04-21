@@ -316,10 +316,10 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: -2.3133535258263334,
-    offsetYPct: -4.048706185434167,
+    offsetXPct: -1.7350065258263334,
+    offsetYPct: -2.8920423708683325,
     rotDeg: 0,
-    scalePct: 118
+    scalePct: 124
   };
 }
 
@@ -821,8 +821,8 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 190
   },
   feet: {
-    offsetXPct: 0.5783741033053333,
-    offsetYPct: -79.2321950465526,
+    offsetXPct: -0.5783,
+    offsetYPct: -79.2322,
     rotDeg: 0,
     scalePct: 250
   },
@@ -857,8 +857,8 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 20
   },
   no_helm: {
-    offsetXPct: 2.89168,
-    offsetYPct: -32.9652,
+    offsetXPct: 2.8917030092996683,
+    offsetYPct: -32.38687352582633,
     rotDeg: 0,
     scalePct: 40
   }
@@ -1089,7 +1089,8 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
     const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
     const layerClassId = slotId === "weapon" ? "mainhand" : slotId;
     const legacyWeaponClass = slotId === "weapon" ? " portrait-equip-layer--weapon" : "";
-    layerBySlot[slotId] = `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(layerClassId)}${legacyWeaponClass}${backCls}" src="${escapeAttr(
+    const layoutTypeClass = layoutKey === "no_helm" ? " portrait-equip-layer--no-helm" : "";
+    layerBySlot[slotId] = `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(layerClassId)}${legacyWeaponClass}${layoutTypeClass}${backCls}" src="${escapeAttr(
       src
     )}" alt="" draggable="false" title="${escapeAttr(
       itemName
