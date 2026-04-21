@@ -907,6 +907,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 22%;
   left: 39%;
   top: 27%;
+  z-index: 3;
 }
 
 .portrait-equip-layer--chest {
@@ -917,11 +918,12 @@ body.edit-mode-on .portrait-stack--editing-scale {
   z-index: 4;
 }
 
-.portrait-equip-layer--gloves {
+.portrait-equip-layer--bracelet {
   width: 34%;
   height: 34%;
   left: 54%;
   top: 36%;
+  z-index: 7;
 }
 
 .portrait-equip-layer--legs {
@@ -975,6 +977,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 18%;
   left: 7%;
   top: 70%;
+  z-index: 7;
 }
 
 .portrait-equip-layer--ring2 {
@@ -982,6 +985,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 18%;
   right: 7%;
   top: 70%;
+  z-index: 7;
 }
 
 
@@ -1526,7 +1530,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   grid-row: 3;
 }
 
-.paper-slot--gloves {
+.paper-slot--bracelet {
   grid-column: 5;
   grid-row: 2;
 }

@@ -5,7 +5,7 @@ const EQUIP_SLOTS = [
   { id: "weapon", label: "Main hand", cls: "paper-slot--weapon" },
   { id: "chest", label: "Chest", cls: "paper-slot--chest" },
   { id: "offhand", label: "Offhand", cls: "paper-slot--offhand" },
-  { id: "gloves", label: "Gloves", cls: "paper-slot--gloves" },
+  { id: "bracelet", label: "Bracelet", cls: "paper-slot--bracelet" },
   { id: "legs", label: "Legs", cls: "paper-slot--legs" },
   { id: "feet", label: "Boots", cls: "paper-slot--feet" },
   { id: "ring1", label: "Ring", cls: "paper-slot--ring1" },
@@ -59,7 +59,7 @@ function emptyEquipment() {
     chest: null,
     weapon: null,
     offhand: null,
-    gloves: null,
+    bracelet: null,
     legs: null,
     feet: null,
     ring1: null,
@@ -316,10 +316,10 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: 13.3018,
-    offsetYPct: -1.15703,
+    offsetXPct: 15.036864619832,
+    offsetYPct: -1.1569396503081677,
     rotDeg: 0,
-    scalePct: 130
+    scalePct: 124
   };
 }
 
@@ -558,6 +558,7 @@ function migratePlayer(p) {
   EQUIP_SLOTS.forEach((s) => {
     if (Object.prototype.hasOwnProperty.call(eq, s.id)) base[s.id] = eq[s.id];
   });
+  if (Object.prototype.hasOwnProperty.call(eq, "gloves") && base.bracelet == null) base.bracelet = eq.gloves;
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
@@ -704,6 +705,9 @@ function getItemEquipCategory(def) {
     category === "greatsword" ||
     category === "two_handed" ||
     category === "shield" ||
+    category === "amulet" ||
+    category === "bracelet" ||
+    category === "ring" ||
     category === "chest_armor" ||
     category === "leg_armor" ||
     category === "feet_armor"
@@ -722,6 +726,9 @@ function getAllowedEquipSlotsForDef(def) {
   if (category === "one_handed" || category === "one_handed_sword" || category === "dagger") return ["weapon", "offhand"];
   if (category === "two_handed" || category === "greatsword") return ["weapon"];
   if (category === "shield") return ["offhand"];
+  if (category === "amulet") return ["amulet"];
+  if (category === "bracelet") return ["bracelet"];
+  if (category === "ring") return ["ring1", "ring2"];
   if (category === "chest_armor") return ["chest"];
   if (category === "leg_armor") return ["legs"];
   if (category === "feet_armor") return ["feet"];
@@ -791,6 +798,11 @@ function pickEquipSlotForDef(def, preferredSlot) {
     if (!player.equipment.weapon) return "weapon";
     if (!isOffhandBlocked() && !player.equipment.offhand) return "offhand";
     return "weapon";
+  }
+  if (category === "ring") {
+    if (!player.equipment.ring1) return "ring1";
+    if (!player.equipment.ring2) return "ring2";
+    return "ring1";
   }
   return allowedSlots[0];
 }
@@ -876,6 +888,18 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     rotDeg: 0,
     scalePct: 64
   },
+  amulet: {
+    offsetXPct: 1.1566791337815001,
+    offsetYPct: -77.49704265960783,
+    rotDeg: -12.5,
+    scalePct: 40
+  },
+  bracelet: {
+    offsetXPct: -86.17220589669466,
+    offsetYPct: -38.170161732437,
+    rotDeg: 12,
+    scalePct: 15
+  },
   feet: {
     offsetXPct: 2.3133735258263335,
     offsetYPct: 5.783326474173667,
@@ -893,6 +917,12 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     offsetYPct: -20.241736762913167,
     rotDeg: 0,
     scalePct: 106
+  },
+  ring1: {
+    offsetXPct: 258.9379485563025,
+    offsetYPct: -154.416226352269,
+    rotDeg: 0,
+    scalePct: 15
   },
   offhand: {
     offsetXPct: 102.9440102887395,
@@ -919,8 +949,8 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 160
   },
   offhand_fixed_arm: {
-    offsetXPct: -121.45096913378151,
-    offsetYPct: -115.66730589669466,
+    offsetXPct: -120.87266323708683,
+    offsetYPct: -114.51,
     rotDeg: 0,
     scalePct: 70
   },
@@ -999,6 +1029,7 @@ function getLegacyPortraitLayoutKey(slotId) {
     return "weapon";
   }
   if (slotId === "offhand_one_handed_sword" || slotId === "offhand_dagger" || slotId === "offhand_shield") return "offhand";
+  if (slotId === "bracelet") return "gloves";
   return "";
 }
 
@@ -1147,7 +1178,7 @@ function openEditModeItemSpawnModal() {
 
 function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
   const base = escapeAttr(baseRaw);
-  const slotOrder = ["legs", "feet", "chest", "gloves", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
+  const slotOrder = ["legs", "feet", "chest", "bracelet", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
   const hasWeapon = !!(player.equipment.weapon || getNoWeaponOverlayImage());
   const occ = hasWeapon ? getHeroWeaponOcclusionConfig(baseRaw) : null;
   const layerBySlot = {};

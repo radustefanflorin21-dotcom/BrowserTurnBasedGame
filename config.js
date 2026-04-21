@@ -990,16 +990,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Iron Sword": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "one_handed_sword",
-      attack: 6,
-      image: "Assets/Equips/iron-sword.svg",
-      description: "Well-balanced steel. Favored by city guards.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Fantastic Sword": {
       type: "weapon",
       slot: "weapon",
@@ -1007,55 +997,6 @@ const GAME_CONFIG = {
       attack: 12,
       image: "Assets/Equips/fantastic_sword.png",
       description: "A brilliant blade with an otherworldly edge.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Fantastic Polearm": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "two_handed",
-      attack: 13,
-      image: "Assets/Equips/fantastic_polearm.png",
-      description: "A long-hafted weapon with uncanny reach and balance.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Fantastic Warhammer": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "two_handed",
-      attack: 14,
-      image: "Assets/Equips/fantastic_warhammer.png",
-      description: "A massive warhammer that lands crushing, thunderous blows.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Fantastic Dagger": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "dagger",
-      attack: 10,
-      image: "Assets/Equips/fantastic_dagger.png",
-      description: "A swift dagger with a keen edge made for quick strikes.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Fantastic Greatsword": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "greatsword",
-      attack: 15,
-      image: "Assets/Equips/fantastic_greatsword.png",
-      description: "A towering greatsword that cleaves through armor and bone.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Leather Armor": {
-      type: "armor",
-      slot: "chest",
-      defense: 2,
-      image: "Assets/Equips/leather-armor.svg",
-      description: "Flexible leather plates. Light and quiet.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1069,15 +1010,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Iron Helm": {
-      type: "armor",
-      slot: "head",
-      defense: 1,
-      image: "Assets/Equips/iron-helm.svg",
-      description: "Protects the skull from glancing blows.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Fantastic Helm": {
       type: "armor",
       slot: "head",
@@ -1087,31 +1019,13 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Wooden Shield": {
+    "Template Bracelet": {
       type: "armor",
-      slot: "offhand",
-      equipCategory: "shield",
-      defense: 3,
-      image: "Assets/Equips/wooden-shield.svg",
-      description: "Reinforced wood. Soaks impact before it reaches you.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Leather Gloves": {
-      type: "armor",
-      slot: "gloves",
-      defense: 1,
-      image: "Assets/Equips/leather-gloves.svg",
-      description: "Grip and a little padding for parries.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Leather Boots": {
-      type: "armor",
-      slot: "feet",
-      defense: 1,
-      image: "Assets/Equips/leather-boots.svg",
-      description: "Sturdy soles for rough ground.",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      defense: 2,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "A neutral bracelet template for baseline gear tuning.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1125,15 +1039,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Iron Greaves": {
-      type: "armor",
-      slot: "legs",
-      defense: 2,
-      image: "Assets/Equips/iron-greaves.svg",
-      description: "Metal guards for shins and knees.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Fantasy Leggs": {
       type: "armor",
       slot: "legs",
@@ -1144,32 +1049,25 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Bronze Amulet": {
+    "Template Amulet": {
       type: "armor",
       slot: "amulet",
-      defense: 1,
-      image: "Assets/Equips/bronze-amulet.svg",
-      description: "A simple charm on a chain. Slight warding.",
+      equipCategory: "amulet",
+      defense: 2,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A standard amulet template used for visual and balance baselines.",
       bonusSkills: [],
-      bonusStats: { VIT: 1 }
+      bonusStats: {}
     },
-    "Band Ring": {
+    "Template Ring": {
       type: "armor",
       slot: "ring1",
-      defense: 1,
-      image: "Assets/Equips/band-ring.svg",
-      description: "A plain band. Rumored to bring minor luck.",
+      equipCategory: "ring",
+      defense: 2,
+      image: "Assets/Equips/template_ring.png",
+      description: "A ring template for fitting and category pose adjustments.",
       bonusSkills: [],
-      bonusStats: { STR: 1 }
-    },
-    "Emerald Ring": {
-      type: "armor",
-      slot: "ring2",
-      defense: 1,
-      image: "Assets/Equips/emerald-ring.svg",
-      description: "Tiny emerald in a silver setting.",
-      bonusSkills: ["Quick Reflexes"],
-      bonusStats: { DEX: 1 }
+      bonusStats: {}
     },
     "Wolf Pelt": {
       type: "resource",
