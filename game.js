@@ -1,10 +1,10 @@
-/** Gladiatus-style slot ids — positions set in CSS (weapon | chest | shield row, etc.) */
+/** Gladiatus-style slot ids — positions set in CSS (main hand | chest | offhand row, etc.) */
 const EQUIP_SLOTS = [
   { id: "head", label: "Head", cls: "paper-slot--head" },
   { id: "amulet", label: "Amulet", cls: "paper-slot--amulet" },
-  { id: "weapon", label: "Weapon", cls: "paper-slot--weapon" },
+  { id: "weapon", label: "Main hand", cls: "paper-slot--weapon" },
   { id: "chest", label: "Chest", cls: "paper-slot--chest" },
-  { id: "offhand", label: "Shield", cls: "paper-slot--offhand" },
+  { id: "offhand", label: "Offhand", cls: "paper-slot--offhand" },
   { id: "gloves", label: "Gloves", cls: "paper-slot--gloves" },
   { id: "legs", label: "Legs", cls: "paper-slot--legs" },
   { id: "feet", label: "Boots", cls: "paper-slot--feet" },
@@ -316,10 +316,10 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: 8.096714680784341,
-    offsetYPct: -0.5783367629131666,
+    offsetXPct: 1.15667,
+    offsetYPct: -1.73501,
     rotDeg: 0,
-    scalePct: 124
+    scalePct: 130
   };
 }
 
@@ -560,6 +560,7 @@ function migratePlayer(p) {
   });
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
+  enforceOffhandRuleForEquipment(p.equipment, p.inventory);
   if (typeof p.charPoints !== "number" || p.charPoints < 0) p.charPoints = 0;
   if (!p.portraitLayout || typeof p.portraitLayout !== "object") p.portraitLayout = {};
   if (!p.portraitBaseLayout || typeof p.portraitBaseLayout !== "object") {
@@ -689,6 +690,88 @@ function getItemDef(name) {
   return GAME_CONFIG.items[name] || null;
 }
 
+function getItemEquipCategory(def) {
+  if (!def || typeof def !== "object") return "";
+  const rawCategory =
+    (typeof def.equipCategory === "string" && def.equipCategory) ||
+    (typeof def.weaponCategory === "string" && def.weaponCategory) ||
+    "";
+  const category = rawCategory.trim().toLowerCase();
+  if (
+    category === "one_handed" ||
+    category === "two_handed" ||
+    category === "shield" ||
+    category === "chest_armor" ||
+    category === "leg_armor" ||
+    category === "feet_armor"
+  ) {
+    return category;
+  }
+  // Backward compatibility for older item definitions.
+  if (def.type === "weapon") return "one_handed";
+  if (def.type === "armor" && def.slot === "offhand") return "shield";
+  return "";
+}
+
+function getAllowedEquipSlotsForDef(def) {
+  if (!def || typeof def !== "object") return [];
+  const category = getItemEquipCategory(def);
+  if (category === "one_handed") return ["weapon", "offhand"];
+  if (category === "two_handed") return ["weapon"];
+  if (category === "shield") return ["offhand"];
+  if (category === "chest_armor") return ["chest"];
+  if (category === "leg_armor") return ["legs"];
+  if (category === "feet_armor") return ["feet"];
+  if (typeof def.slot === "string" && def.slot.trim()) return [def.slot.trim()];
+  return [];
+}
+
+function isTwoHandedWeaponDef(def) {
+  return getItemEquipCategory(def) === "two_handed";
+}
+
+function isOffhandBlockedByEquipment(equipment) {
+  const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
+  return isTwoHandedWeaponDef(getItemDef(eq.weapon));
+}
+
+function isOffhandBlocked() {
+  return isOffhandBlockedByEquipment(player && player.equipment);
+}
+
+function isEquippableItemDef(def) {
+  return getAllowedEquipSlotsForDef(def).length > 0;
+}
+
+function canEquipItemInSlot(itemName, slotId) {
+  const def = getItemDef(itemName);
+  if (!def || typeof slotId !== "string" || !slotId) return false;
+  const allowedSlots = getAllowedEquipSlotsForDef(def);
+  if (!allowedSlots.includes(slotId)) return false;
+  if (slotId === "offhand" && isOffhandBlocked()) return false;
+  return true;
+}
+
+function pickEquipSlotForDef(def, preferredSlot) {
+  const allowedSlots = getAllowedEquipSlotsForDef(def);
+  if (!allowedSlots.length) return null;
+  if (preferredSlot && allowedSlots.includes(preferredSlot)) return preferredSlot;
+  if (getItemEquipCategory(def) === "one_handed") {
+    if (!player.equipment.weapon) return "weapon";
+    if (!isOffhandBlocked() && !player.equipment.offhand) return "offhand";
+    return "weapon";
+  }
+  return allowedSlots[0];
+}
+
+function enforceOffhandRuleForEquipment(eq, inventory) {
+  if (!eq || typeof eq !== "object") return;
+  if (!isOffhandBlockedByEquipment(eq)) return;
+  if (!eq.offhand) return;
+  if (Array.isArray(inventory)) inventory.push(eq.offhand);
+  eq.offhand = null;
+}
+
 function getItemImage(itemName) {
   const def = getItemDef(itemName);
   if (def && def.image) return def.image;
@@ -709,17 +792,52 @@ function getEquipmentOverlayImage(itemName) {
 }
 
 const NO_WEAPON_OVERLAY_PATH = "Assets/Equips/no_weapon.png";
+const OFFHAND_FIXED_ARM_OVERLAY_PATH = "Assets/Equips/offhand_fixed_arm.png";
 
 function getNoWeaponOverlayImage() {
   return NO_WEAPON_OVERLAY_PATH;
 }
 
+function getOffhandFixedArmOverlayImage() {
+  return OFFHAND_FIXED_ARM_OVERLAY_PATH;
+}
+
 const DEFAULT_PORTRAIT_LAYOUT = {
   weapon: {
-    offsetXPct: -110.8936351363587,
-    offsetYPct: -45.6886037087376,
+    offsetXPct: -112.62901028873951,
+    offsetYPct: -47.4236102887395,
     rotDeg: 3,
-    scalePct: 196
+    scalePct: 172
+  },
+  chest: {
+    offsetXPct: -2.8916832370868333,
+    offsetYPct: -1.15667,
+    rotDeg: 0,
+    scalePct: 190
+  },
+  feet: {
+    offsetXPct: -4.04832,
+    offsetYPct: -85.59388381456584,
+    rotDeg: 0,
+    scalePct: 250
+  },
+  legs: {
+    offsetXPct: -2.89173,
+    offsetYPct: -54.36357352582633,
+    rotDeg: 0,
+    scalePct: 220
+  },
+  offhand: {
+    offsetXPct: 101.209,
+    offsetYPct: -53.207,
+    rotDeg: 34,
+    scalePct: 160
+  },
+  offhand_fixed_arm: {
+    offsetXPct: -132.439102887395,
+    offsetYPct: -127.81169410330534,
+    rotDeg: 0,
+    scalePct: 64
   },
   no_weapon: {
     offsetXPct: -111.03675583574235,
@@ -944,13 +1062,20 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
     const layout = getPortraitEquipLayout(layoutKey);
     const style = `transform: translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100});`;
     const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
-    layerBySlot[slotId] = `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(slotId)}${backCls}" src="${escapeAttr(
+    const layerClassId = slotId === "weapon" ? "mainhand" : slotId;
+    const legacyWeaponClass = slotId === "weapon" ? " portrait-equip-layer--weapon" : "";
+    layerBySlot[slotId] = `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(layerClassId)}${legacyWeaponClass}${backCls}" src="${escapeAttr(
       src
     )}" alt="" draggable="false" title="${escapeAttr(
       itemName
     )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(style)}" />`;
   });
-  const backLayers = [layerBySlot.weapon || ""].join("");
+  const fixedArmLayout = getPortraitEquipLayout("offhand_fixed_arm");
+  const fixedArmStyle = `transform: translate(${fixedArmLayout.offsetXPct}%, ${fixedArmLayout.offsetYPct}%) rotate(${fixedArmLayout.rotDeg}deg) scale(${fixedArmLayout.scalePct / 100});`;
+  const fixedArmLayer = `<img class="portrait-equip-layer portrait-equip-layer--offhand-fixed-arm" src="${escapeAttr(
+    getOffhandFixedArmOverlayImage()
+  )}" alt="" draggable="false" title="Offhand fixed arm" data-portrait-slot="offhand_fixed_arm" style="${escapeAttr(fixedArmStyle)}" />`;
+  const backLayers = [layerBySlot.weapon || "", layerBySlot.offhand || "", fixedArmLayer].join("");
   const rootTransformStyle = `transform: translate(${rootLayout.offsetXPct}%, ${rootLayout.offsetYPct}%) rotate(${rootLayout.rotDeg}deg) scale(${rootLayout.scalePct / 100});`;
   const backHandHtml =
     occ && occ.backHandClip
@@ -960,7 +1085,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
       : "";
   const baseStyle = occ && occ.frontBodyClip ? ` style="clip-path:${escapeAttr(occ.frontBodyClip)};"` : "";
   const frontLayers = slotOrder
-    .filter((slotId) => slotId !== "weapon")
+    .filter((slotId) => slotId !== "weapon" && slotId !== "offhand")
     .map((slotId) => {
       return layerBySlot[slotId] || "";
     })
@@ -3464,7 +3589,7 @@ function categorizeInventory() {
     }
     if (def.type === "consumable") consumables.push(name);
     else if (def.type === "resource") resources.push(name);
-    else if (def.slot) equipment.push(name);
+    else if (isEquippableItemDef(def)) equipment.push(name);
     else resources.push(name);
   });
   return { equipment, resources, consumables };
@@ -3489,16 +3614,23 @@ function useConsumable(itemName) {
   }
 }
 
-function equipFromInventory(itemName) {
+function equipFromInventory(itemName, preferredSlot) {
   const def = getItemDef(itemName);
-  if (!def || !def.slot) return false;
+  if (!isEquippableItemDef(def)) return false;
   const i = player.inventory.indexOf(itemName);
   if (i === -1) return false;
-  const slot = def.slot;
+  const slot = pickEquipSlotForDef(def, preferredSlot);
+  if (!slot || !canEquipItemInSlot(itemName, slot)) return false;
   const prev = player.equipment[slot];
+  let displacedOffhand = null;
+  if (slot === "weapon" && isTwoHandedWeaponDef(def) && player.equipment.offhand) {
+    displacedOffhand = player.equipment.offhand;
+    player.equipment.offhand = null;
+  }
   player.equipment[slot] = itemName;
   player.inventory.splice(i, 1);
   if (prev) player.inventory.push(prev);
+  if (displacedOffhand) player.inventory.push(displacedOffhand);
   save();
   render();
   return true;
@@ -5987,6 +6119,21 @@ function applyPortraitLayerTransformStyle(layerEl, layout) {
   layerEl.style.transform = `translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100})`;
 }
 
+function readPortraitLayerLayoutFromElement(layerEl) {
+  if (!layerEl || !(layerEl instanceof HTMLElement)) return null;
+  const tf = String(layerEl.style.transform || "").trim();
+  if (!tf) return null;
+  const m = tf.match(
+    /translate\(\s*(-?\d+(?:\.\d+)?)%\s*,\s*(-?\d+(?:\.\d+)?)%\s*\)\s*rotate\(\s*(-?\d+(?:\.\d+)?)deg\s*\)\s*scale\(\s*(-?\d+(?:\.\d+)?)\s*\)/i
+  );
+  if (!m) return null;
+  const offsetXPct = clampPortraitLayoutPct(Number(m[1]));
+  const offsetYPct = clampPortraitLayoutPct(Number(m[2]));
+  const rotDeg = clampPortraitLayoutRotDeg(Number(m[3]));
+  const scalePct = clampPortraitLayoutScalePct(Number(m[4]) * 100);
+  return { offsetXPct, offsetYPct, rotDeg, scalePct };
+}
+
 function onPortraitLayerContextMenu(e) {
   if (!player.editMode) return;
   const stack = e.target.closest(".portrait-stack");
@@ -6003,7 +6150,8 @@ function onPortraitLayerPointerDown(e) {
     const stack = stackFromTarget;
     e.preventDefault();
     e.stopPropagation();
-    const start = getPortraitBaseLayout();
+    const rootEl = stack.querySelector("[data-portrait-root]");
+    const start = readPortraitLayerLayoutFromElement(rootEl) || getPortraitBaseLayout();
     const startX = e.clientX;
     const startY = e.clientY;
     const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
@@ -6067,7 +6215,7 @@ function onPortraitLayerPointerDown(e) {
   if (!stack) return;
   e.preventDefault();
   e.stopPropagation();
-  const start = getPortraitEquipLayout(slotId);
+  const start = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId);
   const startX = e.clientX;
   const startY = e.clientY;
   const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
@@ -6130,14 +6278,18 @@ function onPortraitLayerWheel(e) {
   if (stack && !layer) {
     e.preventDefault();
     e.stopPropagation();
-    const cur = getPortraitBaseLayout();
+    const root = stack.querySelector("[data-portrait-root]");
+    const cur = readPortraitLayerLayoutFromElement(root) || getPortraitBaseLayout();
     const step = e.shiftKey ? 12 : 6;
     const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
-    setPortraitBaseLayout({ scalePct: nextScale });
-    const root = stack.querySelector("[data-portrait-root]");
+    setPortraitBaseLayout({
+      offsetXPct: cur.offsetXPct,
+      offsetYPct: cur.offsetYPct,
+      rotDeg: cur.rotDeg,
+      scalePct: nextScale
+    });
     if (root) {
-      const base = getPortraitBaseLayout();
-      root.style.transform = `translate(${base.offsetXPct}%, ${base.offsetYPct}%) rotate(${base.rotDeg}deg) scale(${base.scalePct / 100})`;
+      root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
     }
     save();
     return;
@@ -6147,11 +6299,21 @@ function onPortraitLayerWheel(e) {
   if (!slotId) return;
   e.preventDefault();
   e.stopPropagation();
-  const cur = getPortraitEquipLayout(slotId);
+  const cur = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId);
   const step = e.shiftKey ? 12 : 6;
   const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
-  setPortraitEquipLayout(slotId, { scalePct: nextScale });
-  applyPortraitLayerTransformStyle(layer, getPortraitEquipLayout(slotId));
+  setPortraitEquipLayout(slotId, {
+    offsetXPct: cur.offsetXPct,
+    offsetYPct: cur.offsetYPct,
+    rotDeg: cur.rotDeg,
+    scalePct: nextScale
+  });
+  applyPortraitLayerTransformStyle(layer, {
+    offsetXPct: cur.offsetXPct,
+    offsetYPct: cur.offsetYPct,
+    rotDeg: cur.rotDeg,
+    scalePct: nextScale
+  });
   save();
 }
 
@@ -6167,7 +6329,8 @@ function onBottomHudPortraitPointerDown(e) {
   if (e.button !== 0 && e.button !== 2) return;
   e.preventDefault();
   e.stopPropagation();
-  const start = getBottomHudPortraitLayout();
+  const rootEl = portrait.querySelector("[data-bottom-hud-portrait-root]");
+  const start = readPortraitLayerLayoutFromElement(rootEl) || getBottomHudPortraitLayout();
   const startX = e.clientX;
   const startY = e.clientY;
   const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
@@ -6230,14 +6393,18 @@ function onBottomHudPortraitWheel(e) {
   if (!portrait) return;
   e.preventDefault();
   e.stopPropagation();
-  const cur = getBottomHudPortraitLayout();
+  const root = portrait.querySelector("[data-bottom-hud-portrait-root]");
+  const cur = readPortraitLayerLayoutFromElement(root) || getBottomHudPortraitLayout();
   const step = e.shiftKey ? 12 : 6;
   const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
-  setBottomHudPortraitLayout({ scalePct: nextScale });
-  const l = getBottomHudPortraitLayout();
-  const root = portrait.querySelector("[data-bottom-hud-portrait-root]");
+  setBottomHudPortraitLayout({
+    offsetXPct: cur.offsetXPct,
+    offsetYPct: cur.offsetYPct,
+    rotDeg: cur.rotDeg,
+    scalePct: nextScale
+  });
   if (root) {
-    root.style.transform = `translate(${l.offsetXPct}%, ${l.offsetYPct}%) rotate(${l.rotDeg}deg) scale(${l.scalePct / 100})`;
+    root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
   }
   save();
 }
@@ -7718,7 +7885,7 @@ function onFightOverlayDblClick(ev) {
   if (!loot || !loot.dataset.itemName) return;
   const name = loot.dataset.itemName;
   const def = getItemDef(name);
-  if (!def || !def.slot) return;
+  if (!isEquippableItemDef(def)) return;
   hideItemTooltip();
   if (equipFromInventory(name)) loot.remove();
 }
@@ -7921,7 +8088,13 @@ function buildInventoryGridHtml(names, tabKind) {
 
 function autoItemDescription(def, itemName) {
   if (!def) return "Unknown item.";
-  if (def.type === "weapon") return `Weapon: adds attack when equipped in the weapon slot.`;
+  if (def.type === "weapon") {
+    const category = getItemEquipCategory(def);
+    if (category === "one_handed") return "One-handed weapon: can be equipped in Main hand or Offhand.";
+    if (category === "two_handed") return "Two-handed weapon: equips in Main hand and blocks Offhand.";
+    return "Weapon: adds attack when equipped.";
+  }
+  if (getItemEquipCategory(def) === "shield") return "Shield: can only be equipped in Offhand.";
   if (def.type === "armor") return `Armor: adds armor when equipped in the matching slot.`;
   if (def.type === "consumable") return `Usable item. Effects apply when consumed.`;
   if (def.type === "resource") return `Crafting or trade material.`;
@@ -8419,18 +8592,22 @@ function buildOverviewHtml() {
 
   const slotHtml = EQUIP_SLOTS.map((s) => {
     const name = player.equipment[s.id];
+    const offhandBlocked = s.id === "offhand" && isOffhandBlocked();
     const drag = name ? 'draggable="true"' : "";
     const itemAttr = name ? ` data-item-name="${escapeAttr(name)}"` : "";
+    const blockedCls = offhandBlocked ? " slot-drop--blocked" : "";
     let inner = "";
     if (name) {
       const src = escapeAttr(getItemImage(name));
       inner = `<img class="slot-item-img" src="${src}" alt="" draggable="false" />`;
+    } else if (offhandBlocked) {
+      inner = `<span class="slot-placeholder slot-placeholder--blocked">Blocked</span>`;
     } else {
       inner = `<span class="slot-placeholder">—</span>`;
     }
     return `<div class="paper-slot ${s.cls}" data-slot="${s.id}">
       <span class="slot-label">${s.label}</span>
-      <div class="slot-drop" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
+      <div class="slot-drop${blockedCls}" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
     </div>`;
   }).join("");
   const editInvOptions = getEditableInventoryItemNames()
@@ -9614,9 +9791,8 @@ function onDrop(e) {
   const slotEl = e.target.closest(".slot-drop");
   if (slotEl && dragPayload.kind === "inventory") {
     const slotId = slotEl.dataset.slot;
-    const def = getItemDef(dragPayload.item);
-    if (def && def.slot === slotId) {
-      equipFromInventory(dragPayload.item);
+    if (slotId && canEquipItemInSlot(dragPayload.item, slotId)) {
+      equipFromInventory(dragPayload.item, slotId);
     }
   }
 

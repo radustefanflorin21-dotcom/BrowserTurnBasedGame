@@ -953,6 +953,7 @@ const GAME_CONFIG = {
     "Rusty Sword": {
       type: "weapon",
       slot: "weapon",
+      equipCategory: "one_handed",
       attack: 3,
       image: "Assets/Equips/rusty-sword.png",
       description: "A notched blade. Better than fists in a brawl.",
@@ -962,6 +963,7 @@ const GAME_CONFIG = {
     "Iron Sword": {
       type: "weapon",
       slot: "weapon",
+      equipCategory: "one_handed",
       attack: 6,
       image: "Assets/Equips/iron-sword.svg",
       description: "Well-balanced steel. Favored by city guards.",
@@ -971,6 +973,7 @@ const GAME_CONFIG = {
     "Fantastic Sword": {
       type: "weapon",
       slot: "weapon",
+      equipCategory: "one_handed",
       attack: 12,
       image: "Assets/Equips/fantastic_sword.png",
       description: "A brilliant blade with an otherworldly edge.",
@@ -980,9 +983,40 @@ const GAME_CONFIG = {
     "Fantastic Polearm": {
       type: "weapon",
       slot: "weapon",
+      equipCategory: "two_handed",
       attack: 13,
       image: "Assets/Equips/fantastic_polearm.png",
       description: "A long-hafted weapon with uncanny reach and balance.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fantastic Warhammer": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "two_handed",
+      attack: 14,
+      image: "Assets/Equips/fantastic_warhammer.png",
+      description: "A massive warhammer that lands crushing, thunderous blows.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fantastic Dagger": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed",
+      attack: 10,
+      image: "Assets/Equips/fantastic_dagger.png",
+      description: "A swift dagger with a keen edge made for quick strikes.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fantastic Greatsword": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "two_handed",
+      attack: 15,
+      image: "Assets/Equips/fantastic_greatsword.png",
+      description: "A towering greatsword that cleaves through armor and bone.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -992,6 +1026,16 @@ const GAME_CONFIG = {
       defense: 2,
       image: "Assets/Equips/leather-armor.svg",
       description: "Flexible leather plates. Light and quiet.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fantasy Chest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      defense: 5,
+      image: "Assets/Equips/fantasy_chest.png",
+      description: "Arcane-forged chestplate from a fantasy set.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1007,6 +1051,7 @@ const GAME_CONFIG = {
     "Wooden Shield": {
       type: "armor",
       slot: "offhand",
+      equipCategory: "shield",
       defense: 3,
       image: "Assets/Equips/wooden-shield.svg",
       description: "Reinforced wood. Soaks impact before it reaches you.",
@@ -1031,12 +1076,32 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
+    "Fantasy Feet": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      defense: 4,
+      image: "Assets/Equips/fantasy_feet.png",
+      description: "Enchanted boots tuned for swift footwork.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
     "Iron Greaves": {
       type: "armor",
       slot: "legs",
       defense: 2,
       image: "Assets/Equips/iron-greaves.svg",
       description: "Metal guards for shins and knees.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fantasy Leggs": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      defense: 5,
+      image: "Assets/Equips/fantasy_leggs.png",
+      description: "Runed leg armor from the fantasy set.",
       bonusSkills: [],
       bonusStats: {}
     },
