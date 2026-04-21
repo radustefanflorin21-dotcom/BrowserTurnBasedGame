@@ -7243,12 +7243,16 @@ function renderTurnBattle() {
   (st.party || []).forEach((m) => {
     const dead = !m || m.hp <= 0;
     const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
-    const imgSrc =
+    const portraitHtml =
       m.kind === "hero"
-        ? escapeAttr(getHeroImageForState(getCombatHeroVisualState()))
-        : escapeAttr(getItemImage(m.name));
+        ? `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
+            getHeroImageForState(getCombatHeroVisualState()),
+            getPortraitBaseLayout(),
+            ""
+          )}</div>`
+        : `<img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />`;
     partyHtml += `<div class="fight-ally-card ${dead ? "fight-ally-card--dead" : ""}" data-party-member="${m.uid}">
-      <img class="fight-portrait-img fight-portrait-img--ally" src="${imgSrc}" alt="" />
+      ${portraitHtml}
       <span class="fight-card-name">${escapeHtml(m.name)}</span>
       <div class="hp-bar fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
       <span class="fight-card-hp-text">${Math.max(0, m.hp)} / ${m.maxHp}</span>
