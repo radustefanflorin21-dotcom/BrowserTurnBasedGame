@@ -953,17 +953,47 @@ const GAME_CONFIG = {
     "Rusty Sword": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "one_handed",
+      equipCategory: "one_handed_sword",
       attack: 3,
       image: "Assets/Equips/template_weapon.png",
       description: "A notched blade. Better than fists in a brawl.",
       bonusSkills: [],
       bonusStats: {}
     },
+    "Template Dagger": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      attack: 9,
+      image: "Assets/Equips/template_dagger.png",
+      description: "A balanced training dagger used as a baseline design.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Polearm": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "two_handed",
+      attack: 12,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A standard polearm template with long reach and leverage.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Greatsword": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "greatsword",
+      attack: 14,
+      image: "Assets/Equips/template_greatsword.png",
+      description: "A heavy greatsword template built for two-handed swings.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
     "Iron Sword": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "one_handed",
+      equipCategory: "one_handed_sword",
       attack: 6,
       image: "Assets/Equips/iron-sword.svg",
       description: "Well-balanced steel. Favored by city guards.",
@@ -973,7 +1003,7 @@ const GAME_CONFIG = {
     "Fantastic Sword": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "one_handed",
+      equipCategory: "one_handed_sword",
       attack: 12,
       image: "Assets/Equips/fantastic_sword.png",
       description: "A brilliant blade with an otherworldly edge.",
@@ -1003,7 +1033,7 @@ const GAME_CONFIG = {
     "Fantastic Dagger": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "one_handed",
+      equipCategory: "dagger",
       attack: 10,
       image: "Assets/Equips/fantastic_dagger.png",
       description: "A swift dagger with a keen edge made for quick strikes.",
@@ -1013,7 +1043,7 @@ const GAME_CONFIG = {
     "Fantastic Greatsword": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "two_handed",
+      equipCategory: "greatsword",
       attack: 15,
       image: "Assets/Equips/fantastic_greatsword.png",
       description: "A towering greatsword that cleaves through armor and bone.",

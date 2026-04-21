@@ -316,10 +316,10 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: 6.940054680784334,
-    offsetYPct: -1.7353768139497636,
+    offsetXPct: 13.3018,
+    offsetYPct: -1.15703,
     rotDeg: 0,
-    scalePct: 118
+    scalePct: 130
   };
 }
 
@@ -699,6 +699,9 @@ function getItemEquipCategory(def) {
   const category = rawCategory.trim().toLowerCase();
   if (
     category === "one_handed" ||
+    category === "one_handed_sword" ||
+    category === "dagger" ||
+    category === "greatsword" ||
     category === "two_handed" ||
     category === "shield" ||
     category === "chest_armor" ||
@@ -716,8 +719,8 @@ function getItemEquipCategory(def) {
 function getAllowedEquipSlotsForDef(def) {
   if (!def || typeof def !== "object") return [];
   const category = getItemEquipCategory(def);
-  if (category === "one_handed") return ["weapon", "offhand"];
-  if (category === "two_handed") return ["weapon"];
+  if (category === "one_handed" || category === "one_handed_sword" || category === "dagger") return ["weapon", "offhand"];
+  if (category === "two_handed" || category === "greatsword") return ["weapon"];
   if (category === "shield") return ["offhand"];
   if (category === "chest_armor") return ["chest"];
   if (category === "leg_armor") return ["legs"];
@@ -727,7 +730,34 @@ function getAllowedEquipSlotsForDef(def) {
 }
 
 function isTwoHandedWeaponDef(def) {
-  return getItemEquipCategory(def) === "two_handed";
+  const c = getItemEquipCategory(def);
+  return c === "two_handed" || c === "greatsword";
+}
+
+function getWeaponPoseCategory(def) {
+  const category = getItemEquipCategory(def);
+  if (category === "dagger") return "dagger";
+  if (category === "greatsword") return "greatsword";
+  if (category === "two_handed") return "two_handed";
+  if (category === "shield") return "shield";
+  if (category === "one_handed_sword" || category === "one_handed") return "one_handed_sword";
+  return "";
+}
+
+function getPortraitWeaponLayoutKeyForSlot(slotId, itemName) {
+  const poseCategory = getWeaponPoseCategory(getItemDef(itemName));
+  if (slotId === "weapon") {
+    if (poseCategory === "dagger") return "weapon_dagger";
+    if (poseCategory === "greatsword") return "weapon_greatsword";
+    if (poseCategory === "two_handed") return "weapon_two_handed";
+    return "weapon_one_handed_sword";
+  }
+  if (slotId === "offhand") {
+    if (poseCategory === "dagger") return "offhand_dagger";
+    if (poseCategory === "shield") return "offhand_shield";
+    return "offhand_one_handed_sword";
+  }
+  return slotId;
 }
 
 function isOffhandBlockedByEquipment(equipment) {
@@ -756,7 +786,8 @@ function pickEquipSlotForDef(def, preferredSlot) {
   const allowedSlots = getAllowedEquipSlotsForDef(def);
   if (!allowedSlots.length) return null;
   if (preferredSlot && allowedSlots.includes(preferredSlot)) return preferredSlot;
-  if (getItemEquipCategory(def) === "one_handed") {
+  const category = getItemEquipCategory(def);
+  if (category === "one_handed" || category === "one_handed_sword" || category === "dagger") {
     if (!player.equipment.weapon) return "weapon";
     if (!isOffhandBlocked() && !player.equipment.offhand) return "offhand";
     return "weapon";
@@ -808,10 +839,35 @@ function getOffhandFixedArmOverlayImage() {
 }
 
 const DEFAULT_PORTRAIT_LAYOUT = {
+  // Legacy keys kept for backward compatibility with existing saved layouts.
   weapon: {
     offsetXPct: -106.26729560795518,
     offsetYPct: -43.375242659607835,
     rotDeg: 3,
+    scalePct: 172
+  },
+  weapon_one_handed_sword: {
+    offsetXPct: -106.26729560795518,
+    offsetYPct: -43.375242659607835,
+    rotDeg: 3,
+    scalePct: 172
+  },
+  weapon_dagger: {
+    offsetXPct: -84.86835294834734,
+    offsetYPct: -78.6537897112605,
+    rotDeg: 11.5,
+    scalePct: 70
+  },
+  weapon_greatsword: {
+    offsetXPct: -139.81,
+    offsetYPct: -40.4835,
+    rotDeg: 22.5,
+    scalePct: 160
+  },
+  weapon_two_handed: {
+    offsetXPct: -109.73646775103633,
+    offsetYPct: -58.411944042353,
+    rotDeg: 17.5,
     scalePct: 172
   },
   chest: {
@@ -839,6 +895,24 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 106
   },
   offhand: {
+    offsetXPct: 102.9440102887395,
+    offsetYPct: -49.73697911630142,
+    rotDeg: 34,
+    scalePct: 160
+  },
+  offhand_one_handed_sword: {
+    offsetXPct: 102.9440102887395,
+    offsetYPct: -49.73697911630142,
+    rotDeg: 34,
+    scalePct: 160
+  },
+  offhand_dagger: {
+    offsetXPct: 146.319,
+    offsetYPct: -68.2438,
+    rotDeg: 37.5,
+    scalePct: 76
+  },
+  offhand_shield: {
     offsetXPct: 102.9440102887395,
     offsetYPct: -49.73697911630142,
     rotDeg: 34,
@@ -915,9 +989,27 @@ function ensureBottomHudPortraitLayoutStore() {
   }
 }
 
+function getLegacyPortraitLayoutKey(slotId) {
+  if (
+    slotId === "weapon_one_handed_sword" ||
+    slotId === "weapon_dagger" ||
+    slotId === "weapon_two_handed" ||
+    slotId === "weapon_greatsword"
+  ) {
+    return "weapon";
+  }
+  if (slotId === "offhand_one_handed_sword" || slotId === "offhand_dagger" || slotId === "offhand_shield") return "offhand";
+  return "";
+}
+
 function getPortraitEquipLayout(slotId) {
   ensurePortraitLayoutStore();
-  const raw = player.portraitLayout[slotId] || DEFAULT_PORTRAIT_LAYOUT[slotId];
+  const legacyKey = getLegacyPortraitLayoutKey(slotId);
+  const raw =
+    player.portraitLayout[slotId] ||
+    (legacyKey ? player.portraitLayout[legacyKey] : null) ||
+    DEFAULT_PORTRAIT_LAYOUT[slotId] ||
+    (legacyKey ? DEFAULT_PORTRAIT_LAYOUT[legacyKey] : null);
   if (!raw || typeof raw !== "object") return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
   return {
     offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
@@ -1065,12 +1157,17 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
     let src = "";
     if (slotId === "weapon") {
       if (itemName) {
+        layoutKey = getPortraitWeaponLayoutKeyForSlot(slotId, itemName);
         src = getEquipmentOverlayImage(itemName);
       } else {
         itemName = "No weapon";
         layoutKey = "no_weapon";
         src = getNoWeaponOverlayImage();
       }
+    } else if (slotId === "offhand") {
+      if (!itemName) return;
+      layoutKey = getPortraitWeaponLayoutKeyForSlot(slotId, itemName);
+      src = getEquipmentOverlayImage(itemName);
     } else if (slotId === "head") {
       if (itemName) {
         src = getEquipmentOverlayImage(itemName);
@@ -8116,7 +8213,11 @@ function autoItemDescription(def, itemName) {
   if (!def) return "Unknown item.";
   if (def.type === "weapon") {
     const category = getItemEquipCategory(def);
-    if (category === "one_handed") return "One-handed weapon: can be equipped in Main hand or Offhand.";
+    if (category === "one_handed" || category === "one_handed_sword") {
+      return "One-handed sword: can be equipped in Main hand or Offhand.";
+    }
+    if (category === "dagger") return "Dagger: can be equipped in Main hand or Offhand.";
+    if (category === "greatsword") return "Greatsword: equips in Main hand and blocks Offhand.";
     if (category === "two_handed") return "Two-handed weapon: equips in Main hand and blocks Offhand.";
     return "Weapon: adds attack when equipped.";
   }
