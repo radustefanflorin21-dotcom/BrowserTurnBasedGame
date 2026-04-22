@@ -4143,6 +4143,14 @@ function useConsumable(itemName) {
 function equipFromInventory(itemName, preferredSlot) {
   const def = getItemDef(itemName);
   if (!isEquippableItemDef(def)) return false;
+  const reqLevel =
+    typeof def.itemLevel === "number" && Number.isFinite(def.itemLevel) ? Math.max(1, Math.floor(def.itemLevel)) : 1;
+  const playerLevel =
+    typeof player.level === "number" && Number.isFinite(player.level) ? Math.max(1, Math.floor(player.level)) : 1;
+  if (reqLevel > playerLevel) {
+    showModal(`Cannot equip ${itemName}. Required level: ${reqLevel} (your level: ${playerLevel}).`);
+    return false;
+  }
   const i = player.inventory.indexOf(itemName);
   if (i === -1) return false;
   const slot = pickEquipSlotForDef(def, preferredSlot);
@@ -8953,14 +8961,15 @@ function buildItemTooltipHtml(itemName, imageSizePx) {
   const desc = def.description || autoItemDescription(def, itemName);
   parts.push(`<div class="item-tip-desc">${escapeHtml(desc)}</div>`);
   if (isEquippableItemDef(def)) {
+    const reqLevel =
+      typeof def.itemLevel === "number" && Number.isFinite(def.itemLevel) ? Math.max(1, Math.floor(def.itemLevel)) : 1;
+    parts.push(`<div class="item-tip-desc">Required level: ${reqLevel}</div>`);
+  }
+  if (isEquippableItemDef(def)) {
     parts.push(
       `<div class="item-tip-rarity"><span class="item-tip-label">Rarity</span><span style="color:${escapeAttr(
         rarityRule.color
-      )};font-weight:700;">${escapeHtml(rarityRule.label)}</span> · Core x${rarityRule.coreMultiplier.toFixed(
-        2
-      )} · Secondary x${rarityRule.secondaryMultiplier.toFixed(2)} · Affixes ${escapeHtml(
-        formatRarityAffixRange(def, itemName)
-      )}</div>`
+      )};font-weight:700;">${escapeHtml(rarityRule.label)}</span></div>`
     );
   }
 
@@ -8972,9 +8981,6 @@ function buildItemTooltipHtml(itemName, imageSizePx) {
   if (def.type === "consumable" && def.effect === "heal") statParts.push(`Restores ${def.value} HP`);
   const bs = getScaledItemBonusStats(def, itemName);
   Object.keys(bs).forEach((k) => statParts.push(`${k} +${bs[k]}`));
-  if (isEquippableItemDef(def) && rarityId === "legendary" && !("stamina" in bs)) {
-    statParts.push("Stamina +1 roll: inactive");
-  }
   if (statParts.length) {
     parts.push(`<div class="item-tip-section"><span class="item-tip-label">Bonus stats</span><div class="item-tip-stats">${statParts.map((s) => escapeHtml(s)).join(" · ")}</div></div>`);
   }
@@ -9400,6 +9406,13 @@ function onContentTooltipMove(e) {
   if (e.target.closest(TOOLTIP_HOST_SEL)) positionItemTooltip(e.clientX, e.clientY);
 }
 
+function onContentInput(e) {
+  const filter = e.target.closest("[data-portrait-add-item-filter]");
+  if (!filter) return;
+  const host = filter.closest(".portrait-edit-tools");
+  applyPortraitAddItemFilter(host);
+}
+
 function statBarRow(label, value, max, variant, statTipKey) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const tip = statTipKey ? ` data-stat-tip="${escapeAttr(statTipKey)}"` : "";
@@ -9407,6 +9420,18 @@ function statBarRow(label, value, max, variant, statTipKey) {
     <span class="stat-bar-label">${label}</span>
     <span class="stat-bar-num">${value}</span>
     <div class="stat-bar-track stat-bar-${variant}"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+function statBarRowLevelEditable(value, max, statTipKey) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return `<div class="stat-bar-row stat-tip-row" data-stat-tip="${escapeAttr(statTipKey)}">
+    <span class="stat-bar-label">Level</span>
+    <span class="stat-bar-num"><input type="number" class="portrait-edit-select" data-character-level-input min="1" step="1" value="${Math.max(
+      1,
+      Math.floor(value || 1)
+    )}" /><button type="button" class="btn-secondary portrait-edit-btn" data-character-level-apply>Set</button></span>
+    <div class="stat-bar-track stat-bar-level"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
   </div>`;
 }
 
@@ -9424,6 +9449,25 @@ function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey) {
     </div>
     ${btn}
   </div>`;
+}
+
+function buildEditInventoryOptionsHtml(names) {
+  return names.map((name) => `<option value="${escapeAttr(name)}">${escapeHtml(name)}</option>`).join("");
+}
+
+function applyPortraitAddItemFilter(host) {
+  if (!host) return;
+  const filterInput = host.querySelector("[data-portrait-add-item-filter]");
+  const sel = host.querySelector("[data-portrait-add-item-select]");
+  if (!filterInput || !sel) return;
+  const query = String(filterInput.value || "")
+    .trim()
+    .toLowerCase();
+  const allNames = getEditableInventoryItemNames();
+  const filteredNames = query ? allNames.filter((name) => name.toLowerCase().includes(query)) : allNames;
+  const previous = String(sel.value || "");
+  sel.innerHTML = buildEditInventoryOptionsHtml(filteredNames);
+  if (filteredNames.includes(previous)) sel.value = previous;
 }
 
 function buildClassSkillsRowsHtml(activeClass) {
@@ -9478,11 +9522,9 @@ function buildOverviewHtml() {
       <div class="slot-drop${blockedCls}" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
     </div>`;
   }).join("");
-  const editInvOptions = getEditableInventoryItemNames()
-    .map((name) => `<option value="${escapeAttr(name)}">${escapeHtml(name)}</option>`)
-    .join("");
+  const editInvOptions = buildEditInventoryOptionsHtml(getEditableInventoryItemNames());
   const portraitEditControlsHtml = player.editMode
-    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay"><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
+    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay"><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
       <p class="portrait-edit-hint">Edit mode: equip = left move, right rotate, Shift+drag/wheel resize. Character = same controls on base image area.</p>`
     : "";
 
@@ -9512,7 +9554,7 @@ function buildOverviewHtml() {
   </div>`;
 
   const characteristicsTabHtml = `
-    ${statBarRow("Level", player.level, getPlayerMaxLevel(), "level", "level")}
+    ${player.editMode ? statBarRowLevelEditable(player.level, getPlayerMaxLevel(), "level") : statBarRow("Level", player.level, getPlayerMaxLevel(), "level", "level")}
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
@@ -10783,6 +10825,21 @@ function onContentClick(e) {
     }
     return;
   }
+  if (e.target.closest("[data-character-level-apply]")) {
+    const host = e.target.closest(".stat-bar-row");
+    const input = host ? host.querySelector("[data-character-level-input]") : null;
+    const raw = input ? Number(input.value) : NaN;
+    const nextLevel = Number.isFinite(raw) ? Math.max(1, Math.floor(raw)) : NaN;
+    if (!Number.isFinite(nextLevel)) return;
+    player.level = nextLevel;
+    player.maxHp = computeMaxHp(player);
+    if (!Number.isFinite(player.hp)) player.hp = player.maxHp;
+    player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
+    if (input) input.value = String(nextLevel);
+    save();
+    render();
+    return;
+  }
   if (e.target.closest("[data-reset-character]")) {
     if (
       window.confirm(
@@ -11114,6 +11171,7 @@ function initUi() {
   content.addEventListener("mouseover", onContentTooltipOver);
   content.addEventListener("mouseout", onContentTooltipOut);
   content.addEventListener("mousemove", onContentTooltipMove);
+  content.addEventListener("input", onContentInput);
   const characterPanelContent = document.getElementById("characterPanelContent");
   if (characterPanelContent) {
     characterPanelContent.addEventListener("contextmenu", onPortraitLayerContextMenu);
@@ -11128,6 +11186,7 @@ function initUi() {
     characterPanelContent.addEventListener("mouseover", onContentTooltipOver);
     characterPanelContent.addEventListener("mouseout", onContentTooltipOut);
     characterPanelContent.addEventListener("mousemove", onContentTooltipMove);
+    characterPanelContent.addEventListener("input", onContentInput);
   }
 
   const bottomMini = document.getElementById("bottomHudMinimapSlot");

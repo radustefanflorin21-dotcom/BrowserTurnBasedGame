@@ -969,7 +969,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 5,
       attack: 4,
-      image: "Assets/Equips/template_dagger.png",
+      image: "Assets/Equips/skimmer_blade.png",
       description: "Saltwind Skimmer dagger.",
       bonusSkills: [],
       bonusStats: { DEX: 5, STR: 3, Crit: 6 }
@@ -1904,26 +1904,26 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 5,
       attack: 4,
-      image: "Assets/Equips/template_dagger.png",
+      image: "Assets/Equips/skimmer_blade.png",
       description: "A light coastal dagger made for quick openings and precise cuts.",
       set: "Skimmer",
       build: "DEX",
       bonusSkills: [],
       bonusStats: { DEX: 5, STR: 3, Crit: 4, Accuracy: 3 }
     },
-    "Tidal Stabber": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "dagger",
+    "Tidecall Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
       rarity: "common",
       itemLevel: 6,
-      attack: 5,
-      image: "Assets/Equips/template_dagger.png",
-      description: "A wet-forged offhand blade that pairs speed with magical pressure.",
+      defense: 2,
+      image: "Assets/Equips/tidecall_amulet.png",
+      description: "A tidebound focus that bends wave pressure into utility spell control.",
       set: "Tidecaster",
-      build: "DEX_INT",
+      build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 5, INT: 5, Combo: 4, "Status Potency": 3 }
+      bonusStats: { INT: 5, DEX: 3, "Skill Power": 4, "Debuff Duration": 3 }
     },
     "Shellsplitter": {
       type: "weapon",
@@ -1932,7 +1932,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 7,
       attack: 5,
-      image: "Assets/Equips/template_weapon.png",
+      image: "Assets/Equips/Shellsplitter.png",
       description: "A short sword edged with shell shards for brutal close strikes.",
       set: "Tideguard",
       build: "STR",
@@ -1967,14 +1967,14 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 6, STR: 3, DR: 1, HP: 70 }
     },
-    "Tide Shell Vest": {
+    "Tide Horror Vest": {
       type: "armor",
       slot: "chest",
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 8,
       defense: 2,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/tide_horror_vest.png",
       description: "A lighter tidal cuirass offering balanced defense and magical poise.",
       set: "Tideguard",
       build: "VIT_INT",
@@ -1988,40 +1988,40 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 6,
       defense: 2,
-      image: "Assets/Equips/template_feet.png",
+      image: "Assets/Equips/wet_boots.png",
       description: "Flexible sea-soaked boots that improve footing and evasive movement.",
       set: "Skimmer",
       build: "DEX_VIT",
       bonusSkills: [],
       bonusStats: { VIT: 3, DEX: 3, HP: 48 }
     },
-    "Coastal Helm": {
+    "Coastal Hat": {
       type: "armor",
       slot: "head",
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 8,
       defense: 2,
-      image: "Assets/Equips/template_helm.png",
+      image: "Assets/Equips/coastal_hat.png",
       description: "A crested helm made from coastal shell and bone.",
       set: "Tideguard",
       build: "VIT_STR",
       bonusSkills: [],
       bonusStats: { VIT: 6, STR: 7, DR: 2, "Physical Resist": 4, HP: 64 }
     },
-    "Driftwrap Gloves": {
+    "Driftcloak Vest": {
       type: "armor",
-      slot: "bracelet",
-      equipCategory: "bracelet",
+      slot: "chest",
+      equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 7,
       defense: 2,
-      image: "Assets/Equips/template_bracelet.png",
-      description: "Wrappings infused with drift energy for nimble spellplay.",
-      set: "Tidecaster",
-      build: "DEX_INT",
+      image: "Assets/Equips/driftcloak_vest.png",
+      description: "A fluid-light vest that shifts with the tide to keep the wearer elusive and steady.",
+      set: "Skimmer",
+      build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 4, INT: 4, Combo: 4, "Status Potency": 3, "Debuff Duration": 3, "Crit Damage": 3 }
+      bonusStats: { DEX: 4, VIT: 4, HP: 64, Evasion: 4 }
     },
     "Wave Leggings": {
       type: "armor",
@@ -2030,7 +2030,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 9,
       defense: 3,
-      image: "Assets/Equips/template_leggs.png",
+      image: "Assets/Equips/wave_leggins.png",
       description: "Layered leggings stitched from membrane and hide for balanced survival.",
       set: "Tideguard",
       build: "VIT_DEX",
@@ -2044,7 +2044,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 6,
       defense: 2,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/flow_ring.png",
       description: "A simple ring that sharpens water-aligned timing and control.",
       set: "Tidecaster",
       build: "INT_DEX",
@@ -2072,7 +2072,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 7,
       defense: 2,
-      image: "Assets/Equips/template_bracelet.png",
+      image: "Assets/Equips/drift_bracelet.png",
       description: "A coral-bound bracelet for slippery skirmishers.",
       set: "Skimmer",
       build: "DEX_VIT",
@@ -2086,7 +2086,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 9,
       defense: 3,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/ripple_charm.png",
       description: "A charm attuned to ripples in magic and momentum.",
       set: "Tidecaster",
       build: "INT",
@@ -2114,7 +2114,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 10,
       defense: 3,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/tide_loop.png",
       description: "A polished loop carrying the weight and patience of the sea.",
       set: "Tidecaster",
       build: "INT_VIT",
@@ -4373,12 +4373,13 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "tidal_stabber",
-            resultItem: "Tidal Stabber",
+            id: "tidecall_amulet",
+            resultItem: "Tidecall Amulet",
             resultLevel: 6,
             ingredients: [
+              { item: "Ripple Core", qty: 6, source: "monster_loot" },
               { item: "Wet Membrane", qty: 6, source: "monster_loot" },
-              { item: "Hardened Shell", qty: 6, source: "monster_loot" }
+              { item: "Residue", qty: 3, source: "gathering_loot" }
             ]
           },
           {
@@ -4412,7 +4413,7 @@ const GAME_CONFIG = {
           },
           {
             id: "tide_shell_vest",
-            resultItem: "Tide Shell Vest",
+            resultItem: "Tide Horror Vest",
             resultLevel: 8,
             ingredients: [
               { item: "Ripple Core", qty: 6, source: "monster_loot" },
@@ -4431,7 +4432,7 @@ const GAME_CONFIG = {
           },
           {
             id: "coastal_helm",
-            resultItem: "Coastal Helm",
+            resultItem: "Coastal Hat",
             resultLevel: 8,
             ingredients: [
               { item: "Abyss Residue", qty: 6, source: "monster_loot" },
@@ -4439,13 +4440,13 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "driftwrap_gloves",
-            resultItem: "Driftwrap Gloves",
+            id: "driftcloak_vest",
+            resultItem: "Driftcloak Vest",
             resultLevel: 7,
             ingredients: [
-              { item: "Sharp Fin", qty: 6, source: "monster_loot" },
-              { item: "Wet Membrane", qty: 6, source: "monster_loot" },
-              { item: "Residue", qty: 3, source: "gathering_loot" }
+              { item: "Fluid Sac", qty: 6, source: "monster_loot" },
+              { item: "Ripple Core", qty: 6, source: "monster_loot" },
+              { item: "Plant Fiber", qty: 3, source: "gathering_loot" }
             ]
           },
           {
