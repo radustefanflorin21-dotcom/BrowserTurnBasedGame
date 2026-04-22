@@ -1812,6 +1812,26 @@ body.edit-mode-on .portrait-stack--editing-scale {
   padding-bottom: 4px;
 }
 
+.item-tip-name--common {
+  color: #b0b5bb;
+}
+
+.item-tip-name--uncommon {
+  color: #63d17c;
+}
+
+.item-tip-name--rare {
+  color: #5d94ff;
+}
+
+.item-tip-name--epic {
+  color: #c07aff;
+}
+
+.item-tip-name--legendary {
+  color: #ffab52;
+}
+
 .item-tip-desc {
   color: #ccc;
   margin-bottom: 6px;
@@ -1832,6 +1852,13 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .item-tip-section {
   margin-top: 4px;
+}
+
+.item-tip-rarity {
+  margin-top: 2px;
+  color: #d5d5d5;
+  font-size: 0.62rem;
+  line-height: 1.3;
 }
 
 .item-tip-label {

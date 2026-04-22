@@ -409,6 +409,7 @@ const defaultPlayer = () => {
     skillPoints: 0,
     classSkillLevels,
     skills: starter.starterSkills.slice(),
+    professions: [],
     inventory: buildStartingInventory(),
     equipment: emptyEquipment(),
     portraitLayout: {},
@@ -553,6 +554,23 @@ function migratePlayer(p) {
     if (typeof p.skillPoints !== "number" || p.skillPoints < 0) p.skillPoints = 0;
   }
   syncPlayerClassSkillList(p);
+  const profCfg = GAME_CONFIG.professions && typeof GAME_CONFIG.professions === "object" ? GAME_CONFIG.professions : {};
+  const maxProf = typeof profCfg.maxSelected === "number" && profCfg.maxSelected > 0 ? Math.floor(profCfg.maxSelected) : 2;
+  const validProfIds = new Set(
+    Array.isArray(profCfg.available)
+      ? profCfg.available
+          .map((d) => (d && typeof d.id === "string" ? d.id.trim() : ""))
+          .filter((id) => !!id)
+      : []
+  );
+  const rawProfs = Array.isArray(p.professions) ? p.professions : [];
+  const nextProfs = [];
+  rawProfs.forEach((id) => {
+    const k = typeof id === "string" ? id.trim() : "";
+    if (!k || !validProfIds.has(k) || nextProfs.includes(k)) return;
+    nextProfs.push(k);
+  });
+  p.professions = nextProfs.slice(0, maxProf);
   const eq = p.equipment || {};
   const base = emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
@@ -658,8 +676,9 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
     const n = eq[s.id];
     if (!n) return;
     const def = getItemDef(n);
-    if (!def || !def.bonusStats || typeof def.bonusStats !== "object") return;
-    for (const [k, v] of Object.entries(def.bonusStats)) {
+    if (!def) return;
+    const scaledBonusStats = getScaledItemBonusStats(def, n);
+    for (const [k, v] of Object.entries(scaledBonusStats)) {
       const nk = normalizeEquipmentStatKey(k);
       if (!nk || typeof v !== "number" || !Number.isFinite(v)) continue;
       if (nk === "stamina") {
@@ -669,6 +688,7 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
       out[nk] += v;
     }
   });
+  out.stamina = Math.max(0, Math.min(MAX_STAMINA_FROM_GEAR, Math.floor(out.stamina)));
   return out;
 }
 
@@ -687,8 +707,332 @@ function computeMaxHp(p) {
   return Math.max(1, Math.floor(baseHp + vitPer * totalVitFromPlayerRecord(p)));
 }
 
+function splitItemInstanceName(name) {
+  const raw = typeof name === "string" ? name : "";
+  if (!raw) return { baseName: "", rarityId: "" };
+  const sep = raw.lastIndexOf("@@");
+  if (sep <= 0) return { baseName: raw, rarityId: "" };
+  return {
+    baseName: raw.slice(0, sep),
+    rarityId: normalizeItemRarityId(raw.slice(sep + 2))
+  };
+}
+
+function getItemBaseName(name) {
+  return splitItemInstanceName(name).baseName;
+}
+
+function getItemInstanceRarityId(name) {
+  return splitItemInstanceName(name).rarityId;
+}
+
+function makeRarityItemInstanceName(baseName, rarityId) {
+  const base = String(baseName || "").trim();
+  if (!base) return "";
+  const rarity = normalizeItemRarityId(rarityId);
+  return `${base}@@${rarity}`;
+}
+
+const knownMonsterMaterialNamesCache = { built: false, names: new Set() };
+const PROFESSION_GATHERING_MATERIALS = new Set([
+  "Raw Hide",
+  "Thin Fur",
+  "Soft Leather",
+  "Tough Hide",
+  "Thick Fur",
+  "Treated Leather",
+  "Reinforced Hide",
+  "Dense Fur",
+  "Hardened Leather",
+  "Elite Hide",
+  "Primal Fur",
+  "Flexible Reinforced Leather",
+  "Mythic Hide",
+  "Alpha Pelt",
+  "Perfected Leather",
+  "Bark Fiber",
+  "Living Bark",
+  "Ancient Bark",
+  "Bone Fragment",
+  "Small Tooth",
+  "Dense Bone",
+  "Sharp Fang",
+  "Reinforced Bone",
+  "Heavy Fang",
+  "Elite Bone",
+  "Predator Fang",
+  "Titan Bone",
+  "Apex Core",
+  "Stone Fragment",
+  "Rough Core",
+  "Dense Stone",
+  "Solid Core",
+  "Reinforced Stone",
+  "Stable Core",
+  "Crystal Stone",
+  "Hardened Core",
+  "Titan Core",
+  "Crystalized Core",
+  "Metal Scrap",
+  "Reinforced Scrap",
+  "Mechanism Part",
+  "Advanced Mechanism",
+  "Perfect Core",
+  "Bone Dust",
+  "Fragmented Core",
+  "Spirit Core",
+  "Condensed Soul",
+  "Ancient Soul Core",
+  "Seeds",
+  "Plant Fiber",
+  "Growth Seed",
+  "Bark",
+  "Living Fiber",
+  "Spirit Bark",
+  "Ancient Seed",
+  "Vital Growth",
+  "World Seed",
+  "Life Core",
+  "Residue",
+  "Infused Dust",
+  "Elemental Fragment",
+  "Charged Core",
+  "Pure Essence",
+  "Faint Residue",
+  "Soul Dust",
+  "Spirit Thread",
+  "Echo Fragment",
+  "Bound Soul"
+]);
+
+const PROFESSION_GATHERING_TABLES = Object.freeze({
+  skinner: Object.freeze({
+    beast: Object.freeze({
+      t1: Object.freeze(["Raw Hide", "Thin Fur", "Soft Leather"]),
+      t2: Object.freeze(["Tough Hide", "Thick Fur", "Treated Leather"]),
+      t3: Object.freeze(["Reinforced Hide", "Dense Fur", "Hardened Leather"]),
+      t4: Object.freeze(["Elite Hide", "Primal Fur", "Flexible Reinforced Leather"]),
+      t5: Object.freeze(["Mythic Hide", "Alpha Pelt", "Perfected Leather"])
+    })
+  }),
+  extractor: Object.freeze({
+    beast: Object.freeze({
+      t1: Object.freeze(["Bone Fragment", "Small Tooth"]),
+      t2: Object.freeze(["Dense Bone", "Sharp Fang"]),
+      t3: Object.freeze(["Reinforced Bone", "Heavy Fang"]),
+      t4: Object.freeze(["Elite Bone", "Predator Fang"]),
+      t5: Object.freeze(["Titan Bone", "Apex Core"])
+    }),
+    stone: Object.freeze({
+      t1: Object.freeze(["Stone Fragment", "Rough Core"]),
+      t2: Object.freeze(["Dense Stone", "Solid Core"]),
+      t3: Object.freeze(["Reinforced Stone", "Stable Core"]),
+      t4: Object.freeze(["Crystal Stone", "Hardened Core"]),
+      t5: Object.freeze(["Titan Core", "Crystalized Core"])
+    }),
+    construct: Object.freeze({
+      t1: Object.freeze(["Metal Scrap"]),
+      t2: Object.freeze(["Reinforced Scrap"]),
+      t3: Object.freeze(["Mechanism Part"]),
+      t4: Object.freeze(["Advanced Mechanism"]),
+      t5: Object.freeze(["Perfect Core"])
+    }),
+    undead: Object.freeze({
+      t1: Object.freeze(["Bone Dust"]),
+      t2: Object.freeze(["Fragmented Core"]),
+      t3: Object.freeze(["Spirit Core"]),
+      t4: Object.freeze(["Condensed Soul"]),
+      t5: Object.freeze(["Ancient Soul Core"])
+    })
+  }),
+  harvester: Object.freeze({
+    nature: Object.freeze({
+      t1: Object.freeze(["Seeds", "Plant Fiber"]),
+      t2: Object.freeze(["Growth Seed", "Bark"]),
+      t3: Object.freeze(["Living Fiber", "Spirit Bark"]),
+      t4: Object.freeze(["Ancient Seed", "Vital Growth"]),
+      t5: Object.freeze(["World Seed", "Life Core"])
+    }),
+    elemental: Object.freeze({
+      t1: Object.freeze(["Residue"]),
+      t2: Object.freeze(["Infused Dust"]),
+      t3: Object.freeze(["Elemental Fragment"]),
+      t4: Object.freeze(["Charged Core"]),
+      t5: Object.freeze(["Pure Essence"])
+    }),
+    undead: Object.freeze({
+      t1: Object.freeze(["Faint Residue"]),
+      t2: Object.freeze(["Soul Dust"]),
+      t3: Object.freeze(["Spirit Thread"]),
+      t4: Object.freeze(["Echo Fragment"]),
+      t5: Object.freeze(["Bound Soul"])
+    })
+  })
+});
+
+function isConfiguredMonsterMaterialName(name) {
+  const n = String(name || "").trim();
+  if (!n) return false;
+  if (!knownMonsterMaterialNamesCache.built) {
+    knownMonsterMaterialNamesCache.built = true;
+    const tables = GAME_CONFIG && GAME_CONFIG.monsterDropTables;
+    if (tables && typeof tables === "object") {
+      Object.values(tables).forEach((tbl) => {
+        const mats = tbl && Array.isArray(tbl.materials) ? tbl.materials : [];
+        mats.forEach((m) => {
+          if (m && typeof m.name === "string" && m.name.trim()) {
+            knownMonsterMaterialNamesCache.names.add(m.name.trim());
+          }
+        });
+      });
+    }
+  }
+  return knownMonsterMaterialNamesCache.names.has(n);
+}
+
 function getItemDef(name) {
-  return GAME_CONFIG.items[name] || null;
+  const baseName = getItemBaseName(name);
+  const direct = GAME_CONFIG.items[baseName];
+  if (direct) return direct;
+  if (isConfiguredMonsterMaterialName(baseName) || PROFESSION_GATHERING_MATERIALS.has(baseName)) {
+    return {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Crafting material dropped by monsters.",
+      bonusSkills: [],
+      bonusStats: {}
+    };
+  }
+  return null;
+}
+
+const ITEM_RARITY_RULES = Object.freeze({
+  common: Object.freeze({
+    label: "Common",
+    color: "#9aa0a6",
+    coreMultiplier: 1.0,
+    secondaryMultiplier: 1.0,
+    affixMin: 0,
+    affixMax: 0,
+    legendaryStaminaChancePct: 0
+  }),
+  uncommon: Object.freeze({
+    label: "Uncommon",
+    color: "#52c76a",
+    coreMultiplier: 1.1,
+    secondaryMultiplier: 1.05,
+    affixMin: 1,
+    affixMax: 1,
+    legendaryStaminaChancePct: 0
+  }),
+  rare: Object.freeze({
+    label: "Rare",
+    color: "#4c87ff",
+    coreMultiplier: 1.25,
+    secondaryMultiplier: 1.1,
+    affixMin: 2,
+    affixMax: 2,
+    legendaryStaminaChancePct: 0
+  }),
+  epic: Object.freeze({
+    label: "Epic",
+    color: "#b16cff",
+    coreMultiplier: 1.45,
+    secondaryMultiplier: 1.2,
+    affixMin: 3,
+    affixMax: 3,
+    legendaryStaminaChancePct: 0
+  }),
+  legendary: Object.freeze({
+    label: "Legendary",
+    color: "#ff9a3c",
+    coreMultiplier: 1.7,
+    secondaryMultiplier: 1.3,
+    affixMin: 4,
+    affixMax: 5,
+    legendaryStaminaChancePct: 18
+  })
+});
+const ITEM_RARITY_CORE_STAT_KEYS = new Set(["str", "dex", "vit", "int", "hp", "dr", "attack", "defense"]);
+const MAX_STAMINA_FROM_GEAR = 2;
+
+function normalizeItemRarityId(rawValue) {
+  const rarity = String(rawValue || "")
+    .trim()
+    .toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(ITEM_RARITY_RULES, rarity)) return rarity;
+  return "common";
+}
+
+function getItemRarityIdForItem(def, itemName) {
+  const fromInstance = getItemInstanceRarityId(itemName);
+  if (fromInstance) return fromInstance;
+  return normalizeItemRarityId(def && def.rarity);
+}
+
+function getItemRarityRule(def, itemName) {
+  return ITEM_RARITY_RULES[getItemRarityIdForItem(def, itemName)];
+}
+
+function isRarityCoreStatKey(statKey) {
+  return ITEM_RARITY_CORE_STAT_KEYS.has(String(statKey || "").trim().toLowerCase());
+}
+
+function hashStringToPercent(input) {
+  const s = String(input || "");
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h >>> 0) % 100;
+}
+
+function getLegendaryStaminaRollBonus(def, itemName) {
+  const rule = getItemRarityRule(def, itemName);
+  if (!rule || rule.legendaryStaminaChancePct <= 0) return 0;
+  return hashStringToPercent(itemName) < rule.legendaryStaminaChancePct ? 1 : 0;
+}
+
+function scaleItemNumericStatByRarity(def, itemName, statKey, baseValue) {
+  if (typeof baseValue !== "number" || !Number.isFinite(baseValue)) return 0;
+  const rule = getItemRarityRule(def, itemName);
+  const mult = isRarityCoreStatKey(statKey) ? rule.coreMultiplier : rule.secondaryMultiplier;
+  return Math.round(baseValue * mult);
+}
+
+function getScaledItemAttack(def, itemName) {
+  return scaleItemNumericStatByRarity(def, itemName, "attack", def && def.attack);
+}
+
+function getScaledItemDefense(def, itemName) {
+  return scaleItemNumericStatByRarity(def, itemName, "defense", def && def.defense);
+}
+
+function getScaledItemBonusStats(def, itemName) {
+  const out = {};
+  const src = def && def.bonusStats && typeof def.bonusStats === "object" ? def.bonusStats : {};
+  for (const [k, v] of Object.entries(src)) {
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    const nk = normalizeEquipmentStatKey(k);
+    if (nk === "stamina") continue;
+    const scaled = scaleItemNumericStatByRarity(def, itemName, nk || k, v);
+    if (!scaled) continue;
+    out[k] = scaled;
+  }
+  const legendarySta = getLegendaryStaminaRollBonus(def, itemName);
+  if (legendarySta > 0) out.stamina = (out.stamina || 0) + legendarySta;
+  return out;
+}
+
+function getItemRarityAffixRange(def, itemName) {
+  const rule = getItemRarityRule(def, itemName);
+  return { min: rule.affixMin, max: rule.affixMax };
+}
+
+function formatRarityAffixRange(def, itemName) {
+  const range = getItemRarityAffixRange(def, itemName);
+  return range.min === range.max ? String(range.min) : `${range.min}-${range.max}`;
 }
 
 function getItemEquipCategory(def) {
@@ -704,6 +1048,10 @@ function getItemEquipCategory(def) {
     category === "dagger" ||
     category === "greatsword" ||
     category === "two_handed" ||
+    category === "polearm" ||
+    category === "warhammer" ||
+    category === "scythe" ||
+    category === "staff" ||
     category === "shield" ||
     category === "amulet" ||
     category === "bracelet" ||
@@ -724,7 +1072,16 @@ function getAllowedEquipSlotsForDef(def) {
   if (!def || typeof def !== "object") return [];
   const category = getItemEquipCategory(def);
   if (category === "one_handed" || category === "one_handed_sword" || category === "dagger") return ["weapon", "offhand"];
-  if (category === "two_handed" || category === "greatsword") return ["weapon"];
+  if (
+    category === "two_handed" ||
+    category === "greatsword" ||
+    category === "polearm" ||
+    category === "warhammer" ||
+    category === "scythe" ||
+    category === "staff"
+  ) {
+    return ["weapon"];
+  }
   if (category === "shield") return ["offhand"];
   if (category === "amulet") return ["amulet"];
   if (category === "bracelet") return ["bracelet"];
@@ -738,14 +1095,29 @@ function getAllowedEquipSlotsForDef(def) {
 
 function isTwoHandedWeaponDef(def) {
   const c = getItemEquipCategory(def);
-  return c === "two_handed" || c === "greatsword";
+  return (
+    c === "two_handed" ||
+    c === "greatsword" ||
+    c === "polearm" ||
+    c === "warhammer" ||
+    c === "scythe" ||
+    c === "staff"
+  );
 }
 
 function getWeaponPoseCategory(def) {
   const category = getItemEquipCategory(def);
   if (category === "dagger") return "dagger";
   if (category === "greatsword") return "greatsword";
-  if (category === "two_handed") return "two_handed";
+  if (
+    category === "two_handed" ||
+    category === "polearm" ||
+    category === "warhammer" ||
+    category === "scythe" ||
+    category === "staff"
+  ) {
+    return "two_handed";
+  }
   if (category === "shield") return "shield";
   if (category === "one_handed_sword" || category === "one_handed") return "one_handed_sword";
   return "";
@@ -1289,7 +1661,7 @@ function getArmorDefense() {
     const n = player.equipment[s.id];
     if (!n) return;
     const def = getItemDef(n);
-    if (def && def.defense) d += def.defense;
+    if (def) d += getScaledItemDefense(def, n);
   });
   return d;
 }
@@ -1697,7 +2069,7 @@ function endPlayerTurn() {
 function getPlayerDamageCore() {
   let atk = player.baseAttack + Math.floor(getEffectiveStr() / 2);
   const w = player.equipment.weapon;
-  if (w) atk += getItemDef(w)?.attack || 0;
+  if (w) atk += getScaledItemAttack(getItemDef(w), w);
   player.skills.forEach((s) => {
     const sk = getSkillDef(s);
     if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier !== "number") atk += sk.bonus;
@@ -7074,6 +7446,291 @@ function rollItemDropEntry(entry, dropRateMult) {
   return null;
 }
 
+function getLootDropSettings() {
+  return GAME_CONFIG.lootDropSettings && typeof GAME_CONFIG.lootDropSettings === "object" ? GAME_CONFIG.lootDropSettings : {};
+}
+
+function getProfessionSystemConfig() {
+  return GAME_CONFIG.professions && typeof GAME_CONFIG.professions === "object" ? GAME_CONFIG.professions : {};
+}
+
+function getProfessionDefs() {
+  const cfg = getProfessionSystemConfig();
+  return Array.isArray(cfg.available) ? cfg.available.filter((d) => d && typeof d.id === "string") : [];
+}
+
+function getProfessionDefById(id) {
+  const key = String(id || "").trim();
+  if (!key) return null;
+  const defs = getProfessionDefs();
+  return defs.find((d) => d.id === key) || null;
+}
+
+function getMaxSelectedProfessions() {
+  const cfg = getProfessionSystemConfig();
+  return typeof cfg.maxSelected === "number" && cfg.maxSelected > 0 ? Math.floor(cfg.maxSelected) : 2;
+}
+
+function getPlayerSelectedProfessions() {
+  return Array.isArray(player.professions) ? player.professions.slice() : [];
+}
+
+function isGatheringProfessionId(id) {
+  const d = getProfessionDefById(id);
+  return !!(d && d.kind === "gathering");
+}
+
+function canProfessionGatherFromCategory(profId, categoryId) {
+  const cfg = getProfessionSystemConfig();
+  const cats = cfg.gatheringCategories && typeof cfg.gatheringCategories === "object" ? cfg.gatheringCategories : {};
+  const cat = cats[String(categoryId || "").trim().toLowerCase()];
+  if (!cat || !Array.isArray(cat.allowed)) return false;
+  return cat.allowed.includes(String(profId || "").trim());
+}
+
+function getMonsterGatheringCategories(def) {
+  const map =
+    GAME_CONFIG.monsterGatheringCategories && typeof GAME_CONFIG.monsterGatheringCategories === "object"
+      ? GAME_CONFIG.monsterGatheringCategories
+      : {};
+  const name = def && typeof def.name === "string" ? def.name.trim() : "";
+  if (!name) return [];
+  const raw = map[name];
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  raw.forEach((c) => {
+    const k = String(c || "")
+      .trim()
+      .toLowerCase();
+    if (!k || out.includes(k)) return;
+    out.push(k);
+  });
+  return out;
+}
+
+function togglePlayerProfession(id) {
+  const profId = String(id || "").trim();
+  if (!profId || !getProfessionDefById(profId)) return false;
+  const selected = getPlayerSelectedProfessions();
+  const curIdx = selected.indexOf(profId);
+  if (curIdx >= 0) {
+    selected.splice(curIdx, 1);
+    player.professions = selected;
+    save();
+    return true;
+  }
+  const maxPick = getMaxSelectedProfessions();
+  if (selected.length >= maxPick) return false;
+  selected.push(profId);
+  player.professions = selected;
+  save();
+  return true;
+}
+
+function getMonsterLootDropTable(def) {
+  const tables = GAME_CONFIG.monsterDropTables;
+  if (!tables || typeof tables !== "object" || !def || typeof def.name !== "string") return null;
+  return tables[def.name] || null;
+}
+
+function getBaseGearDropChanceForMonsterLevel(level) {
+  const lv = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
+  const rows = getLootDropSettings().gearBaseChanceByMaxLevel;
+  if (!Array.isArray(rows) || !rows.length) {
+    if (lv <= 10) return 0.1;
+    if (lv <= 20) return 0.06;
+    if (lv <= 30) return 0.03;
+    if (lv <= 40) return 0.012;
+    return 0.004;
+  }
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const cap =
+      row && typeof row.maxLevel === "number" && row.maxLevel > 0 ? Math.floor(row.maxLevel) : 999;
+    const ch = row && typeof row.chance === "number" && Number.isFinite(row.chance) ? row.chance : 0;
+    if (lv <= cap) return Math.max(0, Math.min(1, ch));
+  }
+  return 0.004;
+}
+
+/** Roll tier id: common | uncommon | rare | epic | legendary (weights from lootDropSettings). */
+function rollLootGearRarityTier() {
+  const rw = getLootDropSettings().rarityWeights;
+  if (!Array.isArray(rw) || !rw.length) return "common";
+  let sum = 0;
+  for (const row of rw) {
+    const w = row && typeof row.weight === "number" && row.weight > 0 ? row.weight : 0;
+    sum += w;
+  }
+  if (sum <= 0) return "common";
+  let r = Math.random() * sum;
+  for (const row of rw) {
+    const w = row && typeof row.weight === "number" && row.weight > 0 ? row.weight : 0;
+    r -= w;
+    if (r <= 0) return typeof row.id === "string" && row.id ? row.id : "common";
+  }
+  return "common";
+}
+
+function resolveGearItemFromDropEntry(entry, foeLevel) {
+  const lv = Math.max(1, Math.floor(typeof foeLevel === "number" && foeLevel > 0 ? foeLevel : 1));
+  if (entry && typeof entry.item === "string" && entry.item.trim()) return entry.item.trim();
+  const vars = entry && (entry.v || entry.variants);
+  if (Array.isArray(vars) && vars.length) {
+    const sorted = vars.slice().sort((a, b) => (a.maxLevel ?? 99) - (b.maxLevel ?? 99));
+    for (const seg of sorted) {
+      const cap = typeof seg.maxLevel === "number" ? seg.maxLevel : 99;
+      if (lv <= cap) return String(seg.item || "").trim();
+    }
+    return String(sorted[sorted.length - 1].item || "").trim();
+  }
+  return null;
+}
+
+function rollWeightedGearFromMonsterTable(gearEntries, foeLevel) {
+  if (!Array.isArray(gearEntries) || !gearEntries.length) return null;
+  let sum = 0;
+  const weights = gearEntries.map((g) => {
+    const w = typeof g.w === "number" ? g.w : typeof g.weight === "number" ? g.weight : 0;
+    const ww = Math.max(0, w);
+    sum += ww;
+    return ww;
+  });
+  if (sum <= 0) return null;
+  let r = Math.random() * sum;
+  for (let i = 0; i < gearEntries.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return resolveGearItemFromDropEntry(gearEntries[i], foeLevel);
+  }
+  return resolveGearItemFromDropEntry(gearEntries[gearEntries.length - 1], foeLevel);
+}
+
+function rollMaterialPassCount() {
+  const s = getLootDropSettings();
+  const lo = typeof s.materialPassesMin === "number" ? Math.max(1, Math.floor(s.materialPassesMin)) : 1;
+  const hi = typeof s.materialPassesMax === "number" ? Math.max(lo, Math.floor(s.materialPassesMax)) : 2;
+  if (hi <= lo) return lo;
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+function getGatheringTierIdByLevel(level) {
+  const lv = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
+  if (lv <= 10) return "t1";
+  if (lv <= 20) return "t2";
+  if (lv <= 30) return "t3";
+  if (lv <= 40) return "t4";
+  return "t5";
+}
+
+function getGatheringDropChancePctForLevel(level) {
+  const tier = getGatheringTierIdByLevel(level);
+  if (tier === "t1") return 70;
+  if (tier === "t2") return 50;
+  if (tier === "t3") return 30;
+  if (tier === "t4") return 15;
+  return 5;
+}
+
+function collectProfessionGatheringLootForFoe(foe, def, moodLootMult) {
+  if (!def) return [];
+  const selected = getPlayerSelectedProfessions().filter((id) => isGatheringProfessionId(id));
+  if (!selected.length) return [];
+  const cats = getMonsterGatheringCategories(def);
+  if (!cats.length) return [];
+  const mlRaw =
+    foe && typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
+  const ml = Math.max(1, Math.floor(mlRaw));
+  const tier = getGatheringTierIdByLevel(ml);
+  const basePct = getGatheringDropChancePctForLevel(ml);
+  const materialPool = new Set();
+  selected.forEach((profId) => {
+    const profTbl = PROFESSION_GATHERING_TABLES[profId];
+    if (!profTbl) return;
+    cats.forEach((c) => {
+      if (!canProfessionGatherFromCategory(profId, c)) return;
+      const byTier = profTbl[c];
+      if (!byTier || !Array.isArray(byTier[tier])) return;
+      byTier[tier].forEach((n) => {
+        const k = String(n || "").trim();
+        if (k) materialPool.add(k);
+      });
+    });
+    if (profId === "skinner" && cats.includes("beast") && cats.includes("nature")) {
+      if (tier === "t2" || tier === "t3" || tier === "t4" || tier === "t5") materialPool.add("Bark Fiber");
+      if (tier === "t4" || tier === "t5") materialPool.add("Living Bark");
+      if (tier === "t5") materialPool.add("Ancient Bark");
+    }
+  });
+  if (!materialPool.size) return [];
+  const out = [];
+  const mult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
+  materialPool.forEach((matName) => {
+    const rolled = rollItemDropEntry({ name: matName, dropRate: basePct }, mult);
+    if (rolled) out.push(rolled);
+  });
+  return out;
+}
+
+function canRollConditionedMonsterMaterial(mat) {
+  if (!mat || typeof mat !== "object") return false;
+  const condRaw =
+    typeof mat.condition === "string"
+      ? mat.condition
+      : typeof mat.requiredProfession === "string"
+        ? mat.requiredProfession
+        : "";
+  const cond = condRaw.trim().toLowerCase();
+  if (!cond || cond === "none" || cond === "any") return true;
+  const selected = getPlayerSelectedProfessions().map((id) => String(id || "").trim().toLowerCase());
+  return selected.includes(cond);
+}
+
+/**
+ * Loot from `GAME_CONFIG.monsterDropTables`: one gear attempt (global level-based chance, then weighted gear),
+ * then 1–2 material passes (each material rolls its % per pass). Mood multiplies chances only (not gear pool weights).
+ * @returns {string[]}
+ */
+function collectMonsterTableLootForFoe(foe, def, moodLootMult) {
+  const table = getMonsterLootDropTable(def);
+  if (!table) return [];
+  const out = [];
+  const mlRaw =
+    typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
+  const ml = Math.max(1, Math.floor(mlRaw));
+  const mult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
+  const pGear = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * mult);
+  if (Math.random() < pGear) {
+    const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
+    if (pickedBase) out.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
+  }
+  const allMats = Array.isArray(table.materials) ? table.materials : [];
+  const passMaterials = [];
+  const perKillMaterials = [];
+  allMats.forEach((mat) => {
+    if (!mat || typeof mat.name !== "string") return;
+    const isConditioned =
+      (typeof mat.condition === "string" && mat.condition.trim()) ||
+      (typeof mat.requiredProfession === "string" && mat.requiredProfession.trim());
+    if (mat.perKill || isConditioned) perKillMaterials.push(mat);
+    else passMaterials.push(mat);
+  });
+  const passes = rollMaterialPassCount();
+  for (let p = 0; p < passes; p++) {
+    passMaterials.forEach((mat) => {
+      if (!mat || typeof mat.name !== "string") return;
+      const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, mult);
+      if (rolled) out.push(rolled);
+    });
+  }
+  perKillMaterials.forEach((mat) => {
+    if (!canRollConditionedMonsterMaterial(mat)) return;
+    const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, mult);
+    if (rolled) out.push(rolled);
+  });
+  collectProfessionGatheringLootForFoe(foe, def, mult).forEach((n) => out.push(n));
+  return out;
+}
+
 /**
  * Gold from enemy drops: a fixed integer, or `{ min, max }` for a uniform random integer in that range (inclusive).
  * @param {number | { min?: number, max?: number } | undefined | null} spec
@@ -7153,6 +7810,10 @@ function computeVictoryLoot(foes) {
     gold += rollGoldDrop(def.drops.gold);
     xp += computeVictoryXpForFoe(foe, pl);
     const moodLootMult = hasActiveMood(foe) ? MOOD_LOOT_DROP_RATE_MULT : 1;
+    if (getMonsterLootDropTable(def)) {
+      collectMonsterTableLootForFoe(foe, def, moodLootMult).forEach((n) => items.push(n));
+      return;
+    }
     (def.drops.items || []).forEach((entry) => {
       const rolled = rollItemDropEntry(entry, moodLootMult);
       if (rolled) items.push(rolled);
@@ -8253,7 +8914,15 @@ function autoItemDescription(def, itemName) {
     }
     if (category === "dagger") return "Dagger: can be equipped in Main hand or Offhand.";
     if (category === "greatsword") return "Greatsword: equips in Main hand and blocks Offhand.";
-    if (category === "two_handed") return "Two-handed weapon: equips in Main hand and blocks Offhand.";
+    if (
+      category === "two_handed" ||
+      category === "polearm" ||
+      category === "warhammer" ||
+      category === "scythe" ||
+      category === "staff"
+    ) {
+      return "Two-handed weapon: equips in Main hand and blocks Offhand.";
+    }
     return "Weapon: adds attack when equipped.";
   }
   if (getItemEquipCategory(def) === "shield") return "Shield: can only be equipped in Offhand.";
@@ -8265,7 +8934,12 @@ function autoItemDescription(def, itemName) {
 
 function buildItemTooltipHtml(itemName, imageSizePx) {
   const def = getItemDef(itemName);
-  const parts = [`<div class="item-tip-name">${escapeHtml(itemName)}</div>`];
+  const displayName = getItemBaseName(itemName);
+  const rarityId = getItemRarityIdForItem(def, itemName);
+  const rarityRule = getItemRarityRule(def, itemName);
+  const parts = [
+    `<div class="item-tip-name item-tip-name--${escapeAttr(rarityId)}">${escapeHtml(displayName)}</div>`
+  ];
   const src = getItemImage(itemName);
   const sizeNum = Number(imageSizePx);
   const iconSize = Number.isFinite(sizeNum) ? Math.max(24, Math.min(256, Math.round(sizeNum))) : 64;
@@ -8278,13 +8952,29 @@ function buildItemTooltipHtml(itemName, imageSizePx) {
   }
   const desc = def.description || autoItemDescription(def, itemName);
   parts.push(`<div class="item-tip-desc">${escapeHtml(desc)}</div>`);
+  if (isEquippableItemDef(def)) {
+    parts.push(
+      `<div class="item-tip-rarity"><span class="item-tip-label">Rarity</span><span style="color:${escapeAttr(
+        rarityRule.color
+      )};font-weight:700;">${escapeHtml(rarityRule.label)}</span> · Core x${rarityRule.coreMultiplier.toFixed(
+        2
+      )} · Secondary x${rarityRule.secondaryMultiplier.toFixed(2)} · Affixes ${escapeHtml(
+        formatRarityAffixRange(def, itemName)
+      )}</div>`
+    );
+  }
 
   const statParts = [];
-  if (def.attack) statParts.push(`Attack +${def.attack}`);
-  if (def.defense) statParts.push(`Armor +${def.defense}`);
+  const atk = getScaledItemAttack(def, itemName);
+  const armor = getScaledItemDefense(def, itemName);
+  if (atk) statParts.push(`Attack +${atk}`);
+  if (armor) statParts.push(`Armor +${armor}`);
   if (def.type === "consumable" && def.effect === "heal") statParts.push(`Restores ${def.value} HP`);
-  const bs = def.bonusStats && typeof def.bonusStats === "object" ? def.bonusStats : {};
+  const bs = getScaledItemBonusStats(def, itemName);
   Object.keys(bs).forEach((k) => statParts.push(`${k} +${bs[k]}`));
+  if (isEquippableItemDef(def) && rarityId === "legendary" && !("stamina" in bs)) {
+    statParts.push("Stamina +1 roll: inactive");
+  }
   if (statParts.length) {
     parts.push(`<div class="item-tip-section"><span class="item-tip-label">Bonus stats</span><div class="item-tip-stats">${statParts.map((s) => escapeHtml(s)).join(" · ")}</div></div>`);
   }
@@ -8849,7 +9539,33 @@ function buildOverviewHtml() {
   const profIntro =
     (GAME_CONFIG.professions && GAME_CONFIG.professions.intro) ||
     "Professions will be added in a future update.";
-  const professionsTabHtml = `<div class="professions-tab-inner"><p class="professions-intro">${escapeHtml(profIntro)}</p></div>`;
+  const profDefs = getProfessionDefs();
+  const selectedProfIds = getPlayerSelectedProfessions();
+  const maxProf = getMaxSelectedProfessions();
+  const profRows = profDefs
+    .map((d) => {
+      const selected = selectedProfIds.includes(d.id);
+      const blocked = !selected && selectedProfIds.length >= maxProf;
+      const cls = selected ? "btn-secondary" : "btn-secondary";
+      const disabled = blocked ? " disabled" : "";
+      const kind = d.kind === "gathering" ? "Gathering" : "Crafting";
+      return `<div class="stat-plain-row">
+        <span>${escapeHtml(d.label)} <small>(${kind})</small></span>
+        <button type="button" class="${cls}" data-profession-toggle="${escapeAttr(d.id)}"${disabled}>${
+          selected ? "Selected" : "Select"
+        }</button>
+      </div>`;
+    })
+    .join("");
+  const selectedText = selectedProfIds.length
+    ? selectedProfIds.map((id) => getProfessionDefById(id)?.label || id).join(", ")
+    : "None";
+  const professionsTabHtml = `<div class="professions-tab-inner">
+    <p class="professions-intro">${escapeHtml(profIntro)}</p>
+    <div class="stat-plain-row"><span>Chosen</span><strong>${selectedProfIds.length}/${maxProf}</strong></div>
+    <div class="item-tip-desc">Selected: ${escapeHtml(selectedText)}</div>
+    ${profRows}
+  </div>`;
 
   let statsBodyHtml = "";
   if (overviewStatsTab === "characteristics") statsBodyHtml = characteristicsTabHtml;
@@ -10034,6 +10750,15 @@ function onContentClick(e) {
   const clsUp = e.target.closest("[data-class-skill-up]");
   if (clsUp && clsUp.dataset.classSkillUp) {
     unlockOrUpgradeClassSkill(clsUp.dataset.classSkillUp, clsUp);
+    return;
+  }
+  const profToggle = e.target.closest("[data-profession-toggle]");
+  if (profToggle && profToggle.dataset.professionToggle) {
+    if (!togglePlayerProfession(profToggle.dataset.professionToggle)) {
+      const cap = getMaxSelectedProfessions();
+      window.alert(`You can select at most ${cap} professions.`);
+    }
+    render();
     return;
   }
   if (e.target.closest("[data-portrait-layout-reset]")) {

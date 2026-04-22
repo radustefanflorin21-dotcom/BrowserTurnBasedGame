@@ -950,122 +950,633 @@ const GAME_CONFIG = {
   },
 
   items: {
-    "Rusty Sword": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "one_handed_sword",
-      attack: 3,
-      image: "Assets/Equips/template_weapon.png",
-      description: "A notched blade. Better than fists in a brawl.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Template Dagger": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "dagger",
-      attack: 9,
-      image: "Assets/Equips/template_dagger.png",
-      description: "A balanced training dagger used as a baseline design.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Template Polearm": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "two_handed",
-      attack: 12,
-      image: "Assets/Equips/template_polearm.png",
-      description: "A standard polearm template with long reach and leverage.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Template Greatsword": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "greatsword",
-      attack: 14,
-      image: "Assets/Equips/template_greatsword.png",
-      description: "A heavy greatsword template built for two-handed swings.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Fantastic Sword": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "one_handed_sword",
-      attack: 12,
-      image: "Assets/Equips/fantastic_sword.png",
-      description: "A brilliant blade with an otherworldly edge.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Fantasy Chest": {
+    "Shellguard Plate": {
       type: "armor",
       slot: "chest",
       equipCategory: "chest_armor",
-      defense: 5,
+      rarity: "common",
+      itemLevel: 7,
+      defense: 2,
       image: "Assets/Equips/template_chest.png",
-      description: "Arcane-forged chestplate from a fantasy set.",
+      description: "Hermit Crab set chest.",
       bonusSkills: [],
-      bonusStats: {}
+      bonusStats: { VIT: 6, STR: 3 }
     },
-    "Fantastic Helm": {
-      type: "armor",
-      slot: "head",
-      defense: 4,
-      image: "Assets/Equips/template_helm.png",
-      description: "A splendid helm infused with mythic protection.",
+    "Skimmer Blade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 5,
+      attack: 4,
+      image: "Assets/Equips/template_dagger.png",
+      description: "Saltwind Skimmer dagger.",
       bonusSkills: [],
-      bonusStats: {}
+      bonusStats: { DEX: 5, STR: 3, Crit: 6 }
     },
-    "Template Bracelet": {
-      type: "armor",
-      slot: "bracelet",
-      equipCategory: "bracelet",
-      defense: 2,
-      image: "Assets/Equips/template_bracelet.png",
-      description: "A neutral bracelet template for baseline gear tuning.",
+    "Sandfang Blade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 15,
+      attack: 9,
+      image: "Assets/Equips/template_weapon.png",
+      description: "Dust Carver sword.",
       bonusSkills: [],
-      bonusStats: {}
+      bonusStats: { DEX: 11, STR: 6, Crit: 8 }
     },
-    "Fantasy Feet": {
-      type: "armor",
-      slot: "feet",
-      equipCategory: "feet_armor",
-      defense: 4,
-      image: "Assets/Equips/template_feet.png",
-      description: "Enchanted boots tuned for swift footwork.",
+    "Lynx Fang": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 27,
+      attack: 14,
+      image: "Assets/Equips/template_dagger.png",
+      description: "Rock Lynx dagger.",
       bonusSkills: [],
-      bonusStats: {}
+      bonusStats: { DEX: 17, STR: 9, Crit: 10 }
     },
-    "Fantasy Leggs": {
-      type: "armor",
-      slot: "legs",
-      equipCategory: "leg_armor",
-      defense: 5,
-      image: "Assets/Equips/template_leggs.png",
-      description: "Runed leg armor from the fantasy set.",
+    "Hornbreaker Axe": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "two_handed",
+      rarity: "common",
+      itemLevel: 29,
+      attack: 15,
+      image: "Assets/Equips/template_polearm.png",
+      description: "Rock Ibex two-handed axe.",
       bonusSkills: [],
-      bonusStats: {}
+      bonusStats: { STR: 18, VIT: 10, "Phys Damage": 10 }
     },
-    "Template Amulet": {
-      type: "armor",
-      slot: "amulet",
-      equipCategory: "amulet",
-      defense: 2,
-      image: "Assets/Equips/template_amulet.png",
-      description: "A standard amulet template used for visual and balance baselines.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Template Ring": {
+    "Petrify Ring": {
       type: "armor",
       slot: "ring1",
       equipCategory: "ring",
-      defense: 2,
+      rarity: "common",
+      itemLevel: 30,
+      defense: 5,
       image: "Assets/Equips/template_ring.png",
-      description: "A ring template for fitting and category pose adjustments.",
+      description: "Rock Serpent set ring.",
+      bonusSkills: [],
+      bonusStats: { INT: 19, VIT: 10, Duration: 10 }
+    },
+    "Foxfang Blade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 38,
+      attack: 20,
+      image: "Assets/Equips/template_weapon.png",
+      description: "Greenleaf Fox set sword.",
+      bonusSkills: [],
+      bonusStats: { DEX: 24, STR: 13, Crit: 10 }
+    },
+    "Wraithcall Scepter": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 40,
+      attack: 22,
+      image: "Assets/Equips/template_polearm.png",
+      description: "Faded War Wraith set scepter.",
+      bonusSkills: [],
+      bonusStats: { INT: 26, DEX: 15, "Skill Power": 12 }
+    },
+    "Ashmaw Cleaver": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "greatsword",
+      rarity: "common",
+      itemLevel: 45,
+      attack: 23,
+      image: "Assets/Equips/template_greatsword.png",
+      description: "Ash Lizard greatsword.",
+      bonusSkills: [],
+      bonusStats: { STR: 28, INT: 16, "Phys Damage": 12 }
+    },
+    "Emberfang": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 47,
+      attack: 24,
+      image: "Assets/Equips/template_dagger.png",
+      description: "Cinder Stalker dagger.",
+      bonusSkills: [],
+      bonusStats: { DEX: 29, STR: 16, Crit: 12 }
+    },
+    "Magmahide Plate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 50,
+      defense: 10,
+      image: "Assets/Equips/template_chest.png",
+      description: "Magma Boar set chest.",
+      bonusSkills: [],
+      bonusStats: { VIT: 31, STR: 17 }
+    },
+    "Basilisk Eye Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 52,
+      defense: 8,
+      image: "Assets/Equips/template_amulet.png",
+      description: "Lava Basilisk set amulet.",
+      bonusSkills: [],
+      bonusStats: { INT: 34, VIT: 18, "Status Potency": 12 }
+    },
+    "Glacier Shell": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 49,
+      defense: 10,
+      image: "Assets/Equips/template_chest.png",
+      description: "Glacier Tortoise set chest.",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, STR: 17 }
+    },
+    "Frozen Edge": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "legendary",
+      itemLevel: 50,
+      attack: 22,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A frost-touched blade that leaves rime on the air.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Wet Membrane": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Slick tissue from a tide creature. Used in water-themed crafts.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Minor Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A faint magical condensate.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Hardened Shell": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Crab or turtle shell fragments. Tough crafting material.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Salt Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Crystallized brine with a faint glow.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Sharp Fin": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A razor-edged fin suitable for blades.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Wind Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Captured coastal gusts in solid form.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Acid Gland": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Volatile organ matter. Handle carefully.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fluid Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A viscous magical core from brine creatures.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Stone Core": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Dense mineral heart from a stone guardian.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Water Rune": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A carved rune attuned to tides.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Bound Essence": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Spirit-tethered essence from a revenant.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Soul Fragment": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A shard of unstable soul-stuff.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Abyss Fragment": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Dark matter from the deep tide.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Tide Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A pulsing core of abyssal current.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Soft Fur": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Fine fur from a burrowing beast.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Earth Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Loam-rich essence for earth crafts.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Razor Claw": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A sharpened claw fragment.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Dust Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Packed desert grit with latent heat.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Venom Sac": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Still-toxic tissue from a serpent.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Toxic Extract": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Refined poison for alchemy.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Raptor Talon": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A curved talon from a plains hunter.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Bone Fragment": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Splintered bone suitable for glue or charms.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Thick Hide": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Boar hide strips. Armor lining material.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Tusk Fragment": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A chipped boar tusk shard.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Wolf Fang": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A long canine from a field wolf.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Blood Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Crimson essence distilled from a fresh kill.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Spiked Shell": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Barbed shell plates from a thornback.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Sand Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Glassy sand fused into a solid core.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Devourer Jaw": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Heavy jawbone with serrated teeth.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Earth Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Stable geomantic core material.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Mirage Dust": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Shimmering dust that never settles.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Illusion Fragment": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A brittle shard of false light.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Decay Core": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Rotting magical nucleus from a witherling.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Spirit Dust": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Fine powder left when spirits fray.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Hardened Stone": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Stone marmot hoard quality rock.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Core Fragment": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A cracked elemental core shard.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Sharp Fang": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A predator fang in good condition.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Predator Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Dense essence of the hunt.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Ibex Horn": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A spiraled horn segment.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Stone Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Powdered mountain attunement.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Petrify Scale": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Serpent scale touched by earth magic.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Earth Rune": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A rune tablet of binding stone.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Thick Scale": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Heavy lizard scales.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rock Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Geode-like core from bedrock beasts.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Dart Spine": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Needle spines from a dart squirrel.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Nature Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Green-tinted essence of the canopy.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fox Fang": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A polished fang from a greenleaf fox.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Forest Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Sap-rich forest distillate.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Thick Bone": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Dense gorilla bone matter.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rage Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Hot, unstable core of fury.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rust Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Oxidized metal fused with old magic.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Metal Fragment": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Salvaged alloy scraps.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Ash Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Cinder-heavy core from ash lands.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Flame Fragment": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Glassy shard still warm to the touch.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Burning Fang": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "A charred fang imbued with ember heat.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Fire Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Volatile essence of open flame.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Ember Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Slow-burning magical ember.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Heat Crystal": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A crystal that radiates dry warmth.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Magma Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Molten heart-stuff, cooled just enough to carry.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Lava Fragment": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Obsidian flecks from lava fields.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Basilisk Eye Fragment": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "A chipped lens-like scale from a basilisk.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Molten Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Ultra-dense heat reservoir.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Frozen Core": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Permafrost magic packed tight.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Ice Plate": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Layered ice as hard as steel.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Ice Fang": {
+      type: "resource",
+      image: "Assets/Resources/wolf-pelt.svg",
+      description: "Serrated ice tooth from a stalker.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Frost Essence": {
+      type: "resource",
+      image: "Assets/Resources/energy-cell.svg",
+      description: "Cold blue mist trapped in crystal.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1103,7 +1614,2581 @@ const GAME_CONFIG = {
       bonusStats: {},
       useHint: "Click to use in inventory."
     }
-  },
+  ,
+  
+    "Burrowstep Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 4,
+      image: "Assets/Equips/template_feet.png",
+      description: "Fast repositioning boots for early skirmishers.",
+      set: "",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { DEX: 9, VIT: 5, Evasion: 6 }
+    },
+    "Boarhide Plate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 20,
+      defense: 5,
+      image: "Assets/Equips/template_chest.png",
+      description: "Boarbreaker set frontline plate.",
+      set: "Boarbreaker",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 12, STR: 7, DR: 3 }
+    },
+    "Boarhide Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 19,
+      defense: 4,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Boarbreaker set leg protection.",
+      set: "Boarbreaker",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 11, STR: 6, DR: 2 }
+    },
+    "Devourer Axe": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "warhammer",
+      rarity: "common",
+      itemLevel: 18,
+      attack: 11,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A brutal axe crafted from devourer remains.",
+      set: "",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 11, VIT: 6, "Phys Damage": 6 }
+    },
+    "Fang Dagger": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 17,
+      attack: 10,
+      image: "Assets/Equips/template_dagger.png",
+      description: "Predator set dagger for fast critical openings.",
+      set: "Predator",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 10, STR: 5, Crit: 6 }
+    },
+    "Mirage Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 16,
+      defense: 3,
+      image: "Assets/Equips/template_ring.png",
+      description: "A mirage-tuned ring for precision hybrids.",
+      set: "",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 8, INT: 6, Accuracy: 6 }
+    },
+    "Stonehide Armor": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 28,
+      defense: 7,
+      image: "Assets/Equips/template_chest.png",
+      description: "Stoneguard chest built for sustained tanking.",
+      set: "Stoneguard",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 17, STR: 9, DR: 5 }
+    },
+    "Marmot Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 25,
+      defense: 5,
+      image: "Assets/Equips/template_helm.png",
+      description: "Dense helm for steady frontliners.",
+      set: "",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 15, STR: 7 }
+    },
+    "Earthbind Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 30,
+      defense: 5,
+      image: "Assets/Equips/template_amulet.png",
+      description: "Earthbinder amulet for control builds.",
+      set: "Earthbinder",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 18, VIT: 10, "Debuff Duration": 8 }
+    },
+    "Earthpulse Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 29,
+      defense: 5,
+      image: "Assets/Equips/template_amulet.png",
+      description: "Arcane earth pulse focus for casters.",
+      set: "",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 17, VIT: 9, "Skill Power": 8 }
+    },
+    "Skitter Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 27,
+      defense: 4,
+      image: "Assets/Equips/template_ring.png",
+      description: "Predator ring built for combo loops.",
+      set: "Predator",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 16, STR: 8, Combo: 8 }
+    },
+    "Swiftbrush Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 37,
+      defense: 7,
+      image: "Assets/Equips/template_feet.png",
+      description: "Greenleaf set boots for evasive play.",
+      set: "Greenleaf",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 22, VIT: 12, Evasion: 10 }
+    },
+    "Greenleaf Vest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 36,
+      defense: 7,
+      image: "Assets/Equips/template_chest.png",
+      description: "Greenleaf set vest for durable skirmishers.",
+      set: "Greenleaf",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { DEX: 20, VIT: 13, "Healing Received": 8 }
+    },
+    "Gorilla Hide Armor": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 40,
+      defense: 8,
+      image: "Assets/Equips/template_chest.png",
+      description: "Primal set chest that converts bulk into pressure.",
+      set: "Primal",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 26, STR: 14, DR: 8 }
+    },
+    "Soul Echo Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 40,
+      defense: 7,
+      image: "Assets/Equips/template_amulet.png",
+      description: "Wraith set amulet for long-form control battles.",
+      set: "Wraith",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 24, DEX: 12, "Debuff Duration": 10 }
+    },
+    "Molten Gaze Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 50,
+      defense: 8,
+      image: "Assets/Equips/template_ring.png",
+      description: "High-tier ring for status-heavy casters.",
+      set: "",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 30, VIT: 15, "Status Potency": 12 }
+    },
+    "Ember Core Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 47,
+      defense: 8,
+      image: "Assets/Equips/template_ring.png",
+      description: "Ember set ring focused on burst crit tempo.",
+      set: "Ember",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 28, STR: 14, Crit: 12 }
+    },
+    "Icebound Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 48,
+      defense: 8,
+      image: "Assets/Equips/template_feet.png",
+      description: "Frost set boots built for resistant duelers.",
+      set: "Frost",
+      build: "VIT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 28, DEX: 14, "Magic Resist": 10 }
+    },
+    "Lava Greaves": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 49,
+      defense: 8,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Molten set greaves for heavy damage builds.",
+      set: "Molten",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 30, VIT: 16, "Phys Damage": 10 }
+    },
+    "Basilisk Eye Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 52,
+      defense: 8,
+      image: "Assets/Equips/template_amulet.png",
+      description: "Basilisk set amulet for elite status control.",
+      set: "Basilisk",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 32, VIT: 16, "Status Potency": 12 }
+    },
+/* BEGIN SYNCED MMO ITEMS */
+    "Skimmer Blade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 5,
+      attack: 4,
+      image: "Assets/Equips/template_dagger.png",
+      description: "A light coastal dagger made for quick openings and precise cuts.",
+      set: "Skimmer",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 5, STR: 3, Crit: 4, Accuracy: 3 }
+    },
+    "Tidal Stabber": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 6,
+      attack: 5,
+      image: "Assets/Equips/template_dagger.png",
+      description: "A wet-forged offhand blade that pairs speed with magical pressure.",
+      set: "Tidecaster",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 5, INT: 5, Combo: 4, "Status Potency": 3 }
+    },
+    "Shellsplitter": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 7,
+      attack: 5,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A short sword edged with shell shards for brutal close strikes.",
+      set: "Tideguard",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 6, VIT: 3, "Phys Damage": 4, "Armor Pen": 3 }
+    },
+    "Ripple Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 9,
+      attack: 6,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A tide-carved staff that amplifies flowing magic and control effects.",
+      set: "Tidecaster",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 7, DEX: 4, "Skill Power": 4, "Status Potency": 3 }
+    },
+    "Shellguard Plate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 7,
+      defense: 2,
+      image: "Assets/Equips/template_chest.png",
+      description: "Layered crab shell armor built to absorb early-game punishment.",
+      set: "Tideguard",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 6, STR: 3, DR: 1, HP: 70 }
+    },
+    "Tide Shell Vest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 8,
+      defense: 2,
+      image: "Assets/Equips/template_chest.png",
+      description: "A lighter tidal cuirass offering balanced defense and magical poise.",
+      set: "Tideguard",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 6, INT: 7, DR: 1, "Magic Resist": 4, HP: 64 }
+    },
+    "Wet Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 6,
+      defense: 2,
+      image: "Assets/Equips/template_feet.png",
+      description: "Flexible sea-soaked boots that improve footing and evasive movement.",
+      set: "Skimmer",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 3, DEX: 3, HP: 48 }
+    },
+    "Coastal Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 8,
+      defense: 2,
+      image: "Assets/Equips/template_helm.png",
+      description: "A crested helm made from coastal shell and bone.",
+      set: "Tideguard",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 6, STR: 7, DR: 2, "Physical Resist": 4, HP: 64 }
+    },
+    "Driftwrap Gloves": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 7,
+      defense: 2,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "Wrappings infused with drift energy for nimble spellplay.",
+      set: "Tidecaster",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 4, INT: 4, Combo: 4, "Status Potency": 3, "Debuff Duration": 3, "Crit Damage": 3 }
+    },
+    "Wave Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 9,
+      defense: 3,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Layered leggings stitched from membrane and hide for balanced survival.",
+      set: "Tideguard",
+      build: "VIT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 4, DEX: 4, HP: 72 }
+    },
+    "Flow Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 6,
+      defense: 2,
+      image: "Assets/Equips/template_ring.png",
+      description: "A simple ring that sharpens water-aligned timing and control.",
+      set: "Tidecaster",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 3, DEX: 3, "Crit Damage": 3 }
+    },
+    "Salt Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 8,
+      defense: 2,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A salt-crystal amulet that steadies the wearer in drawn-out fights.",
+      set: "Tideguard",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 5, INT: 6, DR: 1, "Magic Resist": 4, "Debuff Duration": 3 }
+    },
+    "Drift Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 7,
+      defense: 2,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "A coral-bound bracelet for slippery skirmishers.",
+      set: "Skimmer",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 3, DEX: 3, "Crit Damage": 3 }
+    },
+    "Ripple Charm": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 9,
+      defense: 3,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A charm attuned to ripples in magic and momentum.",
+      set: "Tidecaster",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 6, DEX: 3, "Skill Power": 4, "Status Potency": 3, "Debuff Duration": 3, "Crit Damage": 3 }
+    },
+    "Shell Band": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 8,
+      defense: 2,
+      image: "Assets/Equips/template_ring.png",
+      description: "A sturdy shell band favored by frontline bruisers.",
+      set: "Tideguard",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 6, VIT: 3, "Phys Damage": 4, "Armor Pen": 3 }
+    },
+    "Tide Loop": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 10,
+      defense: 3,
+      image: "Assets/Equips/template_ring.png",
+      description: "A polished loop carrying the weight and patience of the sea.",
+      set: "Tidecaster",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 7, VIT: 3, "Debuff Duration": 6, "Magic Resist": 4 }
+    },
+    "Sandfang Blade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 15,
+      attack: 9,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A desert-forged blade built for accurate cuts and fast pressure.",
+      set: "Dunestrike",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 11, STR: 6, Crit: 6, Accuracy: 4 }
+    },
+    "Mirage Edge": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 16,
+      attack: 9,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A shimmering sword that blurs around its target.",
+      set: "Mirage",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 11, INT: 11, Combo: 6, "Status Potency": 4 }
+    },
+    "Boarbreaker Axe": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "warhammer",
+      rarity: "common",
+      itemLevel: 18,
+      attack: 10,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A crushing weapon made to break lines and armor.",
+      set: "Boarbreaker",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 13, VIT: 7, "Phys Damage": 6, "Armor Pen": 4, "Stamina Reduction": 0 }
+    },
+    "Venom Channeler": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 19,
+      attack: 11,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A venom-soaked focus for spike pressure and status play.",
+      set: "Venomcaster",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 13, DEX: 8, "Skill Power": 6, "Status Potency": 4 }
+    },
+    "Thornback Armor": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 20,
+      defense: 5,
+      image: "Assets/Equips/template_chest.png",
+      description: "Heavy desert armor reinforced with spined carapace plates.",
+      set: "Thornback Bulwark",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 14, STR: 8, DR: 4, HP: 200 }
+    },
+    "Boarhide Chest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 20,
+      defense: 5,
+      image: "Assets/Equips/template_chest.png",
+      description: "A thick-hide chestpiece built for stubborn frontliners.",
+      set: "Boarbreaker",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 13, STR: 13, DR: 4, "Physical Resist": 8, HP: 160 }
+    },
+    "Sandstep Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 4,
+      image: "Assets/Equips/template_feet.png",
+      description: "Low-profile boots favored by dune duelists.",
+      set: "Dunestrike",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 11, STR: 6, Crit: 6 }
+    },
+    "Mirage Hood": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 17,
+      defense: 4,
+      image: "Assets/Equips/template_helm.png",
+      description: "A hood that helps its wearer read distortions and openings.",
+      set: "Mirage",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 7, DEX: 7, HP: 136 }
+    },
+    "Boneguard Gloves": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 18,
+      defense: 4,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "Dense wristguards lashed with beast bone for impact builds.",
+      set: "Boarbreaker",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 12, VIT: 6, Stagger: 6, "Physical Resist": 4 }
+    },
+    "Dune Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 19,
+      defense: 4,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Leg armor suited for long pursuits and attrition.",
+      set: "Thornback Bulwark",
+      build: "VIT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 8, DEX: 8, HP: 152 }
+    },
+    "Venom Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 19,
+      defense: 4,
+      image: "Assets/Equips/template_ring.png",
+      description: "A serpent-themed ring that deepens status potency.",
+      set: "Venomcaster",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 12, DEX: 7, "Skill Power": 6, "Status Potency": 4, "Debuff Duration": 4, "Crit Damage": 4 }
+    },
+    "Sand Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 16,
+      defense: 4,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A desert talisman that rewards steady blade work.",
+      set: "Dunestrike",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 11, STR: 6, Crit: 6, "Crit Damage": 4 }
+    },
+    "Mirage Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 17,
+      defense: 4,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "A wavering bracelet made for deceptive fighters.",
+      set: "Mirage",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 10, INT: 10, Combo: 6, "Status Potency": 4, "Debuff Duration": 4, "Crit Damage": 4 }
+    },
+    "Bone Charm": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 18,
+      defense: 4,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A charm carved from desert bone to reinforce brute force.",
+      set: "Boarbreaker",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 12, VIT: 6, "Phys Damage": 6, "Armor Pen": 4 }
+    },
+    "Fang Loop": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 20,
+      defense: 5,
+      image: "Assets/Equips/template_ring.png",
+      description: "A fang-set loop meant for finishers and bleeders.",
+      set: "Dunestrike",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 12, STR: 12, Crit: 8, "Phys Damage": 6, "Crit Damage": 6 }
+    },
+    "Dune Band": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 4,
+      image: "Assets/Equips/template_ring.png",
+      description: "A plain but durable band worn by survivalists of the sands.",
+      set: "Thornback Bulwark",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 10, STR: 5, DR: 3, HP: 150 }
+    },
+    "Lynx Fang": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 27,
+      attack: 14,
+      image: "Assets/Equips/template_dagger.png",
+      description: "A rock-honed dagger for ambushes and repeat pressure.",
+      set: "Lynxstrike",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 18, STR: 10, Crit: 8, Accuracy: 6 }
+    },
+    "Serpent Fang": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 28,
+      attack: 15,
+      image: "Assets/Equips/template_dagger.png",
+      description: "A venom-lined fang blade built for agile control.",
+      set: "Earthbinder",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 18, INT: 18, Combo: 8, "Status Potency": 6 }
+    },
+    "Hornbreaker Axe": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "polearm",
+      rarity: "common",
+      itemLevel: 29,
+      attack: 15,
+      image: "Assets/Equips/template_polearm.png",
+      description: "An ibex-horn polearm that excels at driving through defenses.",
+      set: "Ibex Dominator",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 19, VIT: 11, "Phys Damage": 8, "Armor Pen": 6, "Stamina Reduction": 0 }
+    },
+    "Earthcaller Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 30,
+      attack: 16,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A heavy staff that channels binding and petrifying force.",
+      set: "Earthbinder",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 20, DEX: 12, "Skill Power": 8, "Status Potency": 6 }
+    },
+    "Marmot Bulwark": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 25,
+      defense: 6,
+      image: "Assets/Equips/template_chest.png",
+      description: "A stone-backed chestpiece designed for long, grinding fights.",
+      set: "Stoneguard",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 17, STR: 10, DR: 5, HP: 250 }
+    },
+    "Earthshell Armor": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 26,
+      defense: 6,
+      image: "Assets/Equips/template_chest.png",
+      description: "A compact earthward armor with defensive magical utility.",
+      set: "Stoneguard",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 17, INT: 16, DR: 4, "Magic Resist": 8, HP: 208 }
+    },
+    "Rockstep Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 27,
+      defense: 6,
+      image: "Assets/Equips/template_feet.png",
+      description: "Grip-heavy boots that improve footing on broken terrain.",
+      set: "Lynxstrike",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 10, DEX: 10, HP: 216 }
+    },
+    "Stone Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 28,
+      defense: 6,
+      image: "Assets/Equips/template_helm.png",
+      description: "A dense helm that favors tanks and bruisers alike.",
+      set: "Stoneguard",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 18, STR: 18, DR: 6, "Physical Resist": 8, HP: 224 }
+    },
+    "Claw Gloves": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 26,
+      defense: 6,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "Claw-bound gloves that sharpen aggressive melee patterns.",
+      set: "Lynxstrike",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 16, STR: 15, Crit: 8, "Phys Damage": 6, "Crit Damage": 6 }
+    },
+    "Core Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 29,
+      defense: 6,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Reinforced leggings threaded with stable core fragments.",
+      set: "Earthbinder",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 18, INT: 18, DR: 5, "Magic Resist": 8, HP: 232 }
+    },
+    "Petrify Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 30,
+      defense: 6,
+      image: "Assets/Equips/template_ring.png",
+      description: "A ring meant for controllers who win with time and pressure.",
+      set: "Earthbinder",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 19, VIT: 11, "Debuff Duration": 8, "Magic Resist": 6 }
+    },
+    "Core Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 29,
+      defense: 6,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A stable core pendant for controlled casting.",
+      set: "Earthbinder",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 18, DEX: 10, "Skill Power": 8, "Status Potency": 6, "Debuff Duration": 6, "Crit Damage": 6 }
+    },
+    "Stone Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 25,
+      defense: 6,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "A rough bracelet that reinforces survival over burst.",
+      set: "Stoneguard",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 16, STR: 9, DR: 5, HP: 250 }
+    },
+    "Fang Charm": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 27,
+      defense: 6,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A predatory charm that rewards accurate strikes.",
+      set: "Lynxstrike",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 17, STR: 9, Crit: 8, "Crit Damage": 6 }
+    },
+    "Earth Loop": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 28,
+      defense: 6,
+      image: "Assets/Equips/template_ring.png",
+      description: "A grounded loop that supports bruiser builds.",
+      set: "Ibex Dominator",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 18, VIT: 10, Stagger: 8, "Physical Resist": 6 }
+    },
+    "Crystal Band": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 30,
+      defense: 6,
+      image: "Assets/Equips/template_ring.png",
+      description: "A polished band used by hybrid earth spellblades.",
+      set: "Earthbinder",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 11, DEX: 11, "Crit Damage": 6 }
+    },
+    "Foxfang Blade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 38,
+      attack: 19,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A refined forest blade built for assassins and duelists.",
+      set: "Greenleaf Assassin",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 25, STR: 14, Crit: 10, Accuracy: 8 }
+    },
+    "Stagpiercer": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 39,
+      attack: 20,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A ceremonial blade that rewards tempo, buffs, and follow-ups.",
+      set: "Verdant Rite",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 24, INT: 24, Combo: 10, "Status Potency": 8 }
+    },
+    "Gorilla Crusher": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "warhammer",
+      rarity: "common",
+      itemLevel: 40,
+      attack: 20,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A primal crushing weapon meant for overwhelming pressure.",
+      set: "Primal Rage",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 26, VIT: 15, "Phys Damage": 10, "Armor Pen": 8, "Stamina Reduction": 0 }
+    },
+    "Wraithcall Scepter": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 40,
+      attack: 20,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A soulbound scepter for persistent magical attrition.",
+      set: "Soulbinder",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 26, DEX: 15, "Skill Power": 10, "Status Potency": 8 }
+    },
+    "Gorilla Armor": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 40,
+      defense: 8,
+      image: "Assets/Equips/template_chest.png",
+      description: "Heavy jungle armor that turns durability into momentum.",
+      set: "Jungle Titan",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 26, STR: 15, DR: 8, HP: 400 }
+    },
+    "Spirit Bark Armor": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 40,
+      defense: 8,
+      image: "Assets/Equips/template_chest.png",
+      description: "Living bark armor for sturdy support casters.",
+      set: "Verdant Rite",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 25, INT: 24, DR: 7, "Magic Resist": 10, HP: 320 }
+    },
+    "Jungle Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 37,
+      defense: 8,
+      image: "Assets/Equips/template_feet.png",
+      description: "Low-noise boots for fast, sustained hunts.",
+      set: "Greenleaf Assassin",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 14, DEX: 14, HP: 296 }
+    },
+    "Antler Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 38,
+      defense: 8,
+      image: "Assets/Equips/template_helm.png",
+      description: "A helm crowned with stag antler to enhance supportive patterns.",
+      set: "Verdant Rite",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 25, VIT: 14, "Debuff Duration": 10, "Magic Resist": 8, HP: 304 }
+    },
+    "Vine Gloves": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 36,
+      defense: 7,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "Flexible bracers for combo-heavy hybrid builds.",
+      set: "Greenleaf Assassin",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 22, INT: 21, Combo: 10, "Status Potency": 8, "Debuff Duration": 8, "Crit Damage": 8 }
+    },
+    "Forest Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 39,
+      defense: 8,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Dense forest leathers offering survival without losing pace.",
+      set: "Jungle Titan",
+      build: "VIT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 15, DEX: 15, HP: 312 }
+    },
+    "Soul Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 40,
+      defense: 8,
+      image: "Assets/Equips/template_ring.png",
+      description: "A shadowed ring that amplifies sustained magical pressure.",
+      set: "Soulbinder",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 25, DEX: 14, "Skill Power": 10, "Status Potency": 8, "Debuff Duration": 8, "Crit Damage": 8 }
+    },
+    "Spirit Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 38,
+      defense: 8,
+      image: "Assets/Equips/template_amulet.png",
+      description: "An amulet for longer buffs, longer debuffs, longer fights.",
+      set: "Verdant Rite",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 24, VIT: 13, "Debuff Duration": 10, "Magic Resist": 8 }
+    },
+    "Jungle Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 37,
+      defense: 8,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "A dense bracelet used by dominant frontliners.",
+      set: "Jungle Titan",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 23, VIT: 13, Stagger: 10, "Physical Resist": 8 }
+    },
+    "Fang Charm ALT": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 35,
+      defense: 7,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A refined fang charm for burst-oriented finishers.",
+      set: "Greenleaf Assassin",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 21, STR: 20, Crit: 10, "Phys Damage": 8, "Crit Damage": 8 }
+    },
+    "Growth Loop": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 36,
+      defense: 7,
+      image: "Assets/Equips/template_ring.png",
+      description: "A loop that rewards support and recovery play.",
+      set: "Verdant Rite",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 22, INT: 21, DR: 6, "Magic Resist": 10, "Debuff Duration": 8 }
+    },
+    "Echo Band": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 39,
+      defense: 8,
+      image: "Assets/Equips/template_ring.png",
+      description: "An echo-tuned band favored by control casters.",
+      set: "Soulbinder",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 14, DEX: 14, "Crit Damage": 8 }
+    },
+    "Ashmaw Cleaver": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "greatsword",
+      rarity: "common",
+      itemLevel: 45,
+      attack: 22,
+      image: "Assets/Equips/template_greatsword.png",
+      description: "A fire-scarred greatsword for punishing heavy swings.",
+      set: "Ash Titan",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 29, VIT: 17, "Phys Damage": 12, "Armor Pen": 10, "Stamina Reduction": 0 }
+    },
+    "Emberfang": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 47,
+      attack: 23,
+      image: "Assets/Equips/template_dagger.png",
+      description: "A blazing assassin dagger built for lethal turn bursts.",
+      set: "Ember Assassin",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 30, STR: 17, Crit: 12, Accuracy: 10 }
+    },
+    "Frozen Edge": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 50,
+      attack: 24,
+      image: "Assets/Equips/template_weapon.png",
+      description: "A freezing duelist blade for precise, relentless cuts.",
+      set: "Frostfang",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 31, STR: 29, Crit: 12, "Phys Damage": 10 }
+    },
+    "Basilisk Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 52,
+      attack: 25,
+      image: "Assets/Equips/template_polearm.png",
+      description: "A basilisk relic staff for high-end control and debuffing.",
+      set: "Basilisk Oracle",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 33, DEX: 19, "Skill Power": 12, "Status Potency": 10 }
+    },
+    "Magmahide Plate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 50,
+      defense: 10,
+      image: "Assets/Equips/template_chest.png",
+      description: "A furnace-like chestpiece for top-tier tanks.",
+      set: "Molten Colossus",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 32, STR: 18, DR: 10, HP: 500 }
+    },
+    "Glacier Shell": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 49,
+      defense: 10,
+      image: "Assets/Equips/template_chest.png",
+      description: "A glacier-forged shell piece combining defense and calm magic.",
+      set: "Frozen Bastion",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, INT: 29, DR: 9, "Magic Resist": 12, HP: 392 }
+    },
+    "Flame Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 46,
+      defense: 9,
+      image: "Assets/Equips/template_feet.png",
+      description: "Heated boots for aggressive burst builds.",
+      set: "Ember Assassin",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 29, STR: 27, Crit: 12, "Phys Damage": 10 }
+    },
+    "Ice Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 48,
+      defense: 10,
+      image: "Assets/Equips/template_helm.png",
+      description: "A cold-forged helm that stabilizes endgame survivability.",
+      set: "Frozen Bastion",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, INT: 29, DR: 9, "Magic Resist": 12, HP: 384 }
+    },
+    "Molten Gloves": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 47,
+      defense: 9,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "Brutal gauntlets for maximum pressure and penetration.",
+      set: "Ash Titan",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 29, VIT: 16, "Phys Damage": 12, "Armor Pen": 10 }
+    },
+    "Frost Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 50,
+      defense: 10,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Leggings designed for long cold skirmishes and clean finishers.",
+      set: "Frostfang",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 18, DEX: 18, HP: 400 }
+    },
+    "Basilisk Eye Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 52,
+      defense: 10,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A high-end amulet for status-heavy controllers.",
+      set: "Basilisk Oracle",
+      build: "INT",
+      bonusSkills: [],
+      bonusStats: { INT: 32, DEX: 18, "Skill Power": 12, "Status Potency": 10, "Debuff Duration": 10, "Crit Damage": 10 }
+    },
+    "Ember Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 47,
+      defense: 9,
+      image: "Assets/Equips/template_ring.png",
+      description: "A ring that sharpens burst timing and critical conversion.",
+      set: "Ember Assassin",
+      build: "DEX",
+      bonusSkills: [],
+      bonusStats: { DEX: 29, STR: 16, Crit: 12, "Crit Damage": 10 }
+    },
+    "Frost Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 49,
+      defense: 10,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "A bracelet that rewards precise frost setups.",
+      set: "Frostfang",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 29, INT: 28, Combo: 12, "Status Potency": 10, "Debuff Duration": 10, "Crit Damage": 10 }
+    },
+    "Soul Loop": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 51,
+      defense: 10,
+      image: "Assets/Equips/template_ring.png",
+      description: "A shadow-touched loop for elite attrition casters.",
+      set: "Basilisk Oracle",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 32, VIT: 18, "Debuff Duration": 12, "Magic Resist": 10 }
+    },
+    "Inferno Charm": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 46,
+      defense: 9,
+      image: "Assets/Equips/template_amulet.png",
+      description: "A charm for aggressive hybrid damage builds.",
+      set: "Ash Titan",
+      build: "STR_INT",
+      bonusSkills: [],
+      bonusStats: { STR: 28, INT: 26, "Phys Damage": 12, "Skill Power": 10, "Debuff Duration": 10 }
+    },
+    "Ice Band": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 48,
+      defense: 10,
+      image: "Assets/Equips/template_ring.png",
+      description: "A disciplined endgame band focused on resistance and endurance.",
+      set: "Frozen Bastion",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, STR: 17, DR: 10, HP: 480 }
+    },
+  /* END SYNCED MMO ITEMS */
+
+    "Small Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Small Bone used in crafting."
+    },
+
+    "Blood Herb": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Blood Herb used in crafting."
+    },
+
+    "Stone Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Stone Fragment used in crafting."
+    },
+
+    "Claw Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Claw Fragment used in crafting."
+    },
+
+    "Abyss Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Abyss Core used in crafting and loot."
+    },
+    "Abyss Flesh": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Abyss Flesh used in crafting and loot."
+    },
+    "Abyss Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Abyss Residue used in crafting and loot."
+    },
+    "Abyssal Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Abyssal Essence used in crafting and loot."
+    },
+    "Advanced Mechanism": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Advanced Mechanism used in crafting and loot."
+    },
+    "Agility Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Agility Core used in crafting and loot."
+    },
+    "Alpha Pelt": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Alpha Pelt used in crafting and loot."
+    },
+    "Ancient Bark": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ancient Bark used in crafting and loot."
+    },
+    "Ancient Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ancient Fragment used in crafting and loot."
+    },
+    "Ancient Seed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ancient Seed used in crafting and loot."
+    },
+    "Ancient Soul Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ancient Soul Core used in crafting and loot."
+    },
+    "Antler Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Antler Fragment used in crafting and loot."
+    },
+    "Antler Piece": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Antler Piece used in crafting and loot."
+    },
+    "Apex Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Apex Core used in crafting and loot."
+    },
+    "Ash Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ash Residue used in crafting and loot."
+    },
+    "Ash Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ash Scale used in crafting and loot."
+    },
+    "Assassin Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Assassin Core used in crafting and loot."
+    },
+    "Bark": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bark used in crafting and loot."
+    },
+    "Bark Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bark Fiber used in crafting and loot."
+    },
+    "Bark Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bark Fragment used in crafting and loot."
+    },
+    "Basilisk Eye": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Basilisk Eye used in crafting and loot."
+    },
+    "Boar Tusk": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Boar Tusk used in crafting and loot."
+    },
+    "Bone Dust": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bone Dust used in crafting and loot."
+    },
+    "Bone Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bone Shard used in crafting and loot."
+    },
+    "Bound Remains": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bound Remains used in crafting and loot."
+    },
+    "Bound Soul": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bound Soul used in crafting and loot."
+    },
+    "Bulwark Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Bulwark Core used in crafting and loot."
+    },
+    "Burnt Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Burnt Hide used in crafting and loot."
+    },
+    "Carapace Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Carapace Fragment used in crafting and loot."
+    },
+    "Charged Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Charged Core used in crafting and loot."
+    },
+    "Chill Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Chill Residue used in crafting and loot."
+    },
+    "Cliff Moss": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Cliff Moss used in crafting and loot."
+    },
+    "Condensed Soul": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Condensed Soul used in crafting and loot."
+    },
+    "Control Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Control Core used in crafting and loot."
+    },
+    "Corroded Gear": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Corroded Gear used in crafting and loot."
+    },
+    "Corrosive Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Corrosive Core used in crafting and loot."
+    },
+    "Crushing Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Crushing Essence used in crafting and loot."
+    },
+    "Crust Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Crust Fragment used in crafting and loot."
+    },
+    "Crystal Stone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Crystal Stone used in crafting and loot."
+    },
+    "Crystalized Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Crystalized Core used in crafting and loot."
+    },
+    "Dark Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Dark Residue used in crafting and loot."
+    },
+    "Decay Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Decay Fragment used in crafting and loot."
+    },
+    "Deepwater Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Deepwater Essence used in crafting and loot."
+    },
+    "Defense Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Defense Core used in crafting and loot."
+    },
+    "Defensive Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Defensive Core used in crafting and loot."
+    },
+    "Dense Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Dense Bone used in crafting and loot."
+    },
+    "Dense Fur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Dense Fur used in crafting and loot."
+    },
+    "Dense Stone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Dense Stone used in crafting and loot."
+    },
+    "Devourer Tooth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Devourer Tooth used in crafting and loot."
+    },
+    "Digging Claw": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Digging Claw used in crafting and loot."
+    },
+    "Distorted Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Distorted Core used in crafting and loot."
+    },
+    "Dust Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Dust Essence used in crafting and loot."
+    },
+    "Earth Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Earth Residue used in crafting and loot."
+    },
+    "Echo Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Echo Fragment used in crafting and loot."
+    },
+    "Elastic Tendon": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Elastic Tendon used in crafting and loot."
+    },
+    "Elemental Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Elemental Fragment used in crafting and loot."
+    },
+    "Elite Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Elite Bone used in crafting and loot."
+    },
+    "Elite Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Elite Hide used in crafting and loot."
+    },
+    "Ember Dust": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ember Dust used in crafting and loot."
+    },
+    "Ember Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ember Fragment used in crafting and loot."
+    },
+    "Endurance Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Endurance Core used in crafting and loot."
+    },
+    "Faint Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Faint Residue used in crafting and loot."
+    },
+    "Fire Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Fire Core used in crafting and loot."
+    },
+    "Fire Seed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Fire Seed used in crafting and loot."
+    },
+    "Flame Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Flame Essence used in crafting and loot."
+    },
+    "Flexible Reinforced Leather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Flexible Reinforced Leather used in crafting and loot."
+    },
+    "Fluid Sac": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Fluid Sac used in crafting and loot."
+    },
+    "Forest Fur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Forest Fur used in crafting and loot."
+    },
+    "Fragmented Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Fragmented Core used in crafting and loot."
+    },
+    "Frost Claw": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Frost Claw used in crafting and loot."
+    },
+    "Frost Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Frost Thread used in crafting and loot."
+    },
+    "Frozen Shell": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Frozen Shell used in crafting and loot."
+    },
+    "Fur Pelt": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Fur Pelt used in crafting and loot."
+    },
+    "Growth Seed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Growth Seed used in crafting and loot."
+    },
+    "Hardened Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Hardened Core used in crafting and loot."
+    },
+    "Hardened Leather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Hardened Leather used in crafting and loot."
+    },
+    "Heat Shell": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Heat Shell used in crafting and loot."
+    },
+    "Heavy Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Heavy Bone used in crafting and loot."
+    },
+    "Heavy Fang": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Heavy Fang used in crafting and loot."
+    },
+    "Hunger Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Hunger Core used in crafting and loot."
+    },
+    "Hunter Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Hunter Core used in crafting and loot."
+    },
+    "Ice Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ice Essence used in crafting and loot."
+    },
+    "Ice Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ice Fragment used in crafting and loot."
+    },
+    "Illusion Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Illusion Essence used in crafting and loot."
+    },
+    "Illusion Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Illusion Thread used in crafting and loot."
+    },
+    "Infused Dust": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Infused Dust used in crafting and loot."
+    },
+    "Jungle Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Jungle Fiber used in crafting and loot."
+    },
+    "Lava Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Lava Core used in crafting and loot."
+    },
+    "Life Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Life Core used in crafting and loot."
+    },
+    "Living Bark": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Living Bark used in crafting and loot."
+    },
+    "Living Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Living Fiber used in crafting and loot."
+    },
+    "Magma Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Magma Hide used in crafting and loot."
+    },
+    "Mechanism Part": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Mechanism Part used in crafting and loot."
+    },
+    "Metal Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Metal Essence used in crafting and loot."
+    },
+    "Metal Scrap": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Metal Scrap used in crafting and loot."
+    },
+    "Molten Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Molten Scale used in crafting and loot."
+    },
+    "Muscle Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Muscle Fiber used in crafting and loot."
+    },
+    "Mythic Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Mythic Hide used in crafting and loot."
+    },
+    "Ocean Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ocean Essence used in crafting and loot."
+    },
+    "Perfect Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Perfect Core used in crafting and loot."
+    },
+    "Perfected Leather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Perfected Leather used in crafting and loot."
+    },
+    "Petrify Gland": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Petrify Gland used in crafting and loot."
+    },
+    "Plant Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Plant Fiber used in crafting and loot."
+    },
+    "Poison Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Poison Essence used in crafting and loot."
+    },
+    "Precision Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Precision Core used in crafting and loot."
+    },
+    "Predator Fang": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Predator Fang used in crafting and loot."
+    },
+    "Predator Instinct Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Predator Instinct Core used in crafting and loot."
+    },
+    "Pressure Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Pressure Core used in crafting and loot."
+    },
+    "Primal Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Primal Essence used in crafting and loot."
+    },
+    "Primal Fur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Primal Fur used in crafting and loot."
+    },
+    "Pure Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Pure Essence used in crafting and loot."
+    },
+    "Raw Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Raw Hide used in crafting and loot."
+    },
+    "Razor Edge Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Razor Edge Fragment used in crafting and loot."
+    },
+    "Reflex Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Reflex Core used in crafting and loot."
+    },
+    "Reinforced Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Reinforced Bone used in crafting and loot."
+    },
+    "Reinforced Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Reinforced Hide used in crafting and loot."
+    },
+    "Reinforced Scrap": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Reinforced Scrap used in crafting and loot."
+    },
+    "Reinforced Stone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Reinforced Stone used in crafting and loot."
+    },
+    "Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Residue used in crafting and loot."
+    },
+    "Resonance Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Resonance Core used in crafting and loot."
+    },
+    "Revenant Core Material": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Revenant Core Material used in crafting and loot."
+    },
+    "Ripple Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Ripple Core used in crafting and loot."
+    },
+    "Root Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Root Fiber used in crafting and loot."
+    },
+    "Rough Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Rough Core used in crafting and loot."
+    },
+    "Rusted Metal": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Rusted Metal used in crafting and loot."
+    },
+    "Salt Flesh": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Salt Flesh used in crafting and loot."
+    },
+    "Sand Blade Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Sand Blade Fragment used in crafting and loot."
+    },
+    "Sand Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Sand Residue used in crafting and loot."
+    },
+    "Scaled Skin": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Scaled Skin used in crafting and loot."
+    },
+    "Seeds": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Seeds used in crafting and loot."
+    },
+    "Shadow Dust": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Shadow Dust used in crafting and loot."
+    },
+    "Shadow Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Shadow Essence used in crafting and loot."
+    },
+    "Shadow Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Shadow Residue used in crafting and loot."
+    },
+    "Small Tooth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Small Tooth used in crafting and loot."
+    },
+    "Soft Leather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Soft Leather used in crafting and loot."
+    },
+    "Solid Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Solid Core used in crafting and loot."
+    },
+    "Soul Dust": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Soul Dust used in crafting and loot."
+    },
+    "Soul Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Soul Residue used in crafting and loot."
+    },
+    "Spirit Bark": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Spirit Bark used in crafting and loot."
+    },
+    "Spirit Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Spirit Core used in crafting and loot."
+    },
+    "Spirit Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Spirit Essence used in crafting and loot."
+    },
+    "Spirit Seed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Spirit Seed used in crafting and loot."
+    },
+    "Spirit Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Spirit Thread used in crafting and loot."
+    },
+    "Stable Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Stable Core used in crafting and loot."
+    },
+    "Stone Claw": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Stone Claw used in crafting and loot."
+    },
+    "Stone Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Stone Scale used in crafting and loot."
+    },
+    "Stone Skin": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Stone Skin used in crafting and loot."
+    },
+    "Strength Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Strength Core used in crafting and loot."
+    },
+    "Support Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Support Core used in crafting and loot."
+    },
+    "Talon Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Talon Fragment used in crafting and loot."
+    },
+    "Thick Fur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Thick Fur used in crafting and loot."
+    },
+    "Thin Fur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Thin Fur used in crafting and loot."
+    },
+    "Tidal Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Tidal Essence used in crafting and loot."
+    },
+    "Tide Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Tide Fragment used in crafting and loot."
+    },
+    "Titan Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Titan Bone used in crafting and loot."
+    },
+    "Titan Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Titan Core used in crafting and loot."
+    },
+    "Tough Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Tough Hide used in crafting and loot."
+    },
+    "Toxic Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Toxic Core used in crafting and loot."
+    },
+    "Toxic Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Toxic Essence used in crafting and loot."
+    },
+    "Treated Leather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Treated Leather used in crafting and loot."
+    },
+    "Trickster Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Trickster Core used in crafting and loot."
+    },
+    "Vital Growth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Vital Growth used in crafting and loot."
+    },
+    "Water Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Water Essence used in crafting and loot."
+    },
+    "Wild Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Wild Essence used in crafting and loot."
+    },
+    "Wind Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Wind Scale used in crafting and loot."
+    },
+    "Withered Tissue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Withered Tissue used in crafting and loot."
+    },
+    "World Seed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "World Seed used in crafting and loot."
+    },
+    "Wraith Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Materials/material_placeholder.png",
+      description: "Wraith Core used in crafting and loot."
+    },
+
+    "Template Weapon": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 1,
+      attack: 1,
+      image: "Assets/Equips/template_weapon.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Dagger": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 1,
+      attack: 1,
+      image: "Assets/Equips/template_dagger.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Polearm": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "polearm",
+      rarity: "common",
+      itemLevel: 1,
+      attack: 1,
+      image: "Assets/Equips/template_polearm.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Greatsword": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "greatsword",
+      rarity: "common",
+      itemLevel: 1,
+      attack: 1,
+      image: "Assets/Equips/template_greatsword.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_helm.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Chest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_chest.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Feet": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_feet.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Leggs": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_leggs.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_ring.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_bracelet.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Template Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/template_amulet.png",
+      description: "Template debug item. Obtainable via add-item menu only.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+},
 
   /**
    * Combat tuning. Core stat curves (STR/DEX/VIT/INT) are implemented in game.js as documented formulas.
@@ -1193,10 +4278,1358 @@ const GAME_CONFIG = {
     }
   ],
 
-  /** Placeholder for future crafting/gathering paths */
   professions: {
     intro:
-      "Professions (blacksmith, alchemist, hunter, etc.) are not unlocked yet. They will grant crafting recipes and passive bonuses in a future update."
+      "Choose up to 2 professions. Weapon/Armor/Jeweller are crafting paths; Skinner/Extractor/Harvester unlock extra monster gathering drops.",
+    maxSelected: 2,
+    available: [
+      { id: "weapon_smith", label: "Weapon smith", kind: "crafting" },
+      { id: "armor_smith", label: "Armor smith", kind: "crafting" },
+      { id: "jeweller", label: "Jeweller", kind: "crafting" },
+      { id: "skinner", label: "Skinner", kind: "gathering" },
+      { id: "extractor", label: "Extractor", kind: "gathering" },
+      { id: "harvester", label: "Harvester", kind: "gathering" }
+    ],
+    gatheringCategories: {
+      beast: { label: "Beast", allowed: ["skinner", "extractor", "harvester"] },
+      stone: { label: "Stone / Earth", allowed: ["extractor", "harvester"] },
+      nature: { label: "Plant / Nature", allowed: ["harvester", "skinner", "extractor"] },
+      elemental: { label: "Elemental", allowed: ["harvester", "extractor"] },
+      undead: { label: "Undead / Spirit", allowed: ["harvester", "extractor"] },
+      construct: { label: "Construct / Corrupted", allowed: ["extractor", "harvester"] }
+    }
+  },
+
+  monsterGatheringCategories: {
+    "Tide Hopper": ["elemental", "beast"],
+    "Hermit Crab": ["beast", "stone"],
+    "Saltwind Skimmer": ["beast"],
+    "Brinegullet Spitter": ["beast", "elemental"],
+    "Wavebreaker Idol": ["construct", "stone"],
+    "Tidemeld Revenant": ["undead", "elemental"],
+    "Coastal Horror": ["beast", "elemental"],
+    Tideharrow: ["elemental"],
+    "Burrow Hare": ["beast"],
+    "Plains Raptor": ["beast"],
+    "Grass Snake": ["beast"],
+    "Tusk Boar": ["beast"],
+    "Field Wolf": ["beast"],
+    "Dust Carver": ["beast", "stone"],
+    "Desert Thornback Crawler": ["beast", "stone"],
+    "Mirage Lurker": ["construct", "elemental"],
+    "Dune Devourer": ["beast", "stone"],
+    Witherling: ["undead"],
+    "Stone Marmot": ["beast", "stone"],
+    "Rock Lynx": ["beast", "stone"],
+    "Rock Ibex": ["beast", "stone"],
+    "Rock Serpent": ["beast", "stone"],
+    "Rock Lizard": ["beast", "stone"],
+    "Leafdart Squirrel": ["beast", "nature"],
+    "Canopy Screecher": ["beast", "nature"],
+    "Greenleaf Fox": ["beast", "nature"],
+    "Jungle Stag": ["beast", "nature"],
+    Gorilla: ["beast"],
+    "Barkhide Spriggan": ["nature"],
+    "Icy Mink": ["beast", "elemental"],
+    "Icy Serpent": ["beast", "elemental"],
+    "Glacier Turtoise": ["beast", "stone", "elemental"],
+    "Frozen Stalker": ["beast", "elemental"],
+    "Frost Skitter": ["elemental"],
+    "Pinebound Fawn": ["beast", "nature"],
+    "Frozen Pinecone": ["nature", "elemental"],
+    "Ice-Tusked Boar": ["beast", "elemental"],
+    "Winter Guardian": ["construct", "elemental"],
+    "Ash Lizard": ["beast", "elemental"],
+    "Cinder Stalker": ["beast", "elemental"],
+    "Ember Scuttler": ["elemental"],
+    "Magma Boar": ["beast", "elemental"],
+    "Lava Basilisk": ["beast", "elemental"],
+    "Faded War Wraith": ["undead"],
+    "Ash Horror": ["elemental", "undead"],
+    "Cinder Husk": ["construct", "elemental"],
+    "Ash Skulker": ["beast", "elemental"],
+    "Remnant of Rust": ["construct"],
+    Driftling: ["elemental"],
+    "Cliff Lurker": ["beast", "stone"]
+  },
+
+  crafting: {
+    intro: "Crafting recipe data is configured for future professions/forge systems. resultItem must match an item id in GAME_CONFIG.items.",
+    recipeTiers: [
+      {
+        id: "early",
+        label: "Early Game Recipes",
+        minLevel: 1,
+        maxLevel: 10,
+        recipes: [
+          {
+            id: "skimmer_blade",
+            resultItem: "Skimmer Blade",
+            resultLevel: 5,
+            ingredients: [
+              { item: "Sharp Fin", qty: 6, source: "monster_loot" },
+              { item: "Wet Membrane", qty: 6, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "tidal_stabber",
+            resultItem: "Tidal Stabber",
+            resultLevel: 6,
+            ingredients: [
+              { item: "Wet Membrane", qty: 6, source: "monster_loot" },
+              { item: "Hardened Shell", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "shellsplitter",
+            resultItem: "Shellsplitter",
+            resultLevel: 7,
+            ingredients: [
+              { item: "Hardened Shell", qty: 6, source: "monster_loot" },
+              { item: "Stone Core", qty: 6, source: "monster_loot" },
+              { item: "Seeds", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "ripple_staff",
+            resultItem: "Ripple Staff",
+            resultLevel: 9,
+            ingredients: [
+              { item: "Stone Core", qty: 6, source: "monster_loot" },
+              { item: "Fluid Sac", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "shellguard_plate",
+            resultItem: "Shellguard Plate",
+            resultLevel: 7,
+            ingredients: [
+              { item: "Fluid Sac", qty: 6, source: "monster_loot" },
+              { item: "Ripple Core", qty: 6, source: "monster_loot" },
+              { item: "Plant Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "tide_shell_vest",
+            resultItem: "Tide Shell Vest",
+            resultLevel: 8,
+            ingredients: [
+              { item: "Ripple Core", qty: 6, source: "monster_loot" },
+              { item: "Salt Flesh", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "wet_boots",
+            resultItem: "Wet Boots",
+            resultLevel: 6,
+            ingredients: [
+              { item: "Salt Flesh", qty: 6, source: "monster_loot" },
+              { item: "Abyss Residue", qty: 6, source: "monster_loot" },
+              { item: "Raw Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "coastal_helm",
+            resultItem: "Coastal Helm",
+            resultLevel: 8,
+            ingredients: [
+              { item: "Abyss Residue", qty: 6, source: "monster_loot" },
+              { item: "Sharp Fin", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "driftwrap_gloves",
+            resultItem: "Driftwrap Gloves",
+            resultLevel: 7,
+            ingredients: [
+              { item: "Sharp Fin", qty: 6, source: "monster_loot" },
+              { item: "Wet Membrane", qty: 6, source: "monster_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "wave_leggings",
+            resultItem: "Wave Leggings",
+            resultLevel: 9,
+            ingredients: [
+              { item: "Wet Membrane", qty: 6, source: "monster_loot" },
+              { item: "Hardened Shell", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "flow_ring",
+            resultItem: "Flow Ring",
+            resultLevel: 6,
+            ingredients: [
+              { item: "Hardened Shell", qty: 6, source: "monster_loot" },
+              { item: "Stone Core", qty: 6, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "salt_amulet",
+            resultItem: "Salt Amulet",
+            resultLevel: 8,
+            ingredients: [
+              { item: "Stone Core", qty: 6, source: "monster_loot" },
+              { item: "Fluid Sac", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "drift_bracelet",
+            resultItem: "Drift Bracelet",
+            resultLevel: 7,
+            ingredients: [
+              { item: "Fluid Sac", qty: 6, source: "monster_loot" },
+              { item: "Ripple Core", qty: 6, source: "monster_loot" },
+              { item: "Seeds", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "ripple_charm",
+            resultItem: "Ripple Charm",
+            resultLevel: 9,
+            ingredients: [
+              { item: "Ripple Core", qty: 6, source: "monster_loot" },
+              { item: "Salt Flesh", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "shell_band",
+            resultItem: "Shell Band",
+            resultLevel: 8,
+            ingredients: [
+              { item: "Salt Flesh", qty: 6, source: "monster_loot" },
+              { item: "Abyss Residue", qty: 6, source: "monster_loot" },
+              { item: "Plant Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "tide_loop",
+            resultItem: "Tide Loop",
+            resultLevel: 10,
+            ingredients: [
+              { item: "Abyss Residue", qty: 6, source: "monster_loot" },
+              { item: "Sharp Fin", qty: 6, source: "monster_loot" }
+            ]
+          }
+        ]
+      },
+      {
+        id: "low_mid",
+        label: "Low-Mid Recipes",
+        minLevel: 11,
+        maxLevel: 20,
+        recipes: [
+          {
+            id: "sandfang_blade",
+            resultItem: "Sandfang Blade",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Razor Claw", qty: 6, source: "monster_loot" },
+              { item: "Sand Core", qty: 6, source: "monster_loot" },
+              { item: "Boar Tusk", qty: 5, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "mirage_edge",
+            resultItem: "Mirage Edge",
+            resultLevel: 16,
+            ingredients: [
+              { item: "Sand Core", qty: 6, source: "monster_loot" },
+              { item: "Boar Tusk", qty: 6, source: "monster_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "boarbreaker_axe",
+            resultItem: "Boarbreaker Axe",
+            resultLevel: 18,
+            ingredients: [
+              { item: "Boar Tusk", qty: 6, source: "monster_loot" },
+              { item: "Thick Hide", qty: 6, source: "monster_loot" },
+              { item: "Venom Sac", qty: 5, source: "monster_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "venom_channeler",
+            resultItem: "Venom Channeler",
+            resultLevel: 19,
+            ingredients: [
+              { item: "Thick Hide", qty: 6, source: "monster_loot" },
+              { item: "Venom Sac", qty: 6, source: "monster_loot" },
+              { item: "Sand Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "thornback_armor",
+            resultItem: "Thornback Armor",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Venom Sac", qty: 6, source: "monster_loot" },
+              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
+              { item: "Illusion Fragment", qty: 5, source: "monster_loot" },
+              { item: "Growth Seed", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "boarhide_chest",
+            resultItem: "Boarhide Chest",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
+              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Distorted Core", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "sandstep_boots",
+            resultItem: "Sandstep Boots",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
+              { item: "Razor Claw", qty: 5, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "mirage_hood",
+            resultItem: "Mirage Hood",
+            resultLevel: 17,
+            ingredients: [
+              { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
+              { item: "Razor Claw", qty: 6, source: "monster_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "boneguard_gloves",
+            resultItem: "Boneguard Gloves",
+            resultLevel: 18,
+            ingredients: [
+              { item: "Razor Claw", qty: 6, source: "monster_loot" },
+              { item: "Sand Core", qty: 6, source: "monster_loot" },
+              { item: "Boar Tusk", qty: 5, source: "monster_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "dune_leggings",
+            resultItem: "Dune Leggings",
+            resultLevel: 19,
+            ingredients: [
+              { item: "Sand Core", qty: 6, source: "monster_loot" },
+              { item: "Boar Tusk", qty: 6, source: "monster_loot" },
+              { item: "Sand Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "venom_ring",
+            resultItem: "Venom Ring",
+            resultLevel: 19,
+            ingredients: [
+              { item: "Boar Tusk", qty: 6, source: "monster_loot" },
+              { item: "Thick Hide", qty: 6, source: "monster_loot" },
+              { item: "Venom Sac", qty: 5, source: "monster_loot" },
+              { item: "Growth Seed", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "sand_amulet",
+            resultItem: "Sand Amulet",
+            resultLevel: 16,
+            ingredients: [
+              { item: "Thick Hide", qty: 6, source: "monster_loot" },
+              { item: "Venom Sac", qty: 6, source: "monster_loot" },
+              { item: "Distorted Core", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "mirage_bracelet",
+            resultItem: "Mirage Bracelet",
+            resultLevel: 17,
+            ingredients: [
+              { item: "Venom Sac", qty: 6, source: "monster_loot" },
+              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
+              { item: "Illusion Fragment", qty: 5, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "bone_charm",
+            resultItem: "Bone Charm",
+            resultLevel: 18,
+            ingredients: [
+              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
+              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "fang_loop",
+            resultItem: "Fang Loop",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
+              { item: "Razor Claw", qty: 5, source: "monster_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "dune_band",
+            resultItem: "Dune Band",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
+              { item: "Razor Claw", qty: 6, source: "monster_loot" },
+              { item: "Sand Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "burrowstep_boots",
+            resultItem: "Burrowstep Boots",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Soft Fur", qty: 5, source: "monster_loot" },
+              { item: "Small Bone", qty: 4, source: "gathering_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Raw Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "boarhide_plate",
+            resultItem: "Boarhide Plate",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Thick Hide", qty: 8, source: "monster_loot" },
+              { item: "Boar Tusk", qty: 6, source: "monster_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 4, source: "gathering_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "boarhide_leggings",
+            resultItem: "Boarhide Leggings",
+            resultLevel: 19,
+            ingredients: [
+              { item: "Thick Hide", qty: 7, source: "monster_loot" },
+              { item: "Tough Hide", qty: 5, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Seeds", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "devourer_axe",
+            resultItem: "Devourer Axe",
+            resultLevel: 18,
+            ingredients: [
+              { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
+              { item: "Sand Residue", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "fang_dagger",
+            resultItem: "Fang Dagger",
+            resultLevel: 17,
+            ingredients: [
+              { item: "Sharp Fang", qty: 6, source: "monster_loot" },
+              { item: "Tough Hide", qty: 4, source: "gathering_loot" },
+              { item: "Blood Herb", qty: 3, source: "gathering_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "mirage_ring",
+            resultItem: "Mirage Ring",
+            resultLevel: 16,
+            ingredients: [
+              { item: "Illusion Fragment", qty: 5, source: "monster_loot" },
+              { item: "Distorted Core", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+
+        ]
+      },
+      {
+        id: "mid",
+        label: "Mid Game Recipes",
+        minLevel: 21,
+        maxLevel: 30,
+        recipes: [
+          {
+            id: "lynx_fang",
+            resultItem: "Lynx Fang",
+            resultLevel: 27,
+            ingredients: [
+              { item: "Sharp Fang", qty: 6, source: "monster_loot" },
+              { item: "Stone Claw", qty: 6, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 5, source: "monster_loot" },
+              { item: "Stable Core", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "serpent_fang",
+            resultItem: "Serpent Fang",
+            resultLevel: 28,
+            ingredients: [
+              { item: "Stone Claw", qty: 6, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 6, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 5, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "hornbreaker_axe",
+            resultItem: "Hornbreaker Axe",
+            resultLevel: 29,
+            ingredients: [
+              { item: "Ibex Horn", qty: 6, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 6, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 5, source: "monster_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "earthcaller_staff",
+            resultItem: "Earthcaller Staff",
+            resultLevel: 30,
+            ingredients: [
+              { item: "Muscle Fiber", qty: 6, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 6, source: "monster_loot" },
+              { item: "Dense Fur", qty: 5, source: "monster_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Cliff Moss", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "marmot_bulwark",
+            resultItem: "Marmot Bulwark",
+            resultLevel: 25,
+            ingredients: [
+              { item: "Hardened Stone", qty: 6, source: "monster_loot" },
+              { item: "Dense Fur", qty: 6, source: "monster_loot" },
+              { item: "Petrify Gland", qty: 5, source: "monster_loot" },
+              { item: "Cliff Moss", qty: 4, source: "gathering_loot" },
+              { item: "Strength Core", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "earthshell_armor",
+            resultItem: "Earthshell Armor",
+            resultLevel: 26,
+            ingredients: [
+              { item: "Dense Fur", qty: 6, source: "monster_loot" },
+              { item: "Petrify Gland", qty: 6, source: "monster_loot" },
+              { item: "Stone Scale", qty: 5, source: "monster_loot" },
+              { item: "Strength Core", qty: 4, source: "gathering_loot" },
+              { item: "Stable Core", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "rockstep_boots",
+            resultItem: "Rockstep Boots",
+            resultLevel: 27,
+            ingredients: [
+              { item: "Petrify Gland", qty: 6, source: "monster_loot" },
+              { item: "Stone Scale", qty: 6, source: "monster_loot" },
+              { item: "Sharp Fang", qty: 5, source: "monster_loot" },
+              { item: "Stable Core", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stone_helm",
+            resultItem: "Stone Helm",
+            resultLevel: 28,
+            ingredients: [
+              { item: "Stone Scale", qty: 6, source: "monster_loot" },
+              { item: "Sharp Fang", qty: 6, source: "monster_loot" },
+              { item: "Stone Claw", qty: 5, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "claw_gloves",
+            resultItem: "Claw Gloves",
+            resultLevel: 26,
+            ingredients: [
+              { item: "Sharp Fang", qty: 6, source: "monster_loot" },
+              { item: "Stone Claw", qty: 6, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 5, source: "monster_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "core_leggings",
+            resultItem: "Core Leggings",
+            resultLevel: 29,
+            ingredients: [
+              { item: "Stone Claw", qty: 6, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 6, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 5, source: "monster_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Cliff Moss", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "petrify_ring",
+            resultItem: "Petrify Ring",
+            resultLevel: 30,
+            ingredients: [
+              { item: "Ibex Horn", qty: 6, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 6, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 5, source: "monster_loot" },
+              { item: "Cliff Moss", qty: 4, source: "gathering_loot" },
+              { item: "Strength Core", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "core_amulet",
+            resultItem: "Core Amulet",
+            resultLevel: 29,
+            ingredients: [
+              { item: "Muscle Fiber", qty: 6, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 6, source: "monster_loot" },
+              { item: "Dense Fur", qty: 5, source: "monster_loot" },
+              { item: "Strength Core", qty: 4, source: "gathering_loot" },
+              { item: "Stable Core", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stone_bracelet",
+            resultItem: "Stone Bracelet",
+            resultLevel: 25,
+            ingredients: [
+              { item: "Hardened Stone", qty: 6, source: "monster_loot" },
+              { item: "Dense Fur", qty: 6, source: "monster_loot" },
+              { item: "Petrify Gland", qty: 5, source: "monster_loot" },
+              { item: "Stable Core", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "fang_charm",
+            resultItem: "Fang Charm",
+            resultLevel: 27,
+            ingredients: [
+              { item: "Dense Fur", qty: 6, source: "monster_loot" },
+              { item: "Petrify Gland", qty: 6, source: "monster_loot" },
+              { item: "Stone Scale", qty: 5, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "earth_loop",
+            resultItem: "Earth Loop",
+            resultLevel: 28,
+            ingredients: [
+              { item: "Petrify Gland", qty: 6, source: "monster_loot" },
+              { item: "Stone Scale", qty: 6, source: "monster_loot" },
+              { item: "Sharp Fang", qty: 5, source: "monster_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "crystal_band",
+            resultItem: "Crystal Band",
+            resultLevel: 30,
+            ingredients: [
+              { item: "Stone Scale", qty: 6, source: "monster_loot" },
+              { item: "Sharp Fang", qty: 6, source: "monster_loot" },
+              { item: "Stone Claw", qty: 5, source: "monster_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Cliff Moss", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stonehide_armor",
+            resultItem: "Stonehide Armor",
+            resultLevel: 28,
+            ingredients: [
+              { item: "Stone Scale", qty: 7, source: "monster_loot" },
+              { item: "Stable Core", qty: 5, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Thick Hide", qty: 3, source: "monster_loot" },
+              { item: "Cliff Moss", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "marmot_helm",
+            resultItem: "Marmot Helm",
+            resultLevel: 25,
+            ingredients: [
+              { item: "Dense Fur", qty: 6, source: "monster_loot" },
+              { item: "Dense Bone", qty: 5, source: "gathering_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Stone Fragment", qty: 3, source: "monster_loot" },
+              { item: "Seeds", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "earthbind_amulet",
+            resultItem: "Earthbind Amulet",
+            resultLevel: 30,
+            ingredients: [
+              { item: "Petrify Gland", qty: 6, source: "monster_loot" },
+              { item: "Stable Core", qty: 5, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Earth Residue", qty: 3, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Stone Scale", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "earthpulse_amulet",
+            resultItem: "Earthpulse Amulet",
+            resultLevel: 29,
+            ingredients: [
+              { item: "Earth Residue", qty: 6, source: "gathering_loot" },
+              { item: "Stable Core", qty: 5, source: "gathering_loot" },
+              { item: "Cliff Moss", qty: 3, source: "gathering_loot" },
+              { item: "Distorted Core", qty: 3, source: "monster_loot" },
+              { item: "Living Fiber", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "skitter_ring",
+            resultItem: "Skitter Ring",
+            resultLevel: 27,
+            ingredients: [
+              { item: "Claw Fragment", qty: 6, source: "monster_loot" },
+              { item: "Dense Bone", qty: 5, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" },
+              { item: "Sharp Fang", qty: 3, source: "monster_loot" },
+              { item: "Tough Hide", qty: 2, source: "gathering_loot" }
+            ]
+          },
+
+        ]
+      },
+      {
+        id: "mid_high",
+        label: "Mid-High Recipes",
+        minLevel: 31,
+        maxLevel: 40,
+        recipes: [
+          {
+            id: "foxfang_blade",
+            resultItem: "Foxfang Blade",
+            resultLevel: 38,
+            ingredients: [
+              { item: "Fox Fang", qty: 7, source: "monster_loot" },
+              { item: "Forest Fur", qty: 6, source: "monster_loot" },
+              { item: "Antler Piece", qty: 5, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 5, source: "monster_loot" },
+              { item: "Reinforced Bone", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stagpiercer",
+            resultItem: "Stagpiercer",
+            resultLevel: 39,
+            ingredients: [
+              { item: "Forest Fur", qty: 7, source: "monster_loot" },
+              { item: "Antler Piece", qty: 6, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 5, source: "monster_loot" },
+              { item: "Thick Bone", qty: 5, source: "monster_loot" },
+              { item: "Rage Core", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "gorilla_crusher",
+            resultItem: "Gorilla Crusher",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Antler Piece", qty: 7, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 6, source: "monster_loot" },
+              { item: "Thick Bone", qty: 5, source: "monster_loot" },
+              { item: "Rage Core", qty: 5, source: "monster_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "wraithcall_scepter",
+            resultItem: "Wraithcall Scepter",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Spirit Seed", qty: 7, source: "monster_loot" },
+              { item: "Thick Bone", qty: 6, source: "monster_loot" },
+              { item: "Rage Core", qty: 5, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 5, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 4, source: "monster_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" },
+              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "gorilla_armor",
+            resultItem: "Gorilla Armor",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Thick Bone", qty: 7, source: "monster_loot" },
+              { item: "Rage Core", qty: 6, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 5, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 5, source: "monster_loot" },
+              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Spirit Core", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "spirit_bark_armor",
+            resultItem: "Spirit Bark Armor",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Rage Core", qty: 7, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 6, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 5, source: "monster_loot" },
+              { item: "Fox Fang", qty: 5, source: "monster_loot" },
+              { item: "Forest Fur", qty: 4, source: "monster_loot" },
+              { item: "Spirit Core", qty: 4, source: "gathering_loot" },
+              { item: "Reinforced Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "jungle_boots",
+            resultItem: "Jungle Boots",
+            resultLevel: 37,
+            ingredients: [
+              { item: "Soul Fragment", qty: 7, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 6, source: "monster_loot" },
+              { item: "Fox Fang", qty: 5, source: "monster_loot" },
+              { item: "Forest Fur", qty: 5, source: "monster_loot" },
+              { item: "Reinforced Bone", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "antler_helm",
+            resultItem: "Antler Helm",
+            resultLevel: 38,
+            ingredients: [
+              { item: "Shadow Residue", qty: 7, source: "monster_loot" },
+              { item: "Fox Fang", qty: 6, source: "monster_loot" },
+              { item: "Forest Fur", qty: 5, source: "monster_loot" },
+              { item: "Antler Piece", qty: 5, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "vine_gloves",
+            resultItem: "Vine Gloves",
+            resultLevel: 36,
+            ingredients: [
+              { item: "Fox Fang", qty: 7, source: "monster_loot" },
+              { item: "Forest Fur", qty: 6, source: "monster_loot" },
+              { item: "Antler Piece", qty: 5, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 5, source: "monster_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "forest_leggings",
+            resultItem: "Forest Leggings",
+            resultLevel: 39,
+            ingredients: [
+              { item: "Forest Fur", qty: 7, source: "monster_loot" },
+              { item: "Antler Piece", qty: 6, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 5, source: "monster_loot" },
+              { item: "Thick Bone", qty: 5, source: "monster_loot" },
+              { item: "Rage Core", qty: 4, source: "monster_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" },
+              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "soul_ring",
+            resultItem: "Soul Ring",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Antler Piece", qty: 7, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 6, source: "monster_loot" },
+              { item: "Thick Bone", qty: 5, source: "monster_loot" },
+              { item: "Rage Core", qty: 5, source: "monster_loot" },
+              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Spirit Core", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "spirit_amulet",
+            resultItem: "Spirit Amulet",
+            resultLevel: 38,
+            ingredients: [
+              { item: "Spirit Seed", qty: 7, source: "monster_loot" },
+              { item: "Thick Bone", qty: 6, source: "monster_loot" },
+              { item: "Rage Core", qty: 5, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 5, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 4, source: "monster_loot" },
+              { item: "Spirit Core", qty: 4, source: "gathering_loot" },
+              { item: "Reinforced Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "jungle_bracelet",
+            resultItem: "Jungle Bracelet",
+            resultLevel: 37,
+            ingredients: [
+              { item: "Thick Bone", qty: 7, source: "monster_loot" },
+              { item: "Rage Core", qty: 6, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 5, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 5, source: "monster_loot" },
+              { item: "Reinforced Bone", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "fang_charm_alt",
+            resultItem: "Fang Charm ALT",
+            resultLevel: 35,
+            ingredients: [
+              { item: "Rage Core", qty: 7, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 6, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 5, source: "monster_loot" },
+              { item: "Fox Fang", qty: 5, source: "monster_loot" },
+              { item: "Forest Fur", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "growth_loop",
+            resultItem: "Growth Loop",
+            resultLevel: 36,
+            ingredients: [
+              { item: "Soul Fragment", qty: 7, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 6, source: "monster_loot" },
+              { item: "Fox Fang", qty: 5, source: "monster_loot" },
+              { item: "Forest Fur", qty: 5, source: "monster_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "echo_band",
+            resultItem: "Echo Band",
+            resultLevel: 39,
+            ingredients: [
+              { item: "Shadow Residue", qty: 7, source: "monster_loot" },
+              { item: "Fox Fang", qty: 6, source: "monster_loot" },
+              { item: "Forest Fur", qty: 5, source: "monster_loot" },
+              { item: "Antler Piece", qty: 5, source: "monster_loot" },
+              { item: "Spirit Seed", qty: 4, source: "monster_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" },
+              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "swiftbrush_boots",
+            resultItem: "Swiftbrush Boots",
+            resultLevel: 37,
+            ingredients: [
+              { item: "Forest Fur", qty: 6, source: "monster_loot" },
+              { item: "Living Fiber", qty: 5, source: "gathering_loot" },
+              { item: "Reinforced Bone", qty: 4, source: "gathering_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Sharp Fang", qty: 3, source: "monster_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "greenleaf_vest",
+            resultItem: "Greenleaf Vest",
+            resultLevel: 36,
+            ingredients: [
+              { item: "Forest Fur", qty: 6, source: "monster_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Antler Piece", qty: 3, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "gorilla_hide_armor",
+            resultItem: "Gorilla Hide Armor",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Thick Hide", qty: 9, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 7, source: "monster_loot" },
+              { item: "Heavy Bone", qty: 5, source: "gathering_loot" },
+              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Stable Core", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "soul_echo_amulet",
+            resultItem: "Soul Echo Amulet",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Soul Fragment", qty: 7, source: "monster_loot" },
+              { item: "Spirit Core", qty: 5, source: "gathering_loot" },
+              { item: "Shadow Residue", qty: 4, source: "gathering_loot" },
+              { item: "Shadow Dust", qty: 3, source: "gathering_loot" },
+              { item: "Distorted Core", qty: 3, source: "monster_loot" },
+              { item: "Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+
+        ]
+      },
+      {
+        id: "high_end",
+        label: "High-End Recipes",
+        minLevel: 41,
+        maxLevel: 99,
+        recipes: [
+          {
+            id: "ashmaw_cleaver",
+            resultItem: "Ashmaw Cleaver",
+            resultLevel: 45,
+            ingredients: [
+              { item: "Ash Scale", qty: 8, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 7, source: "monster_loot" },
+              { item: "Burning Fang", qty: 6, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 6, source: "monster_loot" },
+              { item: "Magma Hide", qty: 5, source: "monster_loot" },
+              { item: "Titan Core", qty: 3, source: "gathering_loot" },
+              { item: "Heavy Bone", qty: 2, source: "gathering_loot" },
+              { item: "Fire Seed", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "emberfang",
+            resultItem: "Emberfang",
+            resultLevel: 47,
+            ingredients: [
+              { item: "Burnt Hide", qty: 8, source: "monster_loot" },
+              { item: "Burning Fang", qty: 7, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 6, source: "monster_loot" },
+              { item: "Magma Hide", qty: 6, source: "monster_loot" },
+              { item: "Lava Core", qty: 5, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 5, source: "monster_loot" },
+              { item: "Heavy Bone", qty: 3, source: "gathering_loot" },
+              { item: "Fire Seed", qty: 2, source: "gathering_loot" },
+              { item: "Ancient Seed", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "frozen_edge",
+            resultItem: "Frozen Edge",
+            resultLevel: 50,
+            ingredients: [
+              { item: "Burning Fang", qty: 8, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 7, source: "monster_loot" },
+              { item: "Magma Hide", qty: 6, source: "monster_loot" },
+              { item: "Lava Core", qty: 6, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 5, source: "monster_loot" },
+              { item: "Ice Fang", qty: 5, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 4, source: "monster_loot" },
+              { item: "Fire Seed", qty: 3, source: "gathering_loot" },
+              { item: "Ancient Seed", qty: 2, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "basilisk_staff",
+            resultItem: "Basilisk Staff",
+            resultLevel: 52,
+            ingredients: [
+              { item: "Ember Fragment", qty: 8, source: "monster_loot" },
+              { item: "Magma Hide", qty: 7, source: "monster_loot" },
+              { item: "Lava Core", qty: 6, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 6, source: "monster_loot" },
+              { item: "Ice Fang", qty: 5, source: "monster_loot" },
+              { item: "Ancient Seed", qty: 3, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 2, source: "gathering_loot" },
+              { item: "Ash Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "magmahide_plate",
+            resultItem: "Magmahide Plate",
+            resultLevel: 50,
+            ingredients: [
+              { item: "Magma Hide", qty: 8, source: "monster_loot" },
+              { item: "Lava Core", qty: 7, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 6, source: "monster_loot" },
+              { item: "Ice Fang", qty: 6, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 5, source: "monster_loot" },
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Living Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Ash Residue", qty: 2, source: "gathering_loot" },
+              { item: "Ember Dust", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "glacier_shell",
+            resultItem: "Glacier Shell",
+            resultLevel: 49,
+            ingredients: [
+              { item: "Lava Core", qty: 8, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 7, source: "monster_loot" },
+              { item: "Ice Fang", qty: 6, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 6, source: "monster_loot" },
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Ash Scale", qty: 5, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 4, source: "monster_loot" },
+              { item: "Ash Residue", qty: 3, source: "gathering_loot" },
+              { item: "Ember Dust", qty: 2, source: "gathering_loot" },
+              { item: "Chill Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "flame_boots",
+            resultItem: "Flame Boots",
+            resultLevel: 46,
+            ingredients: [
+              { item: "Frozen Shell", qty: 8, source: "monster_loot" },
+              { item: "Ice Fang", qty: 7, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 6, source: "monster_loot" },
+              { item: "Molten Scale", qty: 6, source: "monster_loot" },
+              { item: "Ash Scale", qty: 5, source: "monster_loot" },
+              { item: "Ember Dust", qty: 3, source: "gathering_loot" },
+              { item: "Chill Residue", qty: 2, source: "gathering_loot" },
+              { item: "Shadow Dust", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "ice_helm",
+            resultItem: "Ice Helm",
+            resultLevel: 48,
+            ingredients: [
+              { item: "Ice Fang", qty: 8, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 7, source: "monster_loot" },
+              { item: "Molten Scale", qty: 6, source: "monster_loot" },
+              { item: "Ash Scale", qty: 6, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 5, source: "monster_loot" },
+              { item: "Burning Fang", qty: 5, source: "monster_loot" },
+              { item: "Chill Residue", qty: 3, source: "gathering_loot" },
+              { item: "Shadow Dust", qty: 2, source: "gathering_loot" },
+              { item: "Spirit Core", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "molten_gloves",
+            resultItem: "Molten Gloves",
+            resultLevel: 47,
+            ingredients: [
+              { item: "Basilisk Eye", qty: 8, source: "monster_loot" },
+              { item: "Molten Scale", qty: 7, source: "monster_loot" },
+              { item: "Ash Scale", qty: 6, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 6, source: "monster_loot" },
+              { item: "Burning Fang", qty: 5, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 5, source: "monster_loot" },
+              { item: "Magma Hide", qty: 4, source: "monster_loot" },
+              { item: "Shadow Dust", qty: 3, source: "gathering_loot" },
+              { item: "Spirit Core", qty: 2, source: "gathering_loot" },
+              { item: "Titan Core", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "frost_leggings",
+            resultItem: "Frost Leggings",
+            resultLevel: 50,
+            ingredients: [
+              { item: "Molten Scale", qty: 8, source: "monster_loot" },
+              { item: "Ash Scale", qty: 7, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 6, source: "monster_loot" },
+              { item: "Burning Fang", qty: 6, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 5, source: "monster_loot" },
+              { item: "Spirit Core", qty: 3, source: "gathering_loot" },
+              { item: "Titan Core", qty: 2, source: "gathering_loot" },
+              { item: "Heavy Bone", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "ember_ring",
+            resultItem: "Ember Ring",
+            resultLevel: 47,
+            ingredients: [
+              { item: "Burnt Hide", qty: 8, source: "monster_loot" },
+              { item: "Burning Fang", qty: 7, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 6, source: "monster_loot" },
+              { item: "Magma Hide", qty: 6, source: "monster_loot" },
+              { item: "Lava Core", qty: 5, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 5, source: "monster_loot" },
+              { item: "Ice Fang", qty: 4, source: "monster_loot" },
+              { item: "Heavy Bone", qty: 3, source: "gathering_loot" },
+              { item: "Fire Seed", qty: 2, source: "gathering_loot" },
+              { item: "Ancient Seed", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "frost_bracelet",
+            resultItem: "Frost Bracelet",
+            resultLevel: 49,
+            ingredients: [
+              { item: "Burning Fang", qty: 8, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 7, source: "monster_loot" },
+              { item: "Magma Hide", qty: 6, source: "monster_loot" },
+              { item: "Lava Core", qty: 6, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 5, source: "monster_loot" },
+              { item: "Fire Seed", qty: 3, source: "gathering_loot" },
+              { item: "Ancient Seed", qty: 2, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "soul_loop",
+            resultItem: "Soul Loop",
+            resultLevel: 51,
+            ingredients: [
+              { item: "Ember Fragment", qty: 8, source: "monster_loot" },
+              { item: "Magma Hide", qty: 7, source: "monster_loot" },
+              { item: "Lava Core", qty: 6, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 6, source: "monster_loot" },
+              { item: "Ice Fang", qty: 5, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 5, source: "monster_loot" },
+              { item: "Ancient Seed", qty: 3, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 2, source: "gathering_loot" },
+              { item: "Ash Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "inferno_charm",
+            resultItem: "Inferno Charm",
+            resultLevel: 46,
+            ingredients: [
+              { item: "Magma Hide", qty: 8, source: "monster_loot" },
+              { item: "Lava Core", qty: 7, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 6, source: "monster_loot" },
+              { item: "Ice Fang", qty: 6, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 5, source: "monster_loot" },
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Ash Scale", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Ash Residue", qty: 2, source: "gathering_loot" },
+              { item: "Ember Dust", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "ice_band",
+            resultItem: "Ice Band",
+            resultLevel: 48,
+            ingredients: [
+              { item: "Lava Core", qty: 8, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 7, source: "monster_loot" },
+              { item: "Ice Fang", qty: 6, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 6, source: "monster_loot" },
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Ash Residue", qty: 3, source: "gathering_loot" },
+              { item: "Ember Dust", qty: 2, source: "gathering_loot" },
+              { item: "Chill Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "molten_gaze_ring",
+            resultItem: "Molten Gaze Ring",
+            resultLevel: 50,
+            ingredients: [
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Lava Core", qty: 5, source: "gathering_loot" },
+              { item: "Fire Seed", qty: 4, source: "gathering_loot" },
+              { item: "Ash Residue", qty: 3, source: "gathering_loot" },
+              { item: "Ember Fragment", qty: 3, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 2, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "ember_core_ring",
+            resultItem: "Ember Core Ring",
+            resultLevel: 47,
+            ingredients: [
+              { item: "Ember Fragment", qty: 6, source: "monster_loot" },
+              { item: "Ember Dust", qty: 4, source: "gathering_loot" },
+              { item: "Sharp Fang", qty: 3, source: "monster_loot" },
+              { item: "Fire Seed", qty: 3, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 2, source: "gathering_loot" },
+              { item: "Sand Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "icebound_boots",
+            resultItem: "Icebound Boots",
+            resultLevel: 48,
+            ingredients: [
+              { item: "Frozen Shell", qty: 7, source: "monster_loot" },
+              { item: "Chill Residue", qty: 4, source: "gathering_loot" },
+              { item: "Stable Core", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 2, source: "gathering_loot" },
+              { item: "Stone Scale", qty: 2, source: "monster_loot" },
+              { item: "Root Fiber", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "lava_greaves",
+            resultItem: "Lava Greaves",
+            resultLevel: 49,
+            ingredients: [
+              { item: "Lava Core", qty: 7, source: "monster_loot" },
+              { item: "Magma Hide", qty: 6, source: "monster_loot" },
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Fire Seed", qty: 4, source: "gathering_loot" },
+              { item: "Titan Core", qty: 4, source: "gathering_loot" },
+              { item: "Heavy Bone", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Ash Residue", qty: 3, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 3, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "basilisk_eye_amulet",
+            resultItem: "Basilisk Eye Amulet",
+            resultLevel: 52,
+            ingredients: [
+              { item: "Basilisk Eye", qty: 6, source: "monster_loot" },
+              { item: "Molten Scale", qty: 5, source: "monster_loot" },
+              { item: "Spirit Core", qty: 4, source: "gathering_loot" },
+              { item: "Ancient Seed", qty: 3, source: "gathering_loot" },
+              { item: "Shadow Dust", qty: 3, source: "gathering_loot" },
+              { item: "Lava Core", qty: 3, source: "gathering_loot" },
+              { item: "Ember Dust", qty: 3, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 2, source: "gathering_loot" },
+              { item: "Residue", qty: 2, source: "gathering_loot" },
+              { item: "Tough Hide", qty: 2, source: "gathering_loot" }
+            ]
+          },
+
+        ]
+      }
+    ]
   },
 
   /**
