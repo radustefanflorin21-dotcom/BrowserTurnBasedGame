@@ -950,7 +950,7 @@ const GAME_CONFIG = {
   },
 
   items: {
-    "Shellguard Plate": {
+    "Scaleguard Shirt": {
       type: "armor",
       slot: "chest",
       equipCategory: "chest_armor",
@@ -1120,7 +1120,7 @@ const GAME_CONFIG = {
     },
     "Wet Membrane": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/wet_membrane.png",
       description: "Slick tissue from a tide creature. Used in water-themed crafts.",
       bonusSkills: [],
       bonusStats: {}
@@ -1134,7 +1134,7 @@ const GAME_CONFIG = {
     },
     "Hardened Shell": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/hardened_shell.png",
       description: "Crab or turtle shell fragments. Tough crafting material.",
       bonusSkills: [],
       bonusStats: {}
@@ -1148,21 +1148,21 @@ const GAME_CONFIG = {
     },
     "Sharp Fin": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/sharp_fin.png",
       description: "A razor-edged fin suitable for blades.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Wind Essence": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/wind_essence.png",
       description: "Captured coastal gusts in solid form.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Acid Gland": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/acid_gland.png",
       description: "Volatile organ matter. Handle carefully.",
       bonusSkills: [],
       bonusStats: {}
@@ -1176,7 +1176,7 @@ const GAME_CONFIG = {
     },
     "Stone Core": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/stone_core.png",
       description: "Dense mineral heart from a stone guardian.",
       bonusSkills: [],
       bonusStats: {}
@@ -1953,7 +1953,7 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 7, DEX: 4, "Skill Power": 4, "Status Potency": 3 }
     },
-    "Shellguard Plate": {
+    "Scaleguard Shirt": {
       type: "armor",
       slot: "chest",
       equipCategory: "chest_armor",
@@ -2093,7 +2093,7 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 6, DEX: 3, "Skill Power": 4, "Status Potency": 3, "Debuff Duration": 3, "Crit Damage": 3 }
     },
-    "Shell Band": {
+    "Sand Band": {
       type: "armor",
       slot: "ring1",
       equipCategory: "ring",
@@ -3050,25 +3050,25 @@ const GAME_CONFIG = {
     "Abyss Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/abyss_core.png",
       description: "Abyss Core used in crafting and loot."
     },
     "Abyss Flesh": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/abyss_flesh.png",
       description: "Abyss Flesh used in crafting and loot."
     },
     "Abyss Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/abyss_residue.png",
       description: "Abyss Residue used in crafting and loot."
     },
     "Abyssal Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/abyssal_essence.png",
       description: "Abyssal Essence used in crafting and loot."
     },
     "Advanced Mechanism": {
@@ -3098,7 +3098,7 @@ const GAME_CONFIG = {
     "Ancient Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ancient_fragment.png",
       description: "Ancient Fragment used in crafting and loot."
     },
     "Ancient Seed": {
@@ -3194,7 +3194,7 @@ const GAME_CONFIG = {
     "Bound Remains": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bound_remains.png",
       description: "Bound Remains used in crafting and loot."
     },
     "Bound Soul": {
@@ -3260,19 +3260,19 @@ const GAME_CONFIG = {
     "Corrosive Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/corrosive_core.png",
       description: "Corrosive Core used in crafting and loot."
     },
     "Crushing Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/crushing_essence.png",
       description: "Crushing Essence used in crafting and loot."
     },
     "Crust Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/crust_fragment.png",
       description: "Crust Fragment used in crafting and loot."
     },
     "Crystal Stone": {
@@ -3290,7 +3290,7 @@ const GAME_CONFIG = {
     "Dark Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/dark_residue.png",
       description: "Dark Residue used in crafting and loot."
     },
     "Decay Fragment": {
@@ -3302,7 +3302,7 @@ const GAME_CONFIG = {
     "Deepwater Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/deepwater_essence.png",
       description: "Deepwater Essence used in crafting and loot."
     },
     "Defense Core": {
@@ -3314,7 +3314,7 @@ const GAME_CONFIG = {
     "Defensive Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/defensive_core.png",
       description: "Defensive Core used in crafting and loot."
     },
     "Dense Bone": {
@@ -3374,7 +3374,7 @@ const GAME_CONFIG = {
     "Elastic Tendon": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/elastic_tendon.png",
       description: "Elastic Tendon used in crafting and loot."
     },
     "Elemental Fragment": {
@@ -3446,7 +3446,7 @@ const GAME_CONFIG = {
     "Fluid Sac": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/fluid_sac.png",
       description: "Fluid Sac used in crafting and loot."
     },
     "Forest Fur": {
@@ -3638,7 +3638,7 @@ const GAME_CONFIG = {
     "Ocean Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ocean_essence.png",
       description: "Ocean Essence used in crafting and loot."
     },
     "Perfect Core": {
@@ -3692,7 +3692,7 @@ const GAME_CONFIG = {
     "Pressure Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/pressure_core.png",
       description: "Pressure Core used in crafting and loot."
     },
     "Primal Essence": {
@@ -3722,7 +3722,7 @@ const GAME_CONFIG = {
     "Razor Edge Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/razor_edge_fragment.png",
       description: "Razor Edge Fragment used in crafting and loot."
     },
     "Reflex Core": {
@@ -3758,25 +3758,25 @@ const GAME_CONFIG = {
     "Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/residue.png",
       description: "Residue used in crafting and loot."
     },
     "Resonance Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/resonance_core.png",
       description: "Resonance Core used in crafting and loot."
     },
     "Revenant Core Material": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/revenant_core_material.png",
       description: "Revenant Core Material used in crafting and loot."
     },
     "Ripple Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ripple_core.png",
       description: "Ripple Core used in crafting and loot."
     },
     "Root Fiber": {
@@ -3800,7 +3800,7 @@ const GAME_CONFIG = {
     "Salt Flesh": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/salt_flesh.png",
       description: "Salt Flesh used in crafting and loot."
     },
     "Sand Blade Fragment": {
@@ -3872,7 +3872,7 @@ const GAME_CONFIG = {
     "Soul Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/soul_residue.png",
       description: "Soul Residue used in crafting and loot."
     },
     "Spirit Bark": {
@@ -3890,7 +3890,7 @@ const GAME_CONFIG = {
     "Spirit Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/spirit_essence.png",
       description: "Spirit Essence used in crafting and loot."
     },
     "Spirit Seed": {
@@ -3962,13 +3962,13 @@ const GAME_CONFIG = {
     "Tidal Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/tidal_essence.png",
       description: "Tidal Essence used in crafting and loot."
     },
     "Tide Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/tide_fragment.png",
       description: "Tide Fragment used in crafting and loot."
     },
     "Titan Bone": {
@@ -3980,7 +3980,7 @@ const GAME_CONFIG = {
     "Titan Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/titan_core.png",
       description: "Titan Core used in crafting and loot."
     },
     "Tough Hide": {
@@ -3998,7 +3998,7 @@ const GAME_CONFIG = {
     "Toxic Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/toxic_essence.png",
       description: "Toxic Essence used in crafting and loot."
     },
     "Treated Leather": {
@@ -4022,7 +4022,7 @@ const GAME_CONFIG = {
     "Water Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/water_essence.png",
       description: "Water Essence used in crafting and loot."
     },
     "Wild Essence": {
@@ -4034,7 +4034,7 @@ const GAME_CONFIG = {
     "Wind Scale": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/wind_scale.png",
       description: "Wind Scale used in crafting and loot."
     },
     "Withered Tissue": {
@@ -4111,7 +4111,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 1,
       defense: 1,
-      image: "Assets/Equips/template_helm.png",
+      image: "Assets/Equips/_template_hat.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
       bonusStats: {}
@@ -4123,7 +4123,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 1,
       defense: 1,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/_template_chest.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
       bonusStats: {}
@@ -4135,7 +4135,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 1,
       defense: 1,
-      image: "Assets/Equips/template_feet.png",
+      image: "Assets/Equips/_template_feet.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
       bonusStats: {}
@@ -4147,7 +4147,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 1,
       defense: 1,
-      image: "Assets/Equips/template_leggs.png",
+      image: "Assets/Equips/_template_leggs.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
       bonusStats: {}
@@ -4402,8 +4402,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "shellguard_plate",
-            resultItem: "Shellguard Plate",
+            id: "scaleguard_shirt",
+            resultItem: "Scaleguard Shirt",
             resultLevel: 7,
             ingredients: [
               { item: "Fluid Sac", qty: 6, source: "monster_loot" },
@@ -4497,8 +4497,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "shell_band",
-            resultItem: "Shell Band",
+            id: "sand_band",
+            resultItem: "Sand Band",
             resultLevel: 8,
             ingredients: [
               { item: "Salt Flesh", qty: 6, source: "monster_loot" },

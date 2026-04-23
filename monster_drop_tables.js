@@ -45,7 +45,7 @@
       ]
     },
     "Hermit Crab": {
-      gear: [{ w: 5, item: "Shellguard Plate" }],
+      gear: [{ w: 5, item: "Scaleguard Shirt" }],
       materials: [
         { name: "Hardened Shell", dropRate: 75 },
         { name: "Crust Fragment", dropRate: 45 },
