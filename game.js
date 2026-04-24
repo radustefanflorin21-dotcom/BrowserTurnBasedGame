@@ -1519,12 +1519,44 @@ async function copyPortraitLayoutExportToClipboard(opts) {
 
 function getEditableInventoryItemNames() {
   const items = GAME_CONFIG.items && typeof GAME_CONFIG.items === "object" ? GAME_CONFIG.items : {};
-  return Object.keys(items).sort((a, b) => a.localeCompare(b));
+  return Object.keys(items)
+    .filter((name) => isEditModeSpawnAllowed(items[name]))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function isTemplateEquipImagePath(imagePath) {
+  const path = String(imagePath || "").trim().toLowerCase();
+  if (!path) return false;
+  // Exclude equip entries that still rely on generic template art.
+  return path.includes("/equips/template_") || path.includes("\\equips\\template_");
+}
+
+function isGenericResourceImagePath(imagePath) {
+  const path = String(imagePath || "").trim().toLowerCase();
+  if (!path) return false;
+  // Exclude resources/materials that still use shared placeholder art.
+  return (
+    path.includes("/materials/material_placeholder") ||
+    path.includes("\\materials\\material_placeholder") ||
+    path.endsWith("/resources/energy-cell.svg") ||
+    path.endsWith("\\resources\\energy-cell.svg") ||
+    path.endsWith("/resources/wolf-pelt.svg") ||
+    path.endsWith("\\resources\\wolf-pelt.svg")
+  );
+}
+
+function isEditModeSpawnAllowed(def) {
+  if (!def || typeof def !== "object") return false;
+  const type = String(def.type || "").toLowerCase();
+  if ((type === "weapon" || type === "armor") && isTemplateEquipImagePath(def.image)) return false;
+  if ((type === "resource" || type === "material") && isGenericResourceImagePath(def.image)) return false;
+  return true;
 }
 
 function tryAddInventoryItemByName(itemName) {
   const name = typeof itemName === "string" ? itemName.trim() : "";
-  if (!name || !getItemDef(name)) return false;
+  const def = getItemDef(name);
+  if (!name || !def || !isEditModeSpawnAllowed(def)) return false;
   player.inventory.push(name);
   save();
   render();

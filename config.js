@@ -962,18 +962,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { DEX: 5, STR: 3, Crit: 6 }
     },
-    "Sandfang Blade": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "one_handed_sword",
-      rarity: "common",
-      itemLevel: 15,
-      attack: 9,
-      image: "Assets/Equips/template_weapon.png",
-      description: "Dust Carver sword.",
-      bonusSkills: [],
-      bonusStats: { DEX: 11, STR: 6, Crit: 8 }
-    },
     "Lynx Fang": {
       type: "weapon",
       slot: "weapon",
