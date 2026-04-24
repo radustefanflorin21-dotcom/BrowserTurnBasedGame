@@ -316,8 +316,8 @@ function syncPlayerClassSkillList(p) {
 
 function getDefaultPortraitBaseLayout() {
   return {
-    offsetXPct: 15.036864619832,
-    offsetYPct: -1.1569396503081677,
+    offsetXPct: 11.566826474173666,
+    offsetYPct: -4.0486297112605,
     rotDeg: 0,
     scalePct: 124
   };
@@ -1249,8 +1249,8 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 160
   },
   weapon_two_handed: {
-    offsetXPct: -109.73646775103633,
-    offsetYPct: -58.411944042353,
+    offsetXPct: -109.736,
+    offsetYPct: -58.4119,
     rotDeg: 17.5,
     scalePct: 172
   },
@@ -1296,6 +1296,12 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     rotDeg: 0,
     scalePct: 15
   },
+  ring2: {
+    offsetXPct: -249.26419825154085,
+    offsetYPct: -167.71818995506982,
+    rotDeg: 12.5,
+    scalePct: 15
+  },
   offhand: {
     offsetXPct: 102.9440102887395,
     offsetYPct: -49.73697911630142,
@@ -1321,8 +1327,8 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 160
   },
   offhand_fixed_arm: {
-    offsetXPct: -120.87266323708683,
-    offsetYPct: -114.51,
+    offsetXPct: -120.873,
+    offsetYPct: -115.088,
     rotDeg: 0,
     scalePct: 70
   },

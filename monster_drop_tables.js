@@ -131,7 +131,7 @@
       ]
     },
     "Tusk Boar": {
-      gear: [{ w: 3, item: "Boarhide Plate" }, { w: 2.5, item: "Boarhide Leggings" }],
+      gear: [{ w: 2.5, item: "Boarhide Leggings" }],
       materials: [
         { name: "Thick Hide", dropRate: 80 },
         { name: "Boar Tusk", dropRate: 45 },
