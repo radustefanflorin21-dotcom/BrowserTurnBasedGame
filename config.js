@@ -1194,14 +1194,14 @@ const GAME_CONFIG = {
     },
     "Soft Fur": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/soft_fur.png",
       description: "Fine fur from a burrowing beast.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Earth Essence": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/earth_essence.png",
       description: "Loam-rich essence for earth crafts.",
       bonusSkills: [],
       bonusStats: {}
@@ -1222,7 +1222,7 @@ const GAME_CONFIG = {
     },
     "Venom Sac": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/venom_sac.png",
       description: "Still-toxic tissue from a serpent.",
       bonusSkills: [],
       bonusStats: {}
@@ -1250,7 +1250,7 @@ const GAME_CONFIG = {
     },
     "Thick Hide": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/thick_hide.png",
       description: "Boar hide strips. Armor lining material.",
       bonusSkills: [],
       bonusStats: {}
@@ -1264,14 +1264,14 @@ const GAME_CONFIG = {
     },
     "Wolf Fang": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/wolf_fang.png",
       description: "A long canine from a field wolf.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Blood Essence": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/blood_essence.png",
       description: "Crimson essence distilled from a fresh kill.",
       bonusSkills: [],
       bonusStats: {}
@@ -1355,7 +1355,7 @@ const GAME_CONFIG = {
     },
     "Predator Core": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/predator_core.png",
       description: "Dense essence of the hunt.",
       bonusSkills: [],
       bonusStats: {}
@@ -1411,7 +1411,7 @@ const GAME_CONFIG = {
     },
     "Nature Essence": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/nature_essence.png",
       description: "Green-tinted essence of the canopy.",
       bonusSkills: [],
       bonusStats: {}
@@ -3138,7 +3138,7 @@ const GAME_CONFIG = {
     "Boar Tusk": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/boar_tusk.png",
       description: "Boar Tusk used in crafting and loot."
     },
     "Bone Dust": {
@@ -3150,7 +3150,7 @@ const GAME_CONFIG = {
     "Bone Shard": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bone_shard.png",
       description: "Bone Shard used in crafting and loot."
     },
     "Bound Remains": {
@@ -3306,7 +3306,7 @@ const GAME_CONFIG = {
     "Digging Claw": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/digging_claw.png",
       description: "Digging Claw used in crafting and loot."
     },
     "Distorted Core": {
@@ -3372,7 +3372,7 @@ const GAME_CONFIG = {
     "Endurance Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/endurance_core.png",
       description: "Endurance Core used in crafting and loot."
     },
     "Faint Residue": {
@@ -3444,7 +3444,7 @@ const GAME_CONFIG = {
     "Fur Pelt": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/fur_pelt.png",
       description: "Fur Pelt used in crafting and loot."
     },
     "Growth Seed": {
@@ -3630,7 +3630,7 @@ const GAME_CONFIG = {
     "Poison Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/poison_essence.png",
       description: "Poison Essence used in crafting and loot."
     },
     "Precision Core": {
@@ -3648,7 +3648,7 @@ const GAME_CONFIG = {
     "Predator Instinct Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/predator_instinct_core.png",
       description: "Predator Instinct Core used in crafting and loot."
     },
     "Pressure Core": {
@@ -3678,7 +3678,7 @@ const GAME_CONFIG = {
     "Raw Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/raw_hide.png",
       description: "Raw Hide used in crafting and loot."
     },
     "Razor Edge Fragment": {
@@ -3690,7 +3690,7 @@ const GAME_CONFIG = {
     "Reflex Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/reflex_core.png",
       description: "Reflex Core used in crafting and loot."
     },
     "Reinforced Bone": {
@@ -3744,7 +3744,7 @@ const GAME_CONFIG = {
     "Root Fiber": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/root_fiber.png",
       description: "Root Fiber used in crafting and loot."
     },
     "Rough Core": {
@@ -3780,7 +3780,7 @@ const GAME_CONFIG = {
     "Scaled Skin": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/scaled_skin.png",
       description: "Scaled Skin used in crafting and loot."
     },
     "Seeds": {
@@ -3906,7 +3906,7 @@ const GAME_CONFIG = {
     "Talon Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/talon_fragment.png",
       description: "Talon Fragment used in crafting and loot."
     },
     "Thick Fur": {
@@ -3948,13 +3948,13 @@ const GAME_CONFIG = {
     "Tough Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/tough_hide.png",
       description: "Tough Hide used in crafting and loot."
     },
     "Toxic Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/toxic_core.png",
       description: "Toxic Core used in crafting and loot."
     },
     "Toxic Essence": {
@@ -3990,7 +3990,7 @@ const GAME_CONFIG = {
     "Wild Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/wild_essence.png",
       description: "Wild Essence used in crafting and loot."
     },
     "Wind Scale": {
