@@ -890,9 +890,15 @@ function isConfiguredMonsterMaterialName(name) {
   return knownMonsterMaterialNamesCache.names.has(n);
 }
 
+/** Renamed items: old base names in saves / exports still resolve to the new definition. */
+const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
+  "Mirage Hood": "Mirage Helm"
+});
+
 function getItemDef(name) {
   const baseName = getItemBaseName(name);
-  const direct = GAME_CONFIG.items[baseName];
+  const lookupName = ITEM_DEF_LEGACY_BASE_NAMES[baseName] || baseName;
+  const direct = GAME_CONFIG.items[lookupName];
   if (direct) return direct;
   if (isConfiguredMonsterMaterialName(baseName) || PROFESSION_GATHERING_MATERIALS.has(baseName)) {
     return {
@@ -1309,10 +1315,10 @@ const DEFAULT_PORTRAIT_LAYOUT = {
     scalePct: 160
   },
   offhand_one_handed_sword: {
-    offsetXPct: 102.9440102887395,
-    offsetYPct: -49.73697911630142,
-    rotDeg: 34,
-    scalePct: 160
+    offsetXPct: 100.6309897112605,
+    offsetYPct: -44.532036762913165,
+    rotDeg: 33,
+    scalePct: 178
   },
   offhand_dagger: {
     offsetXPct: 146.319,
@@ -5215,6 +5221,21 @@ const BIOME_BG_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 /** Crossfade duration matches `.adventure-bg-stack--ready .adventure-bg-layer` in styles.css */
 const ADVENTURE_BG_CROSSFADE_MS = 520;
 
+/**
+ * Cardinal map moves: blur builds slowly while opaque, then quick fade; new cell sharpens slowly.
+ * Blur runs on its own timing so it stays visible (same-duration opacity was hiding the effect).
+ */
+const ADVENTURE_MAP_FADE_BLUR_PX = 24;
+const ADVENTURE_MAP_FADE_OUT_BLUR_MS = 780;
+const ADVENTURE_MAP_FADE_OUT_OPACITY_MS = 220;
+const ADVENTURE_MAP_FADE_IN_BLUR_MS = 920;
+const ADVENTURE_MAP_FADE_IN_OPACITY_MS = 420;
+const ADVENTURE_MAP_FADE_EASING = "cubic-bezier(0.33, 0, 0.25, 1)";
+const ADVENTURE_MAP_FADE_BLUR_EASING = "cubic-bezier(0.2, 0.85, 0.35, 1)";
+
+/** True while a map fade transition is running (blocks stacked moves). */
+let adventureMapFadeInFlight = false;
+
 /** Last resolved background URL (for crossfade); reset when leaving adventure. */
 let adventureBgLastUrl = null;
 /** Whether {@link adventureBgLastUrl} came from a city folder (for city-only sharpen styling). */
@@ -7383,11 +7404,170 @@ function slotIsWorldMobOnRespawnCooldown(x, y, setIndex) {
   return Date.now() - t < ms;
 }
 
+function prefersAdventureMapReducedMotion() {
+  try {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function adventureMapFadeFilterPropertyOk(name) {
+  return name === "filter" || name === "-webkit-filter";
+}
+
+/** Blur out (opaque → blurred), fade out, swap; fade in while blurred then slow sharpen (dx/dy unused). */
+function beginAdventureMapFade(_dx, _dy, nx, ny) {
+  const pageRoot = document.getElementById("adventurePageRoot");
+  const fadeEl = document.getElementById("adventurePageScene") || pageRoot;
+  if (!pageRoot || !fadeEl) {
+    player.worldMap.x = nx;
+    player.worldMap.y = ny;
+    save();
+    render();
+    return;
+  }
+
+  const blur = ADVENTURE_MAP_FADE_BLUR_PX;
+  const outBlurMs = ADVENTURE_MAP_FADE_OUT_BLUR_MS;
+  const outOpMs = ADVENTURE_MAP_FADE_OUT_OPACITY_MS;
+  const inBlurMs = ADVENTURE_MAP_FADE_IN_BLUR_MS;
+  const inOpMs = ADVENTURE_MAP_FADE_IN_OPACITY_MS;
+
+  adventureMapFadeInFlight = true;
+  fadeEl.classList.add("adventure-page--map-fade");
+  fadeEl.style.transition = "none";
+  fadeEl.style.opacity = "1";
+  fadeEl.style.filter = "blur(0px)";
+  void fadeEl.offsetHeight;
+
+  let outFailTimer = 0;
+  let outFailTimer2 = 0;
+  let outOpacityPhase = false;
+
+  let outFinished = false;
+  const finishOutAndCommit = () => {
+    if (outFinished) return;
+    outFinished = true;
+    fadeEl.removeEventListener("transitionend", onOutBlurEnd);
+    fadeEl.removeEventListener("transitionend", onOutOpacityEnd);
+    window.clearTimeout(outFailTimer);
+    window.clearTimeout(outFailTimer2);
+    fadeEl.classList.remove("adventure-page--map-fade");
+    fadeEl.style.transition = "";
+    fadeEl.style.opacity = "";
+    fadeEl.style.filter = "";
+    player.worldMap.x = nx;
+    player.worldMap.y = ny;
+    save();
+    render();
+
+    const pr = document.getElementById("adventurePageScene") || document.getElementById("adventurePageRoot");
+    if (!pr) {
+      adventureMapFadeInFlight = false;
+      return;
+    }
+    const tri = `opacity ${inOpMs}ms ${ADVENTURE_MAP_FADE_EASING}, filter ${inBlurMs}ms ${ADVENTURE_MAP_FADE_BLUR_EASING}`;
+    pr.classList.add("adventure-page--map-fade");
+    pr.style.transition = "none";
+    pr.style.opacity = "0";
+    pr.style.filter = `blur(${blur}px)`;
+    void pr.offsetHeight;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        pr.style.transition = tri;
+        pr.style.opacity = "1";
+        pr.style.filter = "blur(0px)";
+
+        let inFinished = false;
+        const finishIn = (e) => {
+          if (inFinished) return;
+          if (!e || e.target !== pr || !adventureMapFadeFilterPropertyOk(e.propertyName)) return;
+          inFinished = true;
+          pr.removeEventListener("transitionend", onInEnd);
+          window.clearTimeout(inFailTimer);
+          pr.style.transition = "";
+          pr.style.opacity = "";
+          pr.style.filter = "";
+          pr.classList.remove("adventure-page--map-fade");
+          adventureMapFadeInFlight = false;
+        };
+        const onInEnd = (e) => finishIn(e);
+        const inFailTimer = window.setTimeout(
+          () => finishIn({ target: pr, propertyName: "filter" }),
+          inBlurMs + 160
+        );
+        pr.addEventListener("transitionend", onInEnd);
+      });
+    });
+  };
+
+  const runOutOpacityFade = () => {
+    if (outOpacityPhase) return;
+    outOpacityPhase = true;
+    fadeEl.removeEventListener("transitionend", onOutBlurEnd);
+    window.clearTimeout(outFailTimer);
+    fadeEl.style.transition = "none";
+    fadeEl.style.opacity = "1";
+    fadeEl.style.filter = `blur(${blur}px)`;
+    void fadeEl.offsetHeight;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        fadeEl.style.transition = `opacity ${outOpMs}ms ${ADVENTURE_MAP_FADE_EASING}`;
+        fadeEl.style.opacity = "0";
+      });
+    });
+    fadeEl.addEventListener("transitionend", onOutOpacityEnd);
+    outFailTimer2 = window.setTimeout(
+      () => onOutOpacityEnd({ target: fadeEl, propertyName: "opacity" }),
+      outOpMs + 160
+    );
+  };
+
+  const onOutBlurEnd = (e) => {
+    if (!e || e.target !== fadeEl || !adventureMapFadeFilterPropertyOk(e.propertyName)) return;
+    window.clearTimeout(outFailTimer);
+    if (outOpacityPhase) return;
+    runOutOpacityFade();
+  };
+
+  const onOutOpacityEnd = (e) => {
+    if (!e || e.target !== fadeEl || e.propertyName !== "opacity") return;
+    if (outFinished) return;
+    fadeEl.removeEventListener("transitionend", onOutOpacityEnd);
+    window.clearTimeout(outFailTimer2);
+    finishOutAndCommit();
+  };
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fadeEl.style.transition = `filter ${outBlurMs}ms ${ADVENTURE_MAP_FADE_BLUR_EASING}`;
+      fadeEl.style.filter = `blur(${blur}px)`;
+    });
+  });
+  fadeEl.addEventListener("transitionend", onOutBlurEnd);
+  outFailTimer = window.setTimeout(
+    () => onOutBlurEnd({ target: fadeEl, propertyName: "filter" }),
+    outBlurMs + 160
+  );
+}
+
 function moveWorldMap(dx, dy) {
   ensureWorldMapPosition();
   const nx = player.worldMap.x + dx;
   const ny = player.worldMap.y + dy;
   if (!canEnterMap(nx, ny)) return;
+  if (adventureMapFadeInFlight) return;
+  if (
+    currentPage === "adventure" &&
+    !player.editMode &&
+    (dx !== 0 || dy !== 0) &&
+    (dx === 0 || dy === 0) &&
+    !prefersAdventureMapReducedMotion()
+  ) {
+    beginAdventureMapFade(dx, dy, nx, ny);
+    return;
+  }
   player.worldMap.x = nx;
   player.worldMap.y = ny;
   save();
@@ -10572,9 +10752,14 @@ function renderAdventure() {
 
   c.innerHTML = `
     <div class="adventure-page" id="adventurePageRoot">
-      <div class="adventure-bg-stack" id="adventureBgStack" aria-hidden="true">
-        <img class="adventure-bg-layer" id="adventureBgLayerA" alt="" draggable="false" decoding="async" />
-        <img class="adventure-bg-layer" id="adventureBgLayerB" alt="" draggable="false" decoding="async" />
+      <div class="adventure-page-scene" id="adventurePageScene">
+        <div class="adventure-bg-stack" id="adventureBgStack" aria-hidden="true">
+          <img class="adventure-bg-layer" id="adventureBgLayerA" alt="" draggable="false" decoding="async" />
+          <img class="adventure-bg-layer" id="adventureBgLayerB" alt="" draggable="false" decoding="async" />
+        </div>
+        <div class="adventure-body">
+          <div class="${worldCampsClass}">${campsHtml}</div>
+        </div>
       </div>
       <div class="adventure-hud-top">
         <span class="adventure-biome-name">${escapeHtml(adventureLocationLine)}</span>
@@ -10584,9 +10769,6 @@ function renderAdventure() {
       ${navBtn("south", "▼", sOk, "world-nav-btn--edge world-nav-btn--south")}
       ${navBtn("east", "▶", eOk, "world-nav-btn--edge world-nav-btn--east")}
       ${navBtn("west", "◀", wOk, "world-nav-btn--edge world-nav-btn--west")}
-      <div class="adventure-body">
-        <div class="${worldCampsClass}">${campsHtml}</div>
-      </div>
     </div>`;
   hydrateSpriteAnimations(c);
 
@@ -10696,6 +10878,8 @@ function render() {
   const c = document.getElementById("content");
   if (currentPage !== "adventure") {
     clearAdventureRespawnTimer();
+    adventureMapFadeInFlight = false;
+    c.style.overflow = "";
     adventureBgLastUrl = null;
     adventureBgLastIsCity = false;
     adventureBgActiveLayer = 0;
