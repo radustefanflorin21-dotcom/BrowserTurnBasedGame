@@ -1397,7 +1397,7 @@ const GAME_CONFIG = {
     },
     "Dart Spine": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/dart_spine.png",
       description: "Needle spines from a dart squirrel.",
       bonusSkills: [],
       bonusStats: {}
@@ -1411,7 +1411,7 @@ const GAME_CONFIG = {
     },
     "Fox Fang": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/fox_fang.png",
       description: "A polished fang from a greenleaf fox.",
       bonusSkills: [],
       bonusStats: {}
@@ -1425,14 +1425,14 @@ const GAME_CONFIG = {
     },
     "Thick Bone": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/thick_bone.png",
       description: "Dense gorilla bone matter.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Rage Core": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/rage_core.png",
       description: "Hot, unstable core of fury.",
       bonusSkills: [],
       bonusStats: {}
@@ -3035,7 +3035,7 @@ const GAME_CONFIG = {
     "Agility Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/agility_core.png",
       description: "Agility Core used in crafting and loot."
     },
     "Alpha Pelt": {
@@ -3068,16 +3068,10 @@ const GAME_CONFIG = {
       image: "Assets/Materials/material_placeholder.png",
       description: "Ancient Soul Core used in crafting and loot."
     },
-    "Antler Fragment": {
-      type: "material",
-      value: 5,
-      image: "Assets/Materials/material_placeholder.png",
-      description: "Antler Fragment used in crafting and loot."
-    },
     "Antler Piece": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/antler_piece.png",
       description: "Antler Piece used in crafting and loot."
     },
     "Apex Core": {
@@ -3101,7 +3095,7 @@ const GAME_CONFIG = {
     "Assassin Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/assassin_core.png",
       description: "Assassin Core used in crafting and loot."
     },
     "Bark": {
@@ -3119,7 +3113,7 @@ const GAME_CONFIG = {
     "Bark Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bark_fragment.png",
       description: "Bark Fragment used in crafting and loot."
     },
     "Basilisk Eye": {
@@ -3407,7 +3401,7 @@ const GAME_CONFIG = {
     "Forest Fur": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/forest_fur.png",
       description: "Forest Fur used in crafting and loot."
     },
     "Fragmented Core": {
@@ -3443,7 +3437,7 @@ const GAME_CONFIG = {
     "Growth Seed": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/growth_seed.png",
       description: "Growth Seed used in crafting and loot."
     },
     "Hardened Core": {
@@ -3467,7 +3461,7 @@ const GAME_CONFIG = {
     "Heavy Bone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/heavy_bone.png",
       description: "Heavy Bone used in crafting and loot."
     },
     "Heavy Fang": {
@@ -3521,7 +3515,7 @@ const GAME_CONFIG = {
     "Jungle Fiber": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/jungle_fiber.png",
       description: "Jungle Fiber used in crafting and loot."
     },
     "Lava Core": {
@@ -3617,7 +3611,7 @@ const GAME_CONFIG = {
     "Plant Fiber": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/plant_fiber.png",
       description: "Plant Fiber used in crafting and loot."
     },
     "Poison Essence": {
@@ -3653,7 +3647,7 @@ const GAME_CONFIG = {
     "Primal Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/primal_essence.png",
       description: "Primal Essence used in crafting and loot."
     },
     "Primal Fur": {
@@ -3689,7 +3683,7 @@ const GAME_CONFIG = {
     "Reinforced Bone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/reinforced_bone.png",
       description: "Reinforced Bone used in crafting and loot."
     },
     "Reinforced Hide": {
@@ -3779,7 +3773,7 @@ const GAME_CONFIG = {
     "Seeds": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/seeds.png",
       description: "Seeds used in crafting and loot."
     },
     "Shadow Dust": {
@@ -3830,12 +3824,6 @@ const GAME_CONFIG = {
       image: "Assets/Resources/soul_residue.png",
       description: "Soul Residue used in crafting and loot."
     },
-    "Spirit Bark": {
-      type: "material",
-      value: 5,
-      image: "Assets/Materials/material_placeholder.png",
-      description: "Spirit Bark used in crafting and loot."
-    },
     "Spirit Core": {
       type: "material",
       value: 5,
@@ -3851,7 +3839,7 @@ const GAME_CONFIG = {
     "Spirit Seed": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/spirit_seed.png",
       description: "Spirit Seed used in crafting and loot."
     },
     "Spirit Thread": {
@@ -3893,7 +3881,7 @@ const GAME_CONFIG = {
     "Support Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/support_core.png",
       description: "Support Core used in crafting and loot."
     },
     "Talon Fragment": {

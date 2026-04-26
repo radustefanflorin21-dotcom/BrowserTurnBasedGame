@@ -788,7 +788,7 @@ const PROFESSION_GATHERING_MATERIALS = new Set([
   "Growth Seed",
   "Bark",
   "Living Fiber",
-  "Spirit Bark",
+  "Bark Fragment",
   "Ancient Seed",
   "Vital Growth",
   "World Seed",
@@ -849,7 +849,7 @@ const PROFESSION_GATHERING_TABLES = Object.freeze({
     nature: Object.freeze({
       t1: Object.freeze(["Seeds", "Plant Fiber"]),
       t2: Object.freeze(["Growth Seed", "Bark"]),
-      t3: Object.freeze(["Living Fiber", "Spirit Bark"]),
+      t3: Object.freeze(["Living Fiber", "Bark Fragment"]),
       t4: Object.freeze(["Ancient Seed", "Vital Growth"]),
       t5: Object.freeze(["World Seed", "Life Core"])
     }),
@@ -893,7 +893,9 @@ function isConfiguredMonsterMaterialName(name) {
 /** Renamed items: old base names in saves / exports still resolve to the new definition. */
 const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
   "Mirage Hood": "Mirage Helm",
-  "Thick Scale": "Stone Scale"
+  "Thick Scale": "Stone Scale",
+  "Spirit Bark": "Bark Fragment",
+  "Antler Fragment": "Antler Piece"
 });
 
 function getItemDef(name) {

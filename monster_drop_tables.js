@@ -255,8 +255,8 @@
     "Jungle Stag": {
       gear: [],
       materials: [
-        { name: "Antler Fragment", dropRate: 75 },
-        { name: "Spirit Bark", dropRate: 40 },
+        { name: "Antler Piece", dropRate: 75 },
+        { name: "Bark Fragment", dropRate: 40 },
         { name: "Support Core", dropRate: 15 },
         { name: "Nature Essence", dropRate: 6 }
       ]
