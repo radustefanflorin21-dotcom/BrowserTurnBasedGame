@@ -1173,7 +1173,7 @@ const GAME_CONFIG = {
     },
     "Soul Fragment": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/soul_fragment.png",
       description: "A shard of unstable soul-stuff.",
       bonusSkills: [],
       bonusStats: {}
@@ -1467,21 +1467,21 @@ const GAME_CONFIG = {
     },
     "Burning Fang": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/burning_fang.png",
       description: "A charred fang imbued with ember heat.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Fire Essence": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/fire_essence.png",
       description: "Volatile essence of open flame.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Ember Core": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/ember_core.png",
       description: "Slow-burning magical ember.",
       bonusSkills: [],
       bonusStats: {}
@@ -3089,13 +3089,13 @@ const GAME_CONFIG = {
     "Ash Scale": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ash_scale.png",
       description: "Ash Scale used in crafting and loot."
     },
     "Assassin Core": {
       type: "material",
       value: 5,
-      image: "Assets/Resources/assassin_core.png",
+      image: "Assets/Resources/assasin_core.png",
       description: "Assassin Core used in crafting and loot."
     },
     "Bark": {
@@ -3119,7 +3119,7 @@ const GAME_CONFIG = {
     "Basilisk Eye": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/basilisk_eye.png",
       description: "Basilisk Eye used in crafting and loot."
     },
     "Boar Tusk": {
@@ -3161,7 +3161,7 @@ const GAME_CONFIG = {
     "Burnt Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/burnt_hide.png",
       description: "Burnt Hide used in crafting and loot."
     },
     "Carapace Fragment": {
@@ -3203,7 +3203,7 @@ const GAME_CONFIG = {
     "Corroded Gear": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/corroded_gear.png",
       description: "Corroded Gear used in crafting and loot."
     },
     "Corrosive Core": {
@@ -3347,13 +3347,13 @@ const GAME_CONFIG = {
     "Ember Dust": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ember_dust.png",
       description: "Ember Dust used in crafting and loot."
     },
     "Ember Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ember_fragment.png",
       description: "Ember Fragment used in crafting and loot."
     },
     "Endurance Core": {
@@ -3371,19 +3371,19 @@ const GAME_CONFIG = {
     "Fire Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/fire_core.png",
       description: "Fire Core used in crafting and loot."
     },
     "Fire Seed": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/fire_seed.png",
       description: "Fire Seed used in crafting and loot."
     },
     "Flame Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/flame_essence.png",
       description: "Flame Essence used in crafting and loot."
     },
     "Flexible Reinforced Leather": {
@@ -3455,7 +3455,7 @@ const GAME_CONFIG = {
     "Heat Shell": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/heat_shell.png",
       description: "Heat Shell used in crafting and loot."
     },
     "Heavy Bone": {
@@ -3521,7 +3521,7 @@ const GAME_CONFIG = {
     "Lava Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/lava_core.png",
       description: "Lava Core used in crafting and loot."
     },
     "Life Core": {
@@ -3545,7 +3545,7 @@ const GAME_CONFIG = {
     "Magma Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/magma_hide.png",
       description: "Magma Hide used in crafting and loot."
     },
     "Mechanism Part": {
@@ -3557,7 +3557,7 @@ const GAME_CONFIG = {
     "Metal Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/metal_essence.png",
       description: "Metal Essence used in crafting and loot."
     },
     "Metal Scrap": {
@@ -3569,7 +3569,7 @@ const GAME_CONFIG = {
     "Molten Scale": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/molten_scale.png",
       description: "Molten Scale used in crafting and loot."
     },
     "Muscle Fiber": {
@@ -3743,7 +3743,7 @@ const GAME_CONFIG = {
     "Rusted Metal": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/rusted_metal.png",
       description: "Rusted Metal used in crafting and loot."
     },
     "Salt Flesh": {
@@ -3779,7 +3779,7 @@ const GAME_CONFIG = {
     "Shadow Dust": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/shadow_dust.png",
       description: "Shadow Dust used in crafting and loot."
     },
     "Shadow Essence": {
@@ -3791,7 +3791,7 @@ const GAME_CONFIG = {
     "Shadow Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/shadow_residue.png",
       description: "Shadow Residue used in crafting and loot."
     },
     "Small Tooth": {
@@ -3827,7 +3827,7 @@ const GAME_CONFIG = {
     "Spirit Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/spirit_core.png",
       description: "Spirit Core used in crafting and loot."
     },
     "Spirit Essence": {
@@ -3995,7 +3995,7 @@ const GAME_CONFIG = {
     "Wraith Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/wraith_core.png",
       description: "Wraith Core used in crafting and loot."
     },
 
