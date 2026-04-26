@@ -1530,14 +1530,14 @@ const GAME_CONFIG = {
     },
     "Ice Plate": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/ice_plate.png",
       description: "Layered ice as hard as steel.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Ice Fang": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/ice_fang.png",
       description: "Serrated ice tooth from a stalker.",
       bonusSkills: [],
       bonusStats: {}
@@ -3059,7 +3059,7 @@ const GAME_CONFIG = {
     "Ancient Seed": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ancient_seed.png",
       description: "Ancient Seed used in crafting and loot."
     },
     "Ancient Soul Core": {
@@ -3083,7 +3083,7 @@ const GAME_CONFIG = {
     "Ash Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ash_residue.png",
       description: "Ash Residue used in crafting and loot."
     },
     "Ash Scale": {
@@ -3179,7 +3179,7 @@ const GAME_CONFIG = {
     "Chill Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/chill_residue.png",
       description: "Chill Residue used in crafting and loot."
     },
     "Cliff Moss": {
@@ -3413,19 +3413,19 @@ const GAME_CONFIG = {
     "Frost Claw": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/frost_claw.png",
       description: "Frost Claw used in crafting and loot."
     },
     "Frost Thread": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/frost_thread.png",
       description: "Frost Thread used in crafting and loot."
     },
     "Frozen Shell": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/frozen_shell.png",
       description: "Frozen Shell used in crafting and loot."
     },
     "Fur Pelt": {
@@ -3485,13 +3485,13 @@ const GAME_CONFIG = {
     "Ice Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ice_essence.png",
       description: "Ice Essence used in crafting and loot."
     },
     "Ice Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ice_fragment.png",
       description: "Ice Fragment used in crafting and loot."
     },
     "Illusion Essence": {
@@ -3539,7 +3539,7 @@ const GAME_CONFIG = {
     "Living Fiber": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/living_fiber.png",
       description: "Living Fiber used in crafting and loot."
     },
     "Magma Hide": {
