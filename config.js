@@ -1208,7 +1208,7 @@ const GAME_CONFIG = {
     },
     "Razor Claw": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/razor_claw.png",
       description: "A sharpened claw fragment.",
       bonusSkills: [],
       bonusStats: {}
@@ -1278,14 +1278,14 @@ const GAME_CONFIG = {
     },
     "Spiked Shell": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/spiked_shell.png",
       description: "Barbed shell plates from a thornback.",
       bonusSkills: [],
       bonusStats: {}
     },
     "Sand Core": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/sand_core.png",
       description: "Glassy sand fused into a solid core.",
       bonusSkills: [],
       bonusStats: {}
@@ -1306,7 +1306,7 @@ const GAME_CONFIG = {
     },
     "Mirage Dust": {
       type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
+      image: "Assets/Resources/mirage_dust.png",
       description: "Shimmering dust that never settles.",
       bonusSkills: [],
       bonusStats: {}
@@ -1320,7 +1320,7 @@ const GAME_CONFIG = {
     },
     "Decay Core": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/decay_core.png",
       description: "Rotting magical nucleus from a witherling.",
       bonusSkills: [],
       bonusStats: {}
@@ -3180,7 +3180,7 @@ const GAME_CONFIG = {
     "Carapace Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/carapace_fragment.png",
       description: "Carapace Fragment used in crafting and loot."
     },
     "Charged Core": {
@@ -3258,7 +3258,7 @@ const GAME_CONFIG = {
     "Decay Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/decay_fragment.png",
       description: "Decay Fragment used in crafting and loot."
     },
     "Deepwater Essence": {
@@ -3270,7 +3270,7 @@ const GAME_CONFIG = {
     "Defense Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/defense_core.png",
       description: "Defense Core used in crafting and loot."
     },
     "Defensive Core": {
@@ -3300,7 +3300,7 @@ const GAME_CONFIG = {
     "Devourer Tooth": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/devourer_tooth.png",
       description: "Devourer Tooth used in crafting and loot."
     },
     "Digging Claw": {
@@ -3312,13 +3312,13 @@ const GAME_CONFIG = {
     "Distorted Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/distorted_core.png",
       description: "Distorted Core used in crafting and loot."
     },
     "Dust Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/dust_essence.png",
       description: "Dust Essence used in crafting and loot."
     },
     "Earth Residue": {
@@ -3486,7 +3486,7 @@ const GAME_CONFIG = {
     "Hunger Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/hunger_core.png",
       description: "Hunger Core used in crafting and loot."
     },
     "Hunter Core": {
@@ -3510,13 +3510,13 @@ const GAME_CONFIG = {
     "Illusion Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/illusion_essence.png",
       description: "Illusion Essence used in crafting and loot."
     },
     "Illusion Thread": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/illusion_thread.png",
       description: "Illusion Thread used in crafting and loot."
     },
     "Infused Dust": {
@@ -3636,7 +3636,7 @@ const GAME_CONFIG = {
     "Precision Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/precision_core.png",
       description: "Precision Core used in crafting and loot."
     },
     "Predator Fang": {
@@ -3768,13 +3768,13 @@ const GAME_CONFIG = {
     "Sand Blade Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/sand_blade_fragment.png",
       description: "Sand Blade Fragment used in crafting and loot."
     },
     "Sand Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/sand_residue.png",
       description: "Sand Residue used in crafting and loot."
     },
     "Scaled Skin": {
@@ -3798,7 +3798,7 @@ const GAME_CONFIG = {
     "Shadow Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/shadow_essence.png",
       description: "Shadow Essence used in crafting and loot."
     },
     "Shadow Residue": {
@@ -3972,7 +3972,7 @@ const GAME_CONFIG = {
     "Trickster Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/trickster_core.png",
       description: "Trickster Core used in crafting and loot."
     },
     "Vital Growth": {
@@ -4002,7 +4002,7 @@ const GAME_CONFIG = {
     "Withered Tissue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/withered_tissue.png",
       description: "Withered Tissue used in crafting and loot."
     },
     "World Seed": {
