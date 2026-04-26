@@ -221,7 +221,7 @@
     "Rock Lizard": {
       gear: [{ w: 1.8, item: "Stonehide Armor" }],
       materials: [
-        { name: "Thick Scale", dropRate: 75 },
+        { name: "Stone Scale", dropRate: 75 },
         { name: "Stone Skin", dropRate: 40 },
         { name: "Defense Core", dropRate: 15 },
         { name: "Earth Essence", dropRate: 5 }

@@ -892,7 +892,8 @@ function isConfiguredMonsterMaterialName(name) {
 
 /** Renamed items: old base names in saves / exports still resolve to the new definition. */
 const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
-  "Mirage Hood": "Mirage Helm"
+  "Mirage Hood": "Mirage Helm",
+  "Thick Scale": "Stone Scale"
 });
 
 function getItemDef(name) {

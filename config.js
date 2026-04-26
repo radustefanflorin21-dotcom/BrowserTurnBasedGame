@@ -1334,7 +1334,7 @@ const GAME_CONFIG = {
     },
     "Hardened Stone": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/hardened_stone.png",
       description: "Stone marmot hoard quality rock.",
       bonusSkills: [],
       bonusStats: {}
@@ -1348,7 +1348,7 @@ const GAME_CONFIG = {
     },
     "Sharp Fang": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/sharp_fang.png",
       description: "A predator fang in good condition.",
       bonusSkills: [],
       bonusStats: {}
@@ -1362,7 +1362,7 @@ const GAME_CONFIG = {
     },
     "Ibex Horn": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/ibex_horn.png",
       description: "A spiraled horn segment.",
       bonusSkills: [],
       bonusStats: {}
@@ -1385,13 +1385,6 @@ const GAME_CONFIG = {
       type: "resource",
       image: "Assets/Resources/energy-cell.svg",
       description: "A rune tablet of binding stone.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Thick Scale": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Heavy lizard scales.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -3168,7 +3161,7 @@ const GAME_CONFIG = {
     "Bulwark Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bulwark_core.png",
       description: "Bulwark Core used in crafting and loot."
     },
     "Burnt Hide": {
@@ -3198,7 +3191,7 @@ const GAME_CONFIG = {
     "Cliff Moss": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/cliff_moss.png",
       description: "Cliff Moss used in crafting and loot."
     },
     "Condensed Soul": {
@@ -3210,7 +3203,7 @@ const GAME_CONFIG = {
     "Control Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/control_core.png",
       description: "Control Core used in crafting and loot."
     },
     "Corroded Gear": {
@@ -3282,13 +3275,13 @@ const GAME_CONFIG = {
     "Dense Bone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/dense_bone.png",
       description: "Dense Bone used in crafting and loot."
     },
     "Dense Fur": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/dense_fur.png",
       description: "Dense Fur used in crafting and loot."
     },
     "Dense Stone": {
@@ -3324,7 +3317,7 @@ const GAME_CONFIG = {
     "Earth Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/earth_residue.png",
       description: "Earth Residue used in crafting and loot."
     },
     "Echo Fragment": {
@@ -3492,8 +3485,8 @@ const GAME_CONFIG = {
     "Hunter Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
-      description: "Hunter Core used in crafting and loot."
+      image: "Assets/Resources/hunter_core.png",
+      description: "Crystallized instinct for pursuit, timing, and finishing pressure."
     },
     "Ice Essence": {
       type: "material",
@@ -3588,7 +3581,7 @@ const GAME_CONFIG = {
     "Muscle Fiber": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/muscle_fiber.png",
       description: "Muscle Fiber used in crafting and loot."
     },
     "Mythic Hide": {
@@ -3618,7 +3611,7 @@ const GAME_CONFIG = {
     "Petrify Gland": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/petrify_gland.png",
       description: "Petrify Gland used in crafting and loot."
     },
     "Plant Fiber": {
@@ -3870,31 +3863,31 @@ const GAME_CONFIG = {
     "Stable Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/stable_core.png",
       description: "Stable Core used in crafting and loot."
     },
     "Stone Claw": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/stone_claw.png",
       description: "Stone Claw used in crafting and loot."
     },
     "Stone Scale": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/stone_scale.png",
       description: "Stone Scale used in crafting and loot."
     },
     "Stone Skin": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/stone_skin.png",
       description: "Stone Skin used in crafting and loot."
     },
     "Strength Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/strength_core.png",
       description: "Strength Core used in crafting and loot."
     },
     "Support Core": {
