@@ -580,6 +580,19 @@ function migratePlayer(p) {
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
+  const removedLegacyItemBases = new Set(["Energy Cell", "Wolf Pelt", "Frozen Core"]);
+  EQUIP_SLOTS.forEach((s) => {
+    const n = p.equipment[s.id];
+    if (typeof n !== "string" || !n) return;
+    if (removedLegacyItemBases.has(splitItemInstanceName(n).baseName)) p.equipment[s.id] = null;
+  });
+  if (Array.isArray(p.inventory)) {
+    p.inventory = p.inventory.filter((entry) => {
+      if (typeof entry !== "string" || !entry) return true;
+      return !removedLegacyItemBases.has(splitItemInstanceName(entry).baseName);
+    });
+  }
+  enforceOffhandRuleForEquipment(p.equipment, p.inventory);
   if (typeof p.charPoints !== "number" || p.charPoints < 0) p.charPoints = 0;
   if (!p.portraitLayout || typeof p.portraitLayout !== "object") p.portraitLayout = {};
   if (!p.portraitBaseLayout || typeof p.portraitBaseLayout !== "object") {
@@ -895,7 +908,9 @@ const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
   "Mirage Hood": "Mirage Helm",
   "Thick Scale": "Stone Scale",
   "Spirit Bark": "Bark Fragment",
-  "Antler Fragment": "Antler Piece"
+  "Antler Fragment": "Antler Piece",
+  "Toxic Extract": "Toxic Essence",
+  "Illusion Fragment": "Illusion Essence"
 });
 
 function getItemDef(name) {
@@ -3618,10 +3633,10 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
       return true;
     }
-    if (ready("frozen_core")) {
-      setCd("frozen_core", 3);
+    if (ready("glacier_hard_shell")) {
+      setCd("glacier_hard_shell", 3);
       setFoeMitigation(foe, 1, 0.78);
-      appendFightLog(`${foe.name} hardens its Frozen Core.`);
+      appendFightLog(`${foe.name} hardens its shell.`);
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "bites you");

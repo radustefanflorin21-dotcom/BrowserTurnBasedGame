@@ -852,7 +852,7 @@ const GAME_CONFIG = {
       image: "Assets/Monsters/field_wolf.png",
       possibleLevels: [3, 4, 5, 6, 7],
       possibleMoods: ["berserk", "focused"],
-      drops: { gold: { min: 3, max: 18 }, xp: 45, items: [{ name: "Wolf Pelt", dropRate: 40 }] }
+      drops: { gold: { min: 3, max: 18 }, xp: 45, items: [] }
     },
     {
       name: "Drone",
@@ -862,7 +862,7 @@ const GAME_CONFIG = {
       image: "Assets/Monsters/plains_raptor.png",
       possibleLevels: [8, 10, 12, 14, 16],
       possibleMoods: ["focused", "steady"],
-      drops: { gold: { min: 8, max: 28 }, xp: 70, items: [{ name: "Energy Cell", dropRate: 35 }] }
+      drops: { gold: { min: 8, max: 28 }, xp: 70, items: [] }
     }
   ],
 
@@ -1101,24 +1101,10 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Minor Essence": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A faint magical condensate.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Hardened Shell": {
       type: "resource",
       image: "Assets/Resources/hardened_shell.png",
       description: "Crab or turtle shell fragments. Tough crafting material.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Salt Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Crystallized brine with a faint glow.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1143,13 +1129,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Fluid Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A viscous magical core from brine creatures.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Stone Core": {
       type: "resource",
       image: "Assets/Resources/stone_core.png",
@@ -1157,38 +1136,10 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Water Rune": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A carved rune attuned to tides.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Bound Essence": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Spirit-tethered essence from a revenant.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Soul Fragment": {
       type: "resource",
       image: "Assets/Resources/soul_fragment.png",
       description: "A shard of unstable soul-stuff.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Abyss Fragment": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Dark matter from the deep tide.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Tide Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A pulsing core of abyssal current.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1213,13 +1164,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Dust Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Packed desert grit with latent heat.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Venom Sac": {
       type: "resource",
       image: "Assets/Resources/venom_sac.png",
@@ -1227,23 +1171,9 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Toxic Extract": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Refined poison for alchemy.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Raptor Talon": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "A curved talon from a plains hunter.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Bone Fragment": {
       type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
+      image: "Assets/Resources/bone_fragment.png",
       description: "Splintered bone suitable for glue or charms.",
       bonusSkills: [],
       bonusStats: {}
@@ -1252,13 +1182,6 @@ const GAME_CONFIG = {
       type: "resource",
       image: "Assets/Resources/thick_hide.png",
       description: "Boar hide strips. Armor lining material.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Tusk Fragment": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "A chipped boar tusk shard.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1290,31 +1213,10 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Devourer Jaw": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Heavy jawbone with serrated teeth.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Earth Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Stable geomantic core material.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Mirage Dust": {
       type: "resource",
       image: "Assets/Resources/mirage_dust.png",
       description: "Shimmering dust that never settles.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Illusion Fragment": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A brittle shard of false light.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1325,24 +1227,10 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Spirit Dust": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Fine powder left when spirits fray.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Hardened Stone": {
       type: "resource",
       image: "Assets/Resources/hardened_stone.png",
       description: "Stone marmot hoard quality rock.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Core Fragment": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A cracked elemental core shard.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1367,34 +1255,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Stone Essence": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Powdered mountain attunement.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Petrify Scale": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Serpent scale touched by earth magic.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Earth Rune": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A rune tablet of binding stone.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Rock Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Geode-like core from bedrock beasts.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Dart Spine": {
       type: "resource",
       image: "Assets/Resources/dart_spine.png",
@@ -1416,13 +1276,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Forest Essence": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Sap-rich forest distillate.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Thick Bone": {
       type: "resource",
       image: "Assets/Resources/thick_bone.png",
@@ -1434,34 +1287,6 @@ const GAME_CONFIG = {
       type: "resource",
       image: "Assets/Resources/rage_core.png",
       description: "Hot, unstable core of fury.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Rust Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Oxidized metal fused with old magic.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Metal Fragment": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Salvaged alloy scraps.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Ash Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Cinder-heavy core from ash lands.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Flame Fragment": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Glassy shard still warm to the touch.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1486,48 +1311,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Heat Crystal": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A crystal that radiates dry warmth.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Magma Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Molten heart-stuff, cooled just enough to carry.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Lava Fragment": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Obsidian flecks from lava fields.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Basilisk Eye Fragment": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "A chipped lens-like scale from a basilisk.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Molten Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Ultra-dense heat reservoir.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Frozen Core": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Permafrost magic packed tight.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Ice Plate": {
       type: "resource",
       image: "Assets/Resources/ice_plate.png",
@@ -1539,27 +1322,6 @@ const GAME_CONFIG = {
       type: "resource",
       image: "Assets/Resources/ice_fang.png",
       description: "Serrated ice tooth from a stalker.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Frost Essence": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Cold blue mist trapped in crystal.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Wolf Pelt": {
-      type: "resource",
-      image: "Assets/Resources/wolf-pelt.svg",
-      description: "Thick fur. Merchants pay for winter cloaks.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Energy Cell": {
-      type: "resource",
-      image: "Assets/Resources/energy-cell.svg",
-      description: "Compact power unit. Salvaged tech.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -2977,28 +2739,28 @@ const GAME_CONFIG = {
     "Small Bone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/small_bone.png",
       description: "Small Bone used in crafting."
     },
 
     "Blood Herb": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/blood_herb.png",
       description: "Blood Herb used in crafting."
     },
 
     "Stone Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/stone_fragment.png",
       description: "Stone Fragment used in crafting."
     },
 
     "Claw Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/claw_fragment.png",
       description: "Claw Fragment used in crafting."
     },
 
@@ -3029,7 +2791,7 @@ const GAME_CONFIG = {
     "Advanced Mechanism": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/advanced_mechanism.png",
       description: "Advanced Mechanism used in crafting and loot."
     },
     "Agility Core": {
@@ -3041,13 +2803,13 @@ const GAME_CONFIG = {
     "Alpha Pelt": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/alpha_pelt.png",
       description: "Alpha Pelt used in crafting and loot."
     },
     "Ancient Bark": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ancient_bark.png",
       description: "Ancient Bark used in crafting and loot."
     },
     "Ancient Fragment": {
@@ -3065,7 +2827,7 @@ const GAME_CONFIG = {
     "Ancient Soul Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/ancient_soul_core.png",
       description: "Ancient Soul Core used in crafting and loot."
     },
     "Antler Piece": {
@@ -3077,7 +2839,7 @@ const GAME_CONFIG = {
     "Apex Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/apex_core.png",
       description: "Apex Core used in crafting and loot."
     },
     "Ash Residue": {
@@ -3101,19 +2863,19 @@ const GAME_CONFIG = {
     "Bark": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bark.png",
       description: "Bark used in crafting and loot."
     },
     "Bark Fiber": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bark_fiber.png",
       description: "Bark Fiber used in crafting and loot."
     },
     "Bark Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Resources/bark_fragment.png",
+      image: "Assets/Resources/spirit_bark.png",
       description: "Bark Fragment used in crafting and loot."
     },
     "Basilisk Eye": {
@@ -3131,7 +2893,7 @@ const GAME_CONFIG = {
     "Bone Dust": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bone_dust.png",
       description: "Bone Dust used in crafting and loot."
     },
     "Bone Shard": {
@@ -3149,7 +2911,7 @@ const GAME_CONFIG = {
     "Bound Soul": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/bound_soul.png",
       description: "Bound Soul used in crafting and loot."
     },
     "Bulwark Core": {
@@ -3173,7 +2935,7 @@ const GAME_CONFIG = {
     "Charged Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/charged_core.png",
       description: "Charged Core used in crafting and loot."
     },
     "Chill Residue": {
@@ -3191,7 +2953,7 @@ const GAME_CONFIG = {
     "Condensed Soul": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/condesed_core.png",
       description: "Condensed Soul used in crafting and loot."
     },
     "Control Core": {
@@ -3227,13 +2989,13 @@ const GAME_CONFIG = {
     "Crystal Stone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/crystal_stone.png",
       description: "Crystal Stone used in crafting and loot."
     },
     "Crystalized Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/crystallized_core.png",
       description: "Crystalized Core used in crafting and loot."
     },
     "Dark Residue": {
@@ -3281,7 +3043,7 @@ const GAME_CONFIG = {
     "Dense Stone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/dense_stone.png",
       description: "Dense Stone used in crafting and loot."
     },
     "Devourer Tooth": {
@@ -3317,7 +3079,7 @@ const GAME_CONFIG = {
     "Echo Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/echo_fragment.png",
       description: "Echo Fragment used in crafting and loot."
     },
     "Elastic Tendon": {
@@ -3329,19 +3091,19 @@ const GAME_CONFIG = {
     "Elemental Fragment": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/elemental_fragment.png",
       description: "Elemental Fragment used in crafting and loot."
     },
     "Elite Bone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/elite_bone.png",
       description: "Elite Bone used in crafting and loot."
     },
     "Elite Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/elite_hide.png",
       description: "Elite Hide used in crafting and loot."
     },
     "Ember Dust": {
@@ -3365,7 +3127,7 @@ const GAME_CONFIG = {
     "Faint Residue": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/faint_residue.png",
       description: "Faint Residue used in crafting and loot."
     },
     "Fire Core": {
@@ -3389,7 +3151,7 @@ const GAME_CONFIG = {
     "Flexible Reinforced Leather": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/flexible_reinforced_leather.png",
       description: "Flexible Reinforced Leather used in crafting and loot."
     },
     "Fluid Sac": {
@@ -3407,7 +3169,7 @@ const GAME_CONFIG = {
     "Fragmented Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/fragmented_core.png",
       description: "Fragmented Core used in crafting and loot."
     },
     "Frost Claw": {
@@ -3443,13 +3205,13 @@ const GAME_CONFIG = {
     "Hardened Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/hardened_core.png",
       description: "Hardened Core used in crafting and loot."
     },
     "Hardened Leather": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/hardened_leather.png",
       description: "Hardened Leather used in crafting and loot."
     },
     "Heat Shell": {
@@ -3467,7 +3229,7 @@ const GAME_CONFIG = {
     "Heavy Fang": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/heavy_fang.png",
       description: "Heavy Fang used in crafting and loot."
     },
     "Hunger Core": {
@@ -3509,7 +3271,7 @@ const GAME_CONFIG = {
     "Infused Dust": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/infused_dust.png",
       description: "Infused Dust used in crafting and loot."
     },
     "Jungle Fiber": {
@@ -3527,13 +3289,13 @@ const GAME_CONFIG = {
     "Life Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/life_core.png",
       description: "Life Core used in crafting and loot."
     },
     "Living Bark": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/living_bark.png",
       description: "Living Bark used in crafting and loot."
     },
     "Living Fiber": {
@@ -3551,7 +3313,7 @@ const GAME_CONFIG = {
     "Mechanism Part": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/mechanism_part.png",
       description: "Mechanism Part used in crafting and loot."
     },
     "Metal Essence": {
@@ -3563,7 +3325,7 @@ const GAME_CONFIG = {
     "Metal Scrap": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/metal_scrap.png",
       description: "Metal Scrap used in crafting and loot."
     },
     "Molten Scale": {
@@ -3581,7 +3343,7 @@ const GAME_CONFIG = {
     "Mythic Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/mythic_hide.png",
       description: "Mythic Hide used in crafting and loot."
     },
     "Ocean Essence": {
@@ -3593,13 +3355,13 @@ const GAME_CONFIG = {
     "Perfect Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/perfect_core.png",
       description: "Perfect Core used in crafting and loot."
     },
     "Perfected Leather": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/perfect_leather.png",
       description: "Perfected Leather used in crafting and loot."
     },
     "Petrify Gland": {
@@ -3629,7 +3391,7 @@ const GAME_CONFIG = {
     "Predator Fang": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/predator_fang.png",
       description: "Predator Fang used in crafting and loot."
     },
     "Predator Instinct Core": {
@@ -3653,13 +3415,13 @@ const GAME_CONFIG = {
     "Primal Fur": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/primal_fur.png",
       description: "Primal Fur used in crafting and loot."
     },
     "Pure Essence": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/pure_essence.png",
       description: "Pure Essence used in crafting and loot."
     },
     "Raw Hide": {
@@ -3689,19 +3451,19 @@ const GAME_CONFIG = {
     "Reinforced Hide": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/reinforced_hide.png",
       description: "Reinforced Hide used in crafting and loot."
     },
     "Reinforced Scrap": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/reinforced_scrap.png",
       description: "Reinforced Scrap used in crafting and loot."
     },
     "Reinforced Stone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/reinforced_stone.png",
       description: "Reinforced Stone used in crafting and loot."
     },
     "Residue": {
@@ -3737,7 +3499,7 @@ const GAME_CONFIG = {
     "Rough Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/rough_core.png",
       description: "Rough Core used in crafting and loot."
     },
     "Rusted Metal": {
@@ -3797,25 +3559,25 @@ const GAME_CONFIG = {
     "Small Tooth": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/small_tooth.png",
       description: "Small Tooth used in crafting and loot."
     },
     "Soft Leather": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/soft_leather.png",
       description: "Soft Leather used in crafting and loot."
     },
     "Solid Core": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/solid_core.png",
       description: "Solid Core used in crafting and loot."
     },
     "Soul Dust": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/soul_dust.png",
       description: "Soul Dust used in crafting and loot."
     },
     "Soul Residue": {
@@ -3845,7 +3607,7 @@ const GAME_CONFIG = {
     "Spirit Thread": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/spirit_thread.png",
       description: "Spirit Thread used in crafting and loot."
     },
     "Stable Core": {
@@ -3893,13 +3655,13 @@ const GAME_CONFIG = {
     "Thick Fur": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/thick_fur.png",
       description: "Thick Fur used in crafting and loot."
     },
     "Thin Fur": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/thin_fur.png",
       description: "Thin Fur used in crafting and loot."
     },
     "Tidal Essence": {
@@ -3917,7 +3679,7 @@ const GAME_CONFIG = {
     "Titan Bone": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/titan_bone.png",
       description: "Titan Bone used in crafting and loot."
     },
     "Titan Core": {
@@ -3947,7 +3709,7 @@ const GAME_CONFIG = {
     "Treated Leather": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/treated_leather.png",
       description: "Treated Leather used in crafting and loot."
     },
     "Trickster Core": {
@@ -3959,7 +3721,7 @@ const GAME_CONFIG = {
     "Vital Growth": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/vital_growth.png",
       description: "Vital Growth used in crafting and loot."
     },
     "Water Essence": {
@@ -3989,7 +3751,7 @@ const GAME_CONFIG = {
     "World Seed": {
       type: "material",
       value: 5,
-      image: "Assets/Materials/material_placeholder.png",
+      image: "Assets/Resources/world_seed.png",
       description: "World Seed used in crafting and loot."
     },
     "Wraith Core": {
@@ -4514,8 +4276,8 @@ const GAME_CONFIG = {
             resultLevel: 20,
             ingredients: [
               { item: "Venom Sac", qty: 6, source: "monster_loot" },
-              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
-              { item: "Illusion Fragment", qty: 5, source: "monster_loot" },
+              { item: "Toxic Essence", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 5, source: "monster_loot" },
               { item: "Growth Seed", qty: 3, source: "gathering_loot" }
             ]
           },
@@ -4524,8 +4286,8 @@ const GAME_CONFIG = {
             resultItem: "Boarhide Chest",
             resultLevel: 20,
             ingredients: [
-              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
-              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Toxic Essence", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 6, source: "monster_loot" },
               { item: "Distorted Core", qty: 3, source: "gathering_loot" }
             ]
           },
@@ -4534,7 +4296,7 @@ const GAME_CONFIG = {
             resultItem: "Sandstep Boots",
             resultLevel: 15,
             ingredients: [
-              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 6, source: "monster_loot" },
               { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
               { item: "Razor Claw", qty: 5, source: "monster_loot" },
               { item: "Dense Bone", qty: 3, source: "gathering_loot" }
@@ -4598,8 +4360,8 @@ const GAME_CONFIG = {
             resultLevel: 17,
             ingredients: [
               { item: "Venom Sac", qty: 6, source: "monster_loot" },
-              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
-              { item: "Illusion Fragment", qty: 5, source: "monster_loot" },
+              { item: "Toxic Essence", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 5, source: "monster_loot" },
               { item: "Dense Bone", qty: 3, source: "gathering_loot" }
             ]
           },
@@ -4608,8 +4370,8 @@ const GAME_CONFIG = {
             resultItem: "Bone Charm",
             resultLevel: 18,
             ingredients: [
-              { item: "Toxic Extract", qty: 6, source: "monster_loot" },
-              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Toxic Essence", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 6, source: "monster_loot" },
               { item: "Tough Hide", qty: 3, source: "gathering_loot" }
             ]
           },
@@ -4618,7 +4380,7 @@ const GAME_CONFIG = {
             resultItem: "Fang Loop",
             resultLevel: 20,
             ingredients: [
-              { item: "Illusion Fragment", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 6, source: "monster_loot" },
               { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
               { item: "Razor Claw", qty: 5, source: "monster_loot" },
               { item: "Root Fiber", qty: 3, source: "gathering_loot" }
@@ -4683,7 +4445,7 @@ const GAME_CONFIG = {
             resultItem: "Mirage Ring",
             resultLevel: 16,
             ingredients: [
-              { item: "Illusion Fragment", qty: 5, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 5, source: "monster_loot" },
               { item: "Distorted Core", qty: 3, source: "gathering_loot" },
               { item: "Residue", qty: 2, source: "gathering_loot" }
             ]
