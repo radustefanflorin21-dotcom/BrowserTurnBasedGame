@@ -913,7 +913,13 @@ const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
   "Illusion Fragment": "Illusion Essence",
   "Claw Gloves": "Claw Ring",
   "Rockstep Boots": "Rock Serpent Boots",
-  "Earth Loop": "Serpent Grip"
+  "Earth Loop": "Serpent Grip",
+  "Stone Helm": "Stone Lizzard Helmet",
+  "Stonehide Armor": "Stonescale Armor",
+  "Core Leggings": "Stonescale Leggings",
+  "Earthpulse Amulet": "Stonepulse Amulet",
+  "Earthcaller Staff": "Stonecaller",
+  "Crystal Band": "Stonekind Band"
 });
 
 function getItemDef(name) {

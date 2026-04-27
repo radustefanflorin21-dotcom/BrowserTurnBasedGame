@@ -97,7 +97,7 @@
       ]
     },
     "Burrow Hare": {
-      gear: [{ w: 4, item: "Burrowstep Boots" }, { w: 3.5, item: "Earthpulse Amulet" }],
+      gear: [{ w: 4, item: "Burrowstep Boots" }, { w: 3.5, item: "Stonepulse Amulet" }],
       materials: [
         { name: "Soft Fur", dropRate: 70 },
         { name: "Digging Claw", dropRate: 45 },
@@ -219,7 +219,7 @@
       ]
     },
     "Rock Lizard": {
-      gear: [{ w: 1.8, item: "Stonehide Armor" }],
+      gear: [{ w: 1.8, item: "Stonescale Armor" }],
       materials: [
         { name: "Stone Scale", dropRate: 75 },
         { name: "Stone Skin", dropRate: 40 },

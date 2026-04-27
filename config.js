@@ -1417,14 +1417,14 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { DEX: 8, INT: 6, Accuracy: 6 }
     },
-    "Stonehide Armor": {
+    "Stonescale Armor": {
       type: "armor",
       slot: "chest",
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 28,
       defense: 7,
-      image: "Assets/Equips/thornback_armor.png",
+      image: "Assets/Equips/stonescale_armor.png",
       description: "Stoneguard chest built for sustained tanking.",
       set: "Stoneguard",
       build: "VIT",
@@ -1445,14 +1445,14 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 15, STR: 7 }
     },
-    "Earthpulse Amulet": {
+    "Stonepulse Amulet": {
       type: "armor",
       slot: "amulet",
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 29,
       defense: 5,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/stonepulse_amulet.png",
       description: "Arcane earth pulse focus for casters.",
       set: "",
       build: "INT",
@@ -2090,15 +2090,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { STR: 19, VIT: 11, "Phys Damage": 8, "Armor Pen": 6, "Stamina Reduction": 0 }
     },
-    "Earthcaller Staff": {
+    "Stonecaller": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "staff",
+      equipCategory: "greatsword",
       rarity: "common",
       itemLevel: 30,
       attack: 16,
-      image: "Assets/Equips/template_polearm.png",
-      description: "A heavy staff that channels binding and petrifying force.",
+      image: "Assets/Equips/stonecaller.png",
+      description: "A heavy greatsword that channels binding and petrifying force.",
       set: "Earthbinder",
       build: "INT",
       bonusSkills: [],
@@ -2146,14 +2146,14 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 10, DEX: 10, HP: 216 }
     },
-    "Stone Helm": {
+    "Stone Lizzard Helmet": {
       type: "armor",
       slot: "head",
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 28,
       defense: 6,
-      image: "Assets/Equips/template_helm.png",
+      image: "Assets/Equips/stone_lizzard_helmet.png",
       description: "A dense helm that favors tanks and bruisers alike.",
       set: "Stoneguard",
       build: "VIT_STR",
@@ -2174,14 +2174,14 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { DEX: 16, STR: 15, Crit: 8, "Phys Damage": 6, "Crit Damage": 6 }
     },
-    "Core Leggings": {
+    "Stonescale Leggings": {
       type: "armor",
       slot: "legs",
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 29,
       defense: 6,
-      image: "Assets/Equips/template_leggs.png",
+      image: "Assets/Equips/stonescale_leggings.png",
       description: "Reinforced leggings threaded with stable core fragments.",
       set: "",
       build: "VIT_INT",
@@ -2258,14 +2258,14 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { STR: 18, VIT: 10, Stagger: 8, "Physical Resist": 6 }
     },
-    "Crystal Band": {
+    "Stonekind Band": {
       type: "armor",
       slot: "ring1",
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 30,
       defense: 6,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/stonekind_band.png",
       description: "A polished band used by hybrid earth spellblades.",
       set: "",
       build: "INT_DEX",
@@ -4482,8 +4482,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "earthcaller_staff",
-            resultItem: "Earthcaller Staff",
+            id: "stonecaller",
+            resultItem: "Stonecaller",
             resultLevel: 30,
             ingredients: [
               { item: "Muscle Fiber", qty: 6, source: "monster_loot" },
@@ -4530,8 +4530,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "stone_helm",
-            resultItem: "Stone Helm",
+            id: "stone_lizzard_helmet",
+            resultItem: "Stone Lizzard Helmet",
             resultLevel: 28,
             ingredients: [
               { item: "Stone Scale", qty: 6, source: "monster_loot" },
@@ -4554,8 +4554,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "core_leggings",
-            resultItem: "Core Leggings",
+            id: "stonescale_leggings",
+            resultItem: "Stonescale Leggings",
             resultLevel: 29,
             ingredients: [
               { item: "Stone Claw", qty: 6, source: "monster_loot" },
@@ -4626,8 +4626,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "crystal_band",
-            resultItem: "Crystal Band",
+            id: "stonekind_band",
+            resultItem: "Stonekind Band",
             resultLevel: 30,
             ingredients: [
               { item: "Stone Scale", qty: 6, source: "monster_loot" },
@@ -4638,8 +4638,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "stonehide_armor",
-            resultItem: "Stonehide Armor",
+            id: "stonescale_armor",
+            resultItem: "Stonescale Armor",
             resultLevel: 28,
             ingredients: [
               { item: "Stone Scale", qty: 7, source: "monster_loot" },
@@ -4663,8 +4663,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "earthpulse_amulet",
-            resultItem: "Earthpulse Amulet",
+            id: "stonepulse_amulet",
+            resultItem: "Stonepulse Amulet",
             resultLevel: 29,
             ingredients: [
               { item: "Earth Residue", qty: 6, source: "gathering_loot" },
