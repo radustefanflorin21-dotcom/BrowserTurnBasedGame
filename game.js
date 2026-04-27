@@ -580,7 +580,7 @@ function migratePlayer(p) {
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
-  const removedLegacyItemBases = new Set(["Energy Cell", "Wolf Pelt", "Frozen Core"]);
+  const removedLegacyItemBases = new Set(["Energy Cell", "Wolf Pelt", "Frozen Core", "Skitter Ring"]);
   EQUIP_SLOTS.forEach((s) => {
     const n = p.equipment[s.id];
     if (typeof n !== "string" || !n) return;

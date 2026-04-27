@@ -333,7 +333,7 @@
       ]
     },
     "Frozen Stalker": {
-      gear: [{ w: 0.3, item: "Frozen Edge" }, { w: 0.25, item: "Skitter Ring" }],
+      gear: [{ w: 0.3, item: "Frozen Edge" }],
       materials: [
         { name: "Ice Fang", dropRate: 70 },
         { name: "Frost Claw", dropRate: 40 },
@@ -342,7 +342,7 @@
       ]
     },
     "Frost Skitter": {
-      gear: [{ w: 0.3, item: "Frozen Edge" }, { w: 0.25, item: "Skitter Ring" }],
+      gear: [{ w: 0.3, item: "Frozen Edge" }],
       materials: [
         { name: "Frost Thread", dropRate: 70 },
         { name: "Ice Fragment", dropRate: 40 },

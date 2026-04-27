@@ -1005,7 +1005,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 38,
       attack: 20,
-      image: "Assets/Equips/sandfang_blade.png",
+      image: "Assets/Equips/foxfang_blade.png",
       description: "Greenleaf Fox set sword.",
       bonusSkills: [],
       bonusStats: { DEX: 24, STR: 13, Crit: 10 }
@@ -1459,20 +1459,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 17, VIT: 9, "Skill Power": 8 }
     },
-    "Skitter Ring": {
-      type: "armor",
-      slot: "ring1",
-      equipCategory: "ring",
-      rarity: "common",
-      itemLevel: 27,
-      defense: 4,
-      image: "Assets/Equips/template_ring.png",
-      description: "Predator ring built for combo loops.",
-      set: "Predator",
-      build: "DEX",
-      bonusSkills: [],
-      bonusStats: { DEX: 16, STR: 8, Combo: 8 }
-    },
     "Swiftbrush Boots": {
       type: "armor",
       slot: "feet",
@@ -1480,7 +1466,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 37,
       defense: 7,
-      image: "Assets/Equips/template_feet.png",
+      image: "Assets/Equips/swiftbrush_boots.png",
       description: "Greenleaf set boots for evasive play.",
       set: "Greenleaf",
       build: "DEX",
@@ -1494,7 +1480,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 36,
       defense: 7,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/greenleaf_vest.png",
       description: "Greenleaf set vest for durable skirmishers.",
       set: "Greenleaf",
       build: "DEX_VIT",
@@ -2279,7 +2265,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 38,
       attack: 19,
-      image: "Assets/Equips/template_weapon.png",
+      image: "Assets/Equips/foxfang_blade.png",
       description: "A refined forest blade built for assassins and duelists.",
       set: "Greenleaf Assassin",
       build: "DEX",
@@ -4674,19 +4660,6 @@ const GAME_CONFIG = {
               { item: "Living Fiber", qty: 2, source: "gathering_loot" }
             ]
           },
-          {
-            id: "skitter_ring",
-            resultItem: "Skitter Ring",
-            resultLevel: 27,
-            ingredients: [
-              { item: "Claw Fragment", qty: 6, source: "monster_loot" },
-              { item: "Dense Bone", qty: 5, source: "gathering_loot" },
-              { item: "Residue", qty: 3, source: "gathering_loot" },
-              { item: "Sharp Fang", qty: 3, source: "monster_loot" },
-              { item: "Tough Hide", qty: 2, source: "gathering_loot" }
-            ]
-          },
-
         ]
       },
       {
