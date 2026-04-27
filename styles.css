@@ -923,7 +923,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 34%;
   left: 54%;
   top: 36%;
-  z-index: 7;
+  z-index: 3;
 }
 
 .portrait-equip-layer--legs {

@@ -969,7 +969,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 27,
       attack: 14,
-      image: "Assets/Equips/template_dagger.png",
+      image: "Assets/Equips/lynx_fang.png",
       description: "Rock Lynx dagger.",
       bonusSkills: [],
       bonusStats: { DEX: 17, STR: 9, Crit: 10 }
@@ -981,7 +981,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 29,
       attack: 15,
-      image: "Assets/Equips/template_polearm.png",
+      image: "Assets/Equips/hornbreaker_axe.png",
       description: "Rock Ibex two-handed axe.",
       bonusSkills: [],
       bonusStats: { STR: 18, VIT: 10, "Phys Damage": 10 }
@@ -993,7 +993,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 30,
       defense: 5,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/petrify_ring.png",
       description: "Rock Serpent set ring.",
       bonusSkills: [],
       bonusStats: { INT: 19, VIT: 10, Duration: 10 }
@@ -1438,26 +1438,12 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 25,
       defense: 5,
-      image: "Assets/Equips/template_helm.png",
+      image: "Assets/Equips/marmot_helm.png",
       description: "Dense helm for steady frontliners.",
       set: "",
       build: "VIT",
       bonusSkills: [],
       bonusStats: { VIT: 15, STR: 7 }
-    },
-    "Earthbind Amulet": {
-      type: "armor",
-      slot: "amulet",
-      equipCategory: "amulet",
-      rarity: "common",
-      itemLevel: 30,
-      defense: 5,
-      image: "Assets/Equips/bone_charm.png",
-      description: "Earthbinder amulet for control builds.",
-      set: "Earthbinder",
-      build: "INT_VIT",
-      bonusSkills: [],
-      bonusStats: { INT: 18, VIT: 10, "Debuff Duration": 8 }
     },
     "Earthpulse Amulet": {
       type: "armor",
@@ -2069,7 +2055,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 27,
       attack: 14,
-      image: "Assets/Equips/template_dagger.png",
+      image: "Assets/Equips/lynx_fang.png",
       description: "A rock-honed dagger for ambushes and repeat pressure.",
       set: "Lynxstrike",
       build: "DEX",
@@ -2085,7 +2071,7 @@ const GAME_CONFIG = {
       attack: 15,
       image: "Assets/Equips/template_dagger.png",
       description: "A venom-lined fang blade built for agile control.",
-      set: "Earthbinder",
+      set: "",
       build: "DEX_INT",
       bonusSkills: [],
       bonusStats: { DEX: 18, INT: 18, Combo: 8, "Status Potency": 6 }
@@ -2097,7 +2083,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 29,
       attack: 15,
-      image: "Assets/Equips/template_polearm.png",
+      image: "Assets/Equips/hornbreaker_axe.png",
       description: "An ibex-horn polearm that excels at driving through defenses.",
       set: "Ibex Dominator",
       build: "STR",
@@ -2125,7 +2111,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 25,
       defense: 6,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/marmot_bullwark.png",
       description: "A stone-backed chestpiece designed for long, grinding fights.",
       set: "Stoneguard",
       build: "VIT",
@@ -2139,23 +2125,23 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 26,
       defense: 6,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/earthshell_armor.png",
       description: "A compact earthward armor with defensive magical utility.",
-      set: "Stoneguard",
+      set: "Rock Serpent",
       build: "VIT_INT",
       bonusSkills: [],
       bonusStats: { VIT: 17, INT: 16, DR: 4, "Magic Resist": 8, HP: 208 }
     },
-    "Rockstep Boots": {
+    "Rock Serpent Boots": {
       type: "armor",
       slot: "feet",
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 27,
       defense: 6,
-      image: "Assets/Equips/template_feet.png",
+      image: "Assets/Equips/rock_serpent_boots.png",
       description: "Grip-heavy boots that improve footing on broken terrain.",
-      set: "Lynxstrike",
+      set: "Rock Serpent",
       build: "DEX_VIT",
       bonusSkills: [],
       bonusStats: { VIT: 10, DEX: 10, HP: 216 }
@@ -2174,15 +2160,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 18, STR: 18, DR: 6, "Physical Resist": 8, HP: 224 }
     },
-    "Claw Gloves": {
+    "Claw Ring": {
       type: "armor",
-      slot: "bracelet",
-      equipCategory: "bracelet",
+      slot: "ring1",
+      equipCategory: "ring",
       rarity: "common",
       itemLevel: 26,
       defense: 6,
-      image: "Assets/Equips/template_bracelet.png",
-      description: "Claw-bound gloves that sharpen aggressive melee patterns.",
+      image: "Assets/Equips/claw_ring.png",
+      description: "A claw-etched ring that sharpens aggressive melee patterns.",
       set: "Lynxstrike",
       build: "DEX_STR",
       bonusSkills: [],
@@ -2197,7 +2183,7 @@ const GAME_CONFIG = {
       defense: 6,
       image: "Assets/Equips/template_leggs.png",
       description: "Reinforced leggings threaded with stable core fragments.",
-      set: "Earthbinder",
+      set: "",
       build: "VIT_INT",
       bonusSkills: [],
       bonusStats: { VIT: 18, INT: 18, DR: 5, "Magic Resist": 8, HP: 232 }
@@ -2209,7 +2195,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 30,
       defense: 6,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/petrify_ring.png",
       description: "A ring meant for controllers who win with time and pressure.",
       set: "Earthbinder",
       build: "INT_VIT",
@@ -2223,7 +2209,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 29,
       defense: 6,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/core_amulet.png",
       description: "A stable core pendant for controlled casting.",
       set: "Earthbinder",
       build: "INT",
@@ -2237,7 +2223,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 25,
       defense: 6,
-      image: "Assets/Equips/template_bracelet.png",
+      image: "Assets/Equips/stone_bracelet.png",
       description: "A rough bracelet that reinforces survival over burst.",
       set: "Stoneguard",
       build: "VIT",
@@ -2251,23 +2237,23 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 27,
       defense: 6,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/fang_charm.png",
       description: "A predatory charm that rewards accurate strikes.",
-      set: "Lynxstrike",
+      set: "Rock Serpent",
       build: "DEX",
       bonusSkills: [],
       bonusStats: { DEX: 17, STR: 9, Crit: 8, "Crit Damage": 6 }
     },
-    "Earth Loop": {
+    "Serpent Grip": {
       type: "armor",
       slot: "ring1",
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 28,
       defense: 6,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/serpent_grip.png",
       description: "A grounded loop that supports bruiser builds.",
-      set: "Ibex Dominator",
+      set: "Rock Serpent",
       build: "STR_VIT",
       bonusSkills: [],
       bonusStats: { STR: 18, VIT: 10, Stagger: 8, "Physical Resist": 6 }
@@ -2281,7 +2267,7 @@ const GAME_CONFIG = {
       defense: 6,
       image: "Assets/Equips/template_ring.png",
       description: "A polished band used by hybrid earth spellblades.",
-      set: "Earthbinder",
+      set: "",
       build: "INT_DEX",
       bonusSkills: [],
       bonusStats: { VIT: 11, DEX: 11, "Crit Damage": 6 }
@@ -4532,8 +4518,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "rockstep_boots",
-            resultItem: "Rockstep Boots",
+            id: "rock_serpent_boots",
+            resultItem: "Rock Serpent Boots",
             resultLevel: 27,
             ingredients: [
               { item: "Petrify Gland", qty: 6, source: "monster_loot" },
@@ -4556,8 +4542,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "claw_gloves",
-            resultItem: "Claw Gloves",
+            id: "claw_ring",
+            resultItem: "Claw Ring",
             resultLevel: 26,
             ingredients: [
               { item: "Sharp Fang", qty: 6, source: "monster_loot" },
@@ -4628,8 +4614,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "earth_loop",
-            resultItem: "Earth Loop",
+            id: "serpent_grip",
+            resultItem: "Serpent Grip",
             resultLevel: 28,
             ingredients: [
               { item: "Petrify Gland", qty: 6, source: "monster_loot" },
@@ -4674,19 +4660,6 @@ const GAME_CONFIG = {
               { item: "Root Fiber", qty: 3, source: "gathering_loot" },
               { item: "Stone Fragment", qty: 3, source: "monster_loot" },
               { item: "Seeds", qty: 2, source: "gathering_loot" }
-            ]
-          },
-          {
-            id: "earthbind_amulet",
-            resultItem: "Earthbind Amulet",
-            resultLevel: 30,
-            ingredients: [
-              { item: "Petrify Gland", qty: 6, source: "monster_loot" },
-              { item: "Stable Core", qty: 5, source: "gathering_loot" },
-              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
-              { item: "Earth Residue", qty: 3, source: "gathering_loot" },
-              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
-              { item: "Stone Scale", qty: 2, source: "monster_loot" }
             ]
           },
           {

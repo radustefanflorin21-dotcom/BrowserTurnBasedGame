@@ -910,7 +910,10 @@ const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
   "Spirit Bark": "Bark Fragment",
   "Antler Fragment": "Antler Piece",
   "Toxic Extract": "Toxic Essence",
-  "Illusion Fragment": "Illusion Essence"
+  "Illusion Fragment": "Illusion Essence",
+  "Claw Gloves": "Claw Ring",
+  "Rockstep Boots": "Rock Serpent Boots",
+  "Earth Loop": "Serpent Grip"
 });
 
 function getItemDef(name) {
