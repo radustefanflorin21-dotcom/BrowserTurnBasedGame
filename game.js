@@ -580,7 +580,15 @@ function migratePlayer(p) {
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
-  const removedLegacyItemBases = new Set(["Energy Cell", "Wolf Pelt", "Frozen Core", "Skitter Ring"]);
+  const removedLegacyItemBases = new Set([
+    "Energy Cell",
+    "Wolf Pelt",
+    "Frozen Core",
+    "Skitter Ring",
+    "Gorilla Hide Armor",
+    "Echo Band",
+    "Soul Loop"
+  ]);
   EQUIP_SLOTS.forEach((s) => {
     const n = p.equipment[s.id];
     if (typeof n !== "string" || !n) return;
@@ -9125,34 +9133,59 @@ const STAT_CAP = 50;
 const INV_COLS = 5;
 const INV_VISIBLE_ROWS = 10;
 const INV_VISIBLE_SLOTS = INV_COLS * INV_VISIBLE_ROWS;
+const INVENTORY_STACK_LIMIT = 999;
 
 function invCellImg(name) {
   const src = escapeAttr(getItemImage(name));
   return `<img class="inv-cell-img" src="${src}" alt="" draggable="false" />`;
 }
 
+function buildInventoryStacks(names, stackLimit = INVENTORY_STACK_LIMIT) {
+  const limit = Math.max(1, Math.floor(stackLimit));
+  const counts = new Map();
+  const order = [];
+  names.forEach((name) => {
+    if (!name) return;
+    if (!counts.has(name)) order.push(name);
+    counts.set(name, (counts.get(name) || 0) + 1);
+  });
+  const out = [];
+  order.forEach((name) => {
+    let left = counts.get(name) || 0;
+    while (left > 0) {
+      const qty = Math.min(limit, left);
+      out.push({ name, qty });
+      left -= qty;
+    }
+  });
+  return out;
+}
+
 function buildInventoryGridHtml(names, tabKind) {
-  const list = names.slice();
-  const total = Math.max(list.length, INV_VISIBLE_SLOTS);
+  const stacks = buildInventoryStacks(names);
+  const total = Math.max(stacks.length, INV_VISIBLE_SLOTS);
   const cells = [];
   for (let i = 0; i < total; i++) {
-    const name = list[i];
-    if (!name) {
+    const stack = stacks[i];
+    if (!stack) {
       cells.push('<div class="inv-cell inv-empty" aria-hidden="true"></div>');
       continue;
     }
+    const name = stack.name;
+    const qty = stack.qty;
     const esc = escapeAttr(name);
     const img = invCellImg(name);
+    const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
     if (tabKind === "equipment") {
       cells.push(
-        `<div class="inv-cell" draggable="true" data-item="${esc}" data-item-name="${esc}">${img}</div>`
+        `<div class="inv-cell" draggable="true" data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`
       );
     } else if (tabKind === "consumables") {
       cells.push(
-        `<div class="inv-cell inv-use" data-item="${esc}" data-item-name="${esc}" data-use-consumable="${esc}">${img}</div>`
+        `<div class="inv-cell inv-use" data-item="${esc}" data-item-name="${esc}" data-use-consumable="${esc}">${img}${qtyBadge}</div>`
       );
     } else {
-      cells.push(`<div class="inv-cell" data-item="${esc}" data-item-name="${esc}">${img}</div>`);
+      cells.push(`<div class="inv-cell" data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`);
     }
   }
   return `<div class="inv-grid-scroll"><div class="inv-grid">${cells.join("")}</div></div>`;

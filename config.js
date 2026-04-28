@@ -1487,20 +1487,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { DEX: 20, VIT: 13, "Healing Received": 8 }
     },
-    "Gorilla Hide Armor": {
-      type: "armor",
-      slot: "chest",
-      equipCategory: "chest_armor",
-      rarity: "common",
-      itemLevel: 40,
-      defense: 8,
-      image: "Assets/Equips/template_chest.png",
-      description: "Primal set chest that converts bulk into pressure.",
-      set: "Primal",
-      build: "VIT",
-      bonusSkills: [],
-      bonusStats: { VIT: 26, STR: 14, DR: 8 }
-    },
     "Soul Echo Amulet": {
       type: "armor",
       slot: "amulet",
@@ -2468,20 +2454,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 22, INT: 21, DR: 6, "Magic Resist": 10, "Debuff Duration": 8 }
     },
-    "Echo Band": {
-      type: "armor",
-      slot: "ring1",
-      equipCategory: "ring",
-      rarity: "common",
-      itemLevel: 39,
-      defense: 8,
-      image: "Assets/Equips/template_ring.png",
-      description: "An echo-tuned band favored by control casters.",
-      set: "Soulbinder",
-      build: "INT_DEX",
-      bonusSkills: [],
-      bonusStats: { VIT: 14, DEX: 14, "Crit Damage": 8 }
-    },
     "Ashmaw Cleaver": {
       type: "weapon",
       slot: "weapon",
@@ -2663,20 +2635,6 @@ const GAME_CONFIG = {
       build: "DEX_INT",
       bonusSkills: [],
       bonusStats: { DEX: 29, INT: 28, Combo: 12, "Status Potency": 10, "Debuff Duration": 10, "Crit Damage": 10 }
-    },
-    "Soul Loop": {
-      type: "armor",
-      slot: "ring1",
-      equipCategory: "ring",
-      rarity: "common",
-      itemLevel: 51,
-      defense: 10,
-      image: "Assets/Equips/template_ring.png",
-      description: "A shadow-touched loop for elite attrition casters.",
-      set: "Basilisk Oracle",
-      build: "INT_VIT",
-      bonusSkills: [],
-      bonusStats: { INT: 32, VIT: 18, "Debuff Duration": 12, "Magic Resist": 10 }
     },
     "Inferno Charm": {
       type: "armor",
@@ -4871,20 +4829,6 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "echo_band",
-            resultItem: "Echo Band",
-            resultLevel: 39,
-            ingredients: [
-              { item: "Shadow Residue", qty: 7, source: "monster_loot" },
-              { item: "Fox Fang", qty: 6, source: "monster_loot" },
-              { item: "Forest Fur", qty: 5, source: "monster_loot" },
-              { item: "Antler Piece", qty: 5, source: "monster_loot" },
-              { item: "Spirit Seed", qty: 4, source: "monster_loot" },
-              { item: "Heavy Bone", qty: 4, source: "gathering_loot" },
-              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" }
-            ]
-          },
-          {
             id: "swiftbrush_boots",
             resultItem: "Swiftbrush Boots",
             resultLevel: 37,
@@ -4909,20 +4853,6 @@ const GAME_CONFIG = {
               { item: "Dense Bone", qty: 3, source: "gathering_loot" },
               { item: "Root Fiber", qty: 3, source: "gathering_loot" },
               { item: "Tough Hide", qty: 2, source: "gathering_loot" }
-            ]
-          },
-          {
-            id: "gorilla_hide_armor",
-            resultItem: "Gorilla Hide Armor",
-            resultLevel: 40,
-            ingredients: [
-              { item: "Thick Hide", qty: 9, source: "monster_loot" },
-              { item: "Muscle Fiber", qty: 7, source: "monster_loot" },
-              { item: "Heavy Bone", qty: 5, source: "gathering_loot" },
-              { item: "Jungle Fiber", qty: 4, source: "gathering_loot" },
-              { item: "Dense Bone", qty: 4, source: "gathering_loot" },
-              { item: "Living Fiber", qty: 3, source: "gathering_loot" },
-              { item: "Stable Core", qty: 3, source: "gathering_loot" }
             ]
           },
           {
@@ -5139,22 +5069,6 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "soul_loop",
-            resultItem: "Soul Loop",
-            resultLevel: 51,
-            ingredients: [
-              { item: "Ember Fragment", qty: 8, source: "monster_loot" },
-              { item: "Magma Hide", qty: 7, source: "monster_loot" },
-              { item: "Lava Core", qty: 6, source: "monster_loot" },
-              { item: "Frozen Shell", qty: 6, source: "monster_loot" },
-              { item: "Ice Fang", qty: 5, source: "monster_loot" },
-              { item: "Basilisk Eye", qty: 5, source: "monster_loot" },
-              { item: "Ancient Seed", qty: 3, source: "gathering_loot" },
-              { item: "Living Fiber", qty: 2, source: "gathering_loot" },
-              { item: "Ash Residue", qty: 2, source: "gathering_loot" }
-            ]
-          },
-          {
             id: "inferno_charm",
             resultItem: "Inferno Charm",
             resultLevel: 46,
@@ -5270,6 +5184,44 @@ const GAME_CONFIG = {
         ]
       }
     ]
+  },
+
+  /**
+   * Count of equippable items per `set` on `GAME_CONFIG.items` (MMO sync: how many pieces exist for set bonuses).
+   * Recompute when adding/removing set gear (e.g. `node tools/_count_equipment_set_pieces.mjs`).
+   */
+  mmoEquipmentSetPieceTotals: {
+    "Ash Titan": 3,
+    Basilisk: 1,
+    "Basilisk Oracle": 2,
+    Boarbreaker: 5,
+    Dunestrike: 4,
+    Earthbinder: 3,
+    Ember: 1,
+    "Ember Assassin": 3,
+    Frost: 1,
+    Frostfang: 3,
+    "Frozen Bastion": 3,
+    Greenleaf: 2,
+    "Greenleaf Assassin": 4,
+    "Ibex Dominator": 1,
+    "Jungle Titan": 3,
+    Lynxstrike: 2,
+    Mirage: 3,
+    Molten: 1,
+    "Molten Colossus": 1,
+    Predator: 1,
+    "Primal Rage": 1,
+    "Rock Serpent": 4,
+    Skimmer: 4,
+    Soulbinder: 2,
+    Stoneguard: 4,
+    "Thornback Bulwark": 3,
+    Tidecaster: 5,
+    Tideguard: 7,
+    Venomcaster: 2,
+    "Verdant Rite": 5,
+    Wraith: 1
   },
 
   /**

@@ -1740,6 +1740,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
 }
 
 .inv-cell-img {
@@ -1748,6 +1749,22 @@ body.edit-mode-on .portrait-stack--editing-scale {
   object-fit: contain;
   pointer-events: none;
   display: block;
+}
+
+.inv-cell-qty {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  min-width: 12px;
+  padding: 0 2px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 0.58rem;
+  line-height: 1.15;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
 }
 
 .inv-cell:hover {
@@ -3143,7 +3160,8 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 .fight-panel--turn {
   width: min(1320px, 99vw);
   max-width: 100%;
-  /* +25% vertical budget vs previous 86vh; cap so the panel stays on-screen */
+  /* Keep turn-combat panel height fixed; let only inner regions (combat log) scroll. */
+  height: min(calc(100vh - 12px), calc(86vh * 1.25));
   max-height: min(calc(100vh - 12px), calc(86vh * 1.25));
   padding-top: calc(10px * 1.25);
   padding-bottom: calc(10px * 1.25);
