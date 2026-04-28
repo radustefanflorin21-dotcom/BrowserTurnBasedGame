@@ -524,6 +524,23 @@ function parseSavedPlayerJson(raw) {
   }
 }
 
+function salvagePlayerFromRaw(rawObj) {
+  const base = defaultPlayer();
+  const src = rawObj && typeof rawObj === "object" ? rawObj : {};
+  const worldMapSrc = src.worldMap && typeof src.worldMap === "object" ? src.worldMap : {};
+  const eqSrc = src.equipment && typeof src.equipment === "object" ? src.equipment : {};
+  return {
+    ...base,
+    ...src,
+    inventory: Array.isArray(src.inventory) ? src.inventory.filter((n) => typeof n === "string" && !!n) : base.inventory,
+    professions: Array.isArray(src.professions) ? src.professions.filter((id) => typeof id === "string" && !!id) : [],
+    classSkillLevels:
+      src.classSkillLevels && typeof src.classSkillLevels === "object" ? src.classSkillLevels : base.classSkillLevels,
+    equipment: { ...emptyEquipment(), ...eqSrc },
+    worldMap: { ...base.worldMap, ...worldMapSrc }
+  };
+}
+
 function loadPlayer() {
   const tryUse = (obj) => {
     if (!obj || typeof obj !== "object") return null;
@@ -531,7 +548,14 @@ function loadPlayer() {
       migratePlayer(obj);
       return obj;
     } catch {
-      return null;
+      // Keep progress if migration fails on old/partial save shapes.
+      const salvage = salvagePlayerFromRaw(obj);
+      try {
+        migratePlayer(salvage);
+      } catch {
+        /* Keep salvaged raw state as a last resort. */
+      }
+      return salvage;
     }
   };
   const fromPrimary = tryUse(parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_KEY)));
@@ -542,7 +566,6 @@ function loadPlayer() {
 }
 
 player = loadPlayer();
-save();
 applyCityPortalsFromConfig();
 pruneDuplicateCityPortalsFromSceneEdits();
 
@@ -7420,7 +7443,22 @@ function onAdventureSceneButtonClick(e) {
     return true;
   }
   if (payload.type === "boat") {
-    const dests = Array.isArray(payload.destinations) ? payload.destinations : [];
+    let dests = Array.isArray(payload.destinations) ? payload.destinations : [];
+    if (!dests.length) {
+      const cfgOnly = getCoordinateCellConfigFromConfigOnly(x, y);
+      if (cfgOnly && cfgOnly.kind === "scene" && Array.isArray(cfgOnly.elements)) {
+        const curBoatId = typeof payload.id === "string" ? payload.id : "";
+        const boatCfg =
+          cfgOnly.elements.find((el) => el && el.type === "boat" && (curBoatId ? el.id === curBoatId : true)) ||
+          cfgOnly.elements.find((el) => el && el.type === "boat");
+        if (boatCfg && Array.isArray(boatCfg.destinations)) dests = boatCfg.destinations;
+      }
+    }
+    // Safety fallback for Paradise route when a stale scene edit lacks destination metadata.
+    if (!dests.length) {
+      if (x === 37 && y === 43) dests = [{ label: "Paradise South", x: 29, y: 55 }];
+      else if (x === 29 && y === 55) dests = [{ label: "Paradise North", x: 37, y: 43 }];
+    }
     openBoatTravelModal(dests);
     return true;
   }
