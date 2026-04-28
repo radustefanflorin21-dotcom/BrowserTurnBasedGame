@@ -18,6 +18,7 @@ let inventoryTab = "equipment";
 let overviewStatsTab = "characteristics";
 let overviewSkillsScrollTop = 0;
 let overviewSkillsScrollAnchor = null;
+let activeCraftingProfessionId = null;
 let activeMenuPanel = null;
 let dragPayload = null;
 /** Respawn label updates on adventure (no full re-render — avoids image flash) */
@@ -8400,11 +8401,14 @@ function buildFightLootHtml(items) {
   if (!items.length) {
     return '<p class="fight-results-muted fight-results-no-loot">No items dropped.</p>';
   }
-  return `<div class="fight-loot-grid">${items
-    .map(
-      (name) =>
-        `<div class="fight-loot-cell" data-item-name="${escapeAttr(name)}">${invCellImg(name)}</div>`
-    )
+  const stacks = buildInventoryStacks(items);
+  return `<div class="fight-loot-grid">${stacks
+    .map((stack) => {
+      const name = stack.name;
+      const qty = stack.qty;
+      const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
+      return `<div class="fight-loot-cell" data-item-name="${escapeAttr(name)}" data-loot-qty="${qty}">${invCellImg(name)}${qtyBadge}</div>`;
+    })
     .join("")}</div>
     <p class="fight-loot-hint">Double-click equipment here to equip. On Overview, double-click a worn item in the paper doll to unequip.</p>`;
 }
@@ -8967,7 +8971,23 @@ function onFightOverlayDblClick(ev) {
   const def = getItemDef(name);
   if (!isEquippableItemDef(def)) return;
   hideItemTooltip();
-  if (equipFromInventory(name)) loot.remove();
+  if (equipFromInventory(name)) {
+    const currentQty = Number.parseInt(loot.dataset.lootQty || "1", 10);
+    const nextQty = Number.isFinite(currentQty) ? Math.max(0, currentQty - 1) : 0;
+    if (nextQty <= 0) {
+      loot.remove();
+    } else {
+      loot.dataset.lootQty = String(nextQty);
+      let badge = loot.querySelector(".inv-cell-qty");
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "inv-cell-qty";
+        loot.appendChild(badge);
+      }
+      if (nextQty <= 1) badge.remove();
+      else badge.textContent = String(nextQty);
+    }
+  }
 }
 
 function onFightOverlayClick(ev) {
@@ -9104,7 +9124,6 @@ function levelUp() {
 function spendCharPoint(statKey) {
   if (!["str", "dex", "vit", "int"].includes(statKey)) return;
   if (player.charPoints <= 0) return;
-  if (player[statKey] >= STAT_CAP) return;
   player.charPoints--;
   const prevMax = player.maxHp;
   player[statKey]++;
@@ -9127,8 +9146,8 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-/** Stat bar fill (relative scale for display) */
-const STAT_CAP = 50;
+/** Minimum stat-bar scale; bars can grow beyond this as stats increase. */
+const BASE_STAT_BAR_SCALE_MAX = 50;
 
 const INV_COLS = 5;
 const INV_VISIBLE_ROWS = 10;
@@ -9339,7 +9358,8 @@ function showStatTooltip(statKey, clientX, clientY) {
   showTooltipHtml(buildStatTooltipHtml(statKey), clientX, clientY);
 }
 
-function buildSkillTooltipHtml(skillName) {
+function buildSkillTooltipHtml(skillName, opts) {
+  const showUpgradeBonuses = !opts || opts.showUpgradeBonuses !== false;
   const def = getSkillDef(skillName);
   const classDef = getClassSkillDefByName(skillName);
   const parts = [`<div class="item-tip-name">${escapeHtml(skillName)}</div>`];
@@ -9374,7 +9394,7 @@ function buildSkillTooltipHtml(skillName) {
     );
   }
 
-  if (classDef) {
+  if (classDef && showUpgradeBonuses) {
     const rows = [];
     for (let l = 1; l <= 5; l++) {
       const pwr = 1 + 0.2 * (l - 1);
@@ -9409,8 +9429,8 @@ function buildSkillTooltipHtml(skillName) {
   return `<div class="item-tip">${parts.join("")}</div>`;
 }
 
-function showSkillTooltip(skillName, clientX, clientY) {
-  showTooltipHtml(buildSkillTooltipHtml(skillName), clientX, clientY);
+function showSkillTooltip(skillName, clientX, clientY, opts) {
+  showTooltipHtml(buildSkillTooltipHtml(skillName, opts), clientX, clientY);
 }
 
 function formatCombatTurnsLabel(turns) {
@@ -9650,7 +9670,7 @@ function onContentTooltipOver(e) {
   const fightSkillBtn = e.target.closest(".fight-skill-btn[data-fight-skill]");
   if (fightSkillBtn) {
     const name = fightSkillBtn.getAttribute("data-fight-skill");
-    if (name) showSkillTooltip(name, e.clientX, e.clientY);
+    if (name) showSkillTooltip(name, e.clientX, e.clientY, { showUpgradeBonuses: false });
     return;
   }
   const skillTile = e.target.closest(".skill-tile[data-skill-name]");
@@ -9715,7 +9735,7 @@ function statBarRowLevelEditable(value, max, statTipKey) {
 
 function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  const can = player.charPoints > 0 && value < STAT_CAP;
+  const can = player.charPoints > 0;
   const btn = can
     ? `<button type="button" class="stat-alloc-btn" data-char-up="${escapeAttr(statKey)}">+</button>`
     : `<span class="stat-alloc-empty" aria-hidden="true"></span>`;
@@ -9836,10 +9856,10 @@ function buildOverviewHtml() {
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
-    ${statBarRowWithSpend("Strength", player.str, STAT_CAP, "str", "str", "str")}
-    ${statBarRowWithSpend("Dexterity", player.dex, STAT_CAP, "dex", "dex", "dex")}
-    ${statBarRowWithSpend("Vitality", player.vit, STAT_CAP, "vit", "vit", "vit")}
-    ${statBarRowWithSpend("Intelligence", player.int, STAT_CAP, "int", "int", "int")}
+    ${statBarRowWithSpend("Strength", player.str, Math.max(BASE_STAT_BAR_SCALE_MAX, player.str), "str", "str", "str")}
+    ${statBarRowWithSpend("Dexterity", player.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, player.dex), "dex", "dex", "dex")}
+    ${statBarRowWithSpend("Vitality", player.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, player.vit), "vit", "vit", "vit")}
+    ${statBarRowWithSpend("Intelligence", player.int, Math.max(BASE_STAT_BAR_SCALE_MAX, player.int), "int", "int", "int")}
     <div class="stat-plain-row stat-tip-row" data-stat-tip="armor">
       <span>Armor</span><strong>${getArmorDefense()}</strong>
     </div>
@@ -10045,12 +10065,155 @@ function getMenuPanelMeta(kind) {
   if (kind === "arena") return { title: "Arena", lead: "To be defined later." };
   if (kind === "alliance") return { title: "Alliance", lead: "Coming soon." };
   if (kind === "market") return { title: "Market", lead: "Coming soon." };
+  if (kind === "crafting") return { title: "Crafting", lead: "Recipes from your selected crafting professions." };
   return null;
+}
+
+function getCraftingConfig() {
+  return GAME_CONFIG.crafting && typeof GAME_CONFIG.crafting === "object" ? GAME_CONFIG.crafting : {};
+}
+
+function getSelectedCraftingProfessionIds() {
+  return getPlayerSelectedProfessions().filter((id) => {
+    const d = getProfessionDefById(id);
+    return !!(d && d.kind === "crafting");
+  });
+}
+
+function ensureActiveCraftingProfessionId(profIds) {
+  const ids = Array.isArray(profIds) ? profIds : getSelectedCraftingProfessionIds();
+  if (!ids.length) {
+    activeCraftingProfessionId = null;
+    return null;
+  }
+  if (!activeCraftingProfessionId || !ids.includes(activeCraftingProfessionId)) {
+    activeCraftingProfessionId = ids[0];
+  }
+  return activeCraftingProfessionId;
+}
+
+function getAllCraftingRecipes() {
+  const cfg = getCraftingConfig();
+  const tiers = Array.isArray(cfg.recipeTiers) ? cfg.recipeTiers : [];
+  const out = [];
+  tiers.forEach((tier) => {
+    const tierLabel = tier && typeof tier.label === "string" ? tier.label : "Recipes";
+    const recipes = tier && Array.isArray(tier.recipes) ? tier.recipes : [];
+    recipes.forEach((r) => {
+      if (!r || typeof r.resultItem !== "string") return;
+      out.push({ ...r, tierLabel });
+    });
+  });
+  return out;
+}
+
+function getCraftingProfessionIdForRecipe(recipe) {
+  const def = getItemDef(recipe && recipe.resultItem);
+  if (!def) return "armor_smith";
+  if (def.type === "weapon") return "weapon_smith";
+  const cat = getItemEquipCategory(def);
+  if (cat === "ring" || cat === "amulet" || cat === "bracelet") return "jeweller";
+  return "armor_smith";
+}
+
+function getInventoryBaseItemCounts() {
+  const out = new Map();
+  const inv = Array.isArray(player.inventory) ? player.inventory : [];
+  inv.forEach((entry) => {
+    const base = getItemBaseName(entry);
+    if (!base) return;
+    out.set(base, (out.get(base) || 0) + 1);
+  });
+  return out;
+}
+
+function evaluateCraftRecipeAvailability(recipe, invCounts) {
+  const requiredLevel =
+    recipe && typeof recipe.resultLevel === "number" && Number.isFinite(recipe.resultLevel)
+      ? Math.max(1, Math.floor(recipe.resultLevel))
+      : 1;
+  const playerLevel =
+    typeof player.level === "number" && Number.isFinite(player.level) ? Math.max(1, Math.floor(player.level)) : 1;
+  const levelOk = playerLevel >= requiredLevel;
+  const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+  const missing = [];
+  ingredients.forEach((ing) => {
+    const itemName = ing && typeof ing.item === "string" ? ing.item.trim() : "";
+    if (!itemName) return;
+    const need = ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    const have = invCounts.get(itemName) || 0;
+    if (have < need) missing.push({ item: itemName, need, have });
+  });
+  return { levelOk, requiredLevel, missing, craftable: levelOk && missing.length === 0 };
+}
+
+function buildCraftingPanelHtml() {
+  const cfg = getCraftingConfig();
+  const intro =
+    typeof cfg.intro === "string" && cfg.intro.trim()
+      ? cfg.intro.trim()
+      : "Crafting recipes are grouped by profession.";
+  const selectedCraftingProfIds = getSelectedCraftingProfessionIds();
+  if (!selectedCraftingProfIds.length) {
+    return `<div class="game-page"><h1 class="game-page-title">Crafting</h1><p class="game-page-lead muted">${escapeHtml(
+      intro
+    )}</p><p class="crafting-empty">No crafting profession selected. Select Weapon smith, Armor smith, or Jeweller in Character -> Professions.</p></div>`;
+  }
+  const activeProfId = ensureActiveCraftingProfessionId(selectedCraftingProfIds);
+  const tabsHtml = selectedCraftingProfIds
+    .map((id) => {
+      const d = getProfessionDefById(id);
+      const label = d && d.label ? d.label : id;
+      const cls = id === activeProfId ? "stats-tab active" : "stats-tab";
+      return `<button type="button" class="${cls}" data-crafting-profession-tab="${escapeAttr(id)}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
+  const invCounts = getInventoryBaseItemCounts();
+  const recipes = getAllCraftingRecipes().filter((r) => getCraftingProfessionIdForRecipe(r) === activeProfId);
+  const recipeRows = recipes
+    .map((r) => {
+      const avail = evaluateCraftRecipeAvailability(r, invCounts);
+      const rowCls = avail.craftable
+        ? "crafting-recipe-row crafting-recipe-row--craftable"
+        : "crafting-recipe-row crafting-recipe-row--locked";
+      const ing = Array.isArray(r.ingredients) ? r.ingredients : [];
+      const ingText = ing
+        .map((i) => {
+          const itemName = i && typeof i.item === "string" ? i.item.trim() : "";
+          if (!itemName) return null;
+          const need = i && typeof i.qty === "number" && Number.isFinite(i.qty) ? Math.max(1, Math.floor(i.qty)) : 1;
+          const have = invCounts.get(itemName) || 0;
+          return `${itemName} ${have}/${need}`;
+        })
+        .filter(Boolean)
+        .join(" · ");
+      const statusText = !avail.levelOk
+        ? `Level: ${Math.max(1, Math.floor(player.level || 1))}/${avail.requiredLevel}`
+        : avail.missing.length
+          ? `Missing: ${avail.missing.map((m) => `${m.item} ${m.have}/${m.need}`).join(", ")}`
+          : "Craftable";
+      return `<div class="${rowCls}">
+        <div class="crafting-recipe-head"><strong>${escapeHtml(r.resultItem)}</strong> <span class="crafting-recipe-tier">${escapeHtml(
+          r.tierLabel || ""
+        )}</span></div>
+        <div class="crafting-recipe-sub">Required level: ${avail.requiredLevel}</div>
+        <div class="crafting-recipe-sub">${escapeHtml(ingText || "No ingredients listed.")}</div>
+        <div class="crafting-recipe-sub">${escapeHtml(statusText)}</div>
+      </div>`;
+    })
+    .join("");
+  return `<div class="game-page">
+    <h1 class="game-page-title">Crafting</h1>
+    <p class="game-page-lead muted">${escapeHtml(intro)}</p>
+    <div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
+    <div class="crafting-recipe-list">${recipeRows || '<p class="crafting-empty">No recipes found for this profession.</p>'}</div>
+  </div>`;
 }
 
 function buildMenuPanelHtml(kind) {
   const meta = getMenuPanelMeta(kind);
   if (!meta) return '<div class="game-page"><p class="game-page-lead muted">Panel unavailable.</p></div>';
+  if (kind === "crafting") return buildCraftingPanelHtml();
   return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(
     meta.lead
   )}</p></div>`;
@@ -10070,6 +10233,7 @@ function openMenuPanel(kind) {
   const title = document.getElementById("menuPanelTitle");
   if (!modal) return;
   activeMenuPanel = kind;
+  if (kind === "crafting") ensureActiveCraftingProfessionId();
   if (title) title.textContent = meta.title;
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
@@ -10677,6 +10841,12 @@ function onDocumentKeydown(e) {
     else toggleMenuPanel("market");
     return;
   }
+  if (k === "p") {
+    e.preventDefault();
+    if (isWorldMapModalOpen()) return;
+    toggleMenuPanel("crafting");
+    return;
+  }
   if (k === "r" && e.shiftKey) {
     e.preventDefault();
     reloadMonsters({ resetDefeated: false });
@@ -10923,6 +11093,8 @@ function renderBottomHud() {
   if (allianceBtn) allianceBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "alliance");
   const marketBtn = document.getElementById("marketPanelBtn");
   if (marketBtn) marketBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "market");
+  const craftingBtn = document.getElementById("craftingPanelBtn");
+  if (craftingBtn) craftingBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "crafting");
 
   const miniSlot = document.getElementById("bottomHudMinimapSlot");
   if (!miniSlot) return;
@@ -11140,6 +11312,12 @@ function onContentClick(e) {
   if (stTab && stTab.dataset.statsTab) {
     overviewStatsTab = stTab.dataset.statsTab;
     render();
+    return;
+  }
+  const craftingProfTab = e.target.closest("[data-crafting-profession-tab]");
+  if (craftingProfTab && craftingProfTab.dataset.craftingProfessionTab) {
+    activeCraftingProfessionId = craftingProfTab.dataset.craftingProfessionTab;
+    renderMenuPanelContent();
     return;
   }
   const tab = e.target.closest("[data-inv-tab]");
@@ -11469,6 +11647,13 @@ function initUi() {
     characterPanelContent.addEventListener("mouseout", onContentTooltipOut);
     characterPanelContent.addEventListener("mousemove", onContentTooltipMove);
     characterPanelContent.addEventListener("input", onContentInput);
+  }
+  const menuPanelContent = document.getElementById("menuPanelContent");
+  if (menuPanelContent) {
+    menuPanelContent.addEventListener("click", onContentClick);
+    menuPanelContent.addEventListener("mouseover", onContentTooltipOver);
+    menuPanelContent.addEventListener("mouseout", onContentTooltipOut);
+    menuPanelContent.addEventListener("mousemove", onContentTooltipMove);
   }
 
   const bottomMini = document.getElementById("bottomHudMinimapSlot");

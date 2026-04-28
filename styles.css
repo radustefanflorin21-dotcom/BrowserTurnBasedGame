@@ -1284,6 +1284,54 @@ body.edit-mode-on .portrait-stack--editing-scale {
   padding: 2px 0;
 }
 
+.crafting-profession-tabs {
+  margin-bottom: 10px;
+}
+
+.crafting-recipe-list {
+  display: grid;
+  gap: 8px;
+}
+
+.crafting-recipe-row {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.crafting-recipe-row--craftable {
+  color: #111;
+}
+
+.crafting-recipe-row--locked {
+  color: #a22;
+}
+
+.crafting-recipe-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.crafting-recipe-tier {
+  font-size: 0.62rem;
+  color: var(--overview-muted);
+}
+
+.crafting-recipe-sub {
+  margin-top: 3px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.crafting-empty {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  color: var(--overview-muted);
+}
+
 .professions-intro {
   margin: 0;
   font-size: 0.5rem;
@@ -3644,6 +3692,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   border-radius: 4px;
   cursor: pointer;
   overflow: hidden;
+  position: relative;
 }
 
 .fight-loot-cell .inv-cell-img {

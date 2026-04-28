@@ -9,10 +9,10 @@
     gear: [
     ],
     materials: [
-      { name: "Abyss Flesh", dropRate: 65 },
-      { name: "Dark Residue", dropRate: 40 },
-      { name: "Abyss Core", dropRate: 12 },
-      { name: "Deepwater Essence", dropRate: 5 }
+      { name: "Abyss Flesh", dropRate: 32.5 },
+      { name: "Dark Residue", dropRate: 20 },
+      { name: "Abyss Core", dropRate: 6 },
+      { name: "Deepwater Essence", dropRate: 2.5 }
     ]
   };
 
@@ -38,403 +38,403 @@
   GAME_CONFIG.monsterDropTables = {
     "Tide Hopper": {
       materials: [
-        { name: "Wet Membrane", dropRate: 75 },
-        { name: "Elastic Tendon", dropRate: 45 },
-        { name: "Ripple Core", dropRate: 18 },
-        { name: "Water Essence", dropRate: 6 }
+        { name: "Wet Membrane", dropRate: 37.5 },
+        { name: "Elastic Tendon", dropRate: 22.5 },
+        { name: "Ripple Core", dropRate: 9 },
+        { name: "Water Essence", dropRate: 3 }
       ]
     },
     "Hermit Crab": {
       gear: [{ w: 5, item: "Scaleguard Shirt" }],
       materials: [
-        { name: "Hardened Shell", dropRate: 75 },
-        { name: "Crust Fragment", dropRate: 45 },
-        { name: "Defensive Core", dropRate: 15 },
-        { name: "Ocean Essence", dropRate: 5 }
+        { name: "Hardened Shell", dropRate: 37.5 },
+        { name: "Crust Fragment", dropRate: 22.5 },
+        { name: "Defensive Core", dropRate: 7.5 },
+        { name: "Ocean Essence", dropRate: 2.5 }
       ]
     },
     "Saltwind Skimmer": {
       gear: [{ w: 7, item: "Skimmer Blade" }],
       materials: [
-        { name: "Sharp Fin", dropRate: 70 },
-        { name: "Wind Scale", dropRate: 40 },
-        { name: "Razor Edge Fragment", dropRate: 15 },
-        { name: "Wind Essence", dropRate: 5 }
+        { name: "Sharp Fin", dropRate: 35 },
+        { name: "Wind Scale", dropRate: 20 },
+        { name: "Razor Edge Fragment", dropRate: 7.5 },
+        { name: "Wind Essence", dropRate: 2.5 }
       ]
     },
     "Brinegullet Spitter": {
       materials: [
-        { name: "Acid Gland", dropRate: 70 },
-        { name: "Fluid Sac", dropRate: 45 },
-        { name: "Corrosive Core", dropRate: 15 },
-        { name: "Toxic Essence", dropRate: 6 }
+        { name: "Acid Gland", dropRate: 35 },
+        { name: "Fluid Sac", dropRate: 22.5 },
+        { name: "Corrosive Core", dropRate: 7.5 },
+        { name: "Toxic Essence", dropRate: 3 }
       ]
     },
     "Wavebreaker Idol": {
       materials: [
-        { name: "Stone Core", dropRate: 75 },
-        { name: "Ancient Fragment", dropRate: 40 },
-        { name: "Resonance Core", dropRate: 12 },
-        { name: "Tidal Essence", dropRate: 5 }
+        { name: "Stone Core", dropRate: 37.5 },
+        { name: "Ancient Fragment", dropRate: 20 },
+        { name: "Resonance Core", dropRate: 6 },
+        { name: "Tidal Essence", dropRate: 2.5 }
       ]
     },
     "Tidemeld Revenant": {
       materials: [
-        { name: "Bound Remains", dropRate: 65 },
-        { name: "Soul Residue", dropRate: 40 },
-        { name: "Revenant Core Material", dropRate: 15 },
-        { name: "Spirit Essence", dropRate: 6 }
+        { name: "Bound Remains", dropRate: 32.5 },
+        { name: "Soul Residue", dropRate: 20 },
+        { name: "Revenant Core Material", dropRate: 7.5 },
+        { name: "Spirit Essence", dropRate: 3 }
       ]
     },
     "Coastal Horror": coastalTide,
     "Tideharrow": {
       gear: coastalTide.gear,
       materials: [
-        { name: "Tide Fragment", dropRate: 65 },
-        { name: "Pressure Core", dropRate: 40 },
-        { name: "Crushing Essence", dropRate: 12 },
-        { name: "Abyssal Essence", dropRate: 5 }
+        { name: "Tide Fragment", dropRate: 32.5 },
+        { name: "Pressure Core", dropRate: 20 },
+        { name: "Crushing Essence", dropRate: 6 },
+        { name: "Abyssal Essence", dropRate: 2.5 }
       ]
     },
     "Burrow Hare": {
       gear: [{ w: 4, item: "Burrowstep Boots" }, { w: 3.5, item: "Stonepulse Amulet" }],
       materials: [
-        { name: "Soft Fur", dropRate: 70 },
-        { name: "Digging Claw", dropRate: 45 },
-        { name: "Reflex Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Soft Fur", dropRate: 35 },
+        { name: "Digging Claw", dropRate: 22.5 },
+        { name: "Reflex Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Dust Carver": {
       gear: [{ w: 4, item: "Sandfang Blade" }],
       materials: [
-        { name: "Razor Claw", dropRate: 65 },
-        { name: "Sand Blade Fragment", dropRate: 40 },
-        { name: "Precision Core", dropRate: 15 },
-        { name: "Dust Essence", dropRate: 5 }
+        { name: "Razor Claw", dropRate: 32.5 },
+        { name: "Sand Blade Fragment", dropRate: 20 },
+        { name: "Precision Core", dropRate: 7.5 },
+        { name: "Dust Essence", dropRate: 2.5 }
       ]
     },
     "Grass Snake": {
       materials: [
-        { name: "Venom Sac", dropRate: 75 },
-        { name: "Scaled Skin", dropRate: 45 },
-        { name: "Toxic Core", dropRate: 18 },
-        { name: "Poison Essence", dropRate: 6 }
+        { name: "Venom Sac", dropRate: 37.5 },
+        { name: "Scaled Skin", dropRate: 22.5 },
+        { name: "Toxic Core", dropRate: 9 },
+        { name: "Poison Essence", dropRate: 3 }
       ]
     },
     "Plains Raptor": {
       materials: [
-        { name: "Talon Fragment", dropRate: 75 },
-        { name: "Bone Shard", dropRate: 40 },
-        { name: "Predator Core", dropRate: 15 },
-        { name: "Wild Essence", dropRate: 5 }
+        { name: "Talon Fragment", dropRate: 37.5 },
+        { name: "Bone Shard", dropRate: 20 },
+        { name: "Predator Core", dropRate: 7.5 },
+        { name: "Wild Essence", dropRate: 2.5 }
       ]
     },
     "Tusk Boar": {
       gear: [{ w: 2.5, item: "Boarhide Leggings" }],
       materials: [
-        { name: "Thick Hide", dropRate: 80 },
-        { name: "Boar Tusk", dropRate: 45 },
-        { name: "Endurance Core", dropRate: 18 },
-        { name: "Nature Essence", dropRate: 6 }
+        { name: "Thick Hide", dropRate: 40 },
+        { name: "Boar Tusk", dropRate: 22.5 },
+        { name: "Endurance Core", dropRate: 9 },
+        { name: "Nature Essence", dropRate: 3 }
       ]
     },
     "Field Wolf": {
       gear: [{ w: 3, item: "Fang Dagger" }],
       materials: [
-        { name: "Wolf Fang", dropRate: 75 },
-        { name: "Fur Pelt", dropRate: 40 },
-        { name: "Predator Instinct Core", dropRate: 18 },
-        { name: "Blood Essence", dropRate: 6 }
+        { name: "Wolf Fang", dropRate: 37.5 },
+        { name: "Fur Pelt", dropRate: 20 },
+        { name: "Predator Instinct Core", dropRate: 9 },
+        { name: "Blood Essence", dropRate: 3 }
       ]
     },
     "Desert Thornback Crawler": {
       materials: [
-        { name: "Spiked Shell", dropRate: 75 },
-        { name: "Carapace Fragment", dropRate: 45 },
-        { name: "Defense Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Spiked Shell", dropRate: 37.5 },
+        { name: "Carapace Fragment", dropRate: 22.5 },
+        { name: "Defense Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Dune Devourer": {
       gear: [{ w: 2.8, item: "Devourer Axe" }],
       materials: [
-        { name: "Devourer Tooth", dropRate: 70 },
-        { name: "Sand Core", dropRate: 40 },
-        { name: "Hunger Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Devourer Tooth", dropRate: 35 },
+        { name: "Sand Core", dropRate: 20 },
+        { name: "Hunger Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Mirage Lurker": {
       gear: [{ w: 2.8, item: "Mirage Ring" }],
       materials: [
-        { name: "Mirage Dust", dropRate: 65 },
-        { name: "Illusion Thread", dropRate: 40 },
-        { name: "Trickster Core", dropRate: 12 },
-        { name: "Illusion Essence", dropRate: 5 }
+        { name: "Mirage Dust", dropRate: 32.5 },
+        { name: "Illusion Thread", dropRate: 20 },
+        { name: "Trickster Core", dropRate: 6 },
+        { name: "Illusion Essence", dropRate: 2.5 }
       ]
     },
     "Witherling": {
       materials: [
-        { name: "Withered Tissue", dropRate: 65 },
-        { name: "Decay Fragment", dropRate: 40 },
-        { name: "Decay Core", dropRate: 15 },
-        { name: "Shadow Essence", dropRate: 6 }
+        { name: "Withered Tissue", dropRate: 32.5 },
+        { name: "Decay Fragment", dropRate: 20 },
+        { name: "Decay Core", dropRate: 7.5 },
+        { name: "Shadow Essence", dropRate: 3 }
       ]
     },
     "Stone Marmot": {
       gear: [{ w: 2.5, item: "Marmot Helm" }],
       materials: [
-        { name: "Hardened Stone", dropRate: 80 },
-        { name: "Dense Fur", dropRate: 40 },
-        { name: "Bulwark Core", dropRate: 18 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Hardened Stone", dropRate: 40 },
+        { name: "Dense Fur", dropRate: 20 },
+        { name: "Bulwark Core", dropRate: 9 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Rock Lynx": {
       gear: [{ w: 2.3, item: "Lynx Fang" }],
       materials: [
-        { name: "Sharp Fang", dropRate: 70 },
-        { name: "Stone Claw", dropRate: 40 },
-        { name: "Hunter Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Sharp Fang", dropRate: 35 },
+        { name: "Stone Claw", dropRate: 20 },
+        { name: "Hunter Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Rock Ibex": {
       gear: [{ w: 2.2, item: "Hornbreaker Axe" }],
       materials: [
-        { name: "Ibex Horn", dropRate: 75 },
-        { name: "Muscle Fiber", dropRate: 40 },
-        { name: "Strength Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Ibex Horn", dropRate: 37.5 },
+        { name: "Muscle Fiber", dropRate: 20 },
+        { name: "Strength Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Rock Serpent": {
       gear: [{ w: 2, item: "Petrify Ring" }, { w: 1.8, item: "Earthbind Amulet" }],
       materials: [
-        { name: "Stone Scale", dropRate: 70 },
-        { name: "Petrify Gland", dropRate: 45 },
-        { name: "Control Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Stone Scale", dropRate: 35 },
+        { name: "Petrify Gland", dropRate: 22.5 },
+        { name: "Control Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Rock Lizard": {
       gear: [{ w: 1.8, item: "Stonescale Armor" }],
       materials: [
-        { name: "Stone Scale", dropRate: 75 },
-        { name: "Stone Skin", dropRate: 40 },
-        { name: "Defense Core", dropRate: 15 },
-        { name: "Earth Essence", dropRate: 5 }
+        { name: "Stone Scale", dropRate: 37.5 },
+        { name: "Stone Skin", dropRate: 20 },
+        { name: "Defense Core", dropRate: 7.5 },
+        { name: "Earth Essence", dropRate: 2.5 }
       ]
     },
     "Leafdart Squirrel": {
       materials: [
-        { name: "Dart Spine", dropRate: 70 },
-        { name: "Bark Fragment", dropRate: 40 },
-        { name: "Agility Core", dropRate: 15 },
-        { name: "Nature Essence", dropRate: 5 }
+        { name: "Dart Spine", dropRate: 35 },
+        { name: "Bark Fragment", dropRate: 20 },
+        { name: "Agility Core", dropRate: 7.5 },
+        { name: "Nature Essence", dropRate: 2.5 }
       ]
     },
     "Greenleaf Fox": {
       gear: [{ w: 1.3, item: "Foxfang Blade" }, { w: 1.2, item: "Swiftbrush Boots" }, { w: 1.2, item: "Greenleaf Vest" }],
       materials: [
-        { name: "Fox Fang", dropRate: 75 },
-        { name: "Forest Fur", dropRate: 40 },
-        { name: "Assassin Core", dropRate: 18 },
-        { name: "Nature Essence", dropRate: 6 }
+        { name: "Fox Fang", dropRate: 37.5 },
+        { name: "Forest Fur", dropRate: 20 },
+        { name: "Assassin Core", dropRate: 9 },
+        { name: "Nature Essence", dropRate: 3 }
       ]
     },
     "Gorilla": {
       materials: [
-        { name: "Thick Bone", dropRate: 80 },
-        { name: "Muscle Fiber", dropRate: 45 },
-        { name: "Rage Core", dropRate: 18 },
-        { name: "Primal Essence", dropRate: 6 }
+        { name: "Thick Bone", dropRate: 40 },
+        { name: "Muscle Fiber", dropRate: 22.5 },
+        { name: "Rage Core", dropRate: 9 },
+        { name: "Primal Essence", dropRate: 3 }
       ]
     },
     "Jungle Stag": {
       gear: [],
       materials: [
-        { name: "Antler Piece", dropRate: 75 },
-        { name: "Bark Fragment", dropRate: 40 },
-        { name: "Support Core", dropRate: 15 },
-        { name: "Nature Essence", dropRate: 6 }
+        { name: "Antler Piece", dropRate: 37.5 },
+        { name: "Bark Fragment", dropRate: 20 },
+        { name: "Support Core", dropRate: 7.5 },
+        { name: "Nature Essence", dropRate: 3 }
       ]
     },
     "Faded War Wraith": {
       gear: [{ w: 0.9, item: "Wraithcall Scepter" }, { w: 0.8, item: "Soul Echo Amulet" }],
       materials: [
-        { name: "Soul Fragment", dropRate: 65 },
-        { name: "Shadow Residue", dropRate: 40 },
-        { name: "Wraith Core", dropRate: 15 },
-        { name: "Shadow Essence", dropRate: 6 }
+        { name: "Soul Fragment", dropRate: 32.5 },
+        { name: "Shadow Residue", dropRate: 20 },
+        { name: "Wraith Core", dropRate: 7.5 },
+        { name: "Shadow Essence", dropRate: 3 }
       ]
     },
     "Remnant of Rust": {
       materials: [
-        { name: "Rusted Metal", dropRate: 80 },
-        { name: "Corroded Gear", dropRate: 40 },
-        { name: "Control Core", dropRate: 15 },
-        { name: "Metal Essence", dropRate: 5 }
+        { name: "Rusted Metal", dropRate: 40 },
+        { name: "Corroded Gear", dropRate: 20 },
+        { name: "Control Core", dropRate: 7.5 },
+        { name: "Metal Essence", dropRate: 2.5 }
       ]
     },
     "Ash Lizard": {
       gear: [{ w: 0.6, item: "Ashmaw Cleaver" }],
       materials: [
-        { name: "Ash Scale", dropRate: 75 },
-        { name: "Burnt Hide", dropRate: 40 },
-        { name: "Fire Core", dropRate: 18 },
-        { name: "Flame Essence", dropRate: 6 }
+        { name: "Ash Scale", dropRate: 37.5 },
+        { name: "Burnt Hide", dropRate: 20 },
+        { name: "Fire Core", dropRate: 9 },
+        { name: "Flame Essence", dropRate: 3 }
       ]
     },
     "Cinder Stalker": {
       gear: [{ w: 0.5, item: "Emberfang" }],
       materials: [
-        { name: "Burning Fang", dropRate: 70 },
-        { name: "Ember Fragment", dropRate: 40 },
-        { name: "Assassin Core", dropRate: 15 },
-        { name: "Fire Essence", dropRate: 5 }
+        { name: "Burning Fang", dropRate: 35 },
+        { name: "Ember Fragment", dropRate: 20 },
+        { name: "Assassin Core", dropRate: 7.5 },
+        { name: "Fire Essence", dropRate: 2.5 }
       ]
     },
     "Ember Scuttler": {
       gear: [{ w: 0.45, item: "Ember Core Ring" }],
       materials: [
-        { name: "Ember Core", dropRate: 75 },
-        { name: "Heat Shell", dropRate: 40 },
-        { name: "Control Core", dropRate: 15 },
-        { name: "Fire Essence", dropRate: 5 }
+        { name: "Ember Core", dropRate: 37.5 },
+        { name: "Heat Shell", dropRate: 20 },
+        { name: "Control Core", dropRate: 7.5 },
+        { name: "Fire Essence", dropRate: 2.5 }
       ]
     },
     "Magma Boar": {
       gear: [{ w: 0.4, item: "Magmahide Plate" }, { w: 0.35, item: "Lava Greaves" }],
       materials: [
-        { name: "Magma Hide", dropRate: 80 },
-        { name: "Lava Core", dropRate: 45 },
-        { name: "Endurance Core", dropRate: 18 },
-        { name: "Fire Essence", dropRate: 6 }
+        { name: "Magma Hide", dropRate: 40 },
+        { name: "Lava Core", dropRate: 22.5 },
+        { name: "Endurance Core", dropRate: 9 },
+        { name: "Fire Essence", dropRate: 3 }
       ]
     },
     "Lava Basilisk": {
       gear: [{ w: 0.25, item: "Basilisk Eye Amulet" }, { w: 0.25, item: "Molten Gaze Ring" }],
       materials: [
-        { name: "Basilisk Eye", dropRate: 70 },
-        { name: "Molten Scale", dropRate: 40 },
-        { name: "Control Core", dropRate: 15 },
-        { name: "Fire Essence", dropRate: 6 }
+        { name: "Basilisk Eye", dropRate: 35 },
+        { name: "Molten Scale", dropRate: 20 },
+        { name: "Control Core", dropRate: 7.5 },
+        { name: "Fire Essence", dropRate: 3 }
       ]
     },
     "Glacier Turtoise": {
       gear: [{ w: 0.4, item: "Glacier Shell" }, { w: 0.35, item: "Icebound Boots" }],
       materials: [
-        { name: "Frozen Shell", dropRate: 80 },
-        { name: "Ice Plate", dropRate: 45 },
-        { name: "Defense Core", dropRate: 18 },
-        { name: "Ice Essence", dropRate: 6 }
+        { name: "Frozen Shell", dropRate: 40 },
+        { name: "Ice Plate", dropRate: 22.5 },
+        { name: "Defense Core", dropRate: 9 },
+        { name: "Ice Essence", dropRate: 3 }
       ]
     },
     "Frozen Stalker": {
       gear: [{ w: 0.3, item: "Frozen Edge" }],
       materials: [
-        { name: "Ice Fang", dropRate: 70 },
-        { name: "Frost Claw", dropRate: 40 },
-        { name: "Assassin Core", dropRate: 15 },
-        { name: "Ice Essence", dropRate: 5 }
+        { name: "Ice Fang", dropRate: 35 },
+        { name: "Frost Claw", dropRate: 20 },
+        { name: "Assassin Core", dropRate: 7.5 },
+        { name: "Ice Essence", dropRate: 2.5 }
       ]
     },
     "Frost Skitter": {
       gear: [{ w: 0.3, item: "Frozen Edge" }],
       materials: [
-        { name: "Frost Thread", dropRate: 70 },
-        { name: "Ice Fragment", dropRate: 40 },
-        { name: "Control Core", dropRate: 15 },
-        { name: "Ice Essence", dropRate: 5 }
+        { name: "Frost Thread", dropRate: 35 },
+        { name: "Ice Fragment", dropRate: 20 },
+        { name: "Control Core", dropRate: 7.5 },
+        { name: "Ice Essence", dropRate: 2.5 }
       ]
     }
   };
 
   const resourceDropTable = {
-    "Brinegullet Spitter": [{ name: "Fluid Sac", dropRate: 65 }],
+    "Brinegullet Spitter": [{ name: "Fluid Sac", dropRate: 32.5 }],
     "Tide Hopper": [
-      { name: "Ripple Core", dropRate: 60 },
-      { name: "Residue", dropRate: 75, condition: "harvester" }
+      { name: "Ripple Core", dropRate: 30 },
+      { name: "Residue", dropRate: 37.5, condition: "harvester" }
     ],
-    Driftling: [{ name: "Residue", dropRate: 62, condition: "harvester" }],
-    "Hermit Crab": [{ name: "Salt Flesh", dropRate: 68, condition: "skinner" }],
-    "Coastal Horror": [{ name: "Abyss Residue", dropRate: 34, condition: "harvester" }],
+    Driftling: [{ name: "Residue", dropRate: 31, condition: "harvester" }],
+    "Hermit Crab": [{ name: "Salt Flesh", dropRate: 34, condition: "skinner" }],
+    "Coastal Horror": [{ name: "Abyss Residue", dropRate: 17, condition: "harvester" }],
 
-    "Greenleaf Fox": [{ name: "Forest Fur", dropRate: 38, condition: "skinner" }],
+    "Greenleaf Fox": [{ name: "Forest Fur", dropRate: 19, condition: "skinner" }],
     Gorilla: [
-      { name: "Jungle Fiber", dropRate: 22, condition: "harvester" },
-      { name: "Muscle Fiber", dropRate: 24, condition: "skinner" },
-      { name: "Heavy Bone", dropRate: 22, condition: "extractor" },
-      { name: "Reinforced Bone", dropRate: 10, condition: "extractor" }
+      { name: "Jungle Fiber", dropRate: 11, condition: "harvester" },
+      { name: "Muscle Fiber", dropRate: 12, condition: "skinner" },
+      { name: "Heavy Bone", dropRate: 11, condition: "extractor" },
+      { name: "Reinforced Bone", dropRate: 5, condition: "extractor" }
     ],
     "Leafdart Squirrel": [
-      { name: "Plant Fiber", dropRate: 40, condition: "harvester" },
-      { name: "Seeds", dropRate: 44, condition: "harvester" }
+      { name: "Plant Fiber", dropRate: 20, condition: "harvester" },
+      { name: "Seeds", dropRate: 22, condition: "harvester" }
     ],
     "Jungle Stag": [
-      { name: "Growth Seed", dropRate: 26, condition: "harvester" },
-      { name: "Spirit Seed", dropRate: 18, condition: "harvester" },
-      { name: "Antler Piece", dropRate: 24, condition: "extractor" }
+      { name: "Growth Seed", dropRate: 13, condition: "harvester" },
+      { name: "Spirit Seed", dropRate: 9, condition: "harvester" },
+      { name: "Antler Piece", dropRate: 12, condition: "extractor" }
     ],
     "Barkhide Spriggan": [
-      { name: "Living Fiber", dropRate: 30, condition: "harvester" },
-      { name: "Ancient Seed", dropRate: 12, condition: "harvester" }
+      { name: "Living Fiber", dropRate: 15, condition: "harvester" },
+      { name: "Ancient Seed", dropRate: 6, condition: "harvester" }
     ],
-    "Burrow Hare": [{ name: "Root Fiber", dropRate: 52, condition: "harvester" }, { name: "Raw Hide", dropRate: 58, condition: "skinner" }],
+    "Burrow Hare": [{ name: "Root Fiber", dropRate: 26, condition: "harvester" }, { name: "Raw Hide", dropRate: 29, condition: "skinner" }],
 
-    "Rock Lynx": [{ name: "Stone Claw", dropRate: 34, condition: "extractor" }],
+    "Rock Lynx": [{ name: "Stone Claw", dropRate: 17, condition: "extractor" }],
     "Rock Serpent": [
-      { name: "Stone Scale", dropRate: 30, condition: "skinner" },
-      { name: "Earth Residue", dropRate: 24, condition: "harvester" },
-      { name: "Petrify Gland", dropRate: 22 }
+      { name: "Stone Scale", dropRate: 15, condition: "skinner" },
+      { name: "Earth Residue", dropRate: 12, condition: "harvester" },
+      { name: "Petrify Gland", dropRate: 11 }
     ],
-    "Rock Lizard": [{ name: "Stable Core", dropRate: 26, condition: "extractor" }],
+    "Rock Lizard": [{ name: "Stable Core", dropRate: 13, condition: "extractor" }],
     "Rock Ibex": [
-      { name: "Cliff Moss", dropRate: 28, condition: "harvester" },
-      { name: "Strength Core", dropRate: 26, condition: "extractor" }
+      { name: "Cliff Moss", dropRate: 14, condition: "harvester" },
+      { name: "Strength Core", dropRate: 13, condition: "extractor" }
     ],
-    "Mirage Lurker": [{ name: "Distorted Core", dropRate: 34, condition: "extractor" }],
+    "Mirage Lurker": [{ name: "Distorted Core", dropRate: 17, condition: "extractor" }],
     "Stone Marmot": [
-      { name: "Dense Bone", dropRate: 38, condition: "extractor" },
-      { name: "Dense Fur", dropRate: 34, condition: "skinner" }
+      { name: "Dense Bone", dropRate: 19, condition: "extractor" },
+      { name: "Dense Fur", dropRate: 17, condition: "skinner" }
     ],
 
-    "Tusk Boar": [{ name: "Boar Tusk", dropRate: 55 }, { name: "Tough Hide", dropRate: 40, condition: "skinner" }],
-    "Dune Devourer": [{ name: "Devourer Tooth", dropRate: 48 }],
-    "Dust Carver": [{ name: "Sand Residue", dropRate: 42, condition: "harvester" }],
+    "Tusk Boar": [{ name: "Boar Tusk", dropRate: 27.5 }, { name: "Tough Hide", dropRate: 20, condition: "skinner" }],
+    "Dune Devourer": [{ name: "Devourer Tooth", dropRate: 24 }],
+    "Dust Carver": [{ name: "Sand Residue", dropRate: 21, condition: "harvester" }],
 
     "Ash Lizard": [
-      { name: "Ash Scale", dropRate: 24, condition: "skinner" },
-      { name: "Burnt Hide", dropRate: 22, condition: "skinner" }
+      { name: "Ash Scale", dropRate: 12, condition: "skinner" },
+      { name: "Burnt Hide", dropRate: 11, condition: "skinner" }
     ],
-    "Ash Horror": [{ name: "Ash Residue", dropRate: 20, condition: "harvester" }],
-    "Ember Scuttler": [{ name: "Ember Fragment", dropRate: 18, condition: "extractor" }],
-    "Cinder Stalker": [{ name: "Ember Dust", dropRate: 16, condition: "harvester" }],
+    "Ash Horror": [{ name: "Ash Residue", dropRate: 10, condition: "harvester" }],
+    "Ember Scuttler": [{ name: "Ember Fragment", dropRate: 9, condition: "extractor" }],
+    "Cinder Stalker": [{ name: "Ember Dust", dropRate: 8, condition: "harvester" }],
     "Magma Boar": [
-      { name: "Fire Seed", dropRate: 14, condition: "harvester" },
-      { name: "Magma Hide", dropRate: 16, condition: "skinner" },
-      { name: "Lava Core", dropRate: 12, condition: "extractor" }
+      { name: "Fire Seed", dropRate: 7, condition: "harvester" },
+      { name: "Magma Hide", dropRate: 8, condition: "skinner" },
+      { name: "Lava Core", dropRate: 6, condition: "extractor" }
     ],
     "Lava Basilisk": [
-      { name: "Molten Scale", dropRate: 10, condition: "skinner" },
-      { name: "Petrify Gland", dropRate: 8 },
-      { name: "Basilisk Eye", dropRate: 4 }
+      { name: "Molten Scale", dropRate: 5, condition: "skinner" },
+      { name: "Petrify Gland", dropRate: 4 },
+      { name: "Basilisk Eye", dropRate: 2 }
     ],
 
-    "Glacier Turtoise": [{ name: "Frozen Shell", dropRate: 18 }],
-    "Glacier Tortoise": [{ name: "Frozen Shell", dropRate: 18 }],
-    "Frost Skitter": [{ name: "Chill Residue", dropRate: 10, condition: "harvester" }],
+    "Glacier Turtoise": [{ name: "Frozen Shell", dropRate: 9 }],
+    "Glacier Tortoise": [{ name: "Frozen Shell", dropRate: 9 }],
+    "Frost Skitter": [{ name: "Chill Residue", dropRate: 5, condition: "harvester" }],
 
     "Faded War Wraith": [
-      { name: "Shadow Residue", dropRate: 18, condition: "harvester" },
-      { name: "Spirit Core", dropRate: 16, condition: "extractor" }
+      { name: "Shadow Residue", dropRate: 9, condition: "harvester" },
+      { name: "Spirit Core", dropRate: 8, condition: "extractor" }
     ],
-    "Remnant of Rust": [{ name: "Shadow Dust", dropRate: 20, condition: "harvester" }],
+    "Remnant of Rust": [{ name: "Shadow Dust", dropRate: 10, condition: "harvester" }],
 
-    "Winter Guardian": [{ name: "Titan Core", dropRate: 9, condition: "extractor" }],
-    "Wavebreaker Idol": [{ name: "Titan Core", dropRate: 14, condition: "extractor" }]
+    "Winter Guardian": [{ name: "Titan Core", dropRate: 4.5, condition: "extractor" }],
+    "Wavebreaker Idol": [{ name: "Titan Core", dropRate: 7, condition: "extractor" }]
   };
 
   Object.keys(resourceDropTable).forEach((monsterName) => {
