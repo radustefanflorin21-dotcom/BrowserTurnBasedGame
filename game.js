@@ -556,7 +556,6 @@ function migratePlayer(p) {
   }
   syncPlayerClassSkillList(p);
   const profCfg = GAME_CONFIG.professions && typeof GAME_CONFIG.professions === "object" ? GAME_CONFIG.professions : {};
-  const maxProf = typeof profCfg.maxSelected === "number" && profCfg.maxSelected > 0 ? Math.floor(profCfg.maxSelected) : 2;
   const validProfIds = new Set(
     Array.isArray(profCfg.available)
       ? profCfg.available
@@ -571,7 +570,7 @@ function migratePlayer(p) {
     if (!k || !validProfIds.has(k) || nextProfs.includes(k)) return;
     nextProfs.push(k);
   });
-  p.professions = nextProfs.slice(0, maxProf);
+  p.professions = nextProfs;
   const eq = p.equipment || {};
   const base = emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
@@ -7729,8 +7728,7 @@ function getProfessionDefById(id) {
 }
 
 function getMaxSelectedProfessions() {
-  const cfg = getProfessionSystemConfig();
-  return typeof cfg.maxSelected === "number" && cfg.maxSelected > 0 ? Math.floor(cfg.maxSelected) : 2;
+  return getProfessionDefs().length;
 }
 
 function getPlayerSelectedProfessions() {
