@@ -5332,7 +5332,7 @@ const GAME_CONFIG = {
     mobPanelLayoutMarginPct: 14,
     /** Min distance between mob panel centers, as percent of the smaller map dimension (reduced automatically if many slots). */
     mobPanelMinCenterDistPct: 22,
-    defaultStart: { x: 25, y: 59 },
+    defaultStart: { x: 29, y: 55 },
     /** Shared art for all waygates (path relative to index.html). Missing or failed loads use the built-in SVG portal at runtime. */
     portalImage: "Assets/portals/my-portal.png",
     encounterSlotsPerTile: 3,
@@ -5342,7 +5342,34 @@ const GAME_CONFIG = {
      */
     coordinateBackgrounds: {},
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
-    coordinateCells: {},
+    coordinateCells: {
+      "29,55": {
+        kind: "scene",
+        title: "Paradise South",
+        description: "A small harbor with a boat ready to travel north.",
+        elements: [
+          {
+            type: "boat",
+            id: "boat_paradise_south",
+            label: "Boat",
+            destinations: [{ label: "Paradise North", x: 37, y: 43 }]
+          }
+        ]
+      },
+      "37,43": {
+        kind: "scene",
+        title: "Paradise North",
+        description: "A quiet northern dock with return passage available.",
+        elements: [
+          {
+            type: "boat",
+            id: "boat_paradise_north",
+            label: "Boat",
+            destinations: [{ label: "Paradise South", x: 29, y: 55 }]
+          }
+        ]
+      }
+    },
     /**
      * Inter-city waygates: one scene + portal per entry, only on the anchor tile (x,y). Adventure backgrounds
      * use Assets/Biomes/{cityName}/{1|2|3|4} per cell (see getCityAdventureBackgroundVariant). Optional bg is unused.

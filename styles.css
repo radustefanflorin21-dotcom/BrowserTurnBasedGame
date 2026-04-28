@@ -2566,6 +2566,34 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   transform: translateY(0);
 }
 
+.world-boat-btn {
+  width: 100%;
+  max-width: 220px;
+  min-height: 58px;
+  border: 1px solid rgba(0, 0, 0, 0.32);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(86, 128, 169, 0.95), rgba(50, 88, 128, 0.95));
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.28);
+}
+
+.world-boat-btn:hover {
+  filter: brightness(1.06);
+}
+
+.world-boat-visual {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #f4f7ff;
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .portal-theme-default {
   --portal-hover-glow: rgba(140, 130, 180, 0.35);
   --portal-iron: #2a2428;

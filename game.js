@@ -433,8 +433,7 @@ const defaultPlayer = () => {
   };
 };
 
-let player = loadPlayer();
-save();
+let player = null;
 
 /** Merge {@link GAME_CONFIG.worldMap.cityPortals} into coordinateCells (one waygate per entry, only on the anchor tile x,y). */
 function applyCityPortalsFromConfig() {
@@ -513,19 +512,39 @@ function pruneDuplicateCityPortalsFromSceneEdits() {
   if (changed) save();
 }
 
-applyCityPortalsFromConfig();
-pruneDuplicateCityPortalsFromSceneEdits();
+const PLAYER_SAVE_KEY = "player";
+const PLAYER_SAVE_BACKUP_KEY = "player_backup";
 
-function loadPlayer() {
+function parseSavedPlayerJson(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return null;
   try {
-    const raw = localStorage.getItem("player");
-    const p = raw ? JSON.parse(raw) : defaultPlayer();
-    migratePlayer(p);
-    return p;
+    return JSON.parse(raw);
   } catch {
-    return defaultPlayer();
+    return null;
   }
 }
+
+function loadPlayer() {
+  const tryUse = (obj) => {
+    if (!obj || typeof obj !== "object") return null;
+    try {
+      migratePlayer(obj);
+      return obj;
+    } catch {
+      return null;
+    }
+  };
+  const fromPrimary = tryUse(parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_KEY)));
+  if (fromPrimary) return fromPrimary;
+  const fromBackup = tryUse(parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_BACKUP_KEY)));
+  if (fromBackup) return fromBackup;
+  return defaultPlayer();
+}
+
+player = loadPlayer();
+save();
+applyCityPortalsFromConfig();
+pruneDuplicateCityPortalsFromSceneEdits();
 
 function migratePlayer(p) {
   if (typeof p.name !== "string" || !p.name.trim()) p.name = "Hero";
@@ -687,7 +706,13 @@ function migratePlayer(p) {
 }
 
 function save() {
-  localStorage.setItem("player", JSON.stringify(player));
+  const payload = JSON.stringify(player);
+  try {
+    localStorage.setItem(PLAYER_SAVE_KEY, payload);
+    localStorage.setItem(PLAYER_SAVE_BACKUP_KEY, payload);
+  } catch {
+    /* Ignore storage failures (quota/private mode), keep session alive. */
+  }
 }
 
 function sumEquippedBonusStatsFromEquipment(equipment) {
@@ -7316,6 +7341,25 @@ function buildAdventureSceneHtml(x, y, cfg) {
         `<button type="button" class="world-scene-btn world-portal-btn ${theme}" data-world-scene="${payload}" title="${labelAttr}" aria-label="${labelAttr}"><span class="world-portal-visual" aria-hidden="true">${visual}</span></button>`
       );
     }
+    if (type === "boat") {
+      const labelText = typeof el.label === "string" && el.label.trim() ? el.label.trim() : "Boat";
+      const destinations = Array.isArray(el.destinations)
+        ? el.destinations
+            .map((d) => {
+              if (!d || typeof d.x !== "number" || typeof d.y !== "number") return null;
+              const name = typeof d.label === "string" && d.label.trim() ? d.label.trim() : `${Math.floor(d.x)},${Math.floor(d.y)}`;
+              return { label: name, x: Math.floor(d.x), y: Math.floor(d.y) };
+            })
+            .filter(Boolean)
+        : [];
+      const payload = escapeAttr(JSON.stringify({ type: "boat", id, label: labelText, destinations }));
+      const labelAttr = escapeAttr(labelText);
+      return wrapIfEditable(
+        id,
+        editable,
+        `<button type="button" class="world-scene-btn world-boat-btn" data-world-scene="${payload}" title="${labelAttr}" aria-label="${labelAttr}"><span class="world-boat-visual" aria-hidden="true">Boat</span></button>`
+      );
+    }
     if (type === "pickup" || type === "usable") {
       const itemName = typeof el.itemName === "string" ? el.itemName.trim() : "";
       if (type === "usable" && !itemName) {
@@ -7373,6 +7417,11 @@ function onAdventureSceneButtonClick(e) {
   const y = player.worldMap.y;
   if (payload.type === "portal" && typeof payload.id === "string" && payload.id.trim()) {
     openPortalNetworkModal(payload.id.trim());
+    return true;
+  }
+  if (payload.type === "boat") {
+    const dests = Array.isArray(payload.destinations) ? payload.destinations : [];
+    openBoatTravelModal(dests);
     return true;
   }
   if (payload.type === "door" && payload.target && typeof payload.target.x === "number" && typeof payload.target.y === "number") {
@@ -10105,6 +10154,12 @@ function getAllCraftingRecipes() {
   return out;
 }
 
+function getCraftRecipeById(recipeId) {
+  const id = String(recipeId || "").trim();
+  if (!id) return null;
+  return getAllCraftingRecipes().find((r) => r && typeof r.id === "string" && r.id === id) || null;
+}
+
 function getCraftingProfessionIdForRecipe(recipe) {
   const def = getItemDef(recipe && recipe.resultItem);
   if (!def) return "armor_smith";
@@ -10143,6 +10198,42 @@ function evaluateCraftRecipeAvailability(recipe, invCounts) {
     if (have < need) missing.push({ item: itemName, need, have });
   });
   return { levelOk, requiredLevel, missing, craftable: levelOk && missing.length === 0 };
+}
+
+function removeIngredientsForRecipe(recipe) {
+  const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+  for (const ing of ingredients) {
+    const itemName = ing && typeof ing.item === "string" ? ing.item.trim() : "";
+    if (!itemName) continue;
+    const need = ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    let left = need;
+    for (let i = player.inventory.length - 1; i >= 0 && left > 0; i--) {
+      const entry = player.inventory[i];
+      if (getItemBaseName(entry) !== itemName) continue;
+      player.inventory.splice(i, 1);
+      left--;
+    }
+  }
+}
+
+function craftRecipeById(recipeId) {
+  const recipe = getCraftRecipeById(recipeId);
+  if (!recipe) return false;
+  const selectedCraftingProfIds = getSelectedCraftingProfessionIds();
+  const requiredProfId = getCraftingProfessionIdForRecipe(recipe);
+  if (!selectedCraftingProfIds.includes(requiredProfId)) return false;
+  const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts());
+  if (!avail.craftable) return false;
+  removeIngredientsForRecipe(recipe);
+  const resultBaseName = recipe.resultItem;
+  const resultDef = getItemDef(resultBaseName);
+  let craftedName = resultBaseName;
+  if (resultDef && isEquippableItemDef(resultDef)) {
+    craftedName = makeRarityItemInstanceName(resultBaseName, rollLootGearRarityTier());
+  }
+  player.inventory.push(craftedName);
+  save();
+  return true;
 }
 
 function buildCraftingPanelHtml() {
@@ -10190,10 +10281,13 @@ function buildCraftingPanelHtml() {
         : avail.missing.length
           ? `Missing: ${avail.missing.map((m) => `${m.item} ${m.have}/${m.need}`).join(", ")}`
           : "Craftable";
+      const craftBtn = `<button type="button" class="btn-secondary crafting-craft-btn" data-craft-recipe-id="${escapeAttr(
+        r.id || ""
+      )}"${avail.craftable ? "" : " disabled"}>Craft</button>`;
       return `<div class="${rowCls}">
         <div class="crafting-recipe-head"><strong>${escapeHtml(r.resultItem)}</strong> <span class="crafting-recipe-tier">${escapeHtml(
           r.tierLabel || ""
-        )}</span></div>
+        )}</span>${craftBtn}</div>
         <div class="crafting-recipe-sub">Required level: ${avail.requiredLevel}</div>
         <div class="crafting-recipe-sub">${escapeHtml(ingText || "No ingredients listed.")}</div>
         <div class="crafting-recipe-sub">${escapeHtml(statusText)}</div>
@@ -11299,7 +11393,8 @@ function onContentClick(e) {
       ) &&
       window.confirm("This cannot be undone. Reset character now?")
     ) {
-      localStorage.removeItem("player");
+      localStorage.removeItem(PLAYER_SAVE_KEY);
+      localStorage.removeItem(PLAYER_SAVE_BACKUP_KEY);
       player = loadPlayer();
       save();
       render();
@@ -11316,6 +11411,14 @@ function onContentClick(e) {
   if (craftingProfTab && craftingProfTab.dataset.craftingProfessionTab) {
     activeCraftingProfessionId = craftingProfTab.dataset.craftingProfessionTab;
     renderMenuPanelContent();
+    return;
+  }
+  const craftBtn = e.target.closest("[data-craft-recipe-id]");
+  if (craftBtn && craftBtn.dataset.craftRecipeId) {
+    if (craftRecipeById(craftBtn.dataset.craftRecipeId)) {
+      renderMenuPanelContent();
+      render();
+    }
     return;
   }
   const tab = e.target.closest("[data-inv-tab]");
@@ -11467,6 +11570,28 @@ function openPortalNetworkModal(excludePortalId) {
   );
 }
 
+function openBoatTravelModal(destinations) {
+  const dests = (Array.isArray(destinations) ? destinations : []).filter(
+    (d) => d && typeof d.x === "number" && typeof d.y === "number"
+  );
+  if (!dests.length) {
+    showModal("No destinations are available.");
+    return;
+  }
+  const rows = dests
+    .map((d) => {
+      const label = typeof d.label === "string" && d.label.trim() ? d.label.trim() : `${Math.floor(d.x)},${Math.floor(d.y)}`;
+      return `<button type="button" class="btn-primary portal-network-dest" data-boat-dest="${escapeAttr(
+        `${Math.floor(d.x)},${Math.floor(d.y)}`
+      )}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
+  showModalHtml(
+    `<h3 class="portal-network-title">Boat destinations</h3><p class="portal-network-lead muted">Choose a destination.</p><div class="portal-network-list">${rows}</div>`,
+    { portalNetwork: true }
+  );
+}
+
 function closeModal() {
   pendingDiscardInventoryItemName = null;
   const m = document.getElementById("modal");
@@ -11499,6 +11624,23 @@ function onPortalNetworkModalClick(e) {
   }
   const b = e.target.closest(".portal-network-dest");
   if (!b || !document.getElementById("modal") || document.getElementById("modal").classList.contains("hidden")) return;
+  const boatDest = b.getAttribute("data-boat-dest");
+  if (boatDest) {
+    const m = /^\s*(-?\d+)\s*,\s*(-?\d+)\s*$/.exec(boatDest);
+    if (!m) return;
+    const x = parseInt(m[1], 10);
+    const y = parseInt(m[2], 10);
+    if (!canEnterMap(x, y)) {
+      showModal("You cannot travel there.");
+      return;
+    }
+    closeModal();
+    player.worldMap.x = x;
+    player.worldMap.y = y;
+    save();
+    render();
+    return;
+  }
   const destId = b.getAttribute("data-portal-dest-id");
   if (!destId) return;
   const coords = getPortalWorldCoordsByPortalId(destId);
