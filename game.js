@@ -1945,6 +1945,17 @@ function formulaIntDebuffDurationBonusPct(int_) {
   return (25 * int_) / (int_ + 260);
 }
 
+const MONSTER_EFFECT_CAPS = {
+  accuracyDown: 40,
+  damageDown: 35,
+  damageBuff: 50,
+  evasionBuff: 35,
+  physResistBuff: 40,
+  magicResistBuff: 40,
+  staggerChance: 40,
+  healingReceivedBuff: 40
+};
+
 function getBaseHpFromLevel(level) {
   const sys = getStatSystem();
   const base = typeof sys.baseHpFromLevel === "number" ? sys.baseHpFromLevel : 50;
@@ -2015,7 +2026,10 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   }
 
   const critChance = formulaDexCritChancePct(dex) / 100;
-  const crit = Math.random() < critChance;
+  const defFoe = getEnemyDefByName(foe && foe.name);
+  const foeScript = defFoe && typeof defFoe.combatScript === "string" ? defFoe.combatScript.trim() : "";
+  const critAuraPenalty = foeScript === "coastal_horror" ? 0.05 : 0;
+  const crit = Math.random() < Math.max(0, critChance - critAuraPenalty);
   const baseCrit = typeof sys.baseCritMultiplierPct === "number" ? sys.baseCritMultiplierPct : 150;
   let d2 = d1;
   if (crit) {
@@ -2089,7 +2103,15 @@ function tryDexComboRefundAfterSkill(st) {
   const refunded = typeof st.staminaRefundedThisTurn === "number" ? st.staminaRefundedThisTurn : 0;
   if (refunded >= 2) return;
   if (st.comboRefundedThisTurn) return;
-  const p = formulaDexComboChancePct(totalDex()) / 100;
+  const down =
+    st &&
+    st.status &&
+    typeof st.status.playerComboChanceDownTurns === "number" &&
+    st.status.playerComboChanceDownTurns > 0 &&
+    typeof st.status.playerComboChanceDownPct === "number"
+      ? Math.max(0, st.status.playerComboChanceDownPct)
+      : 0;
+  const p = Math.max(0, formulaDexComboChancePct(totalDex()) - down) / 100;
   if (Math.random() >= p) return;
   st.comboRefundedThisTurn = true;
   st.stamina = Math.min(st.maxStamina, st.stamina + 1);
@@ -2104,10 +2126,19 @@ function computeHeroIncomingDamage(rawDamage) {
   const strE = totalStr();
   const intE = totalInt();
   const vitE = totalVit();
-  const enemyHit =
+  let enemyHit =
     typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
       ? sys.enemyBaseHitChancePct
       : 100;
+  if (
+    combatState &&
+    combatState.status &&
+    typeof combatState.status.playerAccuracyDownTurns === "number" &&
+    combatState.status.playerAccuracyDownTurns > 0 &&
+    typeof combatState.status.playerAccuracyDownPct === "number"
+  ) {
+    enemyHit -= Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, combatState.status.playerAccuracyDownPct));
+  }
   const eva = formulaDexEvasionPct(dexE);
   const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
   const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
@@ -2165,7 +2196,17 @@ function resolveAttackStaminaCost() {
   const sys = getStatSystem();
   const b = getAttackStaminaCost();
   const minA = typeof sys.minAttackStaminaCost === "number" ? Math.max(1, Math.floor(sys.minAttackStaminaCost)) : 1;
-  return Math.max(minA, b);
+  const st = combatState;
+  const up =
+    st &&
+    st.status &&
+    typeof st.status.playerStaminaCostUpTurns === "number" &&
+    st.status.playerStaminaCostUpTurns > 0 &&
+    typeof st.status.playerStaminaCostUpPct === "number"
+      ? Math.max(0, st.status.playerStaminaCostUpPct)
+      : 0;
+  const scaled = Math.ceil(b * (1 + up / 100));
+  return Math.max(minA, scaled);
 }
 
 /** Skills: Intelligence reduces cost; minimum skill cost from config. */
@@ -2179,6 +2220,16 @@ function resolveSkillStaminaCost(baseCost, skillName) {
   if (cls.id === "arcanist" && skillName) c -= 1;
   if (cs && cs.manaSurgeTurns > 0 && cls.id === "arcanist") c -= 1;
   const minSkill = typeof sys.minSkillStaminaCost === "number" ? Math.max(1, Math.floor(sys.minSkillStaminaCost)) : 2;
+  const st = combatState;
+  if (
+    st &&
+    st.status &&
+    typeof st.status.playerStaminaCostUpTurns === "number" &&
+    st.status.playerStaminaCostUpTurns > 0 &&
+    typeof st.status.playerStaminaCostUpPct === "number"
+  ) {
+    c = Math.ceil(c * (1 + Math.max(0, st.status.playerStaminaCostUpPct) / 100));
+  }
   c = Math.max(minSkill, c);
   return Math.max(1, c);
 }
@@ -2239,6 +2290,10 @@ function getPlayerOutgoingDamageMultFromStatus(status) {
   if (typeof status.playerAttackDebuffTurns === "number" && status.playerAttackDebuffTurns > 0) m *= 0.8;
   if (typeof status.playerHamstringSlowTurns === "number" && status.playerHamstringSlowTurns > 0) m *= 0.9;
   if (typeof status.playerBrineWeakTurns === "number" && status.playerBrineWeakTurns > 0) m *= 0.85;
+  if (typeof status.playerDamageDownTurns === "number" && status.playerDamageDownTurns > 0) {
+    const pct = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, Number(status.playerDamageDownPct) || 0));
+    m *= 1 - pct / 100;
+  }
   return m;
 }
 
@@ -2253,9 +2308,42 @@ function ensureCombatStatus(st) {
       playerBrineWeakTurns: 0,
       playerFragileTurns: 0,
       playerStunTurns: 0,
-      packHowlTurns: 0
+      packHowlTurns: 0,
+      playerAccuracyDownPct: 0,
+      playerAccuracyDownTurns: 0,
+      playerDamageDownPct: 0,
+      playerDamageDownTurns: 0,
+      playerComboChanceDownPct: 0,
+      playerComboChanceDownTurns: 0,
+      playerStaminaCostUpPct: 0,
+      playerStaminaCostUpTurns: 0
     };
   }
+}
+
+function getMonsterDifficultyTierForTaunt(def) {
+  const r = normalizeEnemySpawnRarity(def && def.spawnRarity);
+  if (r === "epic") return "elite";
+  if (r === "myth" || r === "ancient") return "boss";
+  return "normal";
+}
+
+function applyMonsterTauntOnPlayer(st, foe, baseTurns) {
+  if (!st || !foe) return;
+  const def = getEnemyDefByName(foe.name);
+  const tier = getMonsterDifficultyTierForTaunt(def);
+  const mul = tier === "boss" ? 0.5 : tier === "elite" ? 0.75 : 1;
+  const t = Math.max(1, Math.floor(Math.max(1, baseTurns) * mul));
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  foe.combat.tauntPlayerTurns = Math.max(foe.combat.tauntPlayerTurns || 0, t);
+}
+
+function getActiveMonsterTauntSource(st) {
+  if (!st || !Array.isArray(st.foes)) return null;
+  return (
+    st.foes.find((f) => f && f.hp > 0 && f.combat && typeof f.combat.tauntPlayerTurns === "number" && f.combat.tauntPlayerTurns > 0) ||
+    null
+  );
 }
 
 function ensurePlayerClassCombatState(st) {
@@ -2639,7 +2727,20 @@ function dealRawDamageToPlayer(st, rawDamage, foeName, logVerb, opts) {
   let rawDamageAdj = rawDamage;
   const src = st && st.__monsterDamageSourceFoe;
   if (src && src.name === foeName && typeof src.dex === "number") {
-    rawDamageAdj = applyMonsterCritToRaw(src, rawDamageAdj);
+    const bonusCrit =
+      src.combat &&
+      typeof src.combat.wolfCritBonusTurns === "number" &&
+      src.combat.wolfCritBonusTurns > 0 &&
+      typeof src.combat.wolfCritBonusPct === "number"
+        ? src.combat.wolfCritBonusPct
+        : 0;
+    if (bonusCrit > 0) {
+      const p = Math.min(0.9, (formulaDexCritChancePct(src.dex || 0) + bonusCrit) / 100);
+      const mult = 1.5 + formulaDexCritDamageBonusPct(src.dex || 0) / 100;
+      if (Math.random() < p) rawDamageAdj = Math.max(1, Math.floor(rawDamageAdj * mult));
+    } else {
+      rawDamageAdj = applyMonsterCritToRaw(src, rawDamageAdj);
+    }
   }
   ensureCombatParty(st);
   const o = opts && typeof opts === "object" ? opts : null;
@@ -2703,10 +2804,27 @@ function tickPlayerTurnEndBuffs(st) {
   if (typeof s.packHowlTurns === "number" && s.packHowlTurns > 0) s.packHowlTurns -= 1;
   if (typeof s.playerBrineWeakTurns === "number" && s.playerBrineWeakTurns > 0) s.playerBrineWeakTurns -= 1;
   if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) s.playerFragileTurns -= 1;
+  if (typeof s.playerAccuracyDownTurns === "number" && s.playerAccuracyDownTurns > 0) s.playerAccuracyDownTurns -= 1;
+  if (typeof s.playerDamageDownTurns === "number" && s.playerDamageDownTurns > 0) s.playerDamageDownTurns -= 1;
+  if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) s.playerComboChanceDownTurns -= 1;
+  if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) s.playerStaminaCostUpTurns -= 1;
   st.foes.forEach((f) => {
     if (!f || f.hp <= 0 || !f.combat) return;
+    if (typeof f.combat.tauntPlayerTurns === "number" && f.combat.tauntPlayerTurns > 0) f.combat.tauntPlayerTurns -= 1;
+    if (typeof f.combat.summonLifetimeTurns === "number" && f.combat.summonLifetimeTurns > 0) {
+      f.combat.summonLifetimeTurns -= 1;
+      if (f.combat.summonLifetimeTurns <= 0) {
+        f.hp = 0;
+        appendFightLog(`${f.name} fades away.`);
+        return;
+      }
+    }
     if (typeof f.combat.thickHideTurns === "number" && f.combat.thickHideTurns > 0) f.combat.thickHideTurns -= 1;
     if (typeof f.combat.echoCryBonusTurns === "number" && f.combat.echoCryBonusTurns > 0) f.combat.echoCryBonusTurns -= 1;
+    if (typeof f.combat.wolfCritBonusTurns === "number" && f.combat.wolfCritBonusTurns > 0) {
+      f.combat.wolfCritBonusTurns -= 1;
+      if (f.combat.wolfCritBonusTurns <= 0) f.combat.wolfCritBonusPct = 0;
+    }
     if (typeof f.combat.mitigationTurns === "number" && f.combat.mitigationTurns > 0) f.combat.mitigationTurns -= 1;
     if (typeof f.combat.reflectTurns === "number" && f.combat.reflectTurns > 0) f.combat.reflectTurns -= 1;
     if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
@@ -2781,7 +2899,7 @@ function getNextCombatFoeUid(st) {
 }
 
 function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
-  const baseAtk = summoner.attack || 1;
+  const baseAtk = Math.max(1, getFoeEffectiveAttackForCombat(summoner));
   const hp = Math.max(1, Math.floor((summoner.maxHp || 40) * hpFrac));
   const frac = Math.max(0.12, Math.min(1, atkFrac));
   const matt = Math.max(1, Math.floor(baseAtk * atkFrac));
@@ -2809,6 +2927,19 @@ function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
   minion.combat.script = "";
   st.foes.push(minion);
   appendFightLog(`${summoner.name} summons ${label}!`);
+}
+
+function runTideEchoStrikes(st, summoner) {
+  const echoes = st.foes.filter(
+    (f) => f && f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === summoner.uid
+  );
+  echoes.forEach((echo) => {
+    const dmg = Math.max(1, Math.floor(getFoeEffectiveAttackForCombat(echo) * 0.7));
+    dealRawDamageToPlayer(st, dmg, echo.name, "Echo Strikes you");
+    ensureCombatStatus(st);
+    st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 5);
+    st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 1);
+  });
 }
 
 function healLowestHpFractionAlly(st, healer, pctOfMax) {
@@ -2859,169 +2990,147 @@ function setFoeReflect(foe, turns, frac) {
  */
 function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd, ready) {
   if (scriptId === "tide_hopper") {
-    const low = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.6;
-    if (!foe.combat.tideOpened && ready("splash_kick")) {
-      foe.combat.tideOpened = true;
-      setCd("splash_kick", 1);
-      const targetUid =
-        st.status && typeof st.status.playerHamstringSlowTurns === "number" && st.status.playerHamstringSlowTurns > 0
-          ? 0
-          : pickPartyTargetLowestMaxHpUid(st);
-      dealRawDamageToPlayer(
-        st,
-        Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 11, 0.018) * outMult)),
-        foe.name,
-        "Splash Kicks you",
-        targetUid == null ? null : { partyUid: targetUid }
-      );
+    if (ready("foam_feint")) {
+      setCd("foam_feint", 2);
       ensureCombatStatus(st);
-      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
-      appendFightLog("You feel sluggish.");
-      return true;
-    }
-    if (low && ready("foam_feint")) {
-      setCd("foam_feint", 3);
-      foe.combat.evadeNextChance = Math.min(0.75, 0.25 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.01);
+      st.status.playerAccuracyDownPct = Math.min(MONSTER_EFFECT_CAPS.accuracyDown, 12);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
+      st.status.playerDamageDownPct = Math.min(MONSTER_EFFECT_CAPS.damageDown, 10);
+      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
       appendFightLog(`${foe.name} uses Foam Feint.`);
       return true;
     }
-    if (ready("backwash_nip")) {
-      setCd("backwash_nip", 2);
-      const targetUid = pickPartyTargetLowestMaxHpUid(st);
-      dealRawDamageToPlayer(
-        st,
-        Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 8, 0.016) * outMult)),
-        foe.name,
-        "Backwash Nips you",
-        targetUid == null ? null : { partyUid: targetUid }
-      );
+    if (ready("dragging_current")) {
+      setCd("dragging_current", 3);
       ensureCombatStatus(st);
-      const p = Math.min(0.55, 0.12 + (typeof foe.str === "number" ? foe.str : 0) * 0.006 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.004);
-      if (Math.random() < p) st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
+      st.status.playerStaminaCostUpPct = Math.max(
+        st.status.playerStaminaCostUpPct || 0,
+        15 + formulaIntStatusPotencyPct(foe.int || 0)
+      );
+      st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
+      appendFightLog(`${foe.name} drags your flow (+stamina costs).`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "kicks you", { partyUid: pickPartyTargetLowestMaxHpUid(st) });
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "slips past you");
     return true;
   }
 
   if (scriptId === "hermit_crab") {
-    if (!foe.combat.hermitOpened && ready("shell_guard")) {
-      foe.combat.hermitOpened = true;
+    if (ready("shell_guard")) {
       setCd("shell_guard", 3);
-      setFoeMitigation(foe, 1, Math.max(0.35, 1 - Math.min(0.65, 0.32 + (typeof foe.vit === "number" ? foe.vit : 0) * 0.008)));
-      appendFightLog(`${foe.name} uses Shell Guard (-50% damage taken).`);
+      const extra = Math.floor((foe.vit || 0) / 50) * 0.05;
+      const red = Math.min(0.8, 0.6 + extra);
+      setFoeMitigation(foe, 1, 1 - red);
+      appendFightLog(`${foe.name} uses Shell Guard.`);
       return true;
     }
-    foe.combat.hermitRot = (foe.combat.hermitRot || 0) + 1;
-    const defend = foe.combat.hermitRot % 2 === 1;
-    if (defend && ready("anchored_stance")) {
-      setCd("anchored_stance", 3);
-      setFoeMitigation(foe, 2, 0.72);
-      appendFightLog(`${foe.name} braces in Anchored Stance.`);
+    if (ready("anchoring_taunt")) {
+      setCd("anchoring_taunt", 4);
+      applyMonsterTauntOnPlayer(st, foe, 2 + Math.floor((foe.int || 0) / 120));
+      ensureCombatStatus(st);
+      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 10);
+      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
+      appendFightLog(`${foe.name} uses Anchoring Taunt.`);
       return true;
     }
     const targetUid = pickPartyTargetStrongestUid(st);
     dealRawDamageToPlayer(
       st,
-      Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 14, 0.02) * outMult)),
+      Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 16, 0.022) * 0.8 * outMult)),
       foe.name,
-      "Claw Snaps you",
+      "Crushing Clamps you",
       targetUid == null ? null : { partyUid: targetUid }
     );
     return true;
   }
 
   if (scriptId === "driftling") {
-    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.65);
+    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.8);
     if (allyLow && ready("tidal_mend")) {
       setCd("tidal_mend", 3);
-      if (!healLowestHpFractionAlly(st, foe, 0.22)) {
-        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
+      const sp = 1 + formulaIntSkillPowerBonusPct(foe.int || 0) / 100;
+      if (!healLowestHpFractionAlly(st, foe, 0.2 * sp)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.2 * sp)));
         appendFightLog(`${foe.name} uses Tidal Mend on itself.`);
       }
       return true;
     }
     if (ready("mist_veil")) {
-      const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
+      const allies = st.foes.filter((f) => f.hp > 0);
       if (allies.length) {
         setCd("mist_veil", 3);
-        const target = allies.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
-        if (!target.combat) initFoeCombatRuntime(target);
-        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.25);
-        appendFightLog(`${foe.name} shrouds ${target.name} with Mist Veil.`);
+        const ev = Math.min(MONSTER_EFFECT_CAPS.evasionBuff, 10 + formulaDexEvasionPct(foe.dex || 0) / 2);
+        allies.forEach((target) => {
+          if (!target.combat) initFoeCombatRuntime(target);
+          target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, ev / 100);
+        });
+        appendFightLog(`${foe.name} casts Mist Veil.`);
         return true;
       }
-    }
-    if (ready("salt_rot")) {
-      setCd("salt_rot", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 12, "effect") * outMult)), foe.name, "Salt Rots you");
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 6, "dot"))), 2);
-      appendFightLog("Salt eats at you.");
-      return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
     return true;
   }
 
   if (scriptId === "tidemeld_revenant") {
-    const livingAllies = st.foes.filter((f) => f.hp > 0 && f.uid !== foe.uid);
-    const summoned = st.foes.some((f) => f.name === "Drowned Thrall" && f.hp > 0);
-    if (!summoned && !livingAllies.length && ready("drowned_call")) {
-      setCd("drowned_call", 4);
-      summonCombatMinion(st, foe, "Drowned Thrall", 0.12, 0.22);
+    const echoes = st.foes.filter((f) => f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === foe.uid);
+    const overloadMult = echoes.length >= 2 ? 1.15 : 1;
+    if (ready("summon_tide_echo")) {
+      setCd("summon_tide_echo", 4);
+      const sp = 1 + formulaIntSkillPowerBonusPct(foe.int || 0) / 100;
+      const hpFrac = Math.max(0.1, (0.25 * sp));
+      if (echoes.length < 2) {
+        summonCombatMinion(st, foe, "Tide Echo", hpFrac, 0.35);
+        const created = st.foes.find((f) => f.hp > 0 && f.name === "Tide Echo" && (!f.combat || !f.combat.summonerUid));
+        if (created) {
+          if (!created.combat) initFoeCombatRuntime(created);
+          created.combat.summonerUid = foe.uid;
+          created.combat.summonLifetimeTurns = 3;
+        }
+      } else {
+        const refresh = echoes.reduce((a, b) =>
+          ((a.combat.summonLifetimeTurns || 0) <= (b.combat.summonLifetimeTurns || 0) ? a : b)
+        );
+        refresh.combat.summonLifetimeTurns = 3;
+      }
+      runTideEchoStrikes(st, foe);
       return true;
     }
-    if (ready("brine_curse")) {
-      setCd("brine_curse", 2);
-      const targetUid = pickPartyTargetStrongestUid(st);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 12, "effect") * outMult)), foe.name, "Brine Curses you", targetUid == null ? null : { partyUid: targetUid });
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 5, "dot"))), 2);
-      ensureCombatStatus(st);
-      st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 2);
-      appendFightLog("Brine weakens your strikes.");
+    if (ready("soul_current")) {
+      setCd("soul_current", 2);
+      const dmg = Math.max(1, Math.floor(monsterIntScaledValue(foe, 12, "effect") * overloadMult * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Soul Currents you", { partyUid: pickPartyTargetStrongestUid(st) });
+      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.15)));
+      runTideEchoStrikes(st, foe);
       return true;
     }
-    if (ready("undertow_pull")) {
-      setCd("undertow_pull", 2);
-      const targetUid = pickPartyTargetStrongestUid(st);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 14, "effect") * outMult)), foe.name, "Undertow Pulls you", targetUid == null ? null : { partyUid: targetUid });
-      ensureCombatStatus(st);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
-      return true;
-    }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", { partyUid: pickPartyTargetStrongestUid(st) });
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
+      partyUid: pickPartyTargetStrongestUid(st)
+    });
+    runTideEchoStrikes(st, foe);
     return true;
   }
 
   if (scriptId === "coastal_horror") {
-    const weakest = pickPartyTargetLowestHpUid(st);
-    const strongest = pickPartyTargetStrongestUid(st);
-    const partyAlive = getLivingPartyMembers(st).length;
-    if (!foe.combat.horrorOpened && ready("grasping_tentacles")) {
-      foe.combat.horrorOpened = true;
-      setCd("grasping_tentacles", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 13, "effect") * outMult)), foe.name, "Tentacle Grasps you", strongest == null ? null : { partyUid: strongest });
-      tryPlayerStun(st, Math.min(0.65, 0.2 + (typeof foe.int === "number" ? foe.int : 0) * 0.005));
+    if (ready("abyss_grip")) {
+      setCd("abyss_grip", 3);
+      ensureCombatStatus(st);
+      const dur = Math.max(1, Math.round(2 * (1 + formulaIntDebuffDurationBonusPct(foe.int || 0) / 100)));
+      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 15);
+      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, dur);
+      st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 10);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, dur);
+      appendFightLog(`${foe.name} uses Abyss Grip.`);
       return true;
     }
-    if (partyAlive >= 2 && ready("abyssal_pulse")) {
-      setCd("abyssal_pulse", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 11, "effect") * outMult)), foe.name, "unleashes Abyssal Pulse", { aoeAllParty: true });
-      return true;
-    }
-    const weakExists = st.party && st.party.some((m) => m && m.hp > 0 && m.maxHp > 0 && m.hp / m.maxHp < 0.35);
-    if (weakExists && ready("tide_crush")) {
-      setCd("tide_crush", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 20, 0.02) * outMult)), foe.name, "Tide Crushes you", weakest == null ? null : { partyUid: weakest });
-      if (Math.random() < Math.min(0.45, 0.08 + ((typeof foe.str === "number" ? foe.str : 0) + (typeof foe.int === "number" ? foe.int : 0)) * 0.004)) {
-        tryPlayerStun(st, 1);
-      }
-      return true;
-    }
-    if (ready("grasping_tentacles")) {
-      setCd("grasping_tentacles", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 13, "effect") * outMult)), foe.name, "Grasping Tentacles lash you", strongest == null ? null : { partyUid: strongest });
-      tryPlayerStun(st, Math.min(0.65, 0.2 + (typeof foe.int === "number" ? foe.int : 0) * 0.005));
+    if (ready("terror_pulse")) {
+      setCd("terror_pulse", 4);
+      ensureCombatStatus(st);
+      if ((st.status.playerDamageDownTurns || 0) > 0) st.status.playerDamageDownTurns += 1;
+      if ((st.status.playerAccuracyDownTurns || 0) > 0) st.status.playerAccuracyDownTurns += 1;
+      if ((st.status.playerComboChanceDownTurns || 0) > 0) st.status.playerComboChanceDownTurns += 1;
+      if ((st.status.playerStaminaCostUpTurns || 0) > 0) st.status.playerStaminaCostUpTurns += 1;
+      appendFightLog(`${foe.name} extends your debuffs.`);
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you");
@@ -3132,6 +3241,8 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
         let target =
           allies.find((a) => a.name === "Gorilla" || a.name === "Greenleaf Fox") ||
           allies.reduce((a, b) => ((a.maxHp || 0) >= (b.maxHp || 0) ? a : b));
+        const shieldFrac = Math.max(0.05, Math.min(0.5, 0.2 * (1 + (foe.int || 0) / 100)));
+        target.hp = Math.min(target.maxHp, target.hp + Math.max(1, Math.floor(target.maxHp * shieldFrac)));
         setFoeMitigation(target, 1, 0.8);
         appendFightLog(`${foe.name} grants Verdant Ward to ${target.name}.`);
         return true;
@@ -3151,10 +3262,9 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
   }
 
   if (scriptId === "gorilla") {
-    if (!foe.combat.gorillaOpened && ready("rage_roar")) {
-      foe.combat.gorillaOpened = true;
+    if (ready("rage_roar")) {
       setCd("rage_roar", 3);
-      foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;
+      foe.combat.gorillaRampStacks = Math.min(5, (foe.combat.gorillaRampStacks || 0) + 1);
       appendFightLog(`${foe.name} uses Rage Roar (+damage ramp).`);
       return true;
     }
@@ -3168,7 +3278,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     }
     if (!foe.combat.gorillaAlt && ready("crushing_slam")) {
       setCd("crushing_slam", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 24, 0.02) * outMult)), foe.name, "Crushing Slams you", { partyUid: pickPartyTargetStrongestUid(st) });
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 26, 0.022) * outMult)), foe.name, "Crushing Slams you", { partyUid: pickPartyTargetStrongestUid(st) });
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.75 * outMult)), foe.name, "hits you");
@@ -3378,12 +3488,20 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
   }
 
   if (scriptId === "rock_serpent") {
-    if (ready("dust_suffocation")) {
-      setCd("dust_suffocation", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Dust Suffocates you");
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+    if (ready("petrify_gaze")) {
+      setCd("petrify_gaze", 4);
+      const p = Math.max(0.2, Math.min(0.3, 0.2 + formulaIntStatusPotencyPct(foe.int || 0) / 100));
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "Petrify Gazes you");
+      tryPlayerStun(st, p);
+      return true;
+    }
+    if (ready("debilitating_venom")) {
+      setCd("debilitating_venom", 2);
       ensureCombatStatus(st);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
+      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 10);
+      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
+      st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 10);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
       return true;
     }
     if (ready("stone_slither")) {
@@ -3393,8 +3511,11 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       return true;
     }
     if (ready("crush_coil")) {
-      setCd("crush_coil", 2);
+      setCd("crush_coil", 3);
       dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Crush Coils you");
+      ensureCombatStatus(st);
+      st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 15);
+      st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
@@ -3406,6 +3527,13 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       setCd("harden", 4);
       setFoeMitigation(foe, 2, 0.45);
       appendFightLog(`${foe.name} uses Harden.`);
+      return true;
+    }
+    if (ready("stone_challenge")) {
+      setCd("stone_challenge", 4);
+      applyMonsterTauntOnPlayer(st, foe, 1);
+      setFoeMitigation(foe, 1, 0.85);
+      appendFightLog(`${foe.name} uses Stone Challenge.`);
       return true;
     }
     if (ready("tail_slam")) {
@@ -3599,8 +3727,15 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
   if (scriptId === "desert_thornback_crawler") {
     if (ready("spiked_shell")) {
       setCd("spiked_shell", 3);
-      setFoeMitigation(foe, 2, 0.5);
+      setFoeReflect(foe, 2, 0.2);
       appendFightLog(`${foe.name} raises a Spiked Shell.`);
+      return true;
+    }
+    if (ready("defensive_taunt")) {
+      setCd("defensive_taunt", 4);
+      applyMonsterTauntOnPlayer(st, foe, 2);
+      setFoeReflect(foe, 2, 0.3);
+      appendFightLog(`${foe.name} uses Defensive Taunt.`);
       return true;
     }
     if (ready("impale")) {
@@ -3624,8 +3759,8 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (groups && ready("heat_haze")) {
       setCd("heat_haze", 3);
       ensureCombatStatus(st);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
-      st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
+      st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 10);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
       appendFightLog(`${foe.name} spreads a Heat Haze.`);
       return true;
     }
@@ -3638,6 +3773,9 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (ready("illusion_strike")) {
       setCd("illusion_strike", 2);
       dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Illusion Strikes you");
+      ensureCombatStatus(st);
+      st.status.playerComboChanceDownPct = Math.max(st.status.playerComboChanceDownPct || 0, 20);
+      st.status.playerComboChanceDownTurns = Math.max(st.status.playerComboChanceDownTurns || 0, 2);
       return true;
     }
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
@@ -3651,10 +3789,10 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       return true;
     }
     if (ready("sand_devour")) {
-      setCd("sand_devour", 2);
+      setCd("sand_devour", 3);
       const dmg = Math.max(1, Math.floor(atk * 0.88 * outMult));
       dealRawDamageToPlayer(st, dmg, foe.name, "Sand Devours you");
-      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.25)));
+      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.2)));
       return true;
     }
     if (ready("grinding_maw")) {
@@ -4061,25 +4199,29 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   const ready = (key) => !cd[key] || cd[key] <= 0;
 
   if (scriptId === "burrow_hare") {
-    const lowHp = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.5;
-    if (lowHp && ready("burrow_instinct")) {
+    if (ready("burrow_instinct")) {
       setCd("burrow_instinct", 3);
-      foe.combat.evadeNextChance = 0.4;
-      appendFightLog(`${foe.name} uses Burrow Instinct (40% evade on your next hit).`);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.2);
+      appendFightLog(`${foe.name} uses Burrow Instinct (+20% evasion).`);
       return;
     }
     if (ready("dust_flick")) {
       setCd("dust_flick", 2);
       ensureCombatStatus(st);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
-      st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
-      appendFightLog(`${foe.name} uses Dust Flick.`);
+      st.status.playerAccuracyDownPct = Math.min(MONSTER_EFFECT_CAPS.accuracyDown, 15);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
+      appendFightLog(`${foe.name} throws Dust Flick (-15% accuracy).`);
       return;
     }
-    const bite = Math.max(1, Math.floor(atk * 0.48 * outMult));
-    dealRawDamageToPlayer(st, bite, foe.name, "bites you with Quick Bite", { partyUid: pickPartyTargetLowestMaxHpUid(st) });
-    applyBleedToPlayer(st, Math.max(1, Math.floor(atk * 0.14)), 1 + Math.floor(Math.random() * 2));
-    appendFightLog("You are bleeding.");
+    if (ready("bleed_scratch")) {
+      setCd("bleed_scratch", 2);
+      const hit = Math.max(1, Math.floor(atk * 0.62 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Bleed Scratches you");
+      applyBleedToPlayer(st, Math.max(1, Math.floor(hit * 0.3)), 2);
+      appendFightLog("Bleeding worsens.");
+      return;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "nips you");
     return;
   }
 
@@ -4121,39 +4263,29 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   }
 
   if (scriptId === "grass_snake") {
-    const debuffed = !!(foe.combat.markedByPlayer || foe.combat.snakeDebuffed);
+    const debuffed = !!(foe.combat.markedByPlayer || foe.combat.snakeDebuffed || (foe.combat.weakenTurns || 0) > 0);
     if (ready("shed_skin") && debuffed) {
       setCd("shed_skin", 4);
       foe.combat.markedByPlayer = false;
       foe.combat.snakeDebuffed = false;
+      foe.combat.weakenTurns = 0;
       foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.2);
       appendFightLog(`${foe.name} uses Shed Skin and shakes off debuffs.`);
       return;
     }
-    const venomReady = ready("venom_bite");
-    const noPoison = !st.status.playerPoison || st.status.playerPoison.turns <= 0;
-    if (venomReady && noPoison) {
-      setCd("venom_bite", 2);
-      const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Venom Bites you");
-      applyPoisonToPlayer(st, Math.max(2, Math.floor(atk * 0.22)), 3);
-      appendFightLog("Strong poison courses through you.");
+    if (ready("venom_burst")) {
+      setCd("venom_burst", 2);
+      const dot = Math.max(2, Math.floor((st.playerMax * 0.08 * (1 + formulaIntStatusPotencyPct(foe.int || 0) / 100)) / 3));
+      applyPoisonToPlayer(st, dot, 3);
+      appendFightLog(`${foe.name} uses Venom Burst.`);
       return;
     }
     if (ready("constriction")) {
       setCd("constriction", 3);
-      const dmg = Math.max(1, Math.floor(atk * 0.7 * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Constricts you");
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
-      appendFightLog("Your attacks are weakened (2 turns).");
-      return;
-    }
-    if (venomReady) {
-      setCd("venom_bite", 2);
-      const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Venom Bites you");
-      applyPoisonToPlayer(st, Math.max(2, Math.floor(atk * 0.22)), 3);
-      appendFightLog("Strong poison courses through you.");
+      ensureCombatStatus(st);
+      st.status.playerComboChanceDownPct = Math.max(st.status.playerComboChanceDownPct || 0, 15);
+      st.status.playerComboChanceDownTurns = Math.max(st.status.playerComboChanceDownTurns || 0, 2);
+      appendFightLog(`${foe.name} Constricts you (-combo chance).`);
       return;
     }
     const dmg = Math.max(1, Math.floor(atk * 0.65 * outMult));
@@ -4162,25 +4294,28 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   }
 
   if (scriptId === "tusk_boar") {
-    if (!foe.combat.boarOpened) {
-      foe.combat.boarOpened = true;
-      if (ready("thick_hide")) {
-        setCd("thick_hide", 4);
-        const ms = getMonsterScalingConfig();
-        const cap = typeof ms.thickHideReductionCap === "number" ? ms.thickHideReductionCap : 0.65;
-        const b = typeof ms.thickHideBase === "number" ? ms.thickHideBase : 0.25;
-        const pv = typeof ms.thickHidePerVit === "number" ? ms.thickHidePerVit : 0.002;
-        const red = Math.min(cap, b + (typeof foe.vit === "number" ? foe.vit : 0) * pv);
-        foe.combat.thickHideDamagedMult = 1 - red;
-        foe.combat.thickHideTurns = 2;
-        appendFightLog(`${foe.name} uses Thick Hide (~${Math.round(red * 100)}% damage reduction, 2 rounds).`);
-        return;
-      }
+    if (ready("thick_hide")) {
+      setCd("thick_hide", 3);
+      const physRes = formulaStrPhysicalResistPct(foe.str || 0) * 1.5;
+      const red = Math.min(0.75, physRes / 100);
+      foe.combat.thickHideDamagedMult = 1 - red;
+      foe.combat.thickHideTurns = 1;
+      appendFightLog(`${foe.name} uses Thick Hide.`);
+      return;
+    }
+    if (ready("war_boar_taunt")) {
+      setCd("war_boar_taunt", 4);
+      applyMonsterTauntOnPlayer(st, foe, 2);
+      setFoeMitigation(foe, 2, 0.9);
+      appendFightLog(`${foe.name} uses War Boar Taunt.`);
+      return;
     }
     if (ready("gore_charge")) {
       setCd("gore_charge", 2);
-      const gore = Math.floor(monsterPhysicalDamageFromBase(foe, 22, 0.02) * outMult);
+      const gore = Math.floor(monsterPhysicalDamageFromBase(foe, 24, 0.022) * 1.2 * outMult);
       dealRawDamageToPlayer(st, Math.max(1, gore), foe.name, "Gore Charges you");
+      ensureCombatStatus(st);
+      st.status.playerFragileTurns = Math.max(st.status.playerFragileTurns || 0, 3);
       return;
     }
     const dmg = Math.max(1, Math.floor(atk * 0.75 * outMult));
@@ -4189,37 +4324,28 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   }
 
   if (scriptId === "field_wolf") {
-    if (!foe.combat.wolfHowlDone && ready("pack_howl")) {
-      foe.combat.wolfHowlDone = true;
-      setCd("pack_howl", 4);
-      ensureCombatStatus(st);
-      st.status.packHowlTurns = Math.max(st.status.packHowlTurns || 0, 2);
-      const ms = getMonsterScalingConfig();
-      const pb = typeof ms.packHowlBase === "number" ? ms.packHowlBase : 0.2;
-      const pi = typeof ms.packHowlPerInt === "number" ? ms.packHowlPerInt : 0.003;
-      st.status.packHowlAttackMult = 1 + pb + (typeof foe.int === "number" ? foe.int : 0) * pi;
-      appendFightLog(`${foe.name} uses Pack Howl (allies deal extra damage, 2 rounds).`);
+    if (ready("pack_howl")) {
+      setCd("pack_howl", 3);
+      const critBuff = 15 + formulaDexCritChancePct(foe.dex || 0);
+      foe.combat.wolfCritBonusTurns = Math.max(foe.combat.wolfCritBonusTurns || 0, 2);
+      foe.combat.wolfCritBonusPct = Math.min(60, critBuff);
+      appendFightLog(`${foe.name} uses Pack Howl.`);
       return;
     }
     const low = isAnyPartyMemberHpFractionBelow(st, 0.3);
     if (low && ready("execution_bite")) {
-      setCd("execution_bite", 1);
-      const baseExec = monsterPhysicalDamageFromBase(foe, 25, 0.02) * 2 * outMult;
+      setCd("execution_bite", 2);
+      const baseExec = monsterPhysicalDamageFromBase(foe, 26, 0.022) * 1.4 * outMult;
       dealRawDamageToPlayer(st, Math.max(1, Math.floor(baseExec)), foe.name, "Execution Bites you");
       return;
     }
-    if (ready("hamstring")) {
-      setCd("hamstring", 2);
-      const dmg = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 18, 0.015) * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Hamstring Bites you", { partyUid: pickPartyTargetLowestHpUid(st) });
-      applyBleedToPlayer(
-        st,
-        Math.max(1, Math.floor(monsterIntScaledValue(foe, 5, "dot"))),
-        2
-      );
-      ensureCombatStatus(st);
-      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
-      appendFightLog("You are bleeding and slowed.");
+    if (ready("bloodhunt_bite")) {
+      setCd("bloodhunt_bite", 2);
+      const bleedActive = !!(st.status && st.status.playerBleed && st.status.playerBleed.turns > 0);
+      const mult = bleedActive ? 1.2 : 1;
+      const dmg = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 20, 0.02) * mult * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Bloodhunts you");
+      applyBleedToPlayer(st, Math.max(1, Math.floor(dmg * 0.15)), 2);
       return;
     }
     const dmg = Math.max(1, Math.floor(atk * outMult));
@@ -9162,6 +9288,11 @@ function playerCombatAction(kind, skillName) {
     return;
   }
 
+  const taunter = getActiveMonsterTauntSource(st);
+  if (taunter && !aoeAllEnemies) {
+    st.selectedUid = taunter.uid;
+    appendFightLog(`${taunter.name} taunts you - your target is forced.`);
+  }
   const uid = st.selectedUid;
   const foe = st.foes.find((f) => f.uid === uid && f.hp > 0);
   if (!foe) {
