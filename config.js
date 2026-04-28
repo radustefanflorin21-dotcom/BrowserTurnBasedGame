@@ -16,22 +16,18 @@ const GAME_CONFIG = {
    */
   startingLoadout: [
     { name: "Small Potion", count: 999 },
-    { name: "Rusty Sword", count: 1 }
   ],
 
   /**
-   * Enemy drops: gold: either a number (fixed) or { min, max } for a random integer in that range per defeated
-   * enemy. items: each entry is either a string (item name, 100% drop) or { name, dropRate } with dropRate in 0–100 (% per kill).
-   * `drops.xp` is optional metadata only; kill XP uses `victoryXp` (rarity base, level gap, and M/P ratio clamp).
    * Enemy art supports legacy `image`, state images (`images: { idle, walk, attack }`),
    * or sprite strips (`sprites: { idle|walk|attack: { sheet, frames, fps, loop?, cols?, rows? } }`).
    * For atlas layouts (e.g. 10 frames in 2 rows), set `cols` and `rows` (example: cols: 5, rows: 2).
    * Optional `spawnRarity`: "common" | "rare" | "epic" | "myth" | "ancient" — used with `enemySpawnRarityWeights`
    * when rolling mobs from a biome or region pool (see game.js). Omitted defaults to common.
    * Optional `combatScript`: id for scripted enemy turns (skills, cooldowns, AI); see game.js `enemyCombatRunScript`.
-   * Optional `combatRole`: "tank" | "assassin" | "bruiser" | "mage" | "support" | "controller" | "summoner" — splits level×statsPerLevel
-   * budget (see monsterScaling). If omitted, role is inferred from combatScript.
-   * `hp` and `attack` are anchors: max HP ≈ hp×scale + VIT×hpPerVit; attack is the damage base before STR scaling in combat.
+   * Optional `combatRole`: "tank" | "assassin" | "bruiser" | "mage" | "support" | "controller" | "summoner" — splits
+   * level×statsPerLevel budget (see monsterScaling). If omitted, role is inferred from combatScript.
+   * Loot/gold for monsters is configured in `monster_drop_tables.js` (`GAME_CONFIG.monsterDropTables`).
    */
   enemies: [
     {
@@ -39,830 +35,471 @@ const GAME_CONFIG = {
       combatScript: "burrow_hare",
       combatRole: "controller",
       spawnRarity: "common",
-      hp: 40,
-      attack: 6,
       image: "Assets/Monsters/burrow_hare.png",
       possibleLevels: [11, 12, 13, 14, 15],
       possibleMoods: ["cautious"],
-      drops: {
-        gold: { min: 1, max: 10 },
-        xp: 25,
-        items: [{ name: "Rusty Sword", dropRate: 35 }]
-      }
     },
     {
       name: "Plains Raptor",
       combatScript: "plains_raptor",
       combatRole: "bruiser",
       spawnRarity: "common",
-      hp: 60,
-      attack: 8,
       image: "Assets/Monsters/plains_raptor.png",
       possibleLevels: [13, 14, 15, 16, 17],
       possibleMoods: ["focused"],
-      drops: {
-        gold: { min: 2, max: 12 },
-        xp: 35,
-        items: [{ name: "Rusty Sword", dropRate: 35 }]
-      }
     },
     {
       name: "Grass Snake",
       combatScript: "grass_snake",
       combatRole: "mage",
       spawnRarity: "rare",
-      hp: 40,
-      attack: 12,
       image: "Assets/Monsters/grass_snake.png",
       possibleLevels: [15, 16, 17, 18, 19],
       possibleMoods: ["focused"],
-      drops: {
-        gold: { min: 5, max: 15 },
-        xp: 50,
-        items: [{ name: "Rusty Sword", dropRate: 35 }]
-      }
     },
     {
       name: "Tusk Boar",
       combatScript: "tusk_boar",
       combatRole: "tank",
       spawnRarity: "epic",
-      hp: 120,
-      attack: 10,
       image: "Assets/Monsters/tusk_boar.png",
       possibleLevels: [17, 18, 19, 20],
       possibleMoods: ["steady"],
-      drops: {
-        gold: { min: 8, max: 15 },
-        xp: 70,
-        items: [{ name: "Rusty Sword", dropRate: 35 }]
-      }
     },
     {
       name: "Field Wolf",
       combatScript: "field_wolf",
       combatRole: "assassin",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/field_wolf.png",
       possibleLevels: [19, 20, 21],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Leafdart Squirrel",
       combatScript: "greenleaf_squirrel",
       combatRole: "heart_harasser",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/leafdart_squirrel.png",
       possibleLevels: [31, 32, 33, 34, 35],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Canopy Screecher",
       combatScript: "greenleaf_parrot",
       combatRole: "heart_buffer",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/canopy_screecher.png",
       possibleLevels: [33, 34, 35, 36, 37],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Greenleaf Fox",
       combatScript: "greenleaf_fox",
       combatRole: "assassin",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/greenleaf_fox.png",
       possibleLevels: [35, 36, 37, 38, 39],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Jungle Stag",
       combatScript: "greenleaf_stag",
       combatRole: "support",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/jungle_stag.png",
       possibleLevels: [37, 38, 39, 40],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Gorilla",
       combatScript: "gorilla",
       combatRole: "bruiser",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/greenleaf_gorilla.png",
       possibleLevels: [39, 40, 41, 42],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Stone Marmot",
       combatScript: "stone_marmot",
       combatRole: "tank",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/stone_marmot.png",
       possibleLevels: [21, 22, 23, 24, 25],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Rock Lynx",
       combatScript: "rock_lynx",
       combatRole: "assassin",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/rock_lynx.png",
       possibleLevels: [23, 24, 25, 26, 27],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Rock Ibex",
       combatScript: "rock_ibex",
       combatRole: "bruiser",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/rock_ibex.png",
       possibleLevels: [25, 26, 27, 28, 29],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Rock Serpent",
       combatScript: "rock_serpent",
       combatRole: "controller",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/rock_serpent.png",
       possibleLevels: [27, 28, 29, 30],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Rock Lizard",
       combatScript: "rock_lizard",
       combatRole: "tank",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/rock_lizard.png",
       possibleLevels: [29, 30, 31],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Ash Lizard",
       combatScript: "ash_lizard",
       combatRole: "bruiser",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/ash_lizard.png",
       possibleLevels: [41, 42, 43, 44, 45],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Cinder Stalker",
       combatScript: "cinder_stalker",
       combatRole: "assassin",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/cinder_stalker.png",
       possibleLevels: [43, 44, 45, 46, 47],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Ember Scuttler",
       combatScript: "ember_scuttler",
       combatRole: "controller",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/ember_scuttler.png",
       possibleLevels: [45, 46, 47, 48, 49],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Magma Boar",
       combatScript: "magma_boar",
       combatRole: "bruiser",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/magma_boar.png",
       possibleLevels: [47, 48, 49, 50],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Lava Basilisk",
       combatScript: "lava_basilisk",
       combatRole: "controller",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/lava_basilisk.png",
       possibleLevels: [49, 50, 51, 52, 53],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Icy Mink",
       combatScript: "icy_mink",
       combatRole: "assassin",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/icy_mink.png",
       possibleLevels: [41, 42, 43, 44, 45],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Icy Serpent",
       combatScript: "icy_serpent",
       combatRole: "mage",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/icy_serpent.png",
       possibleLevels: [43, 44, 45, 46, 47],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Glacier Turtoise",
       combatScript: "glacier_turtoise",
       combatRole: "tank",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/glacier_turtoise.png",
       possibleLevels: [45, 46, 47, 48, 49],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Frozen Stalker",
       combatScript: "frozen_stalker",
       combatRole: "assassin",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/frozen_stalker.png",
       possibleLevels: [47, 48, 49, 50],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Frost Skitter",
       combatScript: "frost_skitter",
       combatRole: "controller",
       spawnRarity: "myth",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/frost_skitter.png",
       possibleLevels: [49, 50, 51, 52, 53],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },  
     {
       name: "Pinebound Fawn",
       combatScript: "pinebound_fawn",
       combatRole: "support",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/pinebound_fawn.png",
       possibleLevels: [21, 22, 23, 24, 25],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Frozen Pinecone",
       combatScript: "frozen_pinecone",
       combatRole: "controller",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/frozen_pinecone.png",
       possibleLevels: [23, 24, 25, 26, 27],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Ice-Tusked Boar",
       combatScript: "ice_tusked_boar",
       combatRole: "tank",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/ice_tusked_boar.png",
       possibleLevels: [25, 26, 27, 28, 29],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Barkhide Spriggan",
       combatScript: "barkhide_spriggan",
       combatRole: "support",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/barkhide_spriggan.png",
       possibleLevels: [27, 28, 29, 30],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Winter Guardian",
       combatScript: "winter_guardian",
       combatRole: "tank",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/winter_guardian.png",
       possibleLevels: [29, 30, 31],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     }, 
     {
       name: "Dust Carver",
       combatScript: "dust_carver",
       combatRole: "assassin",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/dust_carver.png",
       possibleLevels: [11, 12, 13, 14, 15],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     }, 
     {
       name: "Desert Thornback Crawler",
       combatScript: "desert_thornback_crawler",
       combatRole: "tank",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/desert_thornback_crawler.png",
       possibleLevels: [15, 16, 17, 18, 19],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Mirage Lurker",
       combatScript: "mirage_lurker",
       combatRole: "controller",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/mirage_lurker.png",
       possibleLevels: [17, 18, 19, 20],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Dune Devourer",
       combatScript: "dune_devourer",
       combatRole: "bruiser",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/dune_devourer.png",
       possibleLevels: [19, 20, 21],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Witherling",
       combatScript: "witherling",
       combatRole: "mage",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/witherling.png",
       possibleLevels: [13, 14, 15, 16, 17],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Remnant of Rust",
       combatScript: "remnant_of_rust",
       combatRole: "controller",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/remnant_of_rust.png",
       possibleLevels: [37, 38, 39, 40],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Faded War Wraith",
       combatScript: "faded_war_wraith",
       combatRole: "summoner",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/faded_war_wraith.png",
       possibleLevels: [39, 40, 41, 42],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Ash Horror",
       combatScript: "ash_horror",
       combatRole: "mage",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/ash_horror.png",
       possibleLevels: [31, 32, 33, 34, 35],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Cinder Husk",
       combatScript: "cinder_husk",
       combatRole: "tank",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/cinder_husk.png",
       possibleLevels: [33, 34, 35, 36, 37],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Ash Skulker",
       combatScript: "ash_skulker",
       combatRole: "assassin",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/ash_skulker.png",
       possibleLevels: [35, 36, 37, 38, 39],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Tide Hopper",
       combatScript: "tide_hopper",
       combatRole: "controller",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/tide_hopper.png",
       possibleLevels: [1, 2, 3, 4, 5],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Hermit Crab",
       combatScript: "hermit_crab",
       combatRole: "tank",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/hermit_crab.png",
       possibleLevels: [3, 4, 5, 6, 7],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Driftling",
       combatScript: "driftling",
       combatRole: "support",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/driftling.png",
       possibleLevels: [5, 6, 7, 8, 9],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Tidemeld Revenant",
       combatScript: "tidemeld_revenant",
       combatRole: "summoner",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/tidemeld_revenant.png",
       possibleLevels: [7, 8, 9, 10],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Coastal Horror",
       combatScript: "coastal_horror",
       combatRole: "controller",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/coastal_horror.png",
       possibleLevels: [9, 10, 11],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     }, 
     {
       name: "Saltwind Skimmer",
       combatScript: "saltwind_skimmer",
       combatRole: "assassin",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/saltwind_skimmer.png",
       possibleLevels: [1, 2, 3, 4, 5],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Brinegullet Spitter",
       combatScript: "brinegullet_spitter",
       combatRole: "mage",
       spawnRarity: "common",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/brinegullet_spitter.png",
       possibleLevels: [3, 4, 5, 6, 7],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Wavebreaker Idol",
       combatScript: "wavebreaker_idol",
       combatRole: "tank",
       spawnRarity: "rare",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/wavebreaker_idol.png",
       possibleLevels: [5, 6, 7, 8, 9],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Cliff Lurker",
       combatScript: "cliff_lurker",
       combatRole: "assassin",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/cliff_lurker.png",
       possibleLevels: [7, 8, 9, 10],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Tideharrow",
       combatScript: "tideharrow",
       combatRole: "controller",
       spawnRarity: "epic",
-      hp: 30,
-      attack: 5,
       image: "Assets/Monsters/tideharrow.png",
       possibleLevels: [9, 10, 11],
       possibleMoods: ["berserk"],
-      drops: {
-        gold: { min: 10, max: 20 },
-        xp: 100,
-        items: [{ name: "Rusty Sword", dropRate: 55 }]
-      }
     },
     {
       name: "Bandit",
       spawnRarity: "common",
-      hp: 45,
-      attack: 7,
       image: "Assets/Monsters/burrow_hare.png",
       possibleLevels: [1, 2, 3, 4, 5],
       possibleMoods: ["cautious", "focused"],
-      drops: { gold: { min: 2, max: 14 }, xp: 30, items: [] }
     },
     {
       name: "Wolf",
       spawnRarity: "rare",
-      hp: 55,
-      attack: 9,
       image: "Assets/Monsters/field_wolf.png",
       possibleLevels: [3, 4, 5, 6, 7],
       possibleMoods: ["berserk", "focused"],
-      drops: { gold: { min: 3, max: 18 }, xp: 45, items: [] }
     },
     {
       name: "Drone",
       spawnRarity: "epic",
-      hp: 80,
-      attack: 12,
       image: "Assets/Monsters/plains_raptor.png",
       possibleLevels: [8, 10, 12, 14, 16],
       possibleMoods: ["focused", "steady"],
-      drops: { gold: { min: 8, max: 28 }, xp: 70, items: [] }
     }
   ],
 
@@ -914,13 +551,53 @@ const GAME_CONFIG = {
   },
 
   /**
-   * Monster total stat budget ≈ level × statsPerLevel (split by role). Optional per-enemy `combatRole` overrides script inference.
-   * Damage / DoT / crit / evade formulas for enemies are applied in game.js using these coefficients.
+   * Monster characteristics and combat scaling.
+   * Budget model:
+   *   baseBudget = round((level * statBudgetPerLevel + statBudgetFlat) * (1 + (level / statBudgetCurveDivisor)^statBudgetCurveExponent))
+   *   finalBudget = round(baseBudget * rarityDifficultyModifier)
+   * Role split uses `enemyRoles` weights with rounding correction to the role main stat (see game.js).
    */
   monsterScaling: {
-    statsPerLevel: 4.5,
-    hpPerVit: 8,
-    damageStrCoeff: 0.015,
+    statBudgetPerLevel: 4.8,
+    statBudgetFlat: 10,
+    statBudgetCurveDivisor: 60,
+    statBudgetCurveExponent: 1.6,
+    rarityDifficultyModifiers: {
+      common: 1.0,
+      rare: 1.08,
+      epic: 1.2,
+      myth: 1.5,
+      ancient: 1.8
+    },
+    rarityHpBossMultipliers: {
+      common: 1.0,
+      rare: 1.0,
+      epic: 1.0,
+      myth: 1.8,
+      ancient: 2.2
+    },
+    hpLevelBasePerLevel: 35,
+    hpPerVit: 12,
+    attackLevelBasePerLevel: 3.4,
+    basicAttackGlobalMultiplier: 1.18,
+    physicalAtkStrCoeff: 0.62,
+    physicalAtkIntCoeff: 0.22,
+    physicalAtkDexCoeff: 0.14,
+    magicalAtkIntCoeff: 0.62,
+    magicalAtkStrCoeff: 0.22,
+    magicalAtkDexCoeff: 0.08,
+    hybridAtkStrCoeff: 0.44,
+    hybridAtkIntCoeff: 0.44,
+    hybridAtkDexCoeff: 0.11,
+    skillDamageLevelCoeff: 0.032,
+    raritySkillDamageMultipliers: {
+      common: 1.0,
+      rare: 1.14,
+      epic: 1.28,
+      myth: 1.45,
+      ancient: 1.62
+    },
+    damageStrCoeff: 0.022,
     dotIntCoeff: 0.02,
     effectIntCoeff: 0.02,
     enemyCritBasePct: 5,
@@ -936,17 +613,19 @@ const GAME_CONFIG = {
     packHowlPerInt: 0.003
   },
 
-  /** Weights sum to 1. Keys: tank | assassin | bruiser | mage | support | controller | summoner (+ optional custom role keys) */
+  /** Weights sum to 1. Keys: tank | bruiser | assassin | mage | controller | support | summoner | harasser | buffer. */
   enemyRoles: {
-    tank: { STR: 0.25, DEX: 0.15, VIT: 0.4, INT: 0.2 },
-    assassin: { STR: 0.3, DEX: 0.4, VIT: 0.1, INT: 0.2 },
-    bruiser: { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 },
-    mage: { STR: 0.15, DEX: 0.25, VIT: 0.2, INT: 0.4 },
-    support: { STR: 0.1, DEX: 0.2, VIT: 0.3, INT: 0.4 },
-    controller: { STR: 0.1, DEX: 0.3, VIT: 0.15, INT: 0.45 },
-    summoner: { STR: 0.15, DEX: 0.2, VIT: 0.25, INT: 0.4 },
-    heart_harasser: { STR: 0.1, DEX: 0.4, VIT: 0.2, INT: 0.3 },
-    heart_buffer: { STR: 0.12, DEX: 0.3, VIT: 0.18, INT: 0.4 }
+    tank: { STR: 0.18, DEX: 0.1, VIT: 0.55, INT: 0.17 },
+    bruiser: { STR: 0.42, DEX: 0.18, VIT: 0.32, INT: 0.08 },
+    assassin: { STR: 0.22, DEX: 0.5, VIT: 0.16, INT: 0.12 },
+    mage: { STR: 0.08, DEX: 0.15, VIT: 0.18, INT: 0.59 },
+    controller: { STR: 0.14, DEX: 0.24, VIT: 0.24, INT: 0.38 },
+    support: { STR: 0.1, DEX: 0.18, VIT: 0.32, INT: 0.4 },
+    summoner: { STR: 0.08, DEX: 0.18, VIT: 0.3, INT: 0.44 },
+    harasser: { STR: 0.18, DEX: 0.42, VIT: 0.2, INT: 0.2 },
+    buffer: { STR: 0.08, DEX: 0.2, VIT: 0.28, INT: 0.44 },
+    heart_harasser: { STR: 0.18, DEX: 0.42, VIT: 0.2, INT: 0.2 },
+    heart_buffer: { STR: 0.08, DEX: 0.2, VIT: 0.28, INT: 0.44 }
   },
 
   items: {
@@ -5335,6 +5014,8 @@ const GAME_CONFIG = {
     defaultStart: { x: 29, y: 55 },
     /** Shared art for all waygates (path relative to index.html). Missing or failed loads use the built-in SVG portal at runtime. */
     portalImage: "Assets/portals/my-portal.png",
+    /** Optional shared art for boats in scene cells (path relative to index.html). */
+    boatImage: "Assets/portals/boat.png",
     encounterSlotsPerTile: 3,
     /**
      * Optional per-coordinate override (path relative to index.html). If unset, the game uses
@@ -5352,6 +5033,7 @@ const GAME_CONFIG = {
             type: "boat",
             id: "boat_paradise_south",
             label: "Boat",
+            editable: true,
             destinations: [{ label: "Paradise North", x: 37, y: 43 }]
           }
         ]
@@ -5365,6 +5047,7 @@ const GAME_CONFIG = {
             type: "boat",
             id: "boat_paradise_north",
             label: "Boat",
+            editable: true,
             destinations: [{ label: "Paradise South", x: 29, y: 55 }]
           }
         ]

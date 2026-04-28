@@ -2377,10 +2377,41 @@ function initFoeCombatRuntime(foe) {
 
 function getFoeEffectiveAttackForCombat(foe) {
   const ms = getMonsterScalingConfig();
-  const strCoeff = typeof ms.damageStrCoeff === "number" ? ms.damageStrCoeff : 0.015;
-  const base = typeof foe.attack === "number" && foe.attack > 0 ? foe.attack : 1;
+  const def = foe && foe.name ? getEnemyDefByName(foe.name) : null;
+  const roleKey = getEnemyCombatRoleKey(def);
+  const level = typeof foe.level === "number" && foe.level > 0 ? Math.floor(foe.level) : 1;
+  const basePerLevel =
+    typeof ms.attackLevelBasePerLevel === "number" && Number.isFinite(ms.attackLevelBasePerLevel)
+      ? ms.attackLevelBasePerLevel
+      : 2;
+  const pStr = typeof ms.physicalAtkStrCoeff === "number" ? ms.physicalAtkStrCoeff : 0.45;
+  const pInt = typeof ms.physicalAtkIntCoeff === "number" ? ms.physicalAtkIntCoeff : 0.2;
+  const pDex = typeof ms.physicalAtkDexCoeff === "number" ? ms.physicalAtkDexCoeff : 0.08;
+  const mInt = typeof ms.magicalAtkIntCoeff === "number" ? ms.magicalAtkIntCoeff : 0.45;
+  const mStr = typeof ms.magicalAtkStrCoeff === "number" ? ms.magicalAtkStrCoeff : 0.2;
+  const mDex = typeof ms.magicalAtkDexCoeff === "number" ? ms.magicalAtkDexCoeff : 0.04;
+  const hStr = typeof ms.hybridAtkStrCoeff === "number" ? ms.hybridAtkStrCoeff : 0.3;
+  const hInt = typeof ms.hybridAtkIntCoeff === "number" ? ms.hybridAtkIntCoeff : 0.3;
+  const hDex = typeof ms.hybridAtkDexCoeff === "number" ? ms.hybridAtkDexCoeff : 0.06;
+  const baseAttackMult =
+    typeof ms.basicAttackGlobalMultiplier === "number" && Number.isFinite(ms.basicAttackGlobalMultiplier)
+      ? Math.max(0.5, ms.basicAttackGlobalMultiplier)
+      : 1;
   const str = typeof foe.str === "number" && foe.str > 0 ? foe.str : 0;
-  let a = Math.max(1, Math.floor(base * (1 + str * strCoeff)));
+  const intv = typeof foe.int === "number" && foe.int > 0 ? foe.int : 0;
+  const dex = typeof foe.dex === "number" && foe.dex > 0 ? foe.dex : 0;
+  const atkType = inferMonsterAttackArchetype(roleKey);
+  let base = basePerLevel * level;
+  if (atkType === "physical") base += str * pStr + intv * pInt + dex * pDex;
+  else if (atkType === "magical") base += intv * mInt + str * mStr + dex * mDex;
+  else base += str * hStr + intv * hInt + dex * hDex;
+  const moodAttackMult =
+    typeof foe.moodAttackMult === "number" && Number.isFinite(foe.moodAttackMult) && foe.moodAttackMult > 0
+      ? foe.moodAttackMult
+      : 1;
+  const moodAttackBonus =
+    typeof foe.moodAttackBonus === "number" && Number.isFinite(foe.moodAttackBonus) ? foe.moodAttackBonus : 0;
+  let a = Math.max(1, Math.floor(base * baseAttackMult * moodAttackMult + moodAttackBonus));
   if (foe.combat && foe.combat.script === "tusk_boar" && typeof foe.combat.rageStacks === "number" && foe.combat.rageStacks > 0) {
     a = Math.max(1, Math.floor(a * (1 + 0.05 * foe.combat.rageStacks)));
   }
@@ -5010,22 +5041,108 @@ function getEnemyCombatRoleKey(def) {
   return inferMonsterCombatRole(sid);
 }
 
-function distributeMonsterStatBudget(level, roleKey) {
+function getMonsterRarityTier(def) {
+  const raw = def && typeof def.spawnRarity === "string" ? def.spawnRarity.trim().toLowerCase() : "";
+  if (raw === "rare" || raw === "epic" || raw === "myth" || raw === "ancient") return raw;
+  return "common";
+}
+
+function getMonsterBudgetDifficultyModifier(def) {
   const ms = getMonsterScalingConfig();
-  const per = typeof ms.statsPerLevel === "number" && ms.statsPerLevel > 0 ? ms.statsPerLevel : 4.5;
-  const budget = Math.max(4, Math.round(level * per));
+  const map = ms.rarityDifficultyModifiers && typeof ms.rarityDifficultyModifiers === "object" ? ms.rarityDifficultyModifiers : {};
+  const tier = getMonsterRarityTier(def);
+  const v = map[tier];
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
+}
+
+function computeMonsterBaseStatBudget(level) {
+  const ms = getMonsterScalingConfig();
+  const lv = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
+  const per = typeof ms.statBudgetPerLevel === "number" && ms.statBudgetPerLevel > 0 ? ms.statBudgetPerLevel : 4.8;
+  const flat = typeof ms.statBudgetFlat === "number" && Number.isFinite(ms.statBudgetFlat) ? ms.statBudgetFlat : 10;
+  const curveDiv =
+    typeof ms.statBudgetCurveDivisor === "number" && Number.isFinite(ms.statBudgetCurveDivisor) && ms.statBudgetCurveDivisor > 0
+      ? ms.statBudgetCurveDivisor
+      : 60;
+  const curveExp =
+    typeof ms.statBudgetCurveExponent === "number" && Number.isFinite(ms.statBudgetCurveExponent) && ms.statBudgetCurveExponent > 0
+      ? ms.statBudgetCurveExponent
+      : 1.6;
+  const gearPressureMultiplier = 1 + Math.pow(lv / curveDiv, curveExp);
+  return Math.max(4, Math.round((lv * per + flat) * gearPressureMultiplier));
+}
+
+function getMonsterHpBossMultiplier(def) {
+  const ms = getMonsterScalingConfig();
+  const map = ms.rarityHpBossMultipliers && typeof ms.rarityHpBossMultipliers === "object" ? ms.rarityHpBossMultipliers : {};
+  const tier = getMonsterRarityTier(def);
+  const v = map[tier];
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
+}
+
+function getPrimaryStatForRole(roleKey) {
+  switch (String(roleKey || "")) {
+    case "tank":
+      return "vit";
+    case "assassin":
+    case "harasser":
+    case "heart_harasser":
+      return "dex";
+    case "bruiser":
+      return "str";
+    case "mage":
+    case "controller":
+    case "support":
+    case "summoner":
+    case "buffer":
+    case "heart_buffer":
+      return "int";
+    default:
+      return "str";
+  }
+}
+
+function distributeMonsterStatBudget(level, roleKey) {
+  const budget = computeMonsterBaseStatBudget(level);
   const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
   const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
   const ws = { str: w.STR, dex: w.DEX, vit: w.VIT, int: w.INT };
-  const keys = ["str", "dex", "vit", "int"];
-  const raw = keys.map((k) => budget * ws[k]);
-  const fl = raw.map((x) => Math.floor(x));
-  let rem = budget - fl.reduce((a, b) => a + b, 0);
-  const fracs = keys.map((k, i) => ({ i, f: raw[i] - fl[i] }));
-  fracs.sort((a, b) => b.f - a.f);
-  const out = { str: fl[0], dex: fl[1], vit: fl[2], int: fl[3] };
-  for (let j = 0; j < rem; j++) out[keys[fracs[j % fracs.length].i]]++;
+  const out = {
+    str: Math.round(budget * (typeof ws.str === "number" ? ws.str : 0)),
+    dex: Math.round(budget * (typeof ws.dex === "number" ? ws.dex : 0)),
+    vit: Math.round(budget * (typeof ws.vit === "number" ? ws.vit : 0)),
+    int: Math.round(budget * (typeof ws.int === "number" ? ws.int : 0))
+  };
+  const sum = out.str + out.dex + out.vit + out.int;
+  const diff = budget - sum;
+  const main = getPrimaryStatForRole(roleKey);
+  out[main] = Math.max(0, (out[main] || 0) + diff);
   return out;
+}
+
+function buildMonsterCharacteristics(level, roleKey, def) {
+  const baseBudget = computeMonsterBaseStatBudget(level);
+  const rarityMult = getMonsterBudgetDifficultyModifier(def);
+  const budget = Math.max(4, Math.round(baseBudget * rarityMult));
+  const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
+  const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
+  const out = {
+    str: Math.round(budget * (typeof w.STR === "number" ? w.STR : 0)),
+    dex: Math.round(budget * (typeof w.DEX === "number" ? w.DEX : 0)),
+    vit: Math.round(budget * (typeof w.VIT === "number" ? w.VIT : 0)),
+    int: Math.round(budget * (typeof w.INT === "number" ? w.INT : 0))
+  };
+  const diff = budget - (out.str + out.dex + out.vit + out.int);
+  const main = getPrimaryStatForRole(roleKey);
+  out[main] = Math.max(0, (out[main] || 0) + diff);
+  return out;
+}
+
+function inferMonsterAttackArchetype(roleKey) {
+  const r = String(roleKey || "").toLowerCase();
+  if (r === "tank" || r === "bruiser" || r === "assassin" || r === "harasser" || r === "heart_harasser") return "physical";
+  if (r === "mage" || r === "support" || r === "summoner" || r === "buffer" || r === "heart_buffer") return "magical";
+  return "hybrid";
 }
 
 function monsterPhysicalDamageFromBase(foe, baseDamage, strCoeffOverride) {
@@ -5036,8 +5153,22 @@ function monsterPhysicalDamageFromBase(foe, baseDamage, strCoeffOverride) {
       : typeof ms.damageStrCoeff === "number"
         ? ms.damageStrCoeff
         : 0.015;
+  const lvCoef =
+    typeof ms.skillDamageLevelCoeff === "number" && Number.isFinite(ms.skillDamageLevelCoeff) ? ms.skillDamageLevelCoeff : 0.018;
   const str = typeof foe.str === "number" && foe.str > 0 ? foe.str : 0;
-  return Math.max(1, baseDamage * (1 + str * k));
+  const level = typeof foe.level === "number" && foe.level > 0 ? Math.floor(foe.level) : 1;
+  const def = foe && foe.name ? getEnemyDefByName(foe.name) : null;
+  const tier = normalizeEnemySpawnRarity(def && def.spawnRarity);
+  const rarityMap =
+    ms.raritySkillDamageMultipliers && typeof ms.raritySkillDamageMultipliers === "object"
+      ? ms.raritySkillDamageMultipliers
+      : null;
+  const rarityMult =
+    rarityMap && typeof rarityMap[tier] === "number" && Number.isFinite(rarityMap[tier]) && rarityMap[tier] > 0
+      ? rarityMap[tier]
+      : 1;
+  const levelMult = Math.max(1, 1 + level * lvCoef);
+  return Math.max(1, baseDamage * (1 + str * k) * levelMult * rarityMult);
 }
 
 function monsterIntScaledValue(foe, base, coeffKey) {
@@ -5066,13 +5197,16 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
   const hpMult = typeof mood.hpMult === "number" ? mood.hpMult : 1;
   const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
   const roleKey = getEnemyCombatRoleKey(def);
-  const stats = distributeMonsterStatBudget(level, roleKey);
+  const stats = buildMonsterCharacteristics(level, roleKey, def);
   const ms = getMonsterScalingConfig();
-  const hpPerVit = typeof ms.hpPerVit === "number" ? ms.hpPerVit : 8;
-  const baseHp = (typeof def.hp === "number" ? def.hp : 20) * scale;
-  const hp = Math.max(1, Math.round((baseHp + stats.vit * hpPerVit) * hpMult));
-  const baseAtk = (typeof def.attack === "number" ? def.attack : 5) * scale;
-  const attack = Math.max(1, Math.round(baseAtk * attackMult + attackBonus));
+  const hpBasePerLv =
+    typeof ms.hpLevelBasePerLevel === "number" && Number.isFinite(ms.hpLevelBasePerLevel) ? ms.hpLevelBasePerLevel : 35;
+  const hpPerVit = typeof ms.hpPerVit === "number" && Number.isFinite(ms.hpPerVit) ? ms.hpPerVit : 12;
+  const bossHpMult = getMonsterHpBossMultiplier(def);
+  const hp = Math.max(
+    1,
+    Math.round((hpBasePerLv * level + stats.vit * hpPerVit) * bossHpMult * scale * hpMult)
+  );
   const maxStamina = getFoeCombatMaxStamina(def);
   const moodId = typeof mood.id === "string" && mood.id.trim() ? mood.id.trim() : null;
   const moodName = typeof mood.name === "string" ? mood.name.trim() : "";
@@ -5086,13 +5220,13 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
     int: stats.int,
     moodId,
     moodName,
+    moodAttackBonus: attackBonus,
+    moodAttackMult: attackMult,
     hp,
     maxHp: hp,
-    attack,
     stamina: maxStamina,
     maxStamina,
     damageTakenMult,
-    drops: def.drops,
     image: resolveImageByState(def, "idle"),
     images: def.images && typeof def.images === "object" ? def.images : null,
     sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
@@ -6545,6 +6679,17 @@ function getEditableSceneObjectCatalog() {
       })
     },
     {
+      id: "boat",
+      label: "Boat (destination list)",
+      build: () => ({
+        type: "boat",
+        id: newSceneElementId("boat"),
+        editable: true,
+        label: "Boat",
+        destinations: [{ label: "Set destination", x: player.worldMap.x, y: player.worldMap.y }]
+      })
+    },
+    {
       id: "door",
       label: "Door (same-map teleport)",
       build: () => ({
@@ -7290,6 +7435,21 @@ function buildPortalVisualHtml(elId) {
   return buildPortalFrameSvgHtml(elId);
 }
 
+function getWorldMapBoatImageUrl() {
+  const wm = GAME_CONFIG.worldMap;
+  const u = wm && typeof wm.boatImage === "string" ? wm.boatImage.trim() : "";
+  return u;
+}
+
+function buildBoatVisualHtml(labelText, imageUrl) {
+  const perBoatUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
+  const url = perBoatUrl || getWorldMapBoatImageUrl();
+  if (url) {
+    return `<img src="${escapeAttr(url)}" alt="" class="world-boat-img" draggable="false" decoding="async" />`;
+  }
+  return escapeHtml(labelText || "Boat");
+}
+
 /** If {@link getWorldMapPortalImageUrl} is set but the image is missing or fails to load, replace with {@link buildPortalFrameSvgHtml}. */
 function applyPortalImageFallbacks(root) {
   if (!root || !getWorldMapPortalImageUrl()) return;
@@ -7299,6 +7459,19 @@ function applyPortalImageFallbacks(root) {
       const wrap = img.parentElement;
       if (!wrap || !wrap.classList.contains("world-portal-visual")) return;
       wrap.innerHTML = buildPortalFrameSvgHtml(elId);
+    };
+    img.addEventListener("error", swap, { once: true });
+    if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) swap();
+  });
+}
+
+function applyBoatImageFallbacks(root) {
+  if (!root) return;
+  root.querySelectorAll("img.world-boat-img").forEach((img) => {
+    const swap = () => {
+      const wrap = img.parentElement;
+      if (!wrap || !wrap.classList.contains("world-boat-visual")) return;
+      wrap.textContent = "Boat";
     };
     img.addEventListener("error", swap, { once: true });
     if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) swap();
@@ -7327,7 +7500,7 @@ function buildAdventureSceneHtml(x, y, cfg) {
     if (!el || typeof el !== "object") return "";
     const type = el.type;
     const id = typeof el.id === "string" && el.id.trim() ? el.id.trim() : `el${i}`;
-    const editable = el.editable === true;
+    const editable = el.editable === true || type === "boat";
     if (type === "npc" || type === "note") {
       const text = typeof el.text === "string" ? el.text : "";
       const payload = escapeAttr(JSON.stringify({ type: type === "note" ? "note" : "npc", text, id }));
@@ -7366,6 +7539,7 @@ function buildAdventureSceneHtml(x, y, cfg) {
     }
     if (type === "boat") {
       const labelText = typeof el.label === "string" && el.label.trim() ? el.label.trim() : "Boat";
+      const imageUrl = typeof el.image === "string" ? el.image : "";
       const destinations = Array.isArray(el.destinations)
         ? el.destinations
             .map((d) => {
@@ -7377,10 +7551,11 @@ function buildAdventureSceneHtml(x, y, cfg) {
         : [];
       const payload = escapeAttr(JSON.stringify({ type: "boat", id, label: labelText, destinations }));
       const labelAttr = escapeAttr(labelText);
+      const visual = buildBoatVisualHtml(labelText, imageUrl);
       return wrapIfEditable(
         id,
         editable,
-        `<button type="button" class="world-scene-btn world-boat-btn" data-world-scene="${payload}" title="${labelAttr}" aria-label="${labelAttr}"><span class="world-boat-visual" aria-hidden="true">Boat</span></button>`
+        `<button type="button" class="world-scene-btn world-boat-btn" data-world-scene="${payload}" title="${labelAttr}" aria-label="${labelAttr}"><span class="world-boat-visual" aria-hidden="true">${visual}</span></button>`
       );
     }
     if (type === "pickup" || type === "usable") {
@@ -7774,13 +7949,11 @@ function rollItemDropEntry(entry, dropRateMult) {
   if (typeof entry === "string") {
     const t = entry.trim();
     if (!t) return null;
-    if (t === "Rusty Sword") return null;
     return t;
   }
   if (!entry || typeof entry !== "object" || typeof entry.name !== "string") return null;
   const name = entry.name.trim();
   if (!name) return null;
-  if (name === "Rusty Sword") return null;
   let pct = entry.dropRate;
   if (pct == null || pct === "") pct = 100;
   pct = Number(pct);
@@ -8112,8 +8285,7 @@ function computeVictoryXpForFoe(foe, playerLevel) {
   const pl = Math.max(1, Math.floor(typeof playerLevel === "number" && playerLevel > 0 ? playerLevel : 1));
   const cfg = GAME_CONFIG.victoryXp;
   if (!cfg || typeof cfg !== "object") {
-    if (def && def.drops && typeof def.drops.xp === "number") return Math.max(1, Math.floor(def.drops.xp));
-    return 1;
+    return 20;
   }
   const rarityId =
     def && typeof def.spawnRarity === "string" && def.spawnRarity.trim()
@@ -8142,6 +8314,16 @@ function computeVictoryXpForFoe(foe, playerLevel) {
   return out;
 }
 
+function getDefaultGoldSpecForEnemy(def) {
+  const s = GAME_CONFIG.lootDropSettings && typeof GAME_CONFIG.lootDropSettings === "object" ? GAME_CONFIG.lootDropSettings : {};
+  const byRarity = s.defaultGoldByRarity && typeof s.defaultGoldByRarity === "object" ? s.defaultGoldByRarity : null;
+  const rarityId =
+    def && typeof def.spawnRarity === "string" && def.spawnRarity.trim() ? def.spawnRarity.trim().toLowerCase() : "common";
+  if (byRarity && byRarity[rarityId]) return byRarity[rarityId];
+  if (byRarity && byRarity.common) return byRarity.common;
+  return { min: 10, max: 20 };
+}
+
 /**
  * @param {Array<{ name: string, level?: number }>} foes Defeated encounter units (use `combatState.foes`).
  */
@@ -8153,18 +8335,13 @@ function computeVictoryLoot(foes) {
   (foes || []).forEach((foe) => {
     if (!foe || typeof foe.name !== "string") return;
     const def = getEnemyDefByName(foe.name);
-    if (!def || !def.drops) return;
-    gold += rollGoldDrop(def.drops.gold);
+    if (!def) return;
     xp += computeVictoryXpForFoe(foe, pl);
     const moodLootMult = hasActiveMood(foe) ? MOOD_LOOT_DROP_RATE_MULT : 1;
-    if (getMonsterLootDropTable(def)) {
-      collectMonsterTableLootForFoe(foe, def, moodLootMult).forEach((n) => items.push(n));
-      return;
-    }
-    (def.drops.items || []).forEach((entry) => {
-      const rolled = rollItemDropEntry(entry, moodLootMult);
-      if (rolled) items.push(rolled);
-    });
+    const table = getMonsterLootDropTable(def);
+    const goldSpec = table && table.gold != null ? table.gold : getDefaultGoldSpecForEnemy(def);
+    gold += rollGoldDrop(goldSpec);
+    if (table) collectMonsterTableLootForFoe(foe, def, moodLootMult).forEach((n) => items.push(n));
   });
   return { gold, xp, items };
 }
@@ -11160,6 +11337,7 @@ function renderAdventure() {
   resolveAdventureBackgroundUrl(x, y, coordBgUrl, (url, isCityArt) => crossfadeAdventureBackground(url, isCityArt));
 
   applyPortalImageFallbacks(c);
+  applyBoatImageFallbacks(c);
 
   c.querySelectorAll("[data-world-nav]").forEach((btn) => {
     btn.addEventListener("click", () => {

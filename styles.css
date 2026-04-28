@@ -2594,6 +2594,15 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   pointer-events: none;
 }
 
+.world-boat-img {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .portal-theme-default {
   --portal-hover-glow: rgba(140, 130, 180, 0.35);
   --portal-iron: #2a2428;

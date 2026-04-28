@@ -19,6 +19,13 @@
   GAME_CONFIG.lootDropSettings = {
     materialPassesMin: 1,
     materialPassesMax: 2,
+    defaultGoldByRarity: {
+      common: { min: 10, max: 20 },
+      rare: { min: 14, max: 28 },
+      epic: { min: 20, max: 40 },
+      myth: { min: 30, max: 55 },
+      ancient: { min: 42, max: 75 }
+    },
     rarityWeights: [
       { id: "common", weight: 70 },
       { id: "uncommon", weight: 20 },
@@ -456,5 +463,28 @@
       if (idx >= 0) table.materials[idx] = { ...table.materials[idx], ...normalized };
       else table.materials.push(normalized);
     });
+  });
+
+  const defaultGoldByRarity =
+    GAME_CONFIG.lootDropSettings &&
+    typeof GAME_CONFIG.lootDropSettings.defaultGoldByRarity === "object" &&
+    GAME_CONFIG.lootDropSettings.defaultGoldByRarity
+      ? GAME_CONFIG.lootDropSettings.defaultGoldByRarity
+      : {};
+  const enemies = Array.isArray(GAME_CONFIG.enemies) ? GAME_CONFIG.enemies : [];
+  enemies.forEach((enemy) => {
+    if (!enemy || typeof enemy.name !== "string") return;
+    if (!GAME_CONFIG.monsterDropTables[enemy.name]) {
+      GAME_CONFIG.monsterDropTables[enemy.name] = { gear: [], materials: [] };
+    }
+    const table = GAME_CONFIG.monsterDropTables[enemy.name];
+    if (!Array.isArray(table.gear)) table.gear = [];
+    if (!Array.isArray(table.materials)) table.materials = [];
+    if (table.gold != null) return;
+    const rarity =
+      typeof enemy.spawnRarity === "string" && enemy.spawnRarity.trim()
+        ? enemy.spawnRarity.trim().toLowerCase()
+        : "common";
+    table.gold = defaultGoldByRarity[rarity] || defaultGoldByRarity.common || { min: 10, max: 20 };
   });
 })();
