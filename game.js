@@ -118,15 +118,15 @@ const CLASS_DEFS = {
     primaryStats: ["STR", "VIT"],
     starterSkills: ["Shield Slam", "Brace", "Heavy Strike"],
     skills: [
-      { name: "Shield Slam", tier: "early", staminaCost: 2, combatMultiplier: 1.18, combatTags: ["heavy"], description: "Damage with stagger chance." },
-      { name: "Brace", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Reduce incoming damage next turn." },
-      { name: "Heavy Strike", tier: "early", staminaCost: 3, combatMultiplier: 1.45, combatTags: ["heavy"], description: "High STR scaling hit." },
-      { name: "Fortress Stance", tier: "mid", staminaCost: 3, combatMultiplier: 1.05, description: "Multi-turn mitigation stance." },
-      { name: "Crushing Blow", tier: "mid", staminaCost: 3, combatMultiplier: 1.4, combatTags: ["crushing"], description: "Armor-ignoring strike." },
-      { name: "Taunt", tier: "mid", staminaCost: 2, combatMultiplier: 0.95, description: "Disrupt enemy damage focus." },
-      { name: "Last Bastion", tier: "late", staminaCost: 4, combatMultiplier: 1.1, description: "Massive defense while low HP." },
-      { name: "Earthshatter", tier: "late", staminaCost: 4, combatMultiplier: 1.38, combatAoe: "all_enemies", combatTags: ["heavy"], description: "AoE impact and stagger." },
-      { name: "Indomitable", tier: "late", staminaCost: 2, passiveOnly: true, description: "Limit max HP loss per turn." }
+      { name: "Shield Slam", tier: "early", staminaCost: 2, combatMultiplier: 0.7, combatTags: ["shield", "control"], image: "Assets/Skills/shield_slam.png", description: "Low damage strike with conditional stagger utility." },
+      { name: "Brace", tier: "early", staminaCost: 2, combatMultiplier: 0.25, combatTags: ["defensive"], image: "Assets/Skills/brace.png", description: "Defensive setup with temporary status resistance." },
+      { name: "Heavy Strike", tier: "early", staminaCost: 3, combatMultiplier: 1.1, combatTags: ["heavy"], image: "Assets/Skills/heavy_strike.png", description: "Primary early single-target damage strike." },
+      { name: "Fortress Stance", tier: "mid", staminaCost: 3, combatMultiplier: 0, combatTags: ["defensive", "stance"], image: "Assets/Skills/fortress_stance.png", description: "Strong mitigation stance with offense penalty." },
+      { name: "Crushing Blow", tier: "mid", staminaCost: 3, combatMultiplier: 0.95, combatTags: ["crushing"], image: "Assets/Skills/crushing_blow.png", description: "Moderate damage plus scalable armor break." },
+      { name: "Taunt", tier: "mid", staminaCost: 2, combatMultiplier: 0.2, combatTags: ["control", "tank"], image: "Assets/Skills/taunt.png", description: "Forces target focus onto the Vanguard." },
+      { name: "Last Bastion", tier: "late", staminaCost: 4, combatMultiplier: 0, combatTags: ["defensive", "emergency"], image: "Assets/Skills/last_bastion.png", description: "Emergency defense with stronger low-HP effect." },
+      { name: "Earthshatter", tier: "late", staminaCost: 4, combatMultiplier: 0.65, combatAoe: "all_enemies", combatTags: ["heavy", "aoe", "control"], image: "Assets/Skills/earthshatter.png", description: "AoE control impact with conditional bonus damage." },
+      { name: "Indomitable", tier: "late", staminaCost: 2, passiveOnly: true, image: "Assets/Skills/indominable.png", description: "Limit max HP loss per turn." }
     ]
   },
   duelist: {
@@ -248,10 +248,13 @@ const CLASS_SKILL_MAP = Object.values(CLASS_DEFS).reduce((acc, cls) => {
 
 function injectClassSkillsIntoConfig() {
   const skillArr = Array.isArray(GAME_CONFIG.skills) ? GAME_CONFIG.skills : [];
-  const existing = new Set(skillArr.map((s) => (s && typeof s.name === "string" ? s.name : "")).filter(Boolean));
+  const existingByName = new Map();
+  skillArr.forEach((s, i) => {
+    const n = s && typeof s.name === "string" ? s.name : "";
+    if (n) existingByName.set(n, i);
+  });
   Object.values(CLASS_SKILL_MAP).forEach((sk) => {
-    if (existing.has(sk.name)) return;
-    skillArr.push({
+    const next = {
       name: sk.name,
       bonus: 0,
       combatMultiplier: typeof sk.combatMultiplier === "number" ? sk.combatMultiplier : undefined,
@@ -259,9 +262,16 @@ function injectClassSkillsIntoConfig() {
       damageKind: sk.damageKind || "physical",
       combatAoe: sk.combatAoe,
       combatTags: Array.isArray(sk.combatTags) ? sk.combatTags : [],
-      image: getSkillImage(sk.name),
+      image: sk.image || getSkillImage(sk.name),
       description: sk.description
-    });
+    };
+    if (existingByName.has(sk.name)) {
+      const idx = existingByName.get(sk.name);
+      const prev = skillArr[idx] && typeof skillArr[idx] === "object" ? skillArr[idx] : {};
+      skillArr[idx] = { ...prev, ...next };
+      return;
+    }
+    skillArr.push(next);
   });
   GAME_CONFIG.skills = skillArr;
 }
@@ -1924,6 +1934,9 @@ function formulaVitHealingReceivedBonusPct(vit) {
   vit = Math.max(0, vit);
   return (20 * vit) / (vit + 200);
 }
+function clampNumber(min, max, value) {
+  return Math.max(min, Math.min(max, value));
+}
 function formulaIntSkillPowerBonusPct(int_) {
   int_ = Math.max(0, int_);
   return (90 * int_) / (int_ + 180);
@@ -2061,7 +2074,11 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   fin = Math.max(1, Math.floor(fin * (1 - drPct)));
 
   let takenMult = typeof foe.damageTakenMult === "number" && foe.damageTakenMult > 0 ? foe.damageTakenMult : 1;
-  if (foe.combat && typeof foe.combat.armorBreakTurns === "number" && foe.combat.armorBreakTurns > 0) takenMult *= 1.16;
+  if (foe.combat && typeof foe.combat.armorBreakTurns === "number" && foe.combat.armorBreakTurns > 0) {
+    const brPct =
+      typeof foe.combat.armorBreakPct === "number" && Number.isFinite(foe.combat.armorBreakPct) ? foe.combat.armorBreakPct : 16;
+    takenMult *= 1 + clampNumber(0, 90, brPct) / 100;
+  }
   if (foe.combat && typeof foe.combat.thickHideTurns === "number" && foe.combat.thickHideTurns > 0) {
     const th =
       typeof foe.combat.thickHideDamagedMult === "number" && foe.combat.thickHideDamagedMult > 0
@@ -2085,6 +2102,7 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
 
 function tryApplyStaggerFromSkill(foe, skillCfg) {
   if (!foe || !foe.combat || !skillCfg || !Array.isArray(skillCfg.combatTags)) return;
+  if (skillCfg.name === "Shield Slam" || skillCfg.name === "Heavy Strike" || skillCfg.name === "Earthshatter") return;
   const tags = skillCfg.combatTags.map((t) => String(t).toLowerCase());
   if (!tags.includes("heavy") && !tags.includes("crushing")) return;
   const p = formulaStrStaggerChancePct(totalStr()) / 100;
@@ -2346,6 +2364,12 @@ function getActiveMonsterTauntSource(st) {
   );
 }
 
+function getForcedVanguardPartyUid(st) {
+  ensureCombatParty(st);
+  const hero = st.party.find((m) => m && m.kind === "hero" && m.hp > 0);
+  return hero && typeof hero.uid === "number" ? hero.uid : null;
+}
+
 function ensurePlayerClassCombatState(st) {
   if (!st.classState || typeof st.classState !== "object") {
     st.classState = {
@@ -2367,10 +2391,38 @@ function ensurePlayerClassCombatState(st) {
       divineAegisShield: 0,
       revitalizeTurns: 0,
       catalystReadyTurns: 0,
-      plagueStacks: 0
+      plagueStacks: 0,
+      braceReductionPct: 0,
+      braceStatusResistBonusPct: 0,
+      braceDamagePenaltyPct: 0,
+      fortressReductionPct: 0,
+      fortressDamagePenaltyPct: 0,
+      lastBastionLowHpReductionPct: 0,
+      lastBastionHighHpReductionPct: 0,
+      lastBastionDamagePenaltyPct: 0,
+      lastBastionHealingReceivedBonusPct: 0,
+      indomitableReadyInEnemyPhases: 0,
+      indomitablePhaseStartHp: 0,
+      indomitableTriggeredThisEnemyPhase: false,
+      unbreakableTriggeredThisEnemyPhase: false,
+      skillCooldowns: {}
     };
   }
+  if (!st.classState.skillCooldowns || typeof st.classState.skillCooldowns !== "object") st.classState.skillCooldowns = {};
   return st.classState;
+}
+
+function getPlayerCombatStatusResistPct(st) {
+  const base = formulaVitStatusResistPct(totalVit());
+  const cs = st ? ensurePlayerClassCombatState(st) : null;
+  const bonus = cs && cs.braceTurns > 0 ? cs.braceStatusResistBonusPct || 0 : 0;
+  return clampNumber(0, 90, base + bonus);
+}
+
+function getPlayerCombatHealingReceivedMultiplier(st) {
+  const cs = st ? ensurePlayerClassCombatState(st) : null;
+  const bonusPct = cs && cs.lastBastionTurns > 0 ? cs.lastBastionHealingReceivedBonusPct || 0 : 0;
+  return 1 + Math.max(0, bonusPct) / 100;
 }
 
 function getClassSkillDurationBonus(skillName) {
@@ -2412,6 +2464,27 @@ function grantQuickAction(st, reason) {
   return true;
 }
 
+function getClassSkillCooldownTurns(skillName) {
+  if (skillName === "Last Bastion") return 5;
+  if (skillName === "Earthshatter") return 4;
+  return 0;
+}
+
+function getClassSkillCooldownRemaining(st, skillName) {
+  if (!st || !skillName) return 0;
+  const cs = ensurePlayerClassCombatState(st);
+  const v = cs.skillCooldowns[skillName];
+  return typeof v === "number" && v > 0 ? Math.floor(v) : 0;
+}
+
+function setClassSkillCooldown(st, skillName, turns) {
+  if (!st || !skillName) return;
+  const t = Math.max(0, Math.floor(turns));
+  if (!t) return;
+  const cs = ensurePlayerClassCombatState(st);
+  cs.skillCooldowns[skillName] = Math.max(getClassSkillCooldownRemaining(st, skillName), t);
+}
+
 function tickPlayerClassStartOfTurn(st) {
   const cs = ensurePlayerClassCombatState(st);
   if (cs.bloodlustNextTurnStamina > 0) {
@@ -2422,10 +2495,11 @@ function tickPlayerClassStartOfTurn(st) {
   }
   if (cs.regenTurns > 0 && cs.regenAmt > 0) {
     const heal = Math.max(1, Math.floor(cs.regenAmt));
-    st.playerHp = Math.min(st.playerMax, st.playerHp + heal);
+    const healed = Math.max(1, Math.floor(heal * getPlayerCombatHealingReceivedMultiplier(st)));
+    st.playerHp = Math.min(st.playerMax, st.playerHp + healed);
     syncHeroHpFromPlayerMirror(st);
     cs.regenTurns -= 1;
-    appendFightLog(`Regeneration restores ${heal} HP.`);
+    appendFightLog(`Regeneration restores ${healed} HP.`);
   }
 }
 
@@ -2449,6 +2523,12 @@ function tickPlayerClassEndOfTurn(st) {
   ].forEach((k) => {
     if (typeof cs[k] === "number" && cs[k] > 0) cs[k] -= 1;
   });
+  if (cs.skillCooldowns && typeof cs.skillCooldowns === "object") {
+    Object.keys(cs.skillCooldowns).forEach((k) => {
+      const v = cs.skillCooldowns[k];
+      if (typeof v === "number" && v > 0) cs.skillCooldowns[k] = v - 1;
+    });
+  }
 }
 
 function initFoeCombatRuntime(foe) {
@@ -2525,6 +2605,15 @@ function getFoeOutgoingDamageMultiplier(st, foe) {
   }
   if (foe.combat && typeof foe.combat.echoCryBonusTurns === "number" && foe.combat.echoCryBonusTurns > 0) m *= 1.25;
   if (foe.combat && typeof foe.combat.weakenTurns === "number" && foe.combat.weakenTurns > 0) m *= 0.88;
+  if (
+    foe.combat &&
+    typeof foe.combat.tauntedByVanguardTurns === "number" &&
+    foe.combat.tauntedByVanguardTurns > 0 &&
+    typeof foe.combat.tauntedByVanguardDamageDownPct === "number"
+  ) {
+    m *= 1 - clampNumber(0, 95, foe.combat.tauntedByVanguardDamageDownPct) / 100;
+  }
+  if (foe.combat && typeof foe.combat.staggerDamageDownTurns === "number" && foe.combat.staggerDamageDownTurns > 0) m *= 0.88;
   if (cs && cs.tauntTurns > 0) m *= 0.94;
   return m;
 }
@@ -2648,6 +2737,158 @@ function pickPartyTargetStrongestUid(st) {
   return living.reduce((a, b) => (score(a) >= score(b) ? a : b)).uid;
 }
 
+// ----------------------------
+// Global Monster AI: targeting helpers
+// ----------------------------
+
+function getPartyMemberHpFrac(member) {
+  if (!member || typeof member.maxHp !== "number" || member.maxHp <= 0) return 1;
+  return (typeof member.hp === "number" && member.hp >= 0 ? member.hp : 0) / member.maxHp;
+}
+
+function getThreatOutgoingDamagePotentialForPartyMember(member) {
+  // Your rule: threat = outgoingDamagePotential based on current equipped stats.
+  // In current combat state, only the main hero has the actual equipped stats backing `player`.
+  // For non-hero entries, we fallback to simple heuristics.
+  if (member && member.kind === "hero") {
+    // Current equipped outgoing potential (before enemy-side mitigation).
+    return Math.max(1, getPlayerDamageCore());
+  }
+  const dex = typeof member.dex === "number" ? member.dex : 0;
+  const hp = typeof member.maxHp === "number" ? member.maxHp : 0;
+  return Math.max(1, hp * 0.01 + dex);
+}
+
+function getPlayerMagicResistScoreForAI() {
+  // Lower magic resist => higher vulnerability.
+  // We approximate the hero's magic resist % using the existing formula.
+  return formulaIntMagicResistPct(totalInt());
+}
+
+function getPartyDebuffScore(st) {
+  if (!st || !st.status) return 0;
+  const s = st.status;
+  let score = 0;
+  // Count only debuffs that weaken player output/defense/tempo.
+  if (typeof s.playerAttackDebuffTurns === "number" && s.playerAttackDebuffTurns > 0) score += 2;
+  if (typeof s.playerHamstringSlowTurns === "number" && s.playerHamstringSlowTurns > 0) score += 2;
+  if (typeof s.playerBrineWeakTurns === "number" && s.playerBrineWeakTurns > 0) score += 2;
+  if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) score += 2;
+  if (typeof s.playerStunTurns === "number" && s.playerStunTurns > 0) score += 1;
+  // Also account for DoTs as "debuffed" pressure.
+  if (s.playerPoison && s.playerPoison.turns > 0) score += 1;
+  if (s.playerBleed && s.playerBleed.turns > 0) score += 1;
+  if (s.playerBurn && s.playerBurn.turns > 0) score += 1;
+  // Newly added outgoing modifiers:
+  if (typeof s.playerDamageDownTurns === "number" && s.playerDamageDownTurns > 0) score += 2;
+  if (typeof s.playerAccuracyDownTurns === "number" && s.playerAccuracyDownTurns > 0) score += 2;
+  if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) score += 1;
+  if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) score += 1;
+  return score;
+}
+
+function isPlayerConsideredBuffedForMonsterAI(st) {
+  const cs = st && st.classState ? st.classState : null;
+  if (!cs) return false;
+  // Everything that increases current player power (per your requirement).
+  const buffFlags = [
+    "flowStateTurns",
+    "focusFireTurns",
+    "rageTurns",
+    "exposeWeaknessTurns",
+    "manaSurgeTurns",
+    "tauntTurns",
+    "lastBastionTurns",
+    "braceTurns",
+    "fortressTurns",
+    "guardAllyTurns",
+    "sanctuaryTurns",
+    "riposteTurns",
+    "regenTurns",
+    "divineAegisShield",
+    "revitalizeTurns",
+    "catalystReadyTurns",
+    "bloodlustNextTurnStamina"
+  ];
+  return buffFlags.some((k) => {
+    const v = cs[k];
+    return typeof v === "number" && v > 0;
+  });
+}
+
+function getPredictedStaminaUsageScoreForPartyMember(member, st) {
+  // Your rule: predict next turn based on stamina.
+  // In current architecture, stamina is only tracked for the main player.
+  if (member && member.kind === "hero") {
+    const maxS = typeof st.maxStamina === "number" && st.maxStamina > 0 ? st.maxStamina : 1;
+    const curS = typeof st.stamina === "number" ? st.stamina : 0;
+    return Math.max(0, curS) / maxS;
+  }
+  return 0;
+}
+
+function pickPartyTargetForMonsterTargetRule(st, targetRule) {
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return null;
+
+  const pickMax = (scoreFn) => living.reduce((a, b) => (scoreFn(a) >= scoreFn(b) ? a : b)).uid;
+  const pickMin = (scoreFn) => living.reduce((a, b) => (scoreFn(a) <= scoreFn(b) ? a : b)).uid;
+
+  switch (String(targetRule || "")) {
+    case "tank": {
+      return pickMax((m) => getThreatOutgoingDamagePotentialForPartyMember(m));
+    }
+    case "assassin": {
+      return pickMin((m) => (typeof m.hp === "number" ? m.hp : 999999));
+    }
+    case "mage": {
+      // In 1-hero parties, "clustered targets" is ignored per your rule.
+      // Lowest magic resist target first.
+      return pickMin((m) => (m && m.kind === "hero" ? getPlayerMagicResistScoreForAI() : 0));
+    }
+    case "controller": {
+      // Highest damage dealer OR highest stamina user => we approximate by max of both.
+      return pickMax((m) => Math.max(getThreatOutgoingDamagePotentialForPartyMember(m), getPredictedStaminaUsageScoreForPartyMember(m, st)));
+    }
+    case "support": {
+      // Lowest HP / most debuffed ally (choose the one with higher debuff score; break ties by HP).
+      return living.reduce((best, cur) => {
+        const bestDeb = getPartyDebuffScore(st);
+        const curDeb = getPartyDebuffScore(st);
+        const bestHpFrac = getPartyMemberHpFrac(best);
+        const curHpFrac = getPartyMemberHpFrac(cur);
+        if (curDeb > bestDeb) return cur;
+        if (curDeb < bestDeb) return best;
+        return curHpFrac <= bestHpFrac ? cur : best;
+      }).uid;
+    }
+    case "summoner":
+    case "weakest": {
+      return pickMin((m) => getPartyMemberHpFrac(m));
+    }
+    case "bruise_focus":
+    case "bruiser": {
+      // Approximation: focus target becomes strongest HP.
+      return pickMax((m) => (m.maxHp || 0));
+    }
+    case "highest_damage": {
+      return pickMax((m) => getThreatOutgoingDamagePotentialForPartyMember(m));
+    }
+    case "lowest_hp": {
+      return pickMin((m) => getPartyMemberHpFrac(m));
+    }
+    case "highest_stamina_user": {
+      return pickMax((m) => getPredictedStaminaUsageScoreForPartyMember(m, st));
+    }
+    case "lowest_magic_resist": {
+      return pickMin((m) => (m && m.kind === "hero" ? getPlayerMagicResistScoreForAI() : 0));
+    }
+    default: {
+      return pickPartyTargetLowestHpUid(st);
+    }
+  }
+}
+
 function formatPartyHitLog(foeName, logVerb, memberName, taken) {
   const v = typeof logVerb === "string" ? logVerb.trim() : "hits you";
   const phrase = /\byou\b/i.test(v) ? v.replace(/\byou\b/gi, memberName) : `${v} on ${memberName}`;
@@ -2665,11 +2906,16 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     ensureCombatStatus(st);
     if (typeof st.status.playerFragileTurns === "number" && st.status.playerFragileTurns > 0) raw += 2;
     if (cls.id === "vanguard") {
-      const flat = Math.max(0, Math.floor(totalVit() / 30));
+      const csVg = ensurePlayerClassCombatState(st);
+      const flat = clampNumber(0, 12, Math.max(0, Math.floor(totalVit() / 50)));
       raw = Math.max(1, raw - flat);
-      if (cs.braceTurns > 0) raw = Math.max(1, Math.floor(raw * 0.8));
-      if (cs.fortressTurns > 0) raw = Math.max(1, Math.floor(raw * 0.78));
-      if (cs.lastBastionTurns > 0 && m.maxHp > 0 && m.hp / m.maxHp <= 0.4) raw = Math.max(1, Math.floor(raw * 0.68));
+      if (csVg.braceTurns > 0) raw = Math.max(1, Math.floor(raw * (1 - (csVg.braceReductionPct || 0) / 100)));
+      if (csVg.fortressTurns > 0) raw = Math.max(1, Math.floor(raw * (1 - (csVg.fortressReductionPct || 0) / 100)));
+      if (csVg.lastBastionTurns > 0) {
+        const hpFrac = m.maxHp > 0 ? m.hp / m.maxHp : 1;
+        const red = hpFrac <= 0.4 ? csVg.lastBastionLowHpReductionPct || 0 : csVg.lastBastionHighHpReductionPct || 0;
+        raw = Math.max(1, Math.floor(raw * (1 - red / 100)));
+      }
     }
     if (cls.id === "warden") {
       if (cs.sanctuaryTurns > 0) raw = Math.max(1, Math.floor(raw * 0.86));
@@ -2689,12 +2935,21 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
       if (blocked > 0) appendFightLog(`Divine Aegis absorbs ${blocked} damage.`);
     }
     if (taken < 0) taken = 0;
+    const hpBefore = m.hp;
     m.hp -= taken;
     if (m.hp < 0) m.hp = 0;
-    appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
+    if (st && st.phase === "enemy") enforceIndomitableEnemyPhaseCap(st, m);
+    const effectiveTaken = Math.max(0, hpBefore - m.hp);
+    appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, effectiveTaken));
     if (cls.id === "vanguard") {
-      const p = Math.min(0.32, 0.1 + totalVit() * 0.0008 + getClassSkillProcBonus("Shield Slam"));
-      if (Math.random() < p) appendFightLog("Unbreakable: the attacker is staggered.");
+      const csVg = ensurePlayerClassCombatState(st);
+      const p = Math.min(0.2, 0.06 + totalVit() * 0.0005 + getClassSkillProcBonus("Shield Slam"));
+      if (!csVg.unbreakableTriggeredThisEnemyPhase && Math.random() < p) {
+        csVg.unbreakableTriggeredThisEnemyPhase = true;
+        const srcFoe = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+        if (srcFoe && srcFoe.combat) srcFoe.combat.staggerDamageDownTurns = Math.max(srcFoe.combat.staggerDamageDownTurns || 0, 1);
+        appendFightLog("Unbreakable: the attacker is staggered.");
+      }
     }
     if (cs.riposteTurns > 0) {
       const target = st.foes.find((f) => f && f.hp > 0 && f.name === foeName) || st.foes.find((f) => f && f.hp > 0);
@@ -2751,7 +3006,15 @@ function dealRawDamageToPlayer(st, rawDamage, foeName, logVerb, opts) {
     }
     return;
   }
-  const uid = o && typeof o.partyUid === "number" ? o.partyUid : pickPartyTargetLowestHpUid(st);
+  const srcFoe = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+  const forcedVanguardUid =
+    srcFoe &&
+    srcFoe.combat &&
+    typeof srcFoe.combat.tauntedByVanguardTurns === "number" &&
+    srcFoe.combat.tauntedByVanguardTurns > 0
+      ? getForcedVanguardPartyUid(st)
+      : null;
+  const uid = forcedVanguardUid != null ? forcedVanguardUid : o && typeof o.partyUid === "number" ? o.partyUid : pickPartyTargetLowestHpUid(st);
   if (uid == null) return;
   dealRawDamageToPartyMember(st, uid, rawDamageAdj, foeName, logVerb);
 }
@@ -2762,6 +3025,8 @@ function tickEnemySkillCooldownsEndOfTurn(foe) {
     const v = foe.combat.skillCd[k];
     if (typeof v === "number" && v > 0) foe.combat.skillCd[k] = v - 1;
   }
+  if (typeof foe.combat.staggerSkillTaxTurns === "number" && foe.combat.staggerSkillTaxTurns > 0) foe.combat.staggerSkillTaxTurns -= 1;
+  foe.combat.forceBasicThisTurn = false;
 }
 
 /** Bleed/poison damage and DoT duration — runs when your turn begins (after the enemy phase). */
@@ -2828,6 +3093,8 @@ function tickPlayerTurnEndBuffs(st) {
     if (typeof f.combat.mitigationTurns === "number" && f.combat.mitigationTurns > 0) f.combat.mitigationTurns -= 1;
     if (typeof f.combat.reflectTurns === "number" && f.combat.reflectTurns > 0) f.combat.reflectTurns -= 1;
     if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
+    if (typeof f.combat.tauntedByVanguardTurns === "number" && f.combat.tauntedByVanguardTurns > 0) f.combat.tauntedByVanguardTurns -= 1;
+    if (typeof f.combat.staggerDamageDownTurns === "number" && f.combat.staggerDamageDownTurns > 0) f.combat.staggerDamageDownTurns -= 1;
     if (typeof f.combat.weakenTurns === "number" && f.combat.weakenTurns > 0) f.combat.weakenTurns -= 1;
     if (typeof f.combat.staggerLockedTurns === "number" && f.combat.staggerLockedTurns > 0) f.combat.staggerLockedTurns -= 1;
     if (typeof f.combat.poisonTurns === "number" && f.combat.poisonTurns > 0 && (f.combat.poisonDamage || 0) > 0) {
@@ -2847,7 +3114,7 @@ function tickPlayerTurnEndBuffs(st) {
 
 function applyBleedToPlayer(st, dmgPerTurn, turns) {
   ensureCombatStatus(st);
-  const sr = formulaVitStatusResistPct(totalVit()) / 100;
+  const sr = getPlayerCombatStatusResistPct(st) / 100;
   const t = Math.max(1, Math.min(3, Math.round(Math.floor(turns) * (1 - sr))));
   const d = Math.max(1, Math.floor(dmgPerTurn));
   const prev = st.status.playerBleed;
@@ -2859,7 +3126,7 @@ function applyBleedToPlayer(st, dmgPerTurn, turns) {
 
 function applyPoisonToPlayer(st, dmgPerTurn, turns) {
   ensureCombatStatus(st);
-  const sr = formulaVitStatusResistPct(totalVit()) / 100;
+  const sr = getPlayerCombatStatusResistPct(st) / 100;
   const t = Math.max(1, Math.min(4, Math.round(Math.floor(turns) * (1 - sr))));
   const d = Math.max(1, Math.floor(dmgPerTurn));
   st.status.playerPoison = { dmg: d, turns: t };
@@ -2867,7 +3134,7 @@ function applyPoisonToPlayer(st, dmgPerTurn, turns) {
 
 function applyBurnToPlayer(st, dmgPerTurn, turns) {
   ensureCombatStatus(st);
-  const sr = formulaVitStatusResistPct(totalVit()) / 100;
+  const sr = getPlayerCombatStatusResistPct(st) / 100;
   const t = Math.max(1, Math.min(4, Math.round(Math.floor(turns) * (1 - sr))));
   const d = Math.max(1, Math.floor(dmgPerTurn));
   const prev = st.status.playerBurn;
@@ -2880,7 +3147,7 @@ function applyBurnToPlayer(st, dmgPerTurn, turns) {
 function tryPlayerStun(st, chance) {
   ensureCombatStatus(st);
   const p = Math.min(1, Math.max(0, chance));
-  const resist = formulaVitStatusResistPct(totalVit()) / 100;
+  const resist = getPlayerCombatStatusResistPct(st) / 100;
   const finalP = p * (1 - resist);
   if (finalP >= 1 || Math.random() < finalP) {
     st.status.playerStunTurns = (st.status.playerStunTurns || 0) + 1;
@@ -2990,33 +3257,58 @@ function setFoeReflect(foe, turns, frac) {
  */
 function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd, ready) {
   if (scriptId === "tide_hopper") {
-    if (ready("foam_feint")) {
+    ensureCombatStatus(st);
+    const accuracyDebuffed = (st.status.playerAccuracyDownTurns || 0) > 0;
+    if (!accuracyDebuffed && ready("foam_feint")) {
       setCd("foam_feint", 2);
-      ensureCombatStatus(st);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
       st.status.playerAccuracyDownPct = Math.min(MONSTER_EFFECT_CAPS.accuracyDown, 12);
       st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
       st.status.playerDamageDownPct = Math.min(MONSTER_EFFECT_CAPS.damageDown, 10);
       st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
-      appendFightLog(`${foe.name} uses Foam Feint.`);
+      const t = st.party && typeof targetUid === "number" ? st.party.find((m) => m && m.uid === targetUid) : null;
+      appendFightLog(`${foe.name} uses Foam Feint on ${t && t.name ? t.name : "you"}.`);
       return true;
     }
+
     if (ready("dragging_current")) {
-      setCd("dragging_current", 3);
-      ensureCombatStatus(st);
-      st.status.playerStaminaCostUpPct = Math.max(
-        st.status.playerStaminaCostUpPct || 0,
-        15 + formulaIntStatusPotencyPct(foe.int || 0)
-      );
-      st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
-      appendFightLog(`${foe.name} drags your flow (+stamina costs).`);
-      return true;
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_stamina_user");
+      const target = st.party && typeof targetUid === "number" ? st.party.find((m) => m && m.uid === targetUid) : null;
+      const stamScore = getPredictedStaminaUsageScoreForPartyMember(target, st);
+      const highStaminaUsage = stamScore >= 0.6;
+      if (highStaminaUsage) {
+        setCd("dragging_current", 3);
+        st.status.playerStaminaCostUpPct = Math.max(
+          st.status.playerStaminaCostUpPct || 0,
+          15 + formulaIntStatusPotencyPct(foe.int || 0)
+        );
+        st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
+        appendFightLog(`${foe.name} drags your flow (+stamina costs).`);
+        return true;
+      }
     }
+
+    // Fallback: pressure the lowest % HP target.
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "slips past you");
     return true;
   }
 
   if (scriptId === "hermit_crab") {
-    if (ready("shell_guard")) {
+    ensureCombatStatus(st);
+    const playerHpFrac = st.playerMax > 0 ? st.playerHp / st.playerMax : 1;
+
+    // Priority 1: taunt if the ally is very low.
+    if (playerHpFrac < 0.5 && ready("anchoring_taunt")) {
+      setCd("anchoring_taunt", 4);
+      applyMonsterTauntOnPlayer(st, foe, 2 + Math.floor((foe.int || 0) / 120));
+      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 10);
+      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
+      appendFightLog(`${foe.name} uses Anchoring Taunt.`);
+      return true;
+    }
+
+    // Priority 2: defensive guard when pressure is too high.
+    if (playerHpFrac < 0.45 && ready("shell_guard")) {
       setCd("shell_guard", 3);
       const extra = Math.floor((foe.vit || 0) / 50) * 0.05;
       const red = Math.min(0.8, 0.6 + extra);
@@ -3024,62 +3316,81 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} uses Shell Guard.`);
       return true;
     }
-    if (ready("anchoring_taunt")) {
-      setCd("anchoring_taunt", 4);
-      applyMonsterTauntOnPlayer(st, foe, 2 + Math.floor((foe.int || 0) / 120));
-      ensureCombatStatus(st);
-      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 10);
-      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
-      appendFightLog(`${foe.name} uses Anchoring Taunt.`);
+
+    // Priority 3: Crushing Clamp pressure.
+    if (ready("crushing_clamp")) {
+      setCd("crushing_clamp", 2);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
+      const baseDmg = monsterPhysicalDamageFromBase(foe, 16, 0.022) * 0.8 * outMult;
+      const dmg = Math.max(1, Math.floor(baseDmg));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Crushing Clamps you", {
+        partyUid: typeof targetUid === "number" ? targetUid : null
+      });
+
+      // "Stagger chance" is represented in current combat as a stun/lose-turn effect.
+      const staggerChancePct = 10 + formulaStrStaggerChancePct(foe.str || 0);
+      const chance = Math.max(0, Math.min(1, staggerChancePct / 100));
+      tryPlayerStun(st, chance);
       return true;
     }
-    const targetUid = pickPartyTargetStrongestUid(st);
+
+    // Fallback: basic pressure.
     dealRawDamageToPlayer(
       st,
       Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 16, 0.022) * 0.8 * outMult)),
       foe.name,
-      "Crushing Clamps you",
-      targetUid == null ? null : { partyUid: targetUid }
+      "Crushing Clamps you"
     );
     return true;
   }
 
   if (scriptId === "driftling") {
-    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.8);
-    if (allyLow && ready("tidal_mend")) {
-      setCd("tidal_mend", 3);
-      const sp = 1 + formulaIntSkillPowerBonusPct(foe.int || 0) / 100;
-      if (!healLowestHpFractionAlly(st, foe, 0.2 * sp)) {
-        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.2 * sp)));
-        appendFightLog(`${foe.name} uses Tidal Mend on itself.`);
-      }
-      return true;
-    }
-    if (ready("mist_veil")) {
-      const allies = st.foes.filter((f) => f.hp > 0);
-      if (allies.length) {
-        setCd("mist_veil", 3);
-        const ev = Math.min(MONSTER_EFFECT_CAPS.evasionBuff, 10 + formulaDexEvasionPct(foe.dex || 0) / 2);
-        allies.forEach((target) => {
-          if (!target.combat) initFoeCombatRuntime(target);
-          target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, ev / 100);
-        });
-        appendFightLog(`${foe.name} casts Mist Veil.`);
+    const alliesAlive = st.foes.filter((f) => f && f.hp > 0 && f.maxHp > 0);
+    if (alliesAlive.length) {
+      const lowAlly = alliesAlive.reduce((best, cur) => {
+        const bestFrac = best.maxHp > 0 ? best.hp / best.maxHp : 1;
+        const curFrac = cur.maxHp > 0 ? cur.hp / cur.maxHp : 1;
+        return curFrac < bestFrac ? cur : best;
+      }, alliesAlive[0]);
+
+      const lowestFrac = lowAlly.maxHp > 0 ? lowAlly.hp / lowAlly.maxHp : 1;
+      if (lowestFrac < 0.45 && ready("tidal_mend")) {
+        setCd("tidal_mend", 3);
+        const intSkillPowerBonus = formulaIntSkillPowerBonusPct(foe.int || 0) / 100;
+        const heal = Math.max(1, Math.floor(lowAlly.maxHp * 0.2 * (1 + intSkillPowerBonus)));
+        lowAlly.hp = Math.min(lowAlly.maxHp, lowAlly.hp + heal);
+        appendFightLog(`${foe.name} uses Tidal Mend on ${lowAlly.name}.`);
         return true;
       }
     }
+
+    if (alliesAlive.length >= 2 && ready("mist_veil")) {
+      setCd("mist_veil", 3);
+      const ev = Math.min(MONSTER_EFFECT_CAPS.evasionBuff, 10 + formulaDexEvasionPct(foe.dex || 0) / 2);
+      alliesAlive.forEach((target) => {
+        if (!target.combat) initFoeCombatRuntime(target);
+        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, ev / 100);
+      });
+      appendFightLog(`${foe.name} casts Mist Veil.`);
+      return true;
+    }
+
+    // Fallback: basic pressure against the lowest % HP target.
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
     return true;
   }
 
   if (scriptId === "tidemeld_revenant") {
     const echoes = st.foes.filter((f) => f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === foe.uid);
-    const overloadMult = echoes.length >= 2 ? 1.15 : 1;
-    if (ready("summon_tide_echo")) {
+    const activeSummons = echoes.length;
+    const overloadMult = activeSummons >= 2 ? 1.15 : 1;
+
+    // Priority 1: build up summons.
+    if (activeSummons < 2 && ready("summon_tide_echo")) {
       setCd("summon_tide_echo", 4);
       const sp = 1 + formulaIntSkillPowerBonusPct(foe.int || 0) / 100;
       const hpFrac = Math.max(0.1, (0.25 * sp));
-      if (echoes.length < 2) {
+      if (activeSummons < 2) {
         summonCombatMinion(st, foe, "Tide Echo", hpFrac, 0.35);
         const created = st.foes.find((f) => f.hp > 0 && f.name === "Tide Echo" && (!f.combat || !f.combat.summonerUid));
         if (created) {
@@ -3087,34 +3398,42 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
           created.combat.summonerUid = foe.uid;
           created.combat.summonLifetimeTurns = 3;
         }
-      } else {
-        const refresh = echoes.reduce((a, b) =>
-          ((a.combat.summonLifetimeTurns || 0) <= (b.combat.summonLifetimeTurns || 0) ? a : b)
-        );
-        refresh.combat.summonLifetimeTurns = 3;
       }
       runTideEchoStrikes(st, foe);
       return true;
     }
-    if (ready("soul_current")) {
+
+    // Priority 2: if badly hurt, use Soul Current (heal + damage).
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (foeHpFrac < 0.5 && ready("soul_current")) {
       setCd("soul_current", 2);
       const dmg = Math.max(1, Math.floor(monsterIntScaledValue(foe, 12, "effect") * overloadMult * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Soul Currents you", { partyUid: pickPartyTargetStrongestUid(st) });
+      dealRawDamageToPlayer(st, dmg, foe.name, "Soul Currents you", { partyUid: pickPartyTargetLowestHpUid(st) });
       foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.15)));
       runTideEchoStrikes(st, foe);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
-      partyUid: pickPartyTargetStrongestUid(st)
-    });
+
+    // Priority 3: at max summons, attack the lowest HP target.
+    if (activeSummons >= 2) {
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
+        partyUid: pickPartyTargetLowestHpUid(st)
+      });
+      runTideEchoStrikes(st, foe);
+      return true;
+    }
+
+    // Fallback: basic attack.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
     runTideEchoStrikes(st, foe);
     return true;
   }
 
   if (scriptId === "coastal_horror") {
-    if (ready("abyss_grip")) {
+    ensureCombatStatus(st);
+    const hasMajorDamageDebuff = (st.status.playerDamageDownTurns || 0) > 0;
+    if (!hasMajorDamageDebuff && ready("abyss_grip")) {
       setCd("abyss_grip", 3);
-      ensureCombatStatus(st);
       const dur = Math.max(1, Math.round(2 * (1 + formulaIntDebuffDurationBonusPct(foe.int || 0) / 100)));
       st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 15);
       st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, dur);
@@ -3123,9 +3442,15 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} uses Abyss Grip.`);
       return true;
     }
-    if (ready("terror_pulse")) {
+
+    const activeDebuffs =
+      ((st.status.playerDamageDownTurns || 0) > 0 ? 1 : 0) +
+      ((st.status.playerAccuracyDownTurns || 0) > 0 ? 1 : 0) +
+      ((st.status.playerComboChanceDownTurns || 0) > 0 ? 1 : 0) +
+      ((st.status.playerStaminaCostUpTurns || 0) > 0 ? 1 : 0);
+
+    if (activeDebuffs >= 2 && ready("terror_pulse")) {
       setCd("terror_pulse", 4);
-      ensureCombatStatus(st);
       if ((st.status.playerDamageDownTurns || 0) > 0) st.status.playerDamageDownTurns += 1;
       if ((st.status.playerAccuracyDownTurns || 0) > 0) st.status.playerAccuracyDownTurns += 1;
       if ((st.status.playerComboChanceDownTurns || 0) > 0) st.status.playerComboChanceDownTurns += 1;
@@ -3133,12 +3458,39 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} extends your debuffs.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you");
+
+    // Fallback: hit the highest threat target.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you", {
+      partyUid: typeof targetUid === "number" ? targetUid : null
+    });
     return true;
   }
 
   if (scriptId === "greenleaf_squirrel") {
-    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.5);
+    const allies = st.foes.filter((f) => f && f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0);
+    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.7;
+    const lowestAlly = allies.length
+      ? allies.reduce((a, b) => {
+          const af = a.maxHp > 0 ? a.hp / a.maxHp : 1;
+          const bf = b.maxHp > 0 ? b.hp / b.maxHp : 1;
+          return bf < af ? b : a;
+        }, allies[0])
+      : null;
+    const allyLow = !!lowestAlly && lowestAlly.hp / Math.max(1, lowestAlly.maxHp) < 0.5;
+
+    // 2) Defensive: if HP low and defensive move ready.
+    if (threatened && ready("scurry_shift")) {
+      setCd("scurry_shift", 3);
+      foe.combat.evadeNextChance = Math.max(
+        foe.combat.evadeNextChance || 0,
+        Math.min(0.65, 0.28 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.004)
+      );
+      appendFightLog(`${foe.name} uses Scurry Shift.`);
+      return true;
+    }
+
+    // 3) Support: heal ally when someone is low.
     if (allyLow && ready("forest_gift")) {
       setCd("forest_gift", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.18)) {
@@ -3148,85 +3500,146 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} boosts ally tempo.`);
       return true;
     }
-    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.7;
-    if (threatened && ready("scurry_shift")) {
+
+    // 3) Support: grant evasion to an ally.
+    if (ready("scurry_shift") && allies.length >= 1) {
       setCd("scurry_shift", 3);
-      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, Math.min(0.65, 0.28 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.004));
-      appendFightLog(`${foe.name} uses Scurry Shift.`);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "support");
+      const target = allies.find((a) => a.uid === targetUid) || allies[0];
+      if (!target.combat) initFoeCombatRuntime(target);
+      target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.22);
+      appendFightLog(`${foe.name} enables ${target.name} with Scurry Shift.`);
       return true;
     }
-    if (ready("scurry_shift")) {
-      const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
-      if (allies.length) {
-        setCd("scurry_shift", 3);
-        const target = allies.reduce((a, b) => ((a.attack || 0) >= (b.attack || 0) ? a : b));
-        if (!target.combat) initFoeCombatRuntime(target);
-        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.22);
-        appendFightLog(`${foe.name} enables ${target.name} with Scurry Shift.`);
-        return true;
-      }
-    }
+
+    // 6) Basic pressure: harass weakest target.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
     const leafdart = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 11, 0.017) * outMult));
-    dealRawDamageToPlayer(st, leafdart, foe.name, "Leafdarts you", { partyUid: pickPartyTargetLowestMaxHpUid(st) });
+    dealRawDamageToPlayer(st, leafdart, foe.name, "Leafdarts you", { partyUid });
     if (Math.random() < Math.min(0.32, 0.08 + (typeof foe.dex === "number" ? foe.dex : 0) * 0.0035)) {
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(leafdart * 0.65)), foe.name, "follows up with a second Leafdart");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(leafdart * 0.65)),
+        foe.name,
+        "follows up with a second Leafdart",
+        { partyUid }
+      );
     }
     return true;
   }
 
   if (scriptId === "greenleaf_parrot") {
     const hasAllies = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0);
+
+    // 3) Support: open with Echo Cry once.
     if (!foe.combat.parrotOpened && hasAllies && ready("echo_cry")) {
       foe.combat.parrotOpened = true;
       setCd("echo_cry", 4);
       buffAllAlliesEcho(st, foe, 2);
       return true;
     }
+
+    // 4) Control: apply attack debuffs to a high-value target.
     if (ready("distracting_screech")) {
       setCd("distracting_screech", 3);
-      const targetUid = pickPartyTargetStrongestUid(st);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 10, 0.014) * outMult)), foe.name, "uses Disorienting Shriek", targetUid == null ? null : { partyUid: targetUid });
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+      const partyUid = typeof targetUid === "number" ? targetUid : null;
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 10, 0.014) * outMult)),
+        foe.name,
+        "uses Disorienting Shriek",
+        { partyUid }
+      );
       ensureCombatStatus(st);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
       st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
       appendFightLog(`${foe.name} uses Distracting Screech.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 12, 0.015) * outMult)), foe.name, "Sonic Pecks you", { partyUid: pickPartyTargetStrongestUid(st) });
+
+    // 6) Basic filler pressure on the best tempo target.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 12, 0.015) * outMult)),
+      foe.name,
+      "Sonic Pecks you",
+      { partyUid }
+    );
     return true;
   }
 
   if (scriptId === "greenleaf_fox") {
     const full = st.playerMax > 0 && st.playerHp >= st.playerMax * 0.8;
-    const weakExists = st.party && st.party.some((m) => m && m.hp > 0 && m.maxHp > 0 && m.hp / m.maxHp < 0.45);
-    if (weakExists && ready("fade_step")) {
+    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.5;
+
+    // 2) Defensive: dodge when threatened.
+    if (threatened && ready("fade_step")) {
       setCd("fade_step", 3);
       foe.combat.evadeNextChance = 0.45;
       appendFightLog(`${foe.name} uses Fade Step.`);
       return true;
     }
-    if (ready("ambush_bite")) {
-      setCd("ambush_bite", 2);
-      const mul = full ? 1.5 : 1;
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.85 * mul * outMult)), foe.name, "Ambush Bites you");
-      return true;
-    }
+
+    // 4) Control/tempo: rending applies bleed + potential stun.
     if (ready("rending_snap")) {
       setCd("rending_snap", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "Rending Snaps you");
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+      const partyUid = typeof targetUid === "number" ? targetUid : null;
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.65 * outMult)),
+        foe.name,
+        "Rending Snaps you",
+        { partyUid }
+      );
       applyBleedToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 5, 0.012))), 2);
       if (Math.random() < Math.min(0.35, 0.08 + (typeof foe.str === "number" ? foe.str : 0) * 0.0035)) {
         tryPlayerStun(st, 1);
       }
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "bites you");
+
+    // 5) Burst: ambush scales harder when player is healthy.
+    if (ready("ambush_bite")) {
+      setCd("ambush_bite", 2);
+      const mul = full ? 1.5 : 1;
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+      const partyUid = typeof targetUid === "number" ? targetUid : null;
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.85 * mul * outMult)),
+        foe.name,
+        "Ambush Bites you",
+        { partyUid }
+      );
+      return true;
+    }
+
+    // 6) Basic filler.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "bites you", { partyUid });
     return true;
   }
 
   if (scriptId === "greenleaf_stag") {
-    const allyLow = st.foes.some((f) => f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp < 0.6);
-    if (allyLow && ready("natures_blessing")) {
+    const allies = st.foes.filter((f) => f && f.uid !== foe.uid && f.hp > 0 && f.maxHp > 0);
+    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.4;
+    const lowestAlly = allies.length
+      ? allies.reduce((a, b) => {
+          const af = a.maxHp > 0 ? a.hp / a.maxHp : 1;
+          const bf = b.maxHp > 0 ? b.hp / b.maxHp : 1;
+          return bf < af ? b : a;
+        }, allies[0])
+      : null;
+    const allyLow = !!lowestAlly && lowestAlly.hp / Math.max(1, lowestAlly.maxHp) < 0.6;
+
+    // 2/3) Heal/support when someone is in danger.
+    if ((threatened || allyLow) && ready("natures_blessing")) {
       setCd("natures_blessing", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.28)) {
         foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.2)));
@@ -3234,215 +3647,374 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       }
       return true;
     }
-    if (ready("verdant_ward")) {
-      const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
-      if (allies.length) {
-        setCd("verdant_ward", 3);
-        let target =
-          allies.find((a) => a.name === "Gorilla" || a.name === "Greenleaf Fox") ||
-          allies.reduce((a, b) => ((a.maxHp || 0) >= (b.maxHp || 0) ? a : b));
-        const shieldFrac = Math.max(0.05, Math.min(0.5, 0.2 * (1 + (foe.int || 0) / 100)));
-        target.hp = Math.min(target.maxHp, target.hp + Math.max(1, Math.floor(target.maxHp * shieldFrac)));
-        setFoeMitigation(target, 1, 0.8);
-        appendFightLog(`${foe.name} grants Verdant Ward to ${target.name}.`);
-        return true;
-      }
+
+    // 3) Support: defensive shield to the most vulnerable ally.
+    if (ready("verdant_ward") && allies.length) {
+      setCd("verdant_ward", 3);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "support");
+      const target = allies.find((a) => a.uid === targetUid) || allies[0];
+      const shieldFrac = Math.max(0.05, Math.min(0.5, 0.2 * (1 + (foe.int || 0) / 100)));
+      target.hp = Math.min(target.maxHp, target.hp + Math.max(1, Math.floor(target.maxHp * shieldFrac)));
+      setFoeMitigation(target, 1, 0.8);
+      appendFightLog(`${foe.name} grants Verdant Ward to ${target.name}.`);
+      return true;
     }
+
+    // 4) Control: slow/weaken the best tempo target.
     if (ready("root_bind")) {
       setCd("root_bind", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Root Binds you", { partyUid: pickPartyTargetStrongestUid(st) });
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+      const partyUid = typeof targetUid === "number" ? targetUid : null;
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Root Binds you", { partyUid });
       ensureCombatStatus(st);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
       appendFightLog("You are slowed and weakened.");
       return true;
     }
+
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "charges you");
     return true;
   }
 
   if (scriptId === "gorilla") {
-    if (ready("rage_roar")) {
-      setCd("rage_roar", 3);
-      foe.combat.gorillaRampStacks = Math.min(5, (foe.combat.gorillaRampStacks || 0) + 1);
-      appendFightLog(`${foe.name} uses Rage Roar (+damage ramp).`);
-      return true;
-    }
+    const ramp = typeof foe.combat.gorillaRampStacks === "number" ? foe.combat.gorillaRampStacks : 0;
     foe.combat.gorillaAlt = !foe.combat.gorillaAlt;
+
+    // 4) Control: AoE tempo disruption when in "rupture" mode.
     if (foe.combat.gorillaAlt && ready("ground_rupture")) {
       setCd("ground_rupture", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.74 * outMult)), foe.name, "Ground Ruptures", { aoeAllParty: true });
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.74 * outMult)), foe.name, "Ground Ruptures", {
+        aoeAllParty: true
+      });
       ensureCombatStatus(st);
       st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
       return true;
     }
-    if (!foe.combat.gorillaAlt && ready("crushing_slam")) {
-      setCd("crushing_slam", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 26, 0.022) * outMult)), foe.name, "Crushing Slams you", { partyUid: pickPartyTargetStrongestUid(st) });
+
+    // 5) Burst: build ramp stacks.
+    if (ready("rage_roar") && ramp < 5) {
+      setCd("rage_roar", 3);
+      foe.combat.gorillaRampStacks = Math.min(5, ramp + 1);
+      appendFightLog(`${foe.name} uses Rage Roar (+damage ramp).`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.75 * outMult)), foe.name, "hits you");
+
+    // 6/4) Damage pressure on the bruiser focus target.
+    const focusUid = pickPartyTargetForMonsterTargetRule(st, "bruise_focus");
+    const partyUid = typeof focusUid === "number" ? focusUid : null;
+
+    if (!foe.combat.gorillaAlt && ready("crushing_slam")) {
+      setCd("crushing_slam", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 26, 0.022) * outMult)),
+        foe.name,
+        "Crushing Slams you",
+        { partyUid }
+      );
+      return true;
+    }
+
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.75 * outMult)), foe.name, "hits you", { partyUid });
     return true;
   }
 
   if (scriptId === "ash_lizard") {
-    const focused = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.7;
-    if (focused && ready("heat_skin")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "bruiser");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const partyAliveCount = Array.isArray(st.party) ? st.party.filter((m) => m && m.hp > 0).length : 1;
+
+    // 2) Defensive/tempo when hurt.
+    if (foeHpFrac < 0.7 && ready("heat_skin")) {
       setCd("heat_skin", 3);
       setFoeReflect(foe, 2, 0.22);
       appendFightLog(`${foe.name} uses Heat Skin (reflects damage).`);
       return true;
     }
-    if (ready("scorch_trail")) {
+
+    // 5) Burst: use AoE when we can pressure multiple allies.
+    if (partyAliveCount >= 2 && ready("scorch_trail")) {
       setCd("scorch_trail", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 10, "effect") * outMult)), foe.name, "Scorch Trails through your team", { aoeAllParty: true });
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(monsterIntScaledValue(foe, 10, "effect") * outMult)),
+        foe.name,
+        "Scorch Trails through your team",
+        { aoeAllParty: true }
+      );
       applyBurnToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 5, "dot"))), 2);
       return true;
     }
+
+    // 5) Burst: single-target ember pressure.
     if (ready("ember_bite")) {
       setCd("ember_bite", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Ember Bites you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.52 * outMult)),
+        foe.name,
+        "Ember Bites you",
+        { partyUid }
+      );
       applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.12)), 2);
       appendFightLog("You are burning.");
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "bites you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "bites you", { partyUid });
     return true;
   }
 
   if (scriptId === "cinder_stalker") {
-    if (ready("blazing_pounce")) {
-      setCd("blazing_pounce", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Blazing Pounces you");
-      return true;
-    }
-    if (ready("smoke_veil")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive: evade when low.
+    if (foeHpFrac < 0.55 && ready("smoke_veil")) {
       setCd("smoke_veil", 3);
       foe.combat.evadeNextChance = 0.42;
       appendFightLog(`${foe.name} uses Smoke Veil.`);
       return true;
     }
+
+    // 4) Control: none available in this kit.
+
+    // 5) Burst: big pounce.
+    if (ready("blazing_pounce")) {
+      setCd("blazing_pounce", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.95 * outMult)),
+        foe.name,
+        "Blazing Pounces you",
+        { partyUid }
+      );
+      return true;
+    }
+
+    // 5) Burst: burn claw.
     if (ready("cinder_claw")) {
       setCd("cinder_claw", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.68 * outMult)), foe.name, "Cinder Claws you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.68 * outMult)),
+        foe.name,
+        "Cinder Claws you",
+        { partyUid }
+      );
       applyBurnToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 3, "dot"))), 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "scratches you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "scratches you", { partyUid });
     return true;
   }
 
   if (scriptId === "ember_scuttler") {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 3) Control: slow the player with web.
     if (ready("fire_web")) {
       setCd("fire_web", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "Fire Webs you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.45 * outMult)),
+        foe.name,
+        "Fire Webs you",
+        { partyUid }
+      );
       ensureCombatStatus(st);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
       appendFightLog("You are slowed.");
       return true;
     }
+
+    // 5) Burst: ignite.
     if (ready("ignite")) {
       setCd("ignite", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Ignites you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.5 * outMult)),
+        foe.name,
+        "Ignites you",
+        { partyUid }
+      );
       applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.11)), 2);
       appendFightLog("Flames cling to you.");
       return true;
     }
+
+    // 5) Burst: quick double hit.
     if (ready("scuttle_burst")) {
       setCd("scuttle_burst", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.32 * outMult)), foe.name, "Scuttle Bursts you");
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.32 * outMult)), foe.name, "Scuttle Bursts you again");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.32 * outMult)),
+        foe.name,
+        "Scuttle Bursts you",
+        { partyUid }
+      );
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.32 * outMult)),
+        foe.name,
+        "Scuttle Bursts you again",
+        { partyUid }
+      );
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "nips you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "nips you", { partyUid });
     return true;
   }
 
   if (scriptId === "magma_boar") {
     foe.combat.magmaRot = (foe.combat.magmaRot || 0) + 1;
     const tank = foe.combat.magmaRot % 2 === 1;
-    if (tank && ready("lava_armor")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "bruiser");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive: use Lava Armor when tank-mode or hurt.
+    if (ready("lava_armor") && (tank || foeHpFrac < 0.6)) {
       setCd("lava_armor", 4);
       setFoeMitigation(foe, 2, 0.55);
-      setFoeReflect(foe, 1, 0.12);
+      if (tank) setFoeReflect(foe, 1, 0.12);
       appendFightLog(`${foe.name} uses Lava Armor.`);
       return true;
     }
+
+    // 3) Control: none in this kit.
+
+    // 5) Burst: ramp up.
     if (ready("boiling_rage")) {
       setCd("boiling_rage", 3);
       foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;
       appendFightLog(`${foe.name} enters Boiling Rage.`);
       return true;
     }
-    if (!tank && ready("molten_charge")) {
+
+    // 5) Burst: single heavy charge (prefer when not in tank-mode).
+    if (ready("molten_charge") && !tank) {
       setCd("molten_charge", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.08 * outMult)), foe.name, "Molten Charges you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 1.08 * outMult)),
+        foe.name,
+        "Molten Charges you",
+        { partyUid }
+      );
       return true;
     }
-    if (ready("molten_charge")) {
-      setCd("molten_charge", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.08 * outMult)), foe.name, "Molten Charges you");
-      return true;
-    }
-    if (ready("lava_armor")) {
-      setCd("lava_armor", 4);
-      setFoeMitigation(foe, 2, 0.55);
-      appendFightLog(`${foe.name} uses Lava Armor.`);
-      return true;
-    }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "charges you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "charges you", { partyUid });
     return true;
   }
 
   if (scriptId === "lava_basilisk") {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive: mitigate when hurt.
+    if (foeHpFrac < 0.6 && ready("molten_sheen")) {
+      setCd("molten_sheen", 3);
+      setFoeMitigation(foe, 1, 0.72);
+      appendFightLog(`${foe.name} uses Molten Sheen.`);
+      return true;
+    }
+
+    // 4) Control: petrify heat -> stun chance.
     if (ready("petrifying_heat")) {
       setCd("petrifying_heat", 3);
       const gazePhys = Math.floor(monsterPhysicalDamageFromBase(foe, 30, 0.015) * outMult);
-      dealRawDamageToPlayer(st, Math.max(1, gazePhys), foe.name, "Petrifying Heats you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, gazePhys),
+        foe.name,
+        "Petrifying Heats you",
+        { partyUid }
+      );
       tryPlayerStun(st, Math.min(0.95, 0.2 + (typeof foe.int === "number" ? foe.int : 0) * 0.0025));
       appendFightLog(`${foe.name} channels Petrifying Heat.`);
       return true;
     }
+
+    // 5) Burst: inferno gaze burn.
     if (ready("inferno_gaze")) {
       setCd("inferno_gaze", 2);
       const inferno = Math.floor(monsterPhysicalDamageFromBase(foe, 30, 0.015) * outMult);
-      dealRawDamageToPlayer(st, Math.max(1, inferno), foe.name, "Inferno Gazes you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, inferno),
+        foe.name,
+        "Inferno Gazes you",
+        { partyUid }
+      );
       const burnDmg = Math.max(2, Math.floor(monsterIntScaledValue(foe, 10, "dot")));
       const burnTurns = Math.max(1, Math.round(2 + (typeof foe.int === "number" ? foe.int : 0) / 50));
       applyBurnToPlayer(st, burnDmg, burnTurns);
       appendFightLog("Searing burn!");
       return true;
     }
+
+    // 6) Fallback mitigation if nothing else.
     if (ready("molten_sheen")) {
       setCd("molten_sheen", 3);
       setFoeMitigation(foe, 1, 0.72);
       appendFightLog(`${foe.name} uses Molten Sheen.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
   if (scriptId === "stone_marmot") {
-    const focused = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.75;
-    if (focused && ready("burrow_guard")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const partyUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUidOpt = typeof partyUid === "number" ? partyUid : null;
+
+    // 2) Defensive when hurt.
+    if (foeHpFrac < 0.6 && ready("burrow_guard")) {
       setCd("burrow_guard", 3);
       setFoeMitigation(foe, 2, 0.55);
       appendFightLog(`${foe.name} uses Burrow Guard.`);
       return true;
     }
-    if (ready("stone_nerves")) {
+
+    if (foeHpFrac < 0.7 && ready("stone_nerves")) {
       setCd("stone_nerves", 3);
       setFoeMitigation(foe, 1, 0.8);
       appendFightLog(`${foe.name} steadies with Stone Nerves.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "Pebble Tosses you");
+
+    // 6) Basic pressure: tank target.
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(atk * 0.48 * outMult)),
+      foe.name,
+      "Pebble Tosses you",
+      { partyUid: partyUidOpt }
+    );
     return true;
   }
 
   if (scriptId === "rock_lynx") {
-    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.6;
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const partyUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUidOpt = typeof partyUid === "number" ? partyUid : null;
+    const threatened = foeHpFrac < 0.6;
     if (threatened && ready("agile_reflex")) {
       setCd("agile_reflex", 3);
       foe.combat.evadeNextChance = 0.38;
@@ -3451,50 +4023,85 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     }
     if (ready("cliff_strike")) {
       setCd("cliff_strike", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.92 * outMult)), foe.name, "Cliff Strikes you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.92 * outMult)),
+        foe.name,
+        "Cliff Strikes you",
+        { partyUid: partyUidOpt }
+      );
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "claws you");
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "claws you", {
+      partyUid: partyUidOpt
+    });
     return true;
   }
 
   if (scriptId === "rock_ibex") {
-    foe.combat.ibexRot = (foe.combat.ibexRot || 0) + 1;
-    const attackTurn = foe.combat.ibexRot % 2 === 1;
-    if (attackTurn && ready("headbutt")) {
-      setCd("headbutt", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Headbutts you");
-      return true;
-    }
-    if (!attackTurn && ready("stone_skin")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const partyUid = pickPartyTargetForMonsterTargetRule(st, "bruise_focus");
+    const partyUidOpt = typeof partyUid === "number" ? partyUid : null;
+
+    // 2) Defensive when hurt.
+    if (foeHpFrac < 0.55 && ready("stone_skin")) {
       setCd("stone_skin", 3);
       setFoeMitigation(foe, 2, 0.65);
       appendFightLog(`${foe.name} uses Stone Skin.`);
       return true;
     }
+
+    // 5) Burst/pressure: headbutt.
     if (ready("headbutt")) {
       setCd("headbutt", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Headbutts you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.88 * outMult)),
+        foe.name,
+        "Headbutts you",
+        { partyUid: partyUidOpt }
+      );
       return true;
     }
+
     if (ready("stone_skin")) {
       setCd("stone_skin", 3);
       setFoeMitigation(foe, 2, 0.65);
       appendFightLog(`${foe.name} uses Stone Skin.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "rams you");
+
+    // 6) Basic filler: bruiser target.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "rams you", {
+      partyUid: partyUidOpt
+    });
     return true;
   }
 
   if (scriptId === "rock_serpent") {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const partyUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUidOpt = typeof partyUid === "number" ? partyUid : null;
+
+    // 2) Defensive: slip when hurt.
+    if (foeHpFrac < 0.6 && ready("stone_slither")) {
+      setCd("stone_slither", 3);
+      setFoeMitigation(foe, 1, 0.75);
+      appendFightLog(`${foe.name} uses Stone Slither.`);
+      return true;
+    }
+
+    // 4) Control: petrify gaze.
     if (ready("petrify_gaze")) {
       setCd("petrify_gaze", 4);
       const p = Math.max(0.2, Math.min(0.3, 0.2 + formulaIntStatusPotencyPct(foe.int || 0) / 100));
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "Petrify Gazes you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "Petrify Gazes you", {
+        partyUid: partyUidOpt
+      });
       tryPlayerStun(st, p);
       return true;
     }
+    // 3/4) Control via debilitation.
     if (ready("debilitating_venom")) {
       setCd("debilitating_venom", 2);
       ensureCombatStatus(st);
@@ -3504,31 +4111,48 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
       return true;
     }
-    if (ready("stone_slither")) {
-      setCd("stone_slither", 3);
-      setFoeMitigation(foe, 1, 0.75);
-      appendFightLog(`${foe.name} uses Stone Slither.`);
-      return true;
-    }
+
+    // 5) Burst/tempo: crush coil.
     if (ready("crush_coil")) {
       setCd("crush_coil", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Crush Coils you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Crush Coils you", {
+        partyUid: partyUidOpt
+      });
       ensureCombatStatus(st);
       st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 15);
       st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
+      partyUid: partyUidOpt
+    });
     return true;
   }
 
   if (scriptId === "rock_lizard") {
-    if (ready("harden")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const partyUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUidOpt = typeof partyUid === "number" ? partyUid : null;
+
+    // 2) Defensive/heal when hurt.
+    if (foeHpFrac < 0.6 && ready("bask_in_dust")) {
+      setCd("bask_in_dust", 3);
+      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(monsterIntScaledValue(foe, 8, "effect"))));
+      setFoeMitigation(foe, 1, 0.82);
+      appendFightLog(`${foe.name} basks in dust and hardens its scales.`);
+      return true;
+    }
+
+    if (foeHpFrac < 0.7 && ready("harden")) {
       setCd("harden", 4);
       setFoeMitigation(foe, 2, 0.45);
       appendFightLog(`${foe.name} uses Harden.`);
       return true;
     }
+
+    // 4) High-value control (taunt).
     if (ready("stone_challenge")) {
       setCd("stone_challenge", 4);
       applyMonsterTauntOnPlayer(st, foe, 1);
@@ -3538,30 +4162,38 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     }
     if (ready("tail_slam")) {
       setCd("tail_slam", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.02 * outMult)), foe.name, "Tail Slams you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.02 * outMult)), foe.name, "Tail Slams you", {
+        partyUid: partyUidOpt
+      });
       if (Math.random() < Math.min(0.45, 0.05 + ((typeof foe.str === "number" ? foe.str : 0) * 0.004))) {
         tryPlayerStun(st, 1);
       }
       return true;
     }
-    if (ready("bask_in_dust")) {
-      setCd("bask_in_dust", 3);
-      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(monsterIntScaledValue(foe, 8, "effect"))));
-      setFoeMitigation(foe, 1, 0.82);
-      appendFightLog(`${foe.name} basks in dust and hardens its scales.`);
-      return true;
-    }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
+      partyUid: partyUidOpt
+    });
     return true;
   }
 
   if (scriptId === "ash_horror") {
-    if (ready("ash_touch")) {
-      setCd("ash_touch", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Ash Touches you");
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.07)), 2);
+    // Role (config): mage. Target the weakest magic-resist/hero first when dealing direct damage.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 4) High-value control: reduce outgoing damage (playerAttackDebuffTurns).
+    if (ready("smother")) {
+      setCd("smother", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Smothers you", {
+        partyUid
+      });
+      ensureCombatStatus(st);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
       return true;
     }
+
+    // 5) Status pressure: poison + outgoing weakness.
     if (ready("decay_aura")) {
       setCd("decay_aura", 3);
       applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
@@ -3570,35 +4202,67 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} radiates Decay Aura.`);
       return true;
     }
-    if (ready("smother")) {
-      setCd("smother", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Smothers you");
-      ensureCombatStatus(st);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
+
+    // 5) Direct poison hit.
+    if (ready("ash_touch")) {
+      setCd("ash_touch", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Ash Touches you", {
+        partyUid
+      });
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.07)), 2);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "cinder_husk") {
-    if (ready("dead_flesh")) {
+    // Role (config): tank. Basic pressure goes to highest threat target.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+
+    // 2) Defensive when hurt.
+    if (ready("dead_flesh") && foeHpFrac < 0.6) {
       setCd("dead_flesh", 3);
       setFoeMitigation(foe, 2, 0.5);
       appendFightLog(`${foe.name} uses Dead Flesh.`);
       return true;
     }
-    if (ready("grave_fortitude")) {
+    if (ready("grave_fortitude") && foeHpFrac < 0.75) {
       setCd("grave_fortitude", 3);
       setFoeMitigation(foe, 1, 0.78);
       appendFightLog(`${foe.name} steels itself with Grave Fortitude.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Slow Swings at you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Slow Swings at you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "ash_skulker") {
+    // Role (config): assassin. Pressure the lowest-HP target for direct damage.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const threatened = foeHpFrac < 0.6;
+
+    // 2) Defensive when threatened.
+    if (threatened && ready("fade")) {
+      setCd("fade", 3);
+      foe.combat.evadeNextChance = 0.4;
+      appendFightLog(`${foe.name} Fades into shadow.`);
+      return true;
+    }
+
+    // 4) Control: make target take more outgoing (playerFragileTurns).
     if (ready("ash_mark")) {
       setCd("ash_mark", 3);
       ensureCombatStatus(st);
@@ -3606,22 +4270,33 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} marks you with ash.`);
       return true;
     }
+
+    // 5) Burst: backstab.
     if (ready("backstab")) {
       setCd("backstab", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Backstabs you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.98 * outMult)),
+        foe.name,
+        "Backstabs you",
+        { partyUid }
+      );
       return true;
     }
-    if (ready("fade")) {
-      setCd("fade", 3);
-      foe.combat.evadeNextChance = 0.4;
-      appendFightLog(`${foe.name} Fades into shadow.`);
-      return true;
-    }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "remnant_of_rust") {
+    // Role (config): controller.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 4) Control: fragile incoming pressure.
     if (ready("corrode_armor")) {
       setCd("corrode_armor", 3);
       ensureCombatStatus(st);
@@ -3629,14 +4304,24 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} Corrodes your armor (+incoming damage).`);
       return true;
     }
+
+    // 4) Control: reduce outgoing damage.
     if (ready("rust_strike")) {
       setCd("rust_strike", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Rust Strikes you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.55 * outMult)),
+        foe.name,
+        "Rust Strikes you",
+        { partyUid }
+      );
       ensureCombatStatus(st);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
       appendFightLog("Rust weakens your arms.");
       return true;
     }
+
+    // 4) Control: slow + outgoing weakness.
     if (ready("grinding_lock")) {
       setCd("grinding_lock", 2);
       ensureCombatStatus(st);
@@ -3645,43 +4330,76 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} applies Grinding Lock.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "faded_war_wraith") {
+    // Role (config): summoner.
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "weakest");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
     const hasFallen = st.foes.some((f) => f.name === "Fallen Echo");
+
+    // 3) Summoner priority: summon first.
     if (!hasFallen && ready("call_fallen")) {
       setCd("call_fallen", 4);
       summonCombatMinion(st, foe, "Fallen Echo", 0.14, 0.2);
       return true;
     }
-    if (ready("haunt")) {
-      setCd("haunt", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Haunts you");
-      ensureCombatStatus(st);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
-      return true;
-    }
-    if (ready("soul_chill")) {
+
+    // 4) Control: AoE slow when we can affect multiple targets.
+    const aliveParty = (st.party || []).filter((m) => m && typeof m.hp === "number" && m.hp > 0).length;
+    if (aliveParty >= 2 && ready("soul_chill")) {
       setCd("soul_chill", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 9, "effect") * outMult)), foe.name, "unleashes Soul Chill", { aoeAllParty: true });
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(monsterIntScaledValue(foe, 9, "effect") * outMult)),
+        foe.name,
+        "unleashes Soul Chill",
+        { aoeAllParty: true }
+      );
       ensureCombatStatus(st);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "chills you");
+
+    // 5) Pressure: haunt the weakest target.
+    if (ready("haunt")) {
+      setCd("haunt", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Haunts you", {
+        partyUid
+      });
+      ensureCombatStatus(st);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "chills you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "dust_carver") {
-    const threatened = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.6;
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const threatened = foeHpFrac < 0.6;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when hurt.
     if (threatened && ready("drystep")) {
       setCd("drystep", 3);
-      foe.combat.evadeNextChance = 0.4;
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.4);
       appendFightLog(`${foe.name} uses Drystep.`);
       return true;
     }
+
+    // 4) Control: slow the player.
     if (ready("blind_dust")) {
       setCd("blind_dust", 3);
       ensureCombatStatus(st);
@@ -3689,30 +4407,39 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} throws Blind Dust.`);
       return true;
     }
+
+    // 5) Burst/status pressure.
     if (ready("sand_slash")) {
       setCd("sand_slash", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.82 * outMult)), foe.name, "Sand Slashes you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.82 * outMult)), foe.name, "Sand Slashes you", {
+        partyUid
+      });
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "slashes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "slashes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "witherling") {
-    if (ready("life_drain")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive / heal when hurt.
+    if (foeHpFrac < 0.45 && ready("life_drain")) {
       setCd("life_drain", 2);
       const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Life Drains you");
+      dealRawDamageToPlayer(st, dmg, foe.name, "Life Drains you", { partyUid });
       foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.4)));
       appendFightLog(`${foe.name} steals vitality.`);
       return true;
     }
-    if (ready("decay_bite")) {
-      setCd("decay_bite", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Decay Bites you");
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
-      return true;
-    }
+
+    // 4) Control: reduce player damage (brittle breath).
     if (ready("brittle_breath")) {
       setCd("brittle_breath", 3);
       ensureCombatStatus(st);
@@ -3720,42 +4447,97 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} exhales Brittle Breath.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "strikes you");
+
+    // 5) Burst/status: poison pressure.
+    if (ready("decay_bite")) {
+      setCd("decay_bite", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "Decay Bites you", {
+        partyUid
+      });
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
+      return true;
+    }
+
+    // 5) If we have no defensive need, still use life drain as pressure.
+    if (ready("life_drain")) {
+      setCd("life_drain", 2);
+      const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Life Drains you", { partyUid });
+      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.4)));
+      appendFightLog(`${foe.name} steals vitality.`);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "desert_thornback_crawler") {
-    if (ready("spiked_shell")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const activeTaunt = getActiveMonsterTauntSource(st);
+
+    // 2) Defensive: heal/mitigate/reflect when hurt.
+    if (foeHpFrac < 0.6 && ready("dry_carapace")) {
+      setCd("dry_carapace", 3);
+      setFoeMitigation(foe, 1, 0.8);
+      appendFightLog(`${foe.name} hardens with Dry Carapace.`);
+      return true;
+    }
+
+    if (foeHpFrac < 0.75 && ready("spiked_shell")) {
       setCd("spiked_shell", 3);
       setFoeReflect(foe, 2, 0.2);
       appendFightLog(`${foe.name} raises a Spiked Shell.`);
       return true;
     }
-    if (ready("defensive_taunt")) {
+
+    // 4) Control: taunt (prefer if no one else is taunting).
+    if (!activeTaunt && ready("defensive_taunt")) {
       setCd("defensive_taunt", 4);
       applyMonsterTauntOnPlayer(st, foe, 2);
       setFoeReflect(foe, 2, 0.3);
       appendFightLog(`${foe.name} uses Defensive Taunt.`);
       return true;
     }
+
+    // 5) Burst: impale + bleed.
     if (ready("impale")) {
       setCd("impale", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.92 * outMult)), foe.name, "Impales you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.92 * outMult)), foe.name, "Impales you", {
+        partyUid
+      });
       applyBleedToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
       return true;
     }
-    if (ready("dry_carapace")) {
-      setCd("dry_carapace", 3);
-      setFoeMitigation(foe, 1, 0.8);
-      appendFightLog(`${foe.name} hardens with Dry Carapace.`);
-      return true;
-    }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "mirage_lurker") {
     const groups = getLivingPartyMembers(st).length >= 2;
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const threatened = foeHpFrac < 0.6;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when threatened.
+    if (threatened && ready("mirage_shift")) {
+      setCd("mirage_shift", 3);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.45);
+      appendFightLog(`${foe.name} Mirage Shifts.`);
+      return true;
+    }
+
+    // 4) Control: spread Heat Haze (higher value when multi-hero).
     if (groups && ready("heat_haze")) {
       setCd("heat_haze", 3);
       ensureCombatStatus(st);
@@ -3764,142 +4546,292 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} spreads a Heat Haze.`);
       return true;
     }
-    if (ready("mirage_shift")) {
-      setCd("mirage_shift", 3);
-      foe.combat.evadeNextChance = 0.45;
-      appendFightLog(`${foe.name} Mirage Shifts.`);
-      return true;
-    }
+
+    // 4) Control: combo chance down + damage.
     if (ready("illusion_strike")) {
       setCd("illusion_strike", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Illusion Strikes you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.78 * outMult)), foe.name, "Illusion Strikes you", {
+        partyUid
+      });
       ensureCombatStatus(st);
       st.status.playerComboChanceDownPct = Math.max(st.status.playerComboChanceDownPct || 0, 20);
       st.status.playerComboChanceDownTurns = Math.max(st.status.playerComboChanceDownTurns || 0, 2);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "dune_devourer") {
-    if (ready("burrow_ambush")) {
-      setCd("burrow_ambush", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Burrow Ambushes you");
-      return true;
-    }
-    if (ready("sand_devour")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "bruise_focus");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive/heal: prefer Sand Devour when hurt.
+    if (foeHpFrac < 0.5 && ready("sand_devour")) {
       setCd("sand_devour", 3);
       const dmg = Math.max(1, Math.floor(atk * 0.88 * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Sand Devours you");
+      dealRawDamageToPlayer(st, dmg, foe.name, "Sand Devours you", { partyUid });
       foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.2)));
       return true;
     }
+
+    // 4) Control: fragile vulnerability.
     if (ready("grinding_maw")) {
       setCd("grinding_maw", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Grinding Maws you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Grinding Maws you", {
+        partyUid
+      });
       ensureCombatStatus(st);
       st.status.playerFragileTurns = Math.max(st.status.playerFragileTurns || 0, 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "strikes you");
+
+    // 5) Burst: ambush strike.
+    if (ready("burrow_ambush")) {
+      setCd("burrow_ambush", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Burrow Ambushes you", {
+        partyUid
+      });
+      return true;
+    }
+
+    // 5) If available, still use sand devour as pressure.
+    if (ready("sand_devour")) {
+      setCd("sand_devour", 3);
+      const dmg = Math.max(1, Math.floor(atk * 0.88 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Sand Devours you", { partyUid });
+      foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.2)));
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "icy_mink") {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
     const weak = st.party.some((m) => m && m.hp > 0 && m.maxHp > 0 && m.hp / m.maxHp < 0.45);
-    if (weak && ready("shiver_cut")) {
-      setCd("shiver_cut", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.9 * outMult)), foe.name, "Shiver Cuts you");
-      return true;
-    }
-    if (ready("slipstep")) {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when hurt.
+    if (foeHpFrac < 0.5 && ready("slipstep")) {
       setCd("slipstep", 3);
       foe.combat.evadeNextChance = 0.42;
       appendFightLog(`${foe.name} uses Slipstep.`);
       return true;
     }
-    if (ready("frost_bite")) {
-      setCd("frost_bite", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Frost Bites you");
+
+    // 5) Burst: execute a weak target.
+    if (weak && ready("shiver_cut")) {
+      setCd("shiver_cut", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.9 * outMult)),
+        foe.name,
+        "Shiver Cuts you",
+        { partyUid }
+      );
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "nips you");
+
+    // 5) Filler/status pressure.
+    if (ready("frost_bite")) {
+      setCd("frost_bite", 1);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.72 * outMult)),
+        foe.name,
+        "Frost Bites you",
+        { partyUid }
+      );
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(atk * 0.5 * outMult)),
+      foe.name,
+      "nips you",
+      { partyUid }
+    );
     return true;
   }
 
   if (scriptId === "icy_serpent") {
-    if (ready("freeze_skin")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when hurt.
+    if (foeHpFrac < 0.6 && ready("freeze_skin")) {
       setCd("freeze_skin", 3);
       setFoeReflect(foe, 2, 0.15);
       appendFightLog(`${foe.name} uses Freeze Skin.`);
       return true;
     }
-    if (ready("cold_venom")) {
-      setCd("cold_venom", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Cold Venoms you");
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
-      return true;
-    }
+
+    // 4) Control: constriction chill (attack debuff + slow).
     if (ready("constriction_chill")) {
       setCd("constriction_chill", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "Constriction Chills you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.6 * outMult)),
+        foe.name,
+        "Constriction Chills you",
+        { partyUid }
+      );
       ensureCombatStatus(st);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you");
+
+    // 5) Status: poison bite.
+    if (ready("cold_venom")) {
+      setCd("cold_venom", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.55 * outMult)),
+        foe.name,
+        "Cold Venoms you",
+        { partyUid }
+      );
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(atk * 0.5 * outMult)),
+      foe.name,
+      "strikes you",
+      { partyUid }
+    );
     return true;
   }
 
   if (scriptId === "glacier_turtoise") {
-    if (ready("ice_shell")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when hurt.
+    if (foeHpFrac < 0.6 && ready("ice_shell")) {
       setCd("ice_shell", 4);
       setFoeMitigation(foe, 2, 0.45);
       appendFightLog(`${foe.name} uses Ice Shell.`);
       return true;
     }
-    if (ready("slow_crush")) {
-      setCd("slow_crush", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Slow Crushes you");
-      ensureCombatStatus(st);
-      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
-      return true;
-    }
-    if (ready("glacier_hard_shell")) {
+    if (foeHpFrac < 0.75 && ready("glacier_hard_shell")) {
       setCd("glacier_hard_shell", 3);
       setFoeMitigation(foe, 1, 0.78);
       appendFightLog(`${foe.name} hardens its shell.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "bites you");
+
+    // 4) Control: slow crush.
+    if (ready("slow_crush")) {
+      setCd("slow_crush", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.95 * outMult)),
+        foe.name,
+        "Slow Crushes you",
+        { partyUid }
+      );
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(atk * 0.55 * outMult)),
+      foe.name,
+      "bites you",
+      { partyUid }
+    );
     return true;
   }
 
   if (scriptId === "frozen_stalker") {
-    if (ready("frozen_ambush")) {
-      setCd("frozen_ambush", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Frozen Ambushes you");
-      return true;
-    }
-    if (ready("chill_mark")) {
-      setCd("chill_mark", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Chill Marks you");
-      applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
-      return true;
-    }
-    if (ready("whiteout_veil")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when threatened.
+    if (foeHpFrac < 0.55 && ready("whiteout_veil")) {
       setCd("whiteout_veil", 3);
       foe.combat.evadeNextChance = 0.45;
       appendFightLog(`${foe.name} vanishes in Whiteout Veil.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    // 5) Burst/status pressure: chill mark (burn).
+    if (ready("chill_mark")) {
+      setCd("chill_mark", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.55 * outMult)),
+        foe.name,
+        "Chill Marks you",
+        { partyUid }
+      );
+      applyBurnToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
+      return true;
+    }
+
+    // 5) Burst: ambush.
+    if (ready("frozen_ambush")) {
+      setCd("frozen_ambush", 2);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.95 * outMult)),
+        foe.name,
+        "Frozen Ambushes you",
+        { partyUid }
+      );
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(atk * 0.55 * outMult)),
+      foe.name,
+      "strikes you",
+      { partyUid }
+    );
     return true;
   }
 
   if (scriptId === "frost_skitter") {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive when hurt.
+    if (foeHpFrac < 0.6 && ready("crystal_nerves")) {
+      setCd("crystal_nerves", 3);
+      setFoeMitigation(foe, 1, 0.78);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.22);
+      appendFightLog(`${foe.name} reinforces itself with Crystal Nerves.`);
+      return true;
+    }
+
+    // 4) Control: Absolute Zero stun.
     if (ready("absolute_zero")) {
       setCd("absolute_zero", 4);
       ensureCombatStatus(st);
@@ -3908,27 +4840,41 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} unleashes Absolute Zero!`);
       return true;
     }
+
+    // 4) Control: Ice Webs (slow + burn pressure).
     if (ready("ice_web")) {
       setCd("ice_web", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Ice Webs you");
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor(atk * 0.52 * outMult)),
+        foe.name,
+        "Ice Webs you",
+        { partyUid }
+      );
       ensureCombatStatus(st);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
       applyBurnToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 8, "dot"))), 2);
       return true;
     }
-    if (ready("crystal_nerves")) {
-      setCd("crystal_nerves", 3);
-      setFoeMitigation(foe, 1, 0.78);
-      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.22);
-      appendFightLog(`${foe.name} reinforces itself with Crystal Nerves.`);
-      return true;
-    }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "strikes you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(
+      st,
+      Math.max(1, Math.floor(atk * 0.48 * outMult)),
+      foe.name,
+      "strikes you",
+      { partyUid }
+    );
     return true;
   }
 
   if (scriptId === "pinebound_fawn") {
-    if (ready("gentle_heal")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "support");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive/heal when threatened.
+    if (foeHpFrac < 0.6 && ready("gentle_heal")) {
       setCd("gentle_heal", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.2)) {
         foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
@@ -3936,6 +4882,8 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       }
       return true;
     }
+
+    // 3) Support: grant evade to strongest ally.
     if (ready("winter_grace")) {
       const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
       if (allies.length) {
@@ -3947,58 +4895,100 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
         return true;
       }
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "Kicks you");
+
+    // 5) Pressure heal if available.
+    if (ready("gentle_heal")) {
+      setCd("gentle_heal", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.2)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
+        appendFightLog(`${foe.name} heals itself gently.`);
+      }
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.45 * outMult)), foe.name, "Kicks you", {
+      partyUid
+    });
     return true;
   }
 
   if (scriptId === "frozen_pinecone") {
-    if (ready("freeze_burst")) {
-      setCd("freeze_burst", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Freeze Bursts you");
-      ensureCombatStatus(st);
-      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
-      return true;
-    }
-    if (ready("drop_strike")) {
-      setCd("drop_strike", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Drop Strikes you");
-      return true;
-    }
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 4) Control/debuff spread first.
     if (ready("needle_scatter")) {
       setCd("needle_scatter", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.35 * outMult)), foe.name, "Needle Scatters", { aoeAllParty: true });
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.35 * outMult)), foe.name, "Needle Scatters", {
+        aoeAllParty: true
+      });
       ensureCombatStatus(st);
       st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "bumps you");
+
+    // 5) Burst pressure.
+    if (ready("freeze_burst")) {
+      setCd("freeze_burst", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "Freeze Bursts you", { partyUid });
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      return true;
+    }
+
+    // 5) Filler strike.
+    if (ready("drop_strike")) {
+      setCd("drop_strike", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "Drop Strikes you", { partyUid });
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.48 * outMult)), foe.name, "bumps you", { partyUid });
     return true;
   }
 
   if (scriptId === "ice_tusked_boar") {
-    if (ready("ice_armor")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "bruiser");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive mode when hurt.
+    if (foeHpFrac < 0.6 && ready("ice_armor")) {
       setCd("ice_armor", 3);
       setFoeMitigation(foe, 2, 0.55);
       appendFightLog(`${foe.name} uses Ice Armor.`);
       return true;
     }
-    if (ready("frost_charge")) {
-      setCd("frost_charge", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1 * outMult)), foe.name, "Frost Charges you");
-      return true;
-    }
+
+    // 5) Ramp burst pressure.
     if (ready("cold_rage")) {
       setCd("cold_rage", 3);
       foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;
       appendFightLog(`${foe.name} enters Cold Rage.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "charges you");
+
+    // 5) Burst strike.
+    if (ready("frost_charge")) {
+      setCd("frost_charge", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1 * outMult)), foe.name, "Frost Charges you", { partyUid });
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.62 * outMult)), foe.name, "charges you", { partyUid });
     return true;
   }
 
   if (scriptId === "barkhide_spriggan") {
-    if (ready("nature_guard")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive/heal when threatened.
+    if (foeHpFrac < 0.6 && ready("nature_guard")) {
       setCd("nature_guard", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.24)) {
         foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.18)));
@@ -4006,14 +4996,8 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       }
       return true;
     }
-    if (ready("root_bind_sg")) {
-      setCd("root_bind_sg", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Root Binds you");
-      ensureCombatStatus(st);
-      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
-      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
-      return true;
-    }
+
+    // 3) Support: reinforce ally mitigation.
     if (ready("barkskin")) {
       const allies = st.foes.filter((f) => f.uid !== foe.uid && f.hp > 0);
       if (allies.length) {
@@ -4024,66 +5008,109 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
         return true;
       }
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you");
+
+    // 4) Control: root bind debuffs.
+    if (ready("root_bind_sg")) {
+      setCd("root_bind_sg", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Root Binds you", { partyUid });
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
+      st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
+      return true;
+    }
+
+    // 5) Pressure heal if available.
+    if (ready("nature_guard")) {
+      setCd("nature_guard", 3);
+      if (!healLowestHpFractionAlly(st, foe, 0.24)) {
+        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.18)));
+        appendFightLog(`${foe.name} Nature Guards itself.`);
+      }
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
   if (scriptId === "winter_guardian") {
-    if (ready("shield_wall")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive shielding when hurt.
+    if (foeHpFrac < 0.65 && ready("shield_wall")) {
       setCd("shield_wall", 4);
       setFoeMitigation(foe, 2, 0.4);
       appendFightLog(`${foe.name} raises Shield Wall.`);
       return true;
     }
-    if (ready("frozen_slam")) {
-      setCd("frozen_slam", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Frozen Slams you");
-      if (Math.random() < 0.2) tryPlayerStun(st, 1);
-      return true;
-    }
+
+    // 4) Control via stun chance.
     if (ready("ice_ward")) {
       setCd("ice_ward", 3);
       setFoeMitigation(foe, 1, 0.8);
       appendFightLog(`${foe.name} raises Ice Ward.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you");
+    if (ready("frozen_slam")) {
+      setCd("frozen_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Frozen Slams you", { partyUid });
+      if (Math.random() < 0.2) tryPlayerStun(st, 1);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
   if (scriptId === "saltwind_skimmer") {
-    const focused = foe.maxHp > 0 && foe.hp / foe.maxHp < 0.65;
-    if (focused && ready("glide")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const playerHpFrac = st.playerMax > 0 ? st.playerHp / st.playerMax : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive: evade when threatened.
+    if (foeHpFrac < 0.5 && ready("glide")) {
       setCd("glide", 3);
       foe.combat.evadeNextChance = 0.38;
       appendFightLog(`${foe.name} Glides aside.`);
       return true;
     }
-    if (ready("wind_slice")) {
-      setCd("wind_slice", 1);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Wind Slices you");
-      return true;
-    }
-    if (ready("salt_peck")) {
+
+    // 4) Control: fragile debuff on low-health player.
+    if (playerHpFrac < 0.45 && ready("salt_peck")) {
       setCd("salt_peck", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Salt Pecks you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Salt Pecks you", {
+        partyUid
+      });
       ensureCombatStatus(st);
       st.status.playerFragileTurns = Math.max(st.status.playerFragileTurns || 0, 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    // 5) Burst/filler strike.
+    if (ready("wind_slice")) {
+      setCd("wind_slice", 1);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Wind Slices you", { partyUid });
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
   if (scriptId === "brinegullet_spitter") {
-    if (!foe.combat.spitterOpened && ready("acid_spit")) {
-      foe.combat.spitterOpened = true;
-      setCd("acid_spit", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Acid Spits you");
-      applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
-      return true;
-    }
-    if (ready("corrosive_pool")) {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const hasPoison = !!(st.status && st.status.playerPoison && st.status.playerPoison.turns > 0);
+    const hasCorrosion = !!(st.status && typeof st.status.playerFragileTurns === "number" && st.status.playerFragileTurns > 0);
+
+    // 4) Control: establish poison/corrosion package first.
+    if (!hasPoison && !hasCorrosion && ready("corrosive_pool")) {
       setCd("corrosive_pool", 3);
       applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.1)), 2);
       ensureCombatStatus(st);
@@ -4091,87 +5118,125 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       appendFightLog(`${foe.name} spits a Corrosive Pool.`);
       return true;
     }
+
+    // 5) Burst pressure.
     if (ready("acid_spit")) {
       setCd("acid_spit", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Acid Spits you");
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Acid Spits you", { partyUid });
       applyPoisonToPlayer(st, Math.max(1, Math.floor(atk * 0.08)), 2);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "spits at you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.5 * outMult)), foe.name, "spits at you", { partyUid });
     return true;
   }
 
   if (scriptId === "wavebreaker_idol") {
-    if (ready("stone_guard")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const alliesAlive = (st.foes || []).filter((f) => f && f.uid !== foe.uid && f.hp > 0).length;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive mitigation when threatened.
+    if (foeHpFrac < 0.5 && ready("stone_guard")) {
       setCd("stone_guard", 4);
       setFoeMitigation(foe, 2, 0.42);
       appendFightLog(`${foe.name} uses Stone Guard.`);
       return true;
     }
-    if (ready("wave_slam")) {
-      setCd("wave_slam", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Wave Slams you");
-      return true;
-    }
-    if (ready("sea_ward")) {
+
+    // 3) Support/ward pattern when allies can benefit.
+    if (alliesAlive >= 2 && ready("sea_ward")) {
       setCd("sea_ward", 3);
       setFoeMitigation(foe, 1, 0.78);
       appendFightLog(`${foe.name} raises Sea Ward.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "strikes you");
+
+    // 5) Burst pressure.
+    if (ready("wave_slam")) {
+      setCd("wave_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Wave Slams you", { partyUid });
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
   if (scriptId === "cliff_lurker") {
-    if (ready("ambush_drop")) {
-      setCd("ambush_drop", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Ambush Drops on you");
-      return true;
-    }
-    if (ready("grip_strike")) {
-      setCd("grip_strike", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Grip Strikes you");
-      ensureCombatStatus(st);
-      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
-      return true;
-    }
-    if (ready("rock_skip")) {
+    const foeHpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const playerHpFrac = st.playerMax > 0 ? st.playerHp / st.playerMax : 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const notBuffed = !(typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0.001);
+
+    // 2) Defensive evade when threatened or unbuffed.
+    if ((foeHpFrac < 0.6 || notBuffed) && ready("rock_skip")) {
       setCd("rock_skip", 3);
       foe.combat.evadeNextChance = 0.38;
       appendFightLog(`${foe.name} uses Rock Skip.`);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    // 5) Burst: finish lower-health targets.
+    if (playerHpFrac < 0.5 && ready("ambush_drop")) {
+      setCd("ambush_drop", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.98 * outMult)), foe.name, "Ambush Drops on you", { partyUid });
+      return true;
+    }
+
+    // 4) Control: grip slow.
+    if (ready("grip_strike")) {
+      setCd("grip_strike", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "Grip Strikes you", { partyUid });
+      ensureCombatStatus(st);
+      st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 1);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
   if (scriptId === "tideharrow") {
-    const ctrl = !foe.combat.altPhase;
-    foe.combat.altPhase = !foe.combat.altPhase;
-    if (ctrl && ready("riptide_pull")) {
-      setCd("riptide_pull", 3);
-      const targetUid = pickPartyTargetStrongestUid(st);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Riptide Pulls you", targetUid == null ? null : { partyUid: targetUid });
-      ensureCombatStatus(st);
-      st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
-      return true;
-    }
-    if (ready("drown_pulse")) {
-      setCd("drown_pulse", 2);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Drown Pulses you", { aoeAllParty: true });
-      return true;
-    }
-    if (ready("brine_shackles")) {
+    const maxS = typeof st.maxStamina === "number" && st.maxStamina > 0 ? st.maxStamina : 1;
+    const sFrac = typeof st.stamina === "number" ? st.stamina / maxS : 0;
+    const playersAlive = getLivingPartyMembers(st).length;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 4) High stamina pressure control.
+    if (sFrac > 0.6 && ready("brine_shackles")) {
       setCd("brine_shackles", 2);
-      const targetUid = pickPartyTargetStrongestUid(st);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Brine Shackles you", targetUid == null ? null : { partyUid: targetUid });
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.52 * outMult)), foe.name, "Brine Shackles you", { partyUid });
       ensureCombatStatus(st);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 1);
       return true;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
+
+    // 5) AoE pressure when party is larger.
+    if (playersAlive >= 2 && ready("drown_pulse")) {
+      setCd("drown_pulse", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.88 * outMult)), foe.name, "Drown Pulses you", { aoeAllParty: true });
+      return true;
+    }
+
+    // 5) Single-target pressure fallback.
+    if (ready("riptide_pull")) {
+      setCd("riptide_pull", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.58 * outMult)), foe.name, "Riptide Pulls you", { partyUid });
+      ensureCombatStatus(st);
+      st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
+      return true;
+    }
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", { partyUid });
     return true;
   }
 
@@ -4196,15 +5261,25 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   const setCd = (key, n) => {
     cd[key] = Math.max(0, Math.floor(n));
   };
-  const ready = (key) => !cd[key] || cd[key] <= 0;
+  const ready = (key) => {
+    if (foe.combat && foe.combat.forceBasicThisTurn) return false;
+    return !cd[key] || cd[key] <= 0;
+  };
 
   if (scriptId === "burrow_hare") {
-    if (ready("burrow_instinct")) {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+
+    // 2) Defensive/tempo when hurt.
+    if (hpFrac < 0.5 && ready("burrow_instinct")) {
       setCd("burrow_instinct", 3);
       foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.2);
       appendFightLog(`${foe.name} uses Burrow Instinct (+20% evasion).`);
       return;
     }
+
+    // 4) High-value control: accuracy down.
     if (ready("dust_flick")) {
       setCd("dust_flick", 2);
       ensureCombatStatus(st);
@@ -4213,57 +5288,77 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
       appendFightLog(`${foe.name} throws Dust Flick (-15% accuracy).`);
       return;
     }
+
+    // 5/6) Status pressure: bleed.
     if (ready("bleed_scratch")) {
       setCd("bleed_scratch", 2);
       const hit = Math.max(1, Math.floor(atk * 0.62 * outMult));
-      dealRawDamageToPlayer(st, hit, foe.name, "Bleed Scratches you");
+      dealRawDamageToPlayer(st, hit, foe.name, "Bleed Scratches you", { partyUid });
       applyBleedToPlayer(st, Math.max(1, Math.floor(hit * 0.3)), 2);
       appendFightLog("Bleeding worsens.");
       return;
     }
-    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "nips you");
+
+    // 6) Basic filler.
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "nips you", { partyUid });
     return;
   }
 
   if (scriptId === "plains_raptor") {
     foe.combat.raptorActCount = (foe.combat.raptorActCount || 0) + 1;
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "bruiser");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
     const fullHpPlayer = st.playerMax > 0 && st.playerHp >= st.playerMax * 0.99;
-    if (foe.combat.raptorActCount === 1 && ready("pounce")) {
+
+    // 5) Burst: opener pounce (stronger when player is nearly full).
+    if (ready("pounce") && foe.combat.raptorActCount === 1) {
       const mul = fullHpPlayer ? 1.5 : 1;
       const dmg = Math.max(1, Math.floor(atk * mul * outMult));
       setCd("pounce", 2);
-      dealRawDamageToPlayer(st, dmg, foe.name, "Pounces you");
+      dealRawDamageToPlayer(st, dmg, foe.name, "Pounces you", { partyUid });
       return;
     }
+
+    // 4/5) Status/control: bleeding rend.
     if (ready("claw_rend")) {
       setCd("claw_rend", 1);
       const dmg = Math.max(1, Math.floor(atk * 0.82 * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Claw Rends you");
+      dealRawDamageToPlayer(st, dmg, foe.name, "Claw Rends you", { partyUid });
       applyBleedToPlayer(st, Math.max(1, Math.floor(atk * 0.12)), 2);
       appendFightLog("You are bleeding.");
       return;
     }
-    if (ready("predator_focus")) {
+
+    // 3) Setup/tempo buff.
+    if (ready("predator_focus") && foe.combat.raptorActCount >= 2) {
       setCd("predator_focus", 3);
       if (!foe.combat) initFoeCombatRuntime(foe);
       foe.combat.echoCryBonusTurns = Math.max(foe.combat.echoCryBonusTurns || 0, 1);
       appendFightLog(`${foe.name} uses Predator Focus.`);
       return;
     }
+
+    // 5) Fallback pounce (still higher priority than basic).
     if (ready("pounce")) {
       const mul = fullHpPlayer ? 1.5 : 1;
       const dmg = Math.max(1, Math.floor(atk * mul * outMult));
       setCd("pounce", 2);
-      dealRawDamageToPlayer(st, dmg, foe.name, "Pounces you");
+      dealRawDamageToPlayer(st, dmg, foe.name, "Pounces you", { partyUid });
       return;
     }
+
+    // 6) Basic filler.
     const dmg = Math.max(1, Math.floor(atk * outMult));
-    dealRawDamageToPlayer(st, dmg, foe.name, "hits you");
+    dealRawDamageToPlayer(st, dmg, foe.name, "hits you", { partyUid });
     return;
   }
 
   if (scriptId === "grass_snake") {
     const debuffed = !!(foe.combat.markedByPlayer || foe.combat.snakeDebuffed || (foe.combat.weakenTurns || 0) > 0);
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+
+    // 2) Defensive cleanse.
     if (ready("shed_skin") && debuffed) {
       setCd("shed_skin", 4);
       foe.combat.markedByPlayer = false;
@@ -4273,13 +5368,8 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
       appendFightLog(`${foe.name} uses Shed Skin and shakes off debuffs.`);
       return;
     }
-    if (ready("venom_burst")) {
-      setCd("venom_burst", 2);
-      const dot = Math.max(2, Math.floor((st.playerMax * 0.08 * (1 + formulaIntStatusPotencyPct(foe.int || 0) / 100)) / 3));
-      applyPoisonToPlayer(st, dot, 3);
-      appendFightLog(`${foe.name} uses Venom Burst.`);
-      return;
-    }
+
+    // 4) High-value control: constriction (combo chance down).
     if (ready("constriction")) {
       setCd("constriction", 3);
       ensureCombatStatus(st);
@@ -4288,21 +5378,40 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
       appendFightLog(`${foe.name} Constricts you (-combo chance).`);
       return;
     }
+
+    // 5) Status: poison.
+    if (ready("venom_burst")) {
+      setCd("venom_burst", 2);
+      const dot = Math.max(2, Math.floor((st.playerMax * 0.08 * (1 + formulaIntStatusPotencyPct(foe.int || 0) / 100)) / 3));
+      applyPoisonToPlayer(st, dot, 3);
+      appendFightLog(`${foe.name} uses Venom Burst.`);
+      return;
+    }
+
     const dmg = Math.max(1, Math.floor(atk * 0.65 * outMult));
-    dealRawDamageToPlayer(st, dmg, foe.name, "bites you");
+    dealRawDamageToPlayer(st, dmg, foe.name, "bites you", { partyUid });
     return;
   }
 
   if (scriptId === "tusk_boar") {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+
+    // 2) Defensive: only when hurt.
     if (ready("thick_hide")) {
-      setCd("thick_hide", 3);
-      const physRes = formulaStrPhysicalResistPct(foe.str || 0) * 1.5;
-      const red = Math.min(0.75, physRes / 100);
-      foe.combat.thickHideDamagedMult = 1 - red;
-      foe.combat.thickHideTurns = 1;
-      appendFightLog(`${foe.name} uses Thick Hide.`);
-      return;
+      if (hpFrac < 0.6) {
+        setCd("thick_hide", 3);
+        const physRes = formulaStrPhysicalResistPct(foe.str || 0) * 1.5;
+        const red = Math.min(0.75, physRes / 100);
+        foe.combat.thickHideDamagedMult = 1 - red;
+        foe.combat.thickHideTurns = 1;
+        appendFightLog(`${foe.name} uses Thick Hide.`);
+        return;
+      }
     }
+
+    // 4) Control: taunt + reduce outgoing damage to player.
     if (ready("war_boar_taunt")) {
       setCd("war_boar_taunt", 4);
       applyMonsterTauntOnPlayer(st, foe, 2);
@@ -4310,20 +5419,48 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
       appendFightLog(`${foe.name} uses War Boar Taunt.`);
       return;
     }
+
+    // 5) Burst: gore charge.
     if (ready("gore_charge")) {
       setCd("gore_charge", 2);
       const gore = Math.floor(monsterPhysicalDamageFromBase(foe, 24, 0.022) * 1.2 * outMult);
-      dealRawDamageToPlayer(st, Math.max(1, gore), foe.name, "Gore Charges you");
+      dealRawDamageToPlayer(st, Math.max(1, gore), foe.name, "Gore Charges you", { partyUid });
       ensureCombatStatus(st);
       st.status.playerFragileTurns = Math.max(st.status.playerFragileTurns || 0, 3);
       return;
     }
+
+    // 6) Basic filler.
     const dmg = Math.max(1, Math.floor(atk * 0.75 * outMult));
-    dealRawDamageToPlayer(st, dmg, foe.name, "hits you");
+    dealRawDamageToPlayer(st, dmg, foe.name, "hits you", { partyUid });
     return;
   }
 
   if (scriptId === "field_wolf") {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const low = isAnyPartyMemberHpFractionBelow(st, 0.3);
+
+    // 5) Burst: execution bite.
+    if (low && ready("execution_bite")) {
+      setCd("execution_bite", 2);
+      const baseExec = monsterPhysicalDamageFromBase(foe, 26, 0.022) * 1.4 * outMult;
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(baseExec)), foe.name, "Execution Bites you", { partyUid });
+      return;
+    }
+
+    // 5) Status/burst when bleed is active.
+    if (ready("bloodhunt_bite")) {
+      setCd("bloodhunt_bite", 2);
+      const bleedActive = !!(st.status && st.status.playerBleed && st.status.playerBleed.turns > 0);
+      const mult = bleedActive ? 1.2 : 1;
+      const dmg = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 20, 0.02) * mult * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Bloodhunts you", { partyUid });
+      applyBleedToPlayer(st, Math.max(1, Math.floor(dmg * 0.15)), 2);
+      return;
+    }
+
+    // 3) Setup: crit buff.
     if (ready("pack_howl")) {
       setCd("pack_howl", 3);
       const critBuff = 15 + formulaDexCritChancePct(foe.dex || 0);
@@ -4332,24 +5469,10 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
       appendFightLog(`${foe.name} uses Pack Howl.`);
       return;
     }
-    const low = isAnyPartyMemberHpFractionBelow(st, 0.3);
-    if (low && ready("execution_bite")) {
-      setCd("execution_bite", 2);
-      const baseExec = monsterPhysicalDamageFromBase(foe, 26, 0.022) * 1.4 * outMult;
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(baseExec)), foe.name, "Execution Bites you");
-      return;
-    }
-    if (ready("bloodhunt_bite")) {
-      setCd("bloodhunt_bite", 2);
-      const bleedActive = !!(st.status && st.status.playerBleed && st.status.playerBleed.turns > 0);
-      const mult = bleedActive ? 1.2 : 1;
-      const dmg = Math.max(1, Math.floor(monsterPhysicalDamageFromBase(foe, 20, 0.02) * mult * outMult));
-      dealRawDamageToPlayer(st, dmg, foe.name, "Bloodhunts you");
-      applyBleedToPlayer(st, Math.max(1, Math.floor(dmg * 0.15)), 2);
-      return;
-    }
+
+    // 6) Basic filler.
     const dmg = Math.max(1, Math.floor(atk * outMult));
-    dealRawDamageToPlayer(st, dmg, foe.name, "bites you");
+    dealRawDamageToPlayer(st, dmg, foe.name, "bites you", { partyUid });
     return;
   }
 
@@ -8693,6 +9816,11 @@ function runEnemyPhase() {
   const st = combatState;
   if (!st) return;
   st.phase = "enemy";
+  const cs = ensurePlayerClassCombatState(st);
+  cs.unbreakableTriggeredThisEnemyPhase = false;
+  cs.indomitableTriggeredThisEnemyPhase = false;
+  if (cs.indomitableReadyInEnemyPhases > 0) cs.indomitableReadyInEnemyPhases -= 1;
+  cs.indomitablePhaseStartHp = Math.max(0, Math.floor(st.playerHp || 0));
   renderTurnBattle();
 
   const living = st.foes.filter((f) => f.hp > 0);
@@ -8747,6 +9875,9 @@ function runEnemyPhase() {
       return;
     }
     foe.attackUntil = Date.now() + 320;
+    if (foe.combat) {
+      foe.combat.forceBasicThisTurn = !!(typeof foe.combat.staggerSkillTaxTurns === "number" && foe.combat.staggerSkillTaxTurns > 0);
+    }
     queueCombatVisualRefresh(340);
     const def = getEnemyDefByName(foe.name);
     const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
@@ -8918,12 +10049,46 @@ function getPlayerClassOutgoingMult(st, skillName, foe) {
   if (cs.flowStateTurns > 0) mult *= 1.08;
   if (cs.focusFireTurns > 0) mult *= 1.12;
   if (cs.rageTurns > 0) mult *= 1.15;
+  if (cs.braceTurns > 0 && cs.braceDamagePenaltyPct > 0) mult *= 1 - cs.braceDamagePenaltyPct / 100;
+  if (cs.fortressTurns > 0 && cs.fortressDamagePenaltyPct > 0) mult *= 1 - cs.fortressDamagePenaltyPct / 100;
+  if (cs.lastBastionTurns > 0 && cs.lastBastionDamagePenaltyPct > 0) mult *= 1 - cs.lastBastionDamagePenaltyPct / 100;
   if (cs.exposeWeaknessTurns > 0 && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.5) mult *= 1.18;
   if (cls.id === "reaver" && st.playerMax > 0 && st.playerHp / st.playerMax <= 0.5) mult *= 1.12;
   if (cls.id === "arcanist" && cs.manaSurgeTurns > 0) mult *= 1.1;
   if (skillName === "Execution" && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.35) mult *= 1.38;
   if (skillName === "Execution Rush" && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.4) mult *= 1.3;
+  if (skillName === "Heavy Strike" && foe && foe.combat && (foe.combat.staggerDamageDownTurns > 0 || foe.combat.staggerLockedTurns > 0)) mult *= 1.15;
+  if (skillName === "Earthshatter" && foe && foe.combat && typeof foe.combat.armorBreakTurns === "number" && foe.combat.armorBreakTurns > 0) mult *= 1.15;
   return mult * (skillName ? getClassSkillDamageScale(skillName) : 1);
+}
+
+function getIndomitableEnemyPhaseCooldownTurns() {
+  const lv = Math.max(1, getPlayerSkillLevel("Indomitable"));
+  if (lv >= 5) return 3;
+  if (lv >= 3) return 4;
+  return 5;
+}
+
+function enforceIndomitableEnemyPhaseCap(st, heroMember) {
+  if (!st || !heroMember) return;
+  if (!player.skills.includes("Indomitable")) return;
+  if (getClassDef(player.classId).id !== "vanguard") return;
+  const cs = ensurePlayerClassCombatState(st);
+  if (cs.indomitableReadyInEnemyPhases > 0) return;
+  const startHp = Math.max(0, Math.floor(cs.indomitablePhaseStartHp || heroMember.maxHp || st.playerMax || 0));
+  const statusRes = formulaVitStatusResistPct(totalVit());
+  const maxLossPct = clampNumber(30, 45, 45 - Math.min(15, statusRes * 0.3));
+  const maxLoss = Math.max(1, Math.floor((heroMember.maxHp || st.playerMax || 1) * maxLossPct / 100));
+  const minHpAllowed = Math.max(1, startHp - maxLoss);
+  if (heroMember.hp >= minHpAllowed) return;
+  heroMember.hp = minHpAllowed;
+  st.playerHp = minHpAllowed;
+  syncHeroHpFromPlayerMirror(st);
+  if (!cs.indomitableTriggeredThisEnemyPhase) {
+    appendFightLog("Indomitable prevents fatal momentum.");
+    cs.indomitableTriggeredThisEnemyPhase = true;
+  }
+  cs.indomitableReadyInEnemyPhases = getIndomitableEnemyPhaseCooldownTurns();
 }
 
 function maybeTriggerClassPassivesOnHit(st, foe, crit, killed) {
@@ -8954,20 +10119,60 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
   const healScale = 1 + Math.floor(totalVit() / 80) * 0.05;
   switch (skillName) {
     case "Brace":
-      cs.braceTurns = Math.max(cs.braceTurns, getClassSkillTurnScaled(skillName, 2));
+      {
+        const lv = Math.max(1, getPlayerSkillLevel(skillName));
+        const vit = totalVit();
+        const statusRes = formulaVitStatusResistPct(vit);
+        const red = clampNumber(16, 30, 14 + statusRes * 0.25 + Math.floor(vit / 100) + lv * 2);
+        const turns = lv >= 5 ? 3 : lv >= 3 ? 2 : 1;
+        cs.braceTurns = Math.max(cs.braceTurns, turns);
+        cs.braceReductionPct = Math.max(cs.braceReductionPct || 0, red);
+        cs.braceStatusResistBonusPct = Math.max(cs.braceStatusResistBonusPct || 0, 10);
+      }
       appendFightLog("Brace hardens your stance.");
       break;
     case "Fortress":
     case "Fortress Stance":
-      cs.fortressTurns = Math.max(cs.fortressTurns, getClassSkillTurnScaled(skillName, 2));
+      {
+        const lv = Math.max(1, getPlayerSkillLevel("Fortress Stance"));
+        const vit = totalVit();
+        const statusRes = formulaVitStatusResistPct(vit);
+        const red = clampNumber(22, 38, 18 + statusRes * 0.25 + Math.floor(vit / 90) + lv * 2);
+        const turns = lv >= 4 ? 3 : 2;
+        cs.fortressTurns = Math.max(cs.fortressTurns, turns);
+        cs.fortressReductionPct = Math.max(cs.fortressReductionPct || 0, red);
+        cs.fortressDamagePenaltyPct = Math.max(cs.fortressDamagePenaltyPct || 0, 10);
+      }
       appendFightLog("Fortress raises a resilient guard.");
       break;
     case "Taunt":
-      cs.tauntTurns = Math.max(cs.tauntTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("You taunt and draw enemy focus.");
+      if (targetFoe && targetFoe.combat) {
+        const lv = Math.max(1, getPlayerSkillLevel(skillName));
+        let turns = lv >= 5 ? 3 : lv >= 3 ? 2 : 1;
+        const def = getEnemyDefByName(targetFoe.name);
+        const rarity = normalizeEnemySpawnRarity(def && def.spawnRarity);
+        if (rarity === "myth" || rarity === "ancient") turns = Math.max(1, Math.floor(turns * 0.5));
+        targetFoe.combat.tauntedByVanguardTurns = Math.max(targetFoe.combat.tauntedByVanguardTurns || 0, turns);
+        const dmgDown = clampNumber(8, 18, 6 + Math.floor(totalVit() / 80) + lv);
+        targetFoe.combat.tauntedByVanguardDamageDownPct = Math.max(targetFoe.combat.tauntedByVanguardDamageDownPct || 0, dmgDown);
+        appendFightLog(`You taunt ${targetFoe.name} and draw its focus.`);
+      } else {
+        appendFightLog("You taunt and draw enemy focus.");
+      }
       break;
     case "Last Bastion":
-      cs.lastBastionTurns = Math.max(cs.lastBastionTurns, getClassSkillTurnScaled(skillName, 2));
+      {
+        const lv = Math.max(1, getPlayerSkillLevel(skillName));
+        const bonus = Math.min(10, Math.floor(totalVit() / 120) + lv);
+        const low = clampNumber(35, 50, 35 + bonus);
+        const high = clampNumber(18, 28, 18 + bonus);
+        const turns = lv >= 5 ? 3 : lv >= 3 ? 2 : 1;
+        cs.lastBastionTurns = Math.max(cs.lastBastionTurns, turns);
+        cs.lastBastionLowHpReductionPct = Math.max(cs.lastBastionLowHpReductionPct || 0, low);
+        cs.lastBastionHighHpReductionPct = Math.max(cs.lastBastionHighHpReductionPct || 0, high);
+        cs.lastBastionHealingReceivedBonusPct = Math.max(cs.lastBastionHealingReceivedBonusPct || 0, 10);
+        cs.lastBastionDamagePenaltyPct = Math.max(cs.lastBastionDamagePenaltyPct || 0, 15);
+      }
       appendFightLog("Last Bastion prepares emergency resilience.");
       break;
     case "Riposte":
@@ -9031,7 +10236,10 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
     case "Heal":
       {
         const bonus = cs.revitalizeTurns > 0 ? 1.25 : 1;
-        const heal = Math.max(6, Math.floor((14 + totalVit() * 0.36) * healScale * bonus * getClassSkillDamageScale(skillName)));
+        const heal = Math.max(
+          6,
+          Math.floor((14 + totalVit() * 0.36) * healScale * bonus * getClassSkillDamageScale(skillName) * getPlayerCombatHealingReceivedMultiplier(st))
+        );
         st.playerHp = Math.min(st.playerMax, st.playerHp + heal);
         syncHeroHpFromPlayerMirror(st);
         appendFightLog(`Heal restores ${heal} HP.`);
@@ -9054,10 +10262,45 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
   if (!foe.combat) foe.combat = {};
   switch (skillName) {
     case "Shield Slam":
-      foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      {
+        const lv = Math.max(1, getPlayerSkillLevel(skillName));
+        const strStagger = formulaStrStaggerChancePct(totalStr());
+        const vitFlatDr = formulaVitFlatDamageReduction(totalVit());
+        const chancePct = clampNumber(20, 55, 18 + strStagger * 0.8 + vitFlatDr * 1.5 + lv * 3);
+        if (Math.random() < chancePct / 100) {
+          const staggerTurns = lv >= 5 ? 2 : 1;
+          foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, staggerTurns);
+          foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, 1);
+          appendFightLog(`${foe.name} is staggered by Shield Slam.`);
+        }
+      }
       break;
     case "Crushing Blow":
-      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      {
+        const lv = Math.max(1, getPlayerSkillLevel(skillName));
+        const armorPen = formulaStrArmorPenetrationPct(totalStr());
+        const armorBreakPct = clampNumber(10, 28, 8 + armorPen * 0.6 + lv * 2);
+        foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, lv >= 5 ? 3 : 2);
+        foe.combat.armorBreakPct = Math.max(foe.combat.armorBreakPct || 0, armorBreakPct);
+      }
+      break;
+    case "Heavy Strike":
+      {
+        const chancePct = Math.min(18, formulaStrStaggerChancePct(totalStr()) * 0.6);
+        if (Math.random() < chancePct / 100) {
+          foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
+          appendFightLog(`${foe.name} is staggered by Heavy Strike.`);
+        }
+      }
+      break;
+    case "Earthshatter":
+      {
+        const lv = Math.max(1, getPlayerSkillLevel(skillName));
+        const chancePct = clampNumber(15, 40, 12 + formulaStrStaggerChancePct(totalStr()) * 0.5 + lv * 2);
+        if (Math.random() < chancePct / 100) {
+          foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
+        }
+      }
       break;
     case "Piercing Thrust":
       foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
@@ -9140,7 +10383,9 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
     case "Blood Frenzy":
     case "Blood Chain":
       if (killed) {
-        st.playerHp = Math.min(st.playerMax, st.playerHp + Math.max(4, Math.floor(st.playerMax * 0.06)));
+        const heal = Math.max(4, Math.floor(st.playerMax * 0.06));
+        const healed = Math.max(1, Math.floor(heal * getPlayerCombatHealingReceivedMultiplier(st)));
+        st.playerHp = Math.min(st.playerMax, st.playerHp + healed);
         syncHeroHpFromPlayerMirror(st);
         appendFightLog("Blood Frenzy restores vitality on kill.");
       }
@@ -9202,6 +10447,13 @@ function playerCombatAction(kind, skillName) {
 
   const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
   const aoeAllEnemies = skCfg && skCfg.combatAoe === "all_enemies";
+  if (kind === "skill" && skillName) {
+    const cdLeft = getClassSkillCooldownRemaining(st, skillName);
+    if (cdLeft > 0) {
+      appendFightLog(`${skillName} is on cooldown (${cdLeft} turn${cdLeft === 1 ? "" : "s"}).`);
+      return;
+    }
+  }
   const baseStaminaCost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
   const cost =
     kind === "skill" && skillName ? resolveSkillStaminaCost(baseStaminaCost, skillName) : resolveAttackStaminaCost();
@@ -9223,6 +10475,10 @@ function playerCombatAction(kind, skillName) {
   }
 
   function afterHitsCommit() {
+    if (kind === "skill" && skillName) {
+      const cdt = getClassSkillCooldownTurns(skillName);
+      if (cdt > 0) setClassSkillCooldown(st, skillName, cdt);
+    }
     if (kind === "skill") tryDexComboRefundAfterSkill(st);
     if (!isPartyAlive(st)) {
       syncCombatPartyHeroMirror(st);
@@ -9250,11 +10506,11 @@ function playerCombatAction(kind, skillName) {
     }
     const label = skillName || "Attack";
     applyPlayerClassSkillCast(st, skillName, living[0] || null);
-    const baseDmg = resolveOutgoingBaseDamage(null);
     clearPlayerTurnTimer();
     st.heroAttackUntil = Date.now() + 320;
     queueCombatVisualRefresh(340);
     for (const foe of living) {
+      const baseDmg = resolveOutgoingBaseDamage(foe);
       if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
         const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
         foe.combat.evadeNextChance = 0;
@@ -9292,6 +10548,17 @@ function playerCombatAction(kind, skillName) {
   if (taunter && !aoeAllEnemies) {
     st.selectedUid = taunter.uid;
     appendFightLog(`${taunter.name} taunts you - your target is forced.`);
+  }
+  if (
+    kind === "skill" &&
+    (skillName === "Brace" || skillName === "Fortress Stance" || skillName === "Last Bastion")
+  ) {
+    applyPlayerClassSkillCast(st, skillName, null);
+    clearPlayerTurnTimer();
+    st.heroAttackUntil = Date.now() + 220;
+    queueCombatVisualRefresh(240);
+    afterHitsCommit();
+    return;
   }
   const uid = st.selectedUid;
   const foe = st.foes.find((f) => f.uid === uid && f.hp > 0);
