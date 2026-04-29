@@ -19,6 +19,10 @@ let overviewStatsTab = "characteristics";
 let overviewSkillsScrollTop = 0;
 let overviewSkillsScrollAnchor = null;
 let activeCraftingProfessionId = null;
+let atlasSearchQuery = "";
+let atlasSelectedRegionName = null;
+let atlasSelectedMonsterName = null;
+const atlasExpandedRegions = new Set();
 let activeMenuPanel = null;
 let dragPayload = null;
 /** Respawn label updates on adventure (no full re-render — avoids image flash) */
@@ -10974,17 +10978,24 @@ function showTooltipHtml(html, clientX, clientY, opts) {
   const el = document.getElementById("itemTooltip");
   if (!el) return;
   el.classList.remove("item-tooltip--inventory-item");
-  if (opts && opts.tooltipClass) el.classList.add(String(opts.tooltipClass));
+  el.classList.remove("item-tooltip--conditional-loot");
+  if (opts && opts.tooltipClass) {
+    String(opts.tooltipClass)
+      .split(/\s+/)
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .forEach((c) => el.classList.add(c));
+  }
   el.innerHTML = html;
   el.classList.remove("hidden");
   el.setAttribute("aria-hidden", "false");
   requestAnimationFrame(() => positionItemTooltip(clientX, clientY));
 }
 
-function showItemTooltip(itemName, clientX, clientY, sourceEl) {
+function showItemTooltip(itemName, clientX, clientY, sourceEl, opts) {
   let imageSizePx = 64;
   if (sourceEl instanceof HTMLElement) {
-    if (sourceEl.closest(".crafting-result-name, .crafting-ingredient-chip")) {
+    if (sourceEl.closest(".crafting-result-name, .crafting-ingredient-chip, .atlas-loot-chip, .atlas-finding-resource")) {
       // Keep crafting tooltip sizing consistent with inventory hover sizing.
       imageSizePx = 160;
     } else {
@@ -10994,7 +11005,7 @@ function showItemTooltip(itemName, clientX, clientY, sourceEl) {
     }
   }
   showTooltipHtml(buildItemTooltipHtml(itemName, imageSizePx), clientX, clientY, {
-    tooltipClass: "item-tooltip--inventory-item"
+    tooltipClass: opts && opts.conditionalLoot ? "item-tooltip--inventory-item item-tooltip--conditional-loot" : "item-tooltip--inventory-item"
   });
 }
 
@@ -11272,7 +11283,7 @@ function hideItemTooltip() {
 }
 
 const TOOLTIP_HOST_SEL =
-  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name]";
+  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
 
 function onContentTooltipOver(e) {
   const fightAlly = e.target.closest(".fight-ally-card[data-party-member]");
@@ -11317,6 +11328,16 @@ function onContentTooltipOver(e) {
       }
     }
   }
+  const anyItem = e.target.closest("[data-item-name]");
+  if (anyItem) {
+    const name = anyItem.getAttribute("data-item-name");
+    if (name) {
+      showItemTooltip(name, e.clientX, e.clientY, anyItem, {
+        conditionalLoot: anyItem.getAttribute("data-atlas-loot-conditional") === "1"
+      });
+      return;
+    }
+  }
   const fLoot = e.target.closest(".fight-loot-cell[data-item-name]");
   if (fLoot && fLoot.dataset.itemName) {
     showItemTooltip(fLoot.dataset.itemName, e.clientX, e.clientY, fLoot);
@@ -11330,6 +11351,13 @@ function onContentTooltipOver(e) {
   const craftIngredient = e.target.closest(".crafting-ingredient-chip[data-item-name]");
   if (craftIngredient && craftIngredient.dataset.itemName) {
     showItemTooltip(craftIngredient.dataset.itemName, e.clientX, e.clientY, craftIngredient);
+    return;
+  }
+  const atlasLoot = e.target.closest(".atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name]");
+  if (atlasLoot && atlasLoot.dataset.itemName) {
+    showItemTooltip(atlasLoot.dataset.itemName, e.clientX, e.clientY, atlasLoot, {
+      conditionalLoot: atlasLoot.getAttribute("data-atlas-loot-conditional") === "1"
+    });
     return;
   }
   const cell = e.target.closest(".inv-cell[data-item-name]");
@@ -11370,6 +11398,8 @@ function onContentTooltipOut(e) {
   if (!host) return;
   const rt = e.relatedTarget;
   if (rt && host.contains(rt)) return;
+  const nextHost = rt && rt.closest ? rt.closest(TOOLTIP_HOST_SEL) : null;
+  if (nextHost && (nextHost === host || host.contains(nextHost) || nextHost.contains(host))) return;
   hideItemTooltip();
 }
 
@@ -11380,6 +11410,12 @@ function onContentTooltipMove(e) {
 }
 
 function onContentInput(e) {
+  const atlasSearch = e.target.closest("[data-atlas-search]");
+  if (atlasSearch) {
+    atlasSearchQuery = String(atlasSearch.value || "");
+    if (isMenuPanelOpen() && activeMenuPanel === "atlas") renderMenuPanelContent();
+    return;
+  }
   const filter = e.target.closest("[data-portrait-add-item-filter]");
   if (!filter) return;
   const host = filter.closest(".portrait-edit-tools");
@@ -11741,6 +11777,7 @@ function getMenuPanelMeta(kind) {
   if (kind === "alliance") return { title: "Alliance", lead: "Coming soon." };
   if (kind === "market") return { title: "Market", lead: "Coming soon." };
   if (kind === "crafting") return { title: "Crafting", lead: "Recipes from your selected crafting professions." };
+  if (kind === "atlas") return { title: "Atlas", lead: "Browse regions, monsters, and their possible loot." };
   return null;
 }
 
@@ -11941,10 +11978,186 @@ function buildCraftingPanelHtml() {
   </div>`;
 }
 
+function getAtlasRegions() {
+  const wm = GAME_CONFIG.worldMap && typeof GAME_CONFIG.worldMap === "object" ? GAME_CONFIG.worldMap : {};
+  const biomes = Array.isArray(wm.biomes) ? wm.biomes : [];
+  return biomes
+    .filter((b) => b && Array.isArray(b.possibleEnemies) && b.possibleEnemies.length)
+    .map((b) => {
+      const minLv =
+        b && b.mobDifficulty && typeof b.mobDifficulty.easy === "number" ? Math.max(1, Math.floor(b.mobDifficulty.easy)) : 1;
+      const maxLv =
+        b && b.mobDifficulty && typeof b.mobDifficulty.hard === "number" ? Math.max(minLv, Math.floor(b.mobDifficulty.hard)) : minLv;
+      return {
+        name: String(b.name || "Region"),
+        levelMin: minLv,
+        levelMax: maxLv,
+        monsters: b.possibleEnemies.filter((n) => typeof n === "string" && n.trim()).map((n) => n.trim())
+      };
+    });
+}
+
+function getAtlasMonsterImage(def) {
+  if (!def) return "Assets/Monsters/monster_placeholder.png";
+  const img = resolveImageByState(def, "idle");
+  if (img) return img;
+  return "Assets/Monsters/monster_placeholder.png";
+}
+
+function getAtlasMonsterLootEntries(monsterName) {
+  const def = getEnemyDefByName(monsterName);
+  const table = getMonsterLootDropTable(def);
+  if (!table) return [];
+  const out = [];
+  const pushName = (raw, conditional) => {
+    const n = typeof raw === "string" ? raw.trim() : "";
+    if (!n || !getItemDef(n)) return;
+    const existing = out.find((x) => x && x.name === n);
+    if (existing) {
+      if (conditional) existing.conditional = true;
+      return;
+    }
+    out.push({ name: n, conditional: !!conditional });
+  };
+  const gear = Array.isArray(table.gear) ? table.gear : [];
+  gear.forEach((g) => {
+    if (g && typeof g.name === "string") pushName(g.name, false);
+    if (g && typeof g.item === "string") pushName(g.item, false);
+  });
+  const mats = Array.isArray(table.materials) ? table.materials : [];
+  mats.forEach((m) => {
+    if (m && typeof m.name === "string") pushName(m.name, true);
+  });
+  return out;
+}
+
+function buildAtlasSearchFindings(regions, q) {
+  const query = String(q || "").trim().toLowerCase();
+  if (!query) return [];
+  const findings = [];
+  regions.forEach((region) => {
+    region.monsters.forEach((monsterName) => {
+      const lootEntries = getAtlasMonsterLootEntries(monsterName);
+      const monsterMatch = monsterName.toLowerCase().includes(query);
+      const resourceMatches = lootEntries.filter((e) => e.name.toLowerCase().includes(query));
+      if (!monsterMatch && !resourceMatches.length) return;
+      findings.push({ regionName: region.name, monsterName, resourceMatches });
+    });
+  });
+  return findings;
+}
+
+function buildAtlasPanelHtml() {
+  const regions = getAtlasRegions();
+  if (!regions.length) {
+    return `<div class="game-page"><h1 class="game-page-title">Atlas</h1><p class="crafting-empty">No regions with monsters found.</p></div>`;
+  }
+  if (!atlasSelectedRegionName) atlasSelectedRegionName = regions[0].name;
+  const selectedRegion = regions.find((r) => r.name === atlasSelectedRegionName) || regions[0];
+  if (!atlasSelectedRegionName) atlasSelectedRegionName = selectedRegion.name;
+  if (!atlasSelectedMonsterName || !selectedRegion.monsters.includes(atlasSelectedMonsterName)) {
+    atlasSelectedMonsterName = selectedRegion.monsters[0] || null;
+  }
+  const findings = buildAtlasSearchFindings(regions, atlasSearchQuery);
+  const findingsHtml = findings.length
+    ? `<div class="atlas-findings">${findings
+        .map((f) => {
+          const def = getEnemyDefByName(f.monsterName);
+          const monsterImg = escapeAttr(getAtlasMonsterImage(def));
+          const matchesHtml = f.resourceMatches.length
+            ? `<div class="atlas-finding-resources">${f.resourceMatches
+                .map((res) => {
+                  return `<span class="atlas-finding-resource" data-item-name="${escapeAttr(res.name)}" data-atlas-loot-conditional="${
+                    res.conditional ? "1" : "0"
+                  }"><img class="atlas-loot-img" data-item-name="${escapeAttr(res.name)}" data-atlas-loot-conditional="${
+                    res.conditional ? "1" : "0"
+                  }" src="${escapeAttr(getItemImage(res.name))}" alt="" draggable="false" />${escapeHtml(
+                    res.name
+                  )}</span>`;
+                })
+                .join("")}</div>`
+            : `<div class="atlas-finding-resources muted">Monster name match</div>`;
+          return `<button type="button" class="atlas-finding" data-atlas-jump-region="${escapeAttr(f.regionName)}" data-atlas-jump-monster="${escapeAttr(
+            f.monsterName
+          )}">
+            <img class="atlas-finding-monster-img" src="${monsterImg}" alt="" draggable="false" />
+            <span class="atlas-finding-main"><strong>${escapeHtml(f.monsterName)}</strong><small>${escapeHtml(f.regionName)}</small>${matchesHtml}</span>
+          </button>`;
+        })
+        .join("")}</div>`
+    : atlasSearchQuery.trim()
+      ? `<p class="crafting-empty">No atlas findings for "${escapeHtml(atlasSearchQuery.trim())}".</p>`
+      : "";
+
+  const treeHtml = regions
+    .map((region) => {
+      const isOpen = atlasExpandedRegions.has(region.name);
+      const caret = isOpen ? "▾" : "▸";
+      const monstersHtml = isOpen
+        ? `<div class="atlas-tree-monsters">${region.monsters
+            .map((m) => {
+              const active = region.name === atlasSelectedRegionName && m === atlasSelectedMonsterName ? " atlas-monster-btn--active" : "";
+              return `<button type="button" class="atlas-monster-btn${active}" data-atlas-region="${escapeAttr(region.name)}" data-atlas-monster="${escapeAttr(
+                m
+              )}">${escapeHtml(m)}</button>`;
+            })
+            .join("")}</div>`
+        : "";
+      return `<div class="atlas-tree-region">
+        <button type="button" class="atlas-region-toggle" data-atlas-toggle-region="${escapeAttr(region.name)}">${caret} ${escapeHtml(
+          region.name
+        )}</button>
+        ${monstersHtml}
+      </div>`;
+    })
+    .join("");
+
+  const def = atlasSelectedMonsterName ? getEnemyDefByName(atlasSelectedMonsterName) : null;
+  const lootEntries = atlasSelectedMonsterName ? getAtlasMonsterLootEntries(atlasSelectedMonsterName) : [];
+  const lootHtml = lootEntries.length
+    ? `<div class="atlas-loot-list">${lootEntries
+        .map(
+          (entry) =>
+            `<span class="atlas-loot-chip" data-item-name="${escapeAttr(entry.name)}" data-atlas-loot-conditional="${
+              entry.conditional ? "1" : "0"
+            }"><img class="atlas-loot-img" data-item-name="${escapeAttr(entry.name)}" data-atlas-loot-conditional="${
+              entry.conditional ? "1" : "0"
+            }" src="${escapeAttr(getItemImage(entry.name))}" alt="" draggable="false" /></span>`
+        )
+        .join("")}</div>`
+    : '<p class="crafting-empty">No configured loot items.</p>';
+  const levelRange = selectedRegion ? `${selectedRegion.levelMin}-${selectedRegion.levelMax}` : "—";
+  const rightHtml = atlasSelectedMonsterName
+    ? `<div class="atlas-detail-card">
+        <img class="atlas-monster-img" src="${escapeAttr(getAtlasMonsterImage(def))}" alt="${escapeAttr(atlasSelectedMonsterName)}" draggable="false" />
+        <div class="atlas-monster-info">
+          <div><strong>Name:</strong> ${escapeHtml(atlasSelectedMonsterName)}</div>
+          <div><strong>Level range:</strong> ${escapeHtml(levelRange)}</div>
+          <div><strong>Possible loot:</strong></div>
+          ${lootHtml}
+        </div>
+      </div>`
+    : '<p class="crafting-empty">Select a monster.</p>';
+
+  return `<div class="game-page">
+    <div class="atlas-search-row">
+      <input type="text" class="portrait-edit-select atlas-search-input" data-atlas-search placeholder="Search monster or resource..." value="${escapeAttr(
+        atlasSearchQuery
+      )}" autocomplete="off" />
+    </div>
+    ${findingsHtml}
+    <div class="atlas-layout">
+      <div class="atlas-tree">${treeHtml}</div>
+      <div class="atlas-detail">${rightHtml}</div>
+    </div>
+  </div>`;
+}
+
 function buildMenuPanelHtml(kind) {
   const meta = getMenuPanelMeta(kind);
   if (!meta) return '<div class="game-page"><p class="game-page-lead muted">Panel unavailable.</p></div>';
   if (kind === "crafting") return buildCraftingPanelHtml();
+  if (kind === "atlas") return buildAtlasPanelHtml();
   return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(
     meta.lead
   )}</p></div>`;
@@ -11965,6 +12178,18 @@ function openMenuPanel(kind) {
   if (!modal) return;
   activeMenuPanel = kind;
   if (kind === "crafting") ensureActiveCraftingProfessionId();
+  if (kind === "atlas") {
+    const regions = getAtlasRegions();
+    if (regions.length) {
+      if (!atlasSelectedRegionName) atlasSelectedRegionName = regions[0].name;
+      const region = regions.find((r) => r.name === atlasSelectedRegionName) || regions[0];
+      atlasSelectedRegionName = region.name;
+      if (!atlasSelectedMonsterName || !region.monsters.includes(atlasSelectedMonsterName)) {
+        atlasSelectedMonsterName = region.monsters[0] || null;
+      }
+      atlasExpandedRegions.add(region.name);
+    }
+  }
   if (title) title.textContent = meta.title;
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
@@ -12578,6 +12803,12 @@ function onDocumentKeydown(e) {
     toggleMenuPanel("crafting");
     return;
   }
+  if (k === "u") {
+    e.preventDefault();
+    if (isWorldMapModalOpen()) return;
+    toggleMenuPanel("atlas");
+    return;
+  }
   if (k === "r" && e.shiftKey) {
     e.preventDefault();
     reloadMonsters({ resetDefeated: false });
@@ -12827,6 +13058,8 @@ function renderBottomHud() {
   if (marketBtn) marketBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "market");
   const craftingBtn = document.getElementById("craftingPanelBtn");
   if (craftingBtn) craftingBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "crafting");
+  const atlasBtn = document.getElementById("atlasPanelBtn");
+  if (atlasBtn) atlasBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "atlas");
 
   const miniSlot = document.getElementById("bottomHudMinimapSlot");
   if (!miniSlot) return;
@@ -13058,6 +13291,40 @@ function onContentClick(e) {
     if (craftRecipeById(craftBtn.dataset.craftRecipeId)) {
       renderMenuPanelContent();
       render();
+    }
+    return;
+  }
+  const atlasRegionToggle = e.target.closest("[data-atlas-toggle-region]");
+  if (atlasRegionToggle) {
+    const regionName = atlasRegionToggle.getAttribute("data-atlas-toggle-region");
+    if (regionName) {
+      if (atlasExpandedRegions.has(regionName)) atlasExpandedRegions.delete(regionName);
+      else atlasExpandedRegions.add(regionName);
+      renderMenuPanelContent();
+    }
+    return;
+  }
+  const atlasMonsterBtn = e.target.closest("[data-atlas-region][data-atlas-monster]");
+  if (atlasMonsterBtn) {
+    const regionName = atlasMonsterBtn.getAttribute("data-atlas-region");
+    const monsterName = atlasMonsterBtn.getAttribute("data-atlas-monster");
+    if (regionName && monsterName) {
+      atlasSelectedRegionName = regionName;
+      atlasSelectedMonsterName = monsterName;
+      atlasExpandedRegions.add(regionName);
+      renderMenuPanelContent();
+    }
+    return;
+  }
+  const atlasJump = e.target.closest("[data-atlas-jump-region][data-atlas-jump-monster]");
+  if (atlasJump) {
+    const regionName = atlasJump.getAttribute("data-atlas-jump-region");
+    const monsterName = atlasJump.getAttribute("data-atlas-jump-monster");
+    if (regionName && monsterName) {
+      atlasSelectedRegionName = regionName;
+      atlasSelectedMonsterName = monsterName;
+      atlasExpandedRegions.add(regionName);
+      renderMenuPanelContent();
     }
     return;
   }
@@ -13434,6 +13701,7 @@ function initUi() {
     menuPanelContent.addEventListener("mouseover", onContentTooltipOver);
     menuPanelContent.addEventListener("mouseout", onContentTooltipOut);
     menuPanelContent.addEventListener("mousemove", onContentTooltipMove);
+    menuPanelContent.addEventListener("input", onContentInput);
   }
 
   const bottomMini = document.getElementById("bottomHudMinimapSlot");

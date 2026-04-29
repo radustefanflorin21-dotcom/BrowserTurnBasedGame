@@ -1370,6 +1370,160 @@ body.edit-mode-on .portrait-stack--editing-scale {
   color: var(--overview-muted);
 }
 
+.atlas-search-row {
+  margin-bottom: 8px;
+}
+
+.atlas-search-input {
+  width: 100%;
+}
+
+.atlas-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.3fr);
+  gap: 10px;
+}
+
+.atlas-tree {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  max-height: 55vh;
+  overflow: auto;
+  color: #1f1a14;
+}
+
+.atlas-region-toggle {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: #1f1a14;
+  font-size: 0.72rem;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.atlas-tree-monsters {
+  margin: 3px 0 6px 12px;
+  display: grid;
+  gap: 3px;
+}
+
+.atlas-monster-btn {
+  text-align: left;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #2a2017;
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.atlas-monster-btn--active {
+  background: rgba(201, 162, 39, 0.25);
+  outline: 1px solid rgba(201, 162, 39, 0.6);
+  color: #1b140d;
+}
+
+.atlas-detail {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #1f1a14;
+}
+
+.atlas-detail-card {
+  display: grid;
+  gap: 8px;
+}
+
+.atlas-monster-img {
+  width: 100%;
+  max-width: 180px;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+}
+
+.atlas-monster-info {
+  display: grid;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #2a2017;
+}
+
+.atlas-loot-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.atlas-loot-chip,
+.atlas-finding-resource {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+.atlas-loot-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.item-tooltip--conditional-loot .item-tip-name {
+  color: #e9dd8a;
+}
+
+.atlas-findings {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.atlas-finding {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: #1f1a14;
+}
+
+.atlas-finding-monster-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.atlas-finding-main {
+  display: grid;
+  gap: 2px;
+  font-size: 0.66rem;
+}
+
+.atlas-finding-main small {
+  color: #5b4a39;
+}
+
+.atlas-finding-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
 .professions-intro {
   margin: 0;
   font-size: 0.5rem;
