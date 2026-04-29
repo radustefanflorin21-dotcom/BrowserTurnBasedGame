@@ -44,32 +44,28 @@
   <section class="bottom-hud-right">
     <div class="bottom-menu-row">
       <nav class="bottom-menu" aria-label="Main menu">
-        <button type="button" id="characterPanelBtn" class="bottom-menu-btn" data-tooltip="Character" onclick="openCharacterPanel()">
+        <button type="button" id="characterPanelBtn" class="bottom-menu-btn" data-tooltip="Character (C)" onclick="openCharacterPanel()">
           <img class="bottom-menu-icon" src="Assets/UI/character.png" alt="Character icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Character</span>
         </button>
-        <button type="button" id="arenaPanelBtn" class="bottom-menu-btn" data-tooltip="Arena" onclick="openMenuPanel('arena')">
+        <button type="button" id="arenaPanelBtn" class="bottom-menu-btn" data-tooltip="Arena (A)" onclick="openMenuPanel('arena')">
           <img class="bottom-menu-icon" src="Assets/UI/arena.png" alt="Arena icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Arena</span>
         </button>
-        <button type="button" id="alliancePanelBtn" class="bottom-menu-btn" data-tooltip="Alliance" onclick="openMenuPanel('alliance')">
+        <button type="button" id="alliancePanelBtn" class="bottom-menu-btn" data-tooltip="Alliance (G)" onclick="openMenuPanel('alliance')">
           <img class="bottom-menu-icon" src="Assets/UI/alliance.png" alt="Alliance icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Alliance</span>
         </button>
-        <button type="button" id="marketPanelBtn" class="bottom-menu-btn" data-tooltip="Market" onclick="openMenuPanel('market')">
+        <button type="button" id="marketPanelBtn" class="bottom-menu-btn" data-tooltip="Market (B)" onclick="openMenuPanel('market')">
           <img class="bottom-menu-icon" src="Assets/UI/market.png" alt="Market icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Market</span>
         </button>
-        <button type="button" id="craftingPanelBtn" class="bottom-menu-btn" data-tooltip="Crafting" onclick="openMenuPanel('crafting')">
+        <button type="button" id="craftingPanelBtn" class="bottom-menu-btn" data-tooltip="Crafting (P)" onclick="openMenuPanel('crafting')">
           <img class="bottom-menu-icon" src="Assets/UI/crafting.png" alt="Crafting icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
           <span class="sr-only">Crafting</span>
         </button>
       </nav>
       <div class="bottom-menu-tools">
-        <button type="button" id="editModeToggle" class="bottom-menu-btn bottom-menu-btn--tool" data-tooltip="Edit Mode" aria-pressed="false" title="When on, drag and resize editable scene objects, add or remove them. Layout is saved.">
-          <img class="bottom-menu-icon" src="Assets/UI/edit.png" alt="Edit mode icon" onerror="this.onerror=null;this.src='Assets/UI/default-menu.png';">
-          <span class="sr-only">Edit mode</span>
-        </button>
         <div id="editModeAddPanel" class="sidebar-add-panel hidden">
           <button type="button" id="editModeAddBtn" class="sidebar-add-btn">Add object…</button>
           <button type="button" id="exportPortalLayoutBtn" class="sidebar-add-btn" title="Copy city waygate positions/sizes (from your save) as JSON for config.js">
