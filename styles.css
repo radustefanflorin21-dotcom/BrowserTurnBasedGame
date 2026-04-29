@@ -1315,6 +1315,20 @@ body.edit-mode-on .portrait-stack--editing-scale {
   align-items: baseline;
 }
 
+.crafting-result-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: help;
+}
+
+.crafting-result-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
 .crafting-recipe-tier {
   font-size: 0.62rem;
   color: var(--overview-muted);
@@ -1324,6 +1338,30 @@ body.edit-mode-on .portrait-stack--editing-scale {
   margin-top: 3px;
   font-size: 0.68rem;
   line-height: 1.3;
+}
+
+.crafting-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.crafting-ingredient-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+.crafting-ingredient-chip--missing {
+  color: #a22;
+}
+
+.crafting-ingredient-img {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .crafting-empty {
@@ -1854,6 +1892,8 @@ body.edit-mode-on .portrait-stack--editing-scale {
   border-radius: 6px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
   pointer-events: none;
+  transform: scale(0.8);
+  transform-origin: top left;
 }
 
 .item-tooltip.item-tooltip--inventory-item {

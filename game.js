@@ -10984,9 +10984,14 @@ function showTooltipHtml(html, clientX, clientY, opts) {
 function showItemTooltip(itemName, clientX, clientY, sourceEl) {
   let imageSizePx = 64;
   if (sourceEl instanceof HTMLElement) {
-    const r = sourceEl.getBoundingClientRect();
-    const base = Math.max(r.width || 0, r.height || 0);
-    if (base > 0) imageSizePx = base * 4;
+    if (sourceEl.closest(".crafting-result-name, .crafting-ingredient-chip")) {
+      // Keep crafting tooltip sizing consistent with inventory hover sizing.
+      imageSizePx = 160;
+    } else {
+      const r = sourceEl.getBoundingClientRect();
+      const base = Math.max(r.width || 0, r.height || 0);
+      if (base > 0) imageSizePx = base * 4;
+    }
   }
   showTooltipHtml(buildItemTooltipHtml(itemName, imageSizePx), clientX, clientY, {
     tooltipClass: "item-tooltip--inventory-item"
@@ -11267,7 +11272,7 @@ function hideItemTooltip() {
 }
 
 const TOOLTIP_HOST_SEL =
-  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies]";
+  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name]";
 
 function onContentTooltipOver(e) {
   const fightAlly = e.target.closest(".fight-ally-card[data-party-member]");
@@ -11315,6 +11320,16 @@ function onContentTooltipOver(e) {
   const fLoot = e.target.closest(".fight-loot-cell[data-item-name]");
   if (fLoot && fLoot.dataset.itemName) {
     showItemTooltip(fLoot.dataset.itemName, e.clientX, e.clientY, fLoot);
+    return;
+  }
+  const craftResult = e.target.closest(".crafting-result-name[data-item-name]");
+  if (craftResult && craftResult.dataset.itemName) {
+    showItemTooltip(craftResult.dataset.itemName, e.clientX, e.clientY, craftResult);
+    return;
+  }
+  const craftIngredient = e.target.closest(".crafting-ingredient-chip[data-item-name]");
+  if (craftIngredient && craftIngredient.dataset.itemName) {
+    showItemTooltip(craftIngredient.dataset.itemName, e.clientX, e.clientY, craftIngredient);
     return;
   }
   const cell = e.target.closest(".inv-cell[data-item-name]");
@@ -11872,37 +11887,48 @@ function buildCraftingPanelHtml() {
     .join("");
   const invCounts = getInventoryBaseItemCounts();
   const recipes = getAllCraftingRecipes().filter((r) => getCraftingProfessionIdForRecipe(r) === activeProfId);
-  const recipeRows = recipes
-    .map((r) => {
-      const avail = evaluateCraftRecipeAvailability(r, invCounts);
+  const evaluated = recipes
+    .map((r) => ({ recipe: r, avail: evaluateCraftRecipeAvailability(r, invCounts) }))
+    .sort((a, b) => {
+      if (a.avail.craftable !== b.avail.craftable) return a.avail.craftable ? -1 : 1;
+      const aLvl = typeof a.recipe.resultLevel === "number" ? a.recipe.resultLevel : 1;
+      const bLvl = typeof b.recipe.resultLevel === "number" ? b.recipe.resultLevel : 1;
+      if (aLvl !== bLvl) return aLvl - bLvl;
+      return String(a.recipe.resultItem || "").localeCompare(String(b.recipe.resultItem || ""));
+    });
+  const recipeRows = evaluated
+    .map(({ recipe: r, avail }) => {
       const rowCls = avail.craftable
         ? "crafting-recipe-row crafting-recipe-row--craftable"
         : "crafting-recipe-row crafting-recipe-row--locked";
       const ing = Array.isArray(r.ingredients) ? r.ingredients : [];
-      const ingText = ing
+      const ingHtml = ing
         .map((i) => {
           const itemName = i && typeof i.item === "string" ? i.item.trim() : "";
           if (!itemName) return null;
           const need = i && typeof i.qty === "number" && Number.isFinite(i.qty) ? Math.max(1, Math.floor(i.qty)) : 1;
           const have = invCounts.get(itemName) || 0;
-          return `${itemName} ${have}/${need}`;
+          const itemImg = escapeAttr(getItemImage(itemName));
+          const chipCls = have >= need ? "crafting-ingredient-chip" : "crafting-ingredient-chip crafting-ingredient-chip--missing";
+          return `<span class="${chipCls}" data-item-name="${escapeAttr(itemName)}"><img class="crafting-ingredient-img" src="${itemImg}" alt="" draggable="false" />${escapeHtml(
+            itemName
+          )} ${have}/${need}</span>`;
         })
         .filter(Boolean)
-        .join(" · ");
-      const statusText = !avail.levelOk
-        ? `Level: ${Math.max(1, Math.floor(player.level || 1))}/${avail.requiredLevel}`
-        : avail.missing.length
-          ? `Missing: ${avail.missing.map((m) => `${m.item} ${m.have}/${m.need}`).join(", ")}`
-          : "Craftable";
+        .join("");
+      const statusText = !avail.levelOk ? `Level: ${Math.max(1, Math.floor(player.level || 1))}/${avail.requiredLevel}` : "Craftable";
       const craftBtn = `<button type="button" class="btn-secondary crafting-craft-btn" data-craft-recipe-id="${escapeAttr(
         r.id || ""
       )}"${avail.craftable ? "" : " disabled"}>Craft</button>`;
+      const resultImg = escapeAttr(getItemImage(r.resultItem));
       return `<div class="${rowCls}">
-        <div class="crafting-recipe-head"><strong>${escapeHtml(r.resultItem)}</strong> <span class="crafting-recipe-tier">${escapeHtml(
-          r.tierLabel || ""
-        )}</span>${craftBtn}</div>
+        <div class="crafting-recipe-head"><strong class="crafting-result-name" data-item-name="${escapeAttr(
+          r.resultItem
+        )}"><img class="crafting-result-img" src="${resultImg}" alt="" draggable="false" />${escapeHtml(
+          r.resultItem
+        )}</strong> <span class="crafting-recipe-tier">${escapeHtml(r.tierLabel || "")}</span>${craftBtn}</div>
         <div class="crafting-recipe-sub">Required level: ${avail.requiredLevel}</div>
-        <div class="crafting-recipe-sub">${escapeHtml(ingText || "No ingredients listed.")}</div>
+        <div class="crafting-recipe-sub crafting-ingredients">${ingHtml || "No ingredients listed."}</div>
         <div class="crafting-recipe-sub">${escapeHtml(statusText)}</div>
       </div>`;
     })
