@@ -3713,8 +3713,9 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if ((threatened || allyLow) && ready("natures_blessing")) {
       setCd("natures_blessing", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.28)) {
-        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.2)));
-        appendFightLog(`${foe.name} heals itself with Nature's Blessing.`);
+        const heal = Math.max(1, Math.floor(foe.maxHp * 0.2));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        appendFightLog(`${foe.name} heals itself with Nature's Blessing for ${heal}.`);
       }
       return true;
     }
@@ -4963,8 +4964,9 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (foeHpFrac < 0.6 && ready("gentle_heal")) {
       setCd("gentle_heal", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.2)) {
-        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
-        appendFightLog(`${foe.name} heals itself gently.`);
+        const heal = Math.max(1, Math.floor(foe.maxHp * 0.15));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        appendFightLog(`${foe.name} heals itself gently for ${heal}.`);
       }
       return true;
     }
@@ -4986,8 +4988,9 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (ready("gentle_heal")) {
       setCd("gentle_heal", 3);
       if (!healLowestHpFractionAlly(st, foe, 0.2)) {
-        foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(foe.maxHp * 0.15)));
-        appendFightLog(`${foe.name} heals itself gently.`);
+        const heal = Math.max(1, Math.floor(foe.maxHp * 0.15));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        appendFightLog(`${foe.name} heals itself gently for ${heal}.`);
       }
       return true;
     }
@@ -9911,6 +9914,8 @@ function injectFightLogNameColors(escapedHtml) {
 
 function formatFightLogPlainTextToHtml(text) {
   let h = injectFightLogNameColors(escapeHtml(String(text || "")));
+  h = h.replace(/\bheals?[^.]*?\bfor\s+(\d+)\b/gi, (m, n) => m.replace(n, `<span class="fight-log-heal">${n}</span>`));
+  h = h.replace(/\brestores\s+(\d+)\s+HP\b/gi, (_m, n) => `restores <span class="fight-log-heal">${n}</span> HP`);
   h = h.replace(/(\d+)\s+damage/gi, (_m, n) => `<span class="fight-log-dmg">${n}</span> damage`);
   h = h.replace(/\b(\d+)\s+HP\b/gi, (_m, n) => `<span class="fight-log-dmg">${n}</span> HP`);
   h = h.replace(/\bfor\s+(\d+)\b/gi, (_m, n) => `for <span class="fight-log-dmg">${n}</span>`);

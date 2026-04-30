@@ -4070,6 +4070,12 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   text-shadow: var(--fight-log-stroke);
 }
 
+.fight-log-heal {
+  color: #b4ffc8;
+  font-weight: 700;
+  text-shadow: var(--fight-log-stroke);
+}
+
 .fight-log-stat {
   font-weight: 800;
   text-shadow: var(--fight-log-stroke);
