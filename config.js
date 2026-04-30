@@ -1958,7 +1958,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 40,
       attack: 20,
-      image: "Assets/Equips/template_polearm.png",
+      image: "Assets/Equips/gorilla_crusher.png",
       description: "A primal crushing weapon meant for overwhelming pressure.",
       set: "Primal Rage",
       build: "STR",
@@ -1986,7 +1986,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 40,
       defense: 8,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/gorilla_armor.png",
       description: "Heavy jungle armor that turns durability into momentum.",
       set: "Jungle Titan",
       build: "VIT",
@@ -2007,15 +2007,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 25, INT: 24, DR: 7, "Magic Resist": 10, HP: 320 }
     },
-    "Jungle Boots": {
+    "Primate Boots": {
       type: "armor",
       slot: "feet",
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 37,
       defense: 8,
-      image: "Assets/Equips/template_feet.png",
-      description: "Low-noise boots for fast, sustained hunts.",
+      image: "Assets/Equips/primate_boots.png",
+      description: "Durable primate-hide boots built for fast, sustained hunts.",
       set: "Greenleaf Assassin",
       build: "DEX_VIT",
       bonusSkills: [],
@@ -2042,7 +2042,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 39,
       defense: 8,
-      image: "Assets/Equips/template_leggs.png",
+      image: "Assets/Equips/Forest_Leggings.png",
       description: "Dense forest leathers offering survival without losing pace.",
       set: "Jungle Titan",
       build: "VIT_DEX",
@@ -2077,15 +2077,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 24, VIT: 13, "Debuff Duration": 10, "Magic Resist": 8 }
     },
-    "Jungle Bracelet": {
+    "Primate Bracelet": {
       type: "armor",
       slot: "bracelet",
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 37,
       defense: 8,
-      image: "Assets/Equips/jungle_bracelet.png",
-      description: "A dense bracelet used by dominant frontliners.",
+      image: "Assets/Equips/primate_bracelet.png",
+      description: "A dense primate bracelet used by dominant frontliners.",
       set: "Jungle Titan",
       build: "STR_VIT",
       bonusSkills: [],
@@ -4373,8 +4373,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "jungle_boots",
-            resultItem: "Jungle Boots",
+            id: "primate_boots",
+            resultItem: "Primate Boots",
             resultLevel: 37,
             ingredients: [
               { item: "Soul Fragment", qty: 7, source: "monster_loot" },
@@ -4441,8 +4441,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "jungle_bracelet",
-            resultItem: "Jungle Bracelet",
+            id: "primate_bracelet",
+            resultItem: "Primate Bracelet",
             resultLevel: 37,
             ingredients: [
               { item: "Thick Bone", qty: 7, source: "monster_loot" },

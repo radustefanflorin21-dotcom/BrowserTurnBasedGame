@@ -636,10 +636,10 @@ function migratePlayer(p) {
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
-  /** Legacy names → Jungle Bracelet (bracelet slot); head-worn circlet moves off head. */
+  /** Legacy names → Primate Bracelet (bracelet slot); head-worn circlet moves off head. */
   (function migrateToJungleBracelet() {
-    const target = "Jungle Bracelet";
-    const legacyBases = new Set(["Vine Gloves", "Jungle Circlet"]);
+    const target = "Primate Bracelet";
+    const legacyBases = new Set(["Vine Gloves", "Jungle Circlet", "Jungle Bracelet"]);
     const remap = (s) => {
       if (typeof s !== "string" || !s) return s;
       const { baseName, rarityId } = splitItemInstanceName(s);
@@ -668,6 +668,23 @@ function migratePlayer(p) {
       p.equipment[slot.id] = null;
       placeBraceletOrInv(next);
     });
+    if (Array.isArray(p.inventory)) {
+      p.inventory = p.inventory.map((entry) => (typeof entry === "string" ? remap(entry) : entry));
+    }
+  })();
+  (function migrateJungleBootsToPrimateBoots() {
+    const oldBase = "Jungle Boots";
+    const newBase = "Primate Boots";
+    const remap = (s) => {
+      if (typeof s !== "string" || !s) return s;
+      const { baseName, rarityId } = splitItemInstanceName(s);
+      if (baseName !== oldBase) return s;
+      return rarityId ? makeRarityItemInstanceName(newBase, rarityId) : newBase;
+    };
+    const ft = p.equipment && p.equipment.feet;
+    if (typeof ft === "string" && ft && getItemBaseName(ft) === oldBase) {
+      p.equipment.feet = remap(ft);
+    }
     if (Array.isArray(p.inventory)) {
       p.inventory = p.inventory.map((entry) => (typeof entry === "string" ? remap(entry) : entry));
     }
