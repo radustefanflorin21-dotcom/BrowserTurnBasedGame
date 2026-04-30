@@ -3998,19 +3998,125 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   min-height: 0;
   overflow-y: auto;
   padding: 6px 7px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.12);
   border: 1px solid var(--overview-stone-border);
   border-radius: 6px;
-  color: var(--overview-ink);
+  /* Brighter default body + dark halo so glyphs separate from the panel */
+  color: #eceff4;
   font-size: 0.65rem;
   font-family: ui-monospace, monospace;
   line-height: 1.35;
+  --fight-log-stroke: 0 0 2px #050505, 0 0 3px #0a0a0a, 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
 }
 
 .fight-log-line {
   padding: 2px 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   animation: logLineIn 0.25s ease;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.fight-log-block {
+  margin: 3px 0;
+}
+
+.fight-log-head {
+  font-weight: 700;
+  margin-bottom: 3px;
+  line-height: 1.35;
+  color: #f2f4f8;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.fight-log-effect {
+  font-size: 0.62rem;
+  margin: 2px 0 2px 10px;
+  line-height: 1.35;
+  padding-left: 6px;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  font-weight: 600;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.fight-log-effect--buff {
+  color: #b4ffc8;
+  border-left-color: rgba(140, 255, 180, 0.75);
+}
+
+.fight-log-effect--debuff {
+  color: #ffc8c8;
+  border-left-color: rgba(255, 140, 140, 0.75);
+}
+
+.fight-log-effect--neutral {
+  color: #e2e4ea;
+}
+
+.fight-log-player {
+  color: #b8e0ff;
+  font-weight: 700;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.fight-log-foe {
+  color: #ffb0b0;
+  font-weight: 700;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.fight-log-dmg {
+  color: #ffd78a;
+  font-weight: 700;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.fight-log-stat {
+  font-weight: 800;
+  text-shadow: var(--fight-log-stroke);
+}
+
+.item-tip-status-list {
+  margin-top: 3px;
+}
+
+.item-tip-status {
+  font-size: 0.62rem;
+  line-height: 1.35;
+  margin: 3px 0;
+  padding: 2px 0 2px 6px;
+  border-left: 2px solid transparent;
+}
+
+.item-tip-status--buff {
+  color: #9ee0b0;
+  border-left-color: rgba(120, 200, 150, 0.65);
+}
+
+.item-tip-status--debuff {
+  color: #f0b0a8;
+  border-left-color: rgba(220, 120, 100, 0.65);
+}
+
+.item-tip-status--neutral {
+  color: #c8c8c8;
+  border-left-color: rgba(180, 180, 180, 0.35);
+}
+
+.item-tip-name--player {
+  color: #9ecfff;
+}
+
+.item-tip-name--ally {
+  color: #b8d9ff;
+}
+
+.item-tip-name--foe {
+  color: #ffb0b0;
+}
+
+.item-tip-muted {
+  color: #888;
+  font-size: 0.6rem;
 }
 
 @keyframes logLineIn {

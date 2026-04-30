@@ -1944,7 +1944,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 39,
       attack: 20,
-      image: "Assets/Equips/template_weapon.png",
+      image: "Assets/Equips/stag_piercer.png",
       description: "A ceremonial blade that rewards tempo, buffs, and follow-ups.",
       set: "Verdant Rite",
       build: "DEX_INT",
@@ -2028,26 +2028,12 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 38,
       defense: 8,
-      image: "Assets/Equips/template_helm.png",
+      image: "Assets/Equips/antler_helm.png",
       description: "A helm crowned with stag antler to enhance supportive patterns.",
       set: "Verdant Rite",
       build: "INT_VIT",
       bonusSkills: [],
       bonusStats: { INT: 25, VIT: 14, "Debuff Duration": 10, "Magic Resist": 8, HP: 304 }
-    },
-    "Vine Gloves": {
-      type: "armor",
-      slot: "bracelet",
-      equipCategory: "bracelet",
-      rarity: "common",
-      itemLevel: 36,
-      defense: 7,
-      image: "Assets/Equips/template_bracelet.png",
-      description: "Flexible bracers for combo-heavy hybrid builds.",
-      set: "Greenleaf Assassin",
-      build: "DEX_INT",
-      bonusSkills: [],
-      bonusStats: { DEX: 22, INT: 21, Combo: 10, "Status Potency": 8, "Debuff Duration": 8, "Crit Damage": 8 }
     },
     "Forest Leggings": {
       type: "armor",
@@ -2077,15 +2063,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 25, DEX: 14, "Skill Power": 10, "Status Potency": 8, "Debuff Duration": 8, "Crit Damage": 8 }
     },
-    "Spirit Amulet": {
+    "Heart of the Jungle": {
       type: "armor",
       slot: "amulet",
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 38,
       defense: 8,
-      image: "Assets/Equips/template_amulet.png",
-      description: "An amulet for longer buffs, longer debuffs, longer fights.",
+      image: "Assets/Equips/heart_of_the_jungle.png",
+      description: "A living core attuned to the deep jungle—extends your control windows in long fights.",
       set: "Verdant Rite",
       build: "INT_VIT",
       bonusSkills: [],
@@ -2098,7 +2084,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 37,
       defense: 8,
-      image: "Assets/Equips/template_bracelet.png",
+      image: "Assets/Equips/jungle_bracelet.png",
       description: "A dense bracelet used by dominant frontliners.",
       set: "Jungle Titan",
       build: "STR_VIT",
@@ -2126,7 +2112,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 36,
       defense: 7,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/growth_loop.png",
       description: "A loop that rewards support and recovery play.",
       set: "Verdant Rite",
       build: "VIT_INT",
@@ -4414,19 +4400,6 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "vine_gloves",
-            resultItem: "Vine Gloves",
-            resultLevel: 36,
-            ingredients: [
-              { item: "Fox Fang", qty: 7, source: "monster_loot" },
-              { item: "Forest Fur", qty: 6, source: "monster_loot" },
-              { item: "Antler Piece", qty: 5, source: "monster_loot" },
-              { item: "Spirit Seed", qty: 5, source: "monster_loot" },
-              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
-              { item: "Heavy Bone", qty: 4, source: "gathering_loot" }
-            ]
-          },
-          {
             id: "forest_leggings",
             resultItem: "Forest Leggings",
             resultLevel: 39,
@@ -4454,8 +4427,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "spirit_amulet",
-            resultItem: "Spirit Amulet",
+            id: "heart_of_the_jungle",
+            resultItem: "Heart of the Jungle",
             resultLevel: 38,
             ingredients: [
               { item: "Spirit Seed", qty: 7, source: "monster_loot" },

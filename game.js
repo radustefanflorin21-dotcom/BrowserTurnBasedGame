@@ -636,6 +636,59 @@ function migratePlayer(p) {
   if (Object.prototype.hasOwnProperty.call(eq, "armor") && base.chest == null) base.chest = eq.armor;
   p.equipment = base;
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
+  /** Legacy names → Jungle Bracelet (bracelet slot); head-worn circlet moves off head. */
+  (function migrateToJungleBracelet() {
+    const target = "Jungle Bracelet";
+    const legacyBases = new Set(["Vine Gloves", "Jungle Circlet"]);
+    const remap = (s) => {
+      if (typeof s !== "string" || !s) return s;
+      const { baseName, rarityId } = splitItemInstanceName(s);
+      if (!legacyBases.has(baseName)) return s;
+      return rarityId ? makeRarityItemInstanceName(target, rarityId) : target;
+    };
+    const placeBraceletOrInv = (next) => {
+      if (!p.equipment.bracelet) p.equipment.bracelet = next;
+      else if (Array.isArray(p.inventory)) p.inventory.push(next);
+    };
+    const hd = p.equipment && p.equipment.head;
+    if (typeof hd === "string" && hd && legacyBases.has(getItemBaseName(hd))) {
+      const next = remap(hd);
+      p.equipment.head = null;
+      placeBraceletOrInv(next);
+    }
+    const br = p.equipment && p.equipment.bracelet;
+    if (typeof br === "string" && br && legacyBases.has(getItemBaseName(br))) {
+      p.equipment.bracelet = remap(br);
+    }
+    EQUIP_SLOTS.forEach((slot) => {
+      if (slot.id === "head" || slot.id === "bracelet") return;
+      const n = p.equipment[slot.id];
+      if (typeof n !== "string" || !n || !legacyBases.has(getItemBaseName(n))) return;
+      const next = remap(n);
+      p.equipment[slot.id] = null;
+      placeBraceletOrInv(next);
+    });
+    if (Array.isArray(p.inventory)) {
+      p.inventory = p.inventory.map((entry) => (typeof entry === "string" ? remap(entry) : entry));
+    }
+  })();
+  (function migrateSpiritAmuletToHeartOfTheJungle() {
+    const oldBase = "Spirit Amulet";
+    const newBase = "Heart of the Jungle";
+    const remap = (s) => {
+      if (typeof s !== "string" || !s) return s;
+      const { baseName, rarityId } = splitItemInstanceName(s);
+      if (baseName !== oldBase) return s;
+      return rarityId ? makeRarityItemInstanceName(newBase, rarityId) : newBase;
+    };
+    const am = p.equipment && p.equipment.amulet;
+    if (typeof am === "string" && am && getItemBaseName(am) === oldBase) {
+      p.equipment.amulet = remap(am);
+    }
+    if (Array.isArray(p.inventory)) {
+      p.inventory = p.inventory.map((entry) => (typeof entry === "string" ? remap(entry) : entry));
+    }
+  })();
   const removedLegacyItemBases = new Set([
     "Energy Cell",
     "Wolf Pelt",
@@ -2305,11 +2358,15 @@ function getDamageRange() {
   return { min: Math.max(1, mid - 2), max: mid + 2 };
 }
 
+/** Player outgoing damage mult when `playerAttackDebuffTurns` > 0 (Brittle Breath, etc.). */
+const PLAYER_WEAKENED_STRIKES_OUTGOING_MULT = 0.8;
+
 /** @param {null | { playerBleed?: { dmg: number, turns: number } | null, playerPoison?: { dmg: number, turns: number } | null, playerAttackDebuffTurns?: number, playerHamstringSlowTurns?: number, packHowlTurns?: number }} [status] */
 function getPlayerOutgoingDamageMultFromStatus(status) {
   if (!status) return 1;
   let m = 1;
-  if (typeof status.playerAttackDebuffTurns === "number" && status.playerAttackDebuffTurns > 0) m *= 0.8;
+  if (typeof status.playerAttackDebuffTurns === "number" && status.playerAttackDebuffTurns > 0)
+    m *= PLAYER_WEAKENED_STRIKES_OUTGOING_MULT;
   if (typeof status.playerHamstringSlowTurns === "number" && status.playerHamstringSlowTurns > 0) m *= 0.9;
   if (typeof status.playerBrineWeakTurns === "number" && status.playerBrineWeakTurns > 0) m *= 0.85;
   if (typeof status.playerDamageDownTurns === "number" && status.playerDamageDownTurns > 0) {
@@ -3229,7 +3286,10 @@ function buffStrongestAllyEcho(st, buffer, turns) {
   const target = allies.reduce((a, b) => ((a.attack || 0) >= (b.attack || 0) ? a : b));
   if (!target.combat) initFoeCombatRuntime(target);
   target.combat.echoCryBonusTurns = Math.max(target.combat.echoCryBonusTurns || 0, turns);
-  appendFightLog(`${buffer.name} uses Echo Cry — ${target.name} hits harder (${turns} rounds).`);
+  appendFightLogFlavorWithEffects(`${buffer.name} uses Echo Cry — ${target.name} hits harder.`, [
+    `~+25% damage dealt`,
+    `${turns} round${turns === 1 ? "" : "s"}`
+  ]);
   return true;
 }
 
@@ -3240,7 +3300,10 @@ function buffAllAlliesEcho(st, buffer, turns) {
     if (!target.combat) initFoeCombatRuntime(target);
     target.combat.echoCryBonusTurns = Math.max(target.combat.echoCryBonusTurns || 0, turns);
   });
-  appendFightLog(`${buffer.name} uses Echo Cry — allies are empowered (${turns} rounds).`);
+  appendFightLogFlavorWithEffects(`${buffer.name} uses Echo Cry — allies are empowered.`, [
+    `Each ally: ~+25% damage dealt`,
+    `${turns} round${turns === 1 ? "" : "s"}`
+  ]);
   return true;
 }
 
@@ -3271,7 +3334,11 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       st.status.playerDamageDownPct = Math.min(MONSTER_EFFECT_CAPS.damageDown, 10);
       st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
       const t = st.party && typeof targetUid === "number" ? st.party.find((m) => m && m.uid === targetUid) : null;
-      appendFightLog(`${foe.name} uses Foam Feint on ${t && t.name ? t.name : "you"}.`);
+      appendFightLogFlavorWithEffects(`${foe.name} uses Foam Feint on ${t && t.name ? t.name : "you"}.`, [
+        `Enemies +${roundCombatDisplay(st.status.playerAccuracyDownPct)}% hit vs you`,
+        `You deal −${roundCombatDisplay(st.status.playerDamageDownPct)}% damage`,
+        `${st.status.playerDamageDownTurns}t`
+      ]);
       return true;
     }
 
@@ -4408,7 +4475,11 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       setCd("blind_dust", 3);
       ensureCombatStatus(st);
       st.status.playerHamstringSlowTurns = Math.max(st.status.playerHamstringSlowTurns || 0, 2);
-      appendFightLog(`${foe.name} throws Blind Dust.`);
+      const slowT = st.status.playerHamstringSlowTurns;
+      appendFightLogFlavorWithEffects(`${foe.name} throws Blind Dust.`, [
+        `Hamstring ${slowT}t: your attacks deal ~10% less`,
+        "Slows your tempo"
+      ]);
       return true;
     }
 
@@ -4448,7 +4519,12 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       setCd("brittle_breath", 3);
       ensureCombatStatus(st);
       st.status.playerAttackDebuffTurns = Math.max(st.status.playerAttackDebuffTurns || 0, 2);
-      appendFightLog(`${foe.name} exhales Brittle Breath.`);
+      const brittleT = st.status.playerAttackDebuffTurns;
+      const weakPct = Math.round((1 - PLAYER_WEAKENED_STRIKES_OUTGOING_MULT) * 100);
+      appendFightLogFlavorWithEffects(`${foe.name} exhales Brittle Breath.`, [
+        `Your attacks deal −${weakPct}% damage`,
+        `${brittleT} turn${brittleT === 1 ? "" : "s"}`
+      ]);
       return true;
     }
 
@@ -4489,14 +4565,16 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (foeHpFrac < 0.6 && ready("dry_carapace")) {
       setCd("dry_carapace", 3);
       setFoeMitigation(foe, 1, 0.8);
-      appendFightLog(`${foe.name} hardens with Dry Carapace.`);
+      appendFightLogFlavorWithEffects(`${foe.name} hardens with Dry Carapace.`, [
+        "1t: takes ~20% less damage from your hits"
+      ]);
       return true;
     }
 
     if (foeHpFrac < 0.75 && ready("spiked_shell")) {
       setCd("spiked_shell", 3);
       setFoeReflect(foe, 2, 0.2);
-      appendFightLog(`${foe.name} raises a Spiked Shell.`);
+      appendFightLogFlavorWithEffects(`${foe.name} raises a Spiked Shell.`, ["2t: reflects 20% of damage you deal"]);
       return true;
     }
 
@@ -4505,7 +4583,11 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       setCd("defensive_taunt", 4);
       applyMonsterTauntOnPlayer(st, foe, 2);
       setFoeReflect(foe, 2, 0.3);
-      appendFightLog(`${foe.name} uses Defensive Taunt.`);
+      const tTaunt = foe.combat.tauntPlayerTurns;
+      appendFightLogFlavorWithEffects(`${foe.name} uses Defensive Taunt.`, [
+        `Forced target ${tTaunt}t`,
+        "2t: reflects 30% of damage you deal"
+      ]);
       return true;
     }
 
@@ -5410,7 +5492,9 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
         const red = Math.min(0.75, physRes / 100);
         foe.combat.thickHideDamagedMult = 1 - red;
         foe.combat.thickHideTurns = 1;
-        appendFightLog(`${foe.name} uses Thick Hide.`);
+        appendFightLogFlavorWithEffects(`${foe.name} uses Thick Hide.`, [
+          `1t: takes ~${Math.round(red * 100)}% less damage from hits`
+        ]);
         return;
       }
     }
@@ -9599,6 +9683,243 @@ function computeVictoryLoot(foes) {
   return { gold, xp, items };
 }
 
+function roundCombatDisplay(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+/** Buff/debuff/neutral for fight log effect rows (color). */
+function classifyFightLogEffectLine(line) {
+  const l = String(line || "").toLowerCase();
+  if (
+    /\byour attacks\b|damage you deal|you deal|hit vs you|enemies \+|forced target|reflects \d|stamina costs|disrupted|skill tax|weakened|hamstring|suppressed|combo down|fatigue|accursed|brine|fragile|stunned|poisoned you|bleed|burn:|poison:|brittle|\bdeals ~|weaker\b/i.test(
+      l
+    )
+  ) {
+    return "debuff";
+  }
+  if (
+    /armor break|stagger|weaker|mitigation|less damage from|counter|shield|resist|healing|taken|damage dealt|echo|empowered|hp\/|hp at start|vitality|steals|detonates|bonus int|bonus damage|reflects damage|nature guards|ward|carapace|shell|thick hide|dodge chance|rampage|rage x|marked|debuffed/i.test(
+      l
+    )
+  ) {
+    return "buff";
+  }
+  return "neutral";
+}
+
+function wrapFightLogPercentSpans(escapedLine) {
+  return String(escapedLine || "").replace(/([+−-]?\d+%)/g, '<span class="fight-log-stat">$1</span>');
+}
+
+function appendFightLogFlavorWithEffects(headline, effectParts) {
+  const parts = (effectParts || []).filter((x) => typeof x === "string" && x.trim());
+  if (!parts.length) {
+    appendFightLog(headline);
+    return;
+  }
+  const escHead = wrapFightLogPercentSpans(injectFightLogNameColors(escapeHtml(headline)));
+  const rows = parts
+    .map((p) => {
+      const cls = classifyFightLogEffectLine(p);
+      return `<div class="fight-log-effect fight-log-effect--${cls}">${wrapFightLogPercentSpans(injectFightLogNameColors(escapeHtml(p)))}</div>`;
+    })
+    .join("");
+  appendFightLog(`<div class="fight-log-block"><div class="fight-log-head">${escHead}</div>${rows}</div>`);
+}
+
+/**
+ * Human-readable active effects on the hero for fight-panel tooltips (and log copy).
+ * @param {object} st
+ * @returns {string[]}
+ */
+function getHeroCombatStatusEffectLines(st) {
+  const lines = [];
+  if (!st) return lines;
+  ensureCombatStatus(st);
+  const cs = ensurePlayerClassCombatState(st);
+  const s = st.status;
+  if ((cs.braceTurns || 0) > 0) {
+    lines.push(
+      `Brace (${cs.braceTurns}t): −${roundCombatDisplay(cs.braceReductionPct)}% damage taken, +${roundCombatDisplay(cs.braceStatusResistBonusPct)}% status resist`
+    );
+    if ((cs.braceDamagePenaltyPct || 0) > 0)
+      lines.push(`Brace: −${roundCombatDisplay(cs.braceDamagePenaltyPct)}% damage you deal`);
+  }
+  if ((cs.fortressTurns || 0) > 0) {
+    lines.push(
+      `Fortress (${cs.fortressTurns}t): −${roundCombatDisplay(cs.fortressReductionPct)}% damage taken, −${roundCombatDisplay(cs.fortressDamagePenaltyPct)}% damage you deal`
+    );
+  }
+  if ((cs.lastBastionTurns || 0) > 0) {
+    lines.push(
+      `Last Bastion (${cs.lastBastionTurns}t): ≤40% HP −${roundCombatDisplay(cs.lastBastionLowHpReductionPct)}% taken; >40% −${roundCombatDisplay(cs.lastBastionHighHpReductionPct)}% · +${roundCombatDisplay(cs.lastBastionHealingReceivedBonusPct)}% healing · −${roundCombatDisplay(cs.lastBastionDamagePenaltyPct)}% dealt`
+    );
+  }
+  if ((cs.riposteTurns || 0) > 0) lines.push(`Riposte (${cs.riposteTurns}t): next hit you take triggers ~40% weapon counter`);
+  if ((cs.flowStateTurns || 0) > 0) lines.push(`Flow State (${cs.flowStateTurns}t): +8% damage dealt`);
+  if ((cs.exposeWeaknessTurns || 0) > 0) lines.push(`Expose Weakness (${cs.exposeWeaknessTurns}t): +18% vs foes under 50% HP`);
+  if ((cs.manaSurgeTurns || 0) > 0) {
+    const msTip =
+      getClassDef(player.classId).id === "arcanist"
+        ? `Mana Surge (${cs.manaSurgeTurns}t): +10% damage dealt`
+        : `Mana Surge (${cs.manaSurgeTurns}t): spell tempo`;
+    lines.push(msTip);
+  }
+  if ((cs.focusFireTurns || 0) > 0) lines.push(`Focus Fire (${cs.focusFireTurns}t): +12% damage dealt`);
+  if ((cs.rageTurns || 0) > 0) lines.push(`Rage (${cs.rageTurns}t): +15% damage dealt`);
+  if ((cs.guardAllyTurns || 0) > 0) lines.push(`Guard Ally (${cs.guardAllyTurns}t): −12% damage you take`);
+  if ((cs.sanctuaryTurns || 0) > 0) lines.push(`Sanctuary (${cs.sanctuaryTurns}t): −14% damage you take`);
+  if ((cs.regenTurns || 0) > 0 && (cs.regenAmt || 0) > 0)
+    lines.push(`Regeneration (${cs.regenTurns}t): +${roundCombatDisplay(cs.regenAmt)} HP/start of your turn`);
+  if ((cs.divineAegisShield || 0) > 0) lines.push(`Divine Aegis: ${roundCombatDisplay(cs.divineAegisShield)} shield HP`);
+  if ((cs.revitalizeTurns || 0) > 0) lines.push(`Revitalize (${cs.revitalizeTurns}t): +25% healing from Heal`);
+  if ((cs.catalystReadyTurns || 0) > 0) lines.push(`Catalyst (${cs.catalystReadyTurns}t): next Chain Reaction detonates for bonus INT damage`);
+  if ((cs.plagueStacks || 0) > 0) lines.push(`Plague stacks: ${roundCombatDisplay(cs.plagueStacks)}`);
+
+  const bleed = s.playerBleed;
+  if (bleed && bleed.turns > 0 && bleed.dmg > 0) lines.push(`Bleed: ${roundCombatDisplay(bleed.dmg)}/turn (${bleed.turns}t)`);
+  if (s.playerPoison && s.playerPoison.turns > 0 && s.playerPoison.dmg > 0) {
+    lines.push(`Poison: ${roundCombatDisplay(s.playerPoison.dmg)}/turn (${s.playerPoison.turns}t)`);
+  }
+  const burn = s.playerBurn;
+  if (burn && burn.turns > 0 && burn.dmg > 0) lines.push(`Burn: ${roundCombatDisplay(burn.dmg)}/turn (${burn.turns}t)`);
+  if ((s.playerAttackDebuffTurns || 0) > 0) {
+    const pct = Math.round((1 - PLAYER_WEAKENED_STRIKES_OUTGOING_MULT) * 100);
+    lines.push(`Weakened strikes (${s.playerAttackDebuffTurns}t): −${pct}% damage you deal`);
+  }
+  if ((s.playerHamstringSlowTurns || 0) > 0) lines.push(`Hamstring/slow (${s.playerHamstringSlowTurns}t): −10% damage you deal`);
+  if ((s.playerBrineWeakTurns || 0) > 0) lines.push(`Brine weak (${s.playerBrineWeakTurns}t): −15% damage you deal`);
+  if ((s.playerFragileTurns || 0) > 0) lines.push(`Fragile (${s.playerFragileTurns}t): +2 flat damage taken per hit`);
+  if ((s.playerStunTurns || 0) > 0) lines.push(`Stunned (${s.playerStunTurns}t)`);
+  if ((s.packHowlTurns || 0) > 0) {
+    const pm =
+      typeof s.packHowlAttackMult === "number" && s.packHowlAttackMult > 0 ? s.packHowlAttackMult : 1.25;
+    lines.push(`Pack Howl (${s.packHowlTurns}t): wolves hit ~${Math.round((pm - 1) * 100)}% harder`);
+  }
+  if ((s.playerAccuracyDownTurns || 0) > 0 && (s.playerAccuracyDownPct || 0) > 0) {
+    lines.push(
+      `Accursed aim (${s.playerAccuracyDownTurns}t): enemies +${roundCombatDisplay(s.playerAccuracyDownPct)}% hit vs you`
+    );
+  }
+  if ((s.playerDamageDownTurns || 0) > 0 && (s.playerDamageDownPct || 0) > 0) {
+    lines.push(`Suppressed (${s.playerDamageDownTurns}t): −${roundCombatDisplay(s.playerDamageDownPct)}% damage you deal`);
+  }
+  if ((s.playerComboChanceDownTurns || 0) > 0 && (s.playerComboChanceDownPct || 0) > 0) {
+    lines.push(
+      `Combo down (${s.playerComboChanceDownTurns}t): −${roundCombatDisplay(s.playerComboChanceDownPct)}% combo stamina refund chance`
+    );
+  }
+  if ((s.playerStaminaCostUpTurns || 0) > 0 && (s.playerStaminaCostUpPct || 0) > 0) {
+    lines.push(`Fatigue (${s.playerStaminaCostUpTurns}t): +${roundCombatDisplay(s.playerStaminaCostUpPct)}% stamina costs`);
+  }
+  return lines;
+}
+
+/**
+ * @param {object} foe
+ * @returns {string[]}
+ */
+function getFoeCombatStatusEffectLines(foe) {
+  const lines = [];
+  if (!foe || !foe.combat) return lines;
+  const c = foe.combat;
+  if ((c.tauntPlayerTurns || 0) > 0) lines.push(`Taunting you (${c.tauntPlayerTurns}t): you must target this foe`);
+  if ((c.tauntedByVanguardTurns || 0) > 0) {
+    lines.push(
+      `Player taunt (${c.tauntedByVanguardTurns}t): −${roundCombatDisplay(c.tauntedByVanguardDamageDownPct)}% damage it deals`
+    );
+  }
+  if ((c.mitigationTurns || 0) > 0 && typeof c.mitigationMult === "number" && c.mitigationMult > 0 && c.mitigationMult < 1) {
+    lines.push(`Mitigation (${c.mitigationTurns}t): takes ~${roundCombatDisplay((1 - c.mitigationMult) * 100)}% less damage`);
+  }
+  if ((c.reflectTurns || 0) > 0 && typeof c.reflectFrac === "number" && c.reflectFrac > 0) {
+    lines.push(`Reflect (${c.reflectTurns}t): returns ${roundCombatDisplay(c.reflectFrac * 100)}% of damage you deal`);
+  }
+  if ((c.armorBreakTurns || 0) > 0) {
+    lines.push(`Armor broken (${c.armorBreakTurns}t): +${roundCombatDisplay(c.armorBreakPct)}% damage taken`);
+  }
+  if ((c.staggerDamageDownTurns || 0) > 0) lines.push(`Staggered (${c.staggerDamageDownTurns}t): deals ~12% less damage`);
+  if ((c.staggerLockedTurns || 0) > 0) lines.push(`Stagger locked (${c.staggerLockedTurns}t): disrupted skill use`);
+  if ((c.staggerSkillTaxTurns || 0) > 0) lines.push(`Skill tax (${c.staggerSkillTaxTurns}t)`);
+  if ((c.staggerTurns || 0) > 0) lines.push(`Stagger (${c.staggerTurns}t)`);
+  if ((c.thickHideTurns || 0) > 0 && typeof c.thickHideDamagedMult === "number" && c.thickHideDamagedMult > 0) {
+    lines.push(`Thick hide (${c.thickHideTurns}t): takes ~${roundCombatDisplay((1 - c.thickHideDamagedMult) * 100)}% less`);
+  }
+  if ((c.burnTurns || 0) > 0 && (c.burnDamage || 0) > 0)
+    lines.push(`Burning (${c.burnTurns}t): ${roundCombatDisplay(c.burnDamage)}/turn`);
+  if ((c.poisonTurns || 0) > 0 && (c.poisonDamage || 0) > 0)
+    lines.push(`Poisoned (${c.poisonTurns}t): ${roundCombatDisplay(c.poisonDamage)}/turn`);
+  if ((c.weakenTurns || 0) > 0) lines.push(`Weakened (${c.weakenTurns}t): deals ~12% less`);
+  if ((c.echoCryBonusTurns || 0) > 0) lines.push(`Echo Cry (${c.echoCryBonusTurns}t): ~+25% damage dealt`);
+  if (typeof c.evadeNextChance === "number" && c.evadeNextChance > 0.001) {
+    lines.push(`Next dodge chance: ${roundCombatDisplay(c.evadeNextChance * 100)}%`);
+  }
+  if (typeof foe.damageTakenMult === "number" && foe.damageTakenMult > 0 && Math.abs(foe.damageTakenMult - 1) > 0.001) {
+    const p = roundCombatDisplay((foe.damageTakenMult - 1) * 100);
+    lines.push(`Damage taken modifier: ${p >= 0 ? "+" : ""}${p}%`);
+  }
+  if ((c.wolfCritBonusTurns || 0) > 0) {
+    lines.push(`Crit surge (${c.wolfCritBonusTurns}t): +${roundCombatDisplay(c.wolfCritBonusPct)}% crit damage`);
+  }
+  if (typeof c.staggerNextAttackMult === "number" && c.staggerNextAttackMult > 0 && c.staggerNextAttackMult < 1) {
+    lines.push(`Next strike weakened (~${roundCombatDisplay((1 - c.staggerNextAttackMult) * 100)}% less)`);
+  }
+  if (typeof c.rageStacks === "number" && c.rageStacks > 0) {
+    lines.push(`Rage stacks: ${roundCombatDisplay(c.rageStacks)}`);
+  }
+  if (typeof c.gorillaRampStacks === "number" && c.gorillaRampStacks > 0) {
+    lines.push(`Rampage stacks: ${roundCombatDisplay(c.gorillaRampStacks)}`);
+  }
+  if (c.markedByPlayer) lines.push("Marked by you");
+  if (c.snakeDebuffed) lines.push("Snake debuff");
+  return lines;
+}
+
+/** Color party (blue) and foe (red) names in already-escaped fight log HTML. */
+function injectFightLogNameColors(escapedHtml) {
+  let h = String(escapedHtml || "");
+  const namesBlue = new Set(["You"]);
+  const namesRed = new Set();
+  if (typeof player !== "undefined" && player && typeof player.name === "string" && player.name.trim()) {
+    namesBlue.add(player.name.trim());
+  }
+  if (combatState && Array.isArray(combatState.party)) {
+    combatState.party.forEach((m) => {
+      if (m && typeof m.name === "string" && m.name.trim()) namesBlue.add(m.name.trim());
+    });
+  }
+  if (combatState && Array.isArray(combatState.foes)) {
+    combatState.foes.forEach((f) => {
+      if (f && typeof f.name === "string" && f.name.trim()) namesRed.add(f.name.trim());
+    });
+  }
+  const sortedBlue = Array.from(namesBlue).sort((a, b) => b.length - a.length);
+  const sortedRed = Array.from(namesRed).sort((a, b) => b.length - a.length);
+  sortedBlue.forEach((nm) => {
+    const esc = escapeHtml(nm);
+    if (!esc) return;
+    h = h.split(esc).join(`<span class="fight-log-player">${esc}</span>`);
+  });
+  sortedRed.forEach((nm) => {
+    const esc = escapeHtml(nm);
+    if (!esc) return;
+    h = h.split(esc).join(`<span class="fight-log-foe">${esc}</span>`);
+  });
+  return h;
+}
+
+function formatFightLogPlainTextToHtml(text) {
+  let h = injectFightLogNameColors(escapeHtml(String(text || "")));
+  h = h.replace(/(\d+)\s+damage/gi, (_m, n) => `<span class="fight-log-dmg">${n}</span> damage`);
+  h = h.replace(/\b(\d+)\s+HP\b/gi, (_m, n) => `<span class="fight-log-dmg">${n}</span> HP`);
+  h = h.replace(/\bfor\s+(\d+)\b/gi, (_m, n) => `for <span class="fight-log-dmg">${n}</span>`);
+  h = h.replace(/\+\s*(\d+)\s+stamina/gi, (_m, n) => `+ <span class="fight-log-dmg">${n}</span> stamina`);
+  h = h.replace(/(\d+)\s+counter damage/gi, (_m, n) => `<span class="fight-log-dmg">${n}</span> counter damage`);
+  h = h.replace(/\b(\d+)\s+fire\/tick\b/gi, (_m, n) => `<span class="fight-log-dmg">${n}</span> fire/tick`);
+  return h;
+}
+
 function appendFightLog(text) {
   if (!combatState) return;
   combatState.fightLog.push(text);
@@ -9606,7 +9927,12 @@ function appendFightLog(text) {
   if (!logEl) return;
   const row = document.createElement("div");
   row.className = "fight-log-line";
-  row.textContent = text;
+  const raw = String(text || "");
+  const trusted =
+    raw.includes('class="fight-log-block"') ||
+    raw.includes("class='fight-log-block'") ||
+    raw.includes('class="fight-log-effect"');
+  row.innerHTML = trusted ? raw : formatFightLogPlainTextToHtml(raw);
   logEl.appendChild(row);
   logEl.scrollTop = logEl.scrollHeight;
 }
@@ -10133,7 +10459,11 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         cs.braceReductionPct = Math.max(cs.braceReductionPct || 0, red);
         cs.braceStatusResistBonusPct = Math.max(cs.braceStatusResistBonusPct || 0, 10);
       }
-      appendFightLog("Brace hardens your stance.");
+      appendFightLogFlavorWithEffects("Brace hardens your stance.", [
+        `−${roundCombatDisplay(cs.braceReductionPct)}% damage taken`,
+        `+${roundCombatDisplay(cs.braceStatusResistBonusPct)}% status resist`,
+        `${cs.braceTurns} turn${cs.braceTurns === 1 ? "" : "s"}`
+      ]);
       break;
     case "Fortress":
     case "Fortress Stance":
@@ -10147,7 +10477,11 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         cs.fortressReductionPct = Math.max(cs.fortressReductionPct || 0, red);
         cs.fortressDamagePenaltyPct = Math.max(cs.fortressDamagePenaltyPct || 0, 10);
       }
-      appendFightLog("Fortress raises a resilient guard.");
+      appendFightLogFlavorWithEffects("Fortress raises a resilient guard.", [
+        `−${roundCombatDisplay(cs.fortressReductionPct)}% damage taken`,
+        `−${roundCombatDisplay(cs.fortressDamagePenaltyPct)}% damage you deal`,
+        `${cs.fortressTurns} turn${cs.fortressTurns === 1 ? "" : "s"}`
+      ]);
       break;
     case "Taunt":
       if (targetFoe && targetFoe.combat) {
@@ -10159,7 +10493,10 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         targetFoe.combat.tauntedByVanguardTurns = Math.max(targetFoe.combat.tauntedByVanguardTurns || 0, turns);
         const dmgDown = clampNumber(8, 18, 6 + Math.floor(totalVit() / 80) + lv);
         targetFoe.combat.tauntedByVanguardDamageDownPct = Math.max(targetFoe.combat.tauntedByVanguardDamageDownPct || 0, dmgDown);
-        appendFightLog(`You taunt ${targetFoe.name} and draw its focus.`);
+        appendFightLogFlavorWithEffects(`You taunt ${targetFoe.name} and draw its focus.`, [
+          `${targetFoe.combat.tauntedByVanguardTurns}t taunt`,
+          `It deals −${roundCombatDisplay(targetFoe.combat.tauntedByVanguardDamageDownPct)}% damage while taunted`
+        ]);
       } else {
         appendFightLog("You taunt and draw enemy focus.");
       }
@@ -10177,57 +10514,96 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         cs.lastBastionHealingReceivedBonusPct = Math.max(cs.lastBastionHealingReceivedBonusPct || 0, 10);
         cs.lastBastionDamagePenaltyPct = Math.max(cs.lastBastionDamagePenaltyPct || 0, 15);
       }
-      appendFightLog("Last Bastion prepares emergency resilience.");
+      appendFightLogFlavorWithEffects("Last Bastion prepares emergency resilience.", [
+        `≤40% HP: −${roundCombatDisplay(cs.lastBastionLowHpReductionPct)}% damage taken`,
+        `>40% HP: −${roundCombatDisplay(cs.lastBastionHighHpReductionPct)}% damage taken`,
+        `+${roundCombatDisplay(cs.lastBastionHealingReceivedBonusPct)}% healing received`,
+        `−${roundCombatDisplay(cs.lastBastionDamagePenaltyPct)}% damage you deal`,
+        `${cs.lastBastionTurns} turn${cs.lastBastionTurns === 1 ? "" : "s"}`
+      ]);
       break;
-    case "Riposte":
-      cs.riposteTurns = Math.max(cs.riposteTurns, getClassSkillTurnScaled(skillName, 1));
-      appendFightLog("Riposte is primed for the next incoming hit.");
+    case "Riposte": {
+      const rt = getClassSkillTurnScaled(skillName, 1);
+      cs.riposteTurns = Math.max(cs.riposteTurns, rt);
+      appendFightLogFlavorWithEffects("Riposte is primed.", [
+        `${rt} turn${rt === 1 ? "" : "s"}`,
+        "Next hit you take: counter for ~40% of a basic attack"
+      ]);
       break;
-    case "Flow State":
-      cs.flowStateTurns = Math.max(cs.flowStateTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Flow State boosts precision and tempo.");
+    }
+    case "Flow State": {
+      const ft = getClassSkillTurnScaled(skillName, 2);
+      cs.flowStateTurns = Math.max(cs.flowStateTurns, ft);
+      appendFightLogFlavorWithEffects("Flow State boosts precision and tempo.", [`+8% damage dealt`, `${ft}t`]);
       break;
-    case "Expose Weakness":
-      cs.exposeWeaknessTurns = Math.max(cs.exposeWeaknessTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Expose Weakness improves finish potential.");
+    }
+    case "Expose Weakness": {
+      const et = getClassSkillTurnScaled(skillName, 2);
+      cs.exposeWeaknessTurns = Math.max(cs.exposeWeaknessTurns, et);
+      appendFightLogFlavorWithEffects("Expose Weakness improves finish potential.", [`+18% vs foes under 50% HP`, `${et}t`]);
       break;
-    case "Mana Surge":
-      cs.manaSurgeTurns = Math.max(cs.manaSurgeTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Mana Surge empowers your next spells.");
+    }
+    case "Mana Surge": {
+      const mt = getClassSkillTurnScaled(skillName, 2);
+      cs.manaSurgeTurns = Math.max(cs.manaSurgeTurns, mt);
+      const msLine =
+        getClassDef(player.classId).id === "arcanist" ? "+10% damage dealt (Arcanist)" : "Spell tempo window (see class passives)";
+      appendFightLogFlavorWithEffects("Mana Surge empowers your next spells.", [msLine, `${mt}t`]);
       break;
-    case "Focus Fire":
-      cs.focusFireTurns = Math.max(cs.focusFireTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Focus Fire increases focused damage.");
+    }
+    case "Focus Fire": {
+      const fft = getClassSkillTurnScaled(skillName, 2);
+      cs.focusFireTurns = Math.max(cs.focusFireTurns, fft);
+      appendFightLogFlavorWithEffects("Focus Fire increases focused damage.", [`+12% damage dealt`, `${fft}t`]);
       break;
-    case "Rage":
-      cs.rageTurns = Math.max(cs.rageTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Rage fuels your strikes.");
+    }
+    case "Rage": {
+      const rgt = getClassSkillTurnScaled(skillName, 2);
+      cs.rageTurns = Math.max(cs.rageTurns, rgt);
+      appendFightLogFlavorWithEffects("Rage fuels your strikes.", [`+15% damage dealt`, `${rgt}t`]);
       break;
-    case "Guard Ally":
-      cs.guardAllyTurns = Math.max(cs.guardAllyTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Guard Ally reduces incoming pressure.");
+    }
+    case "Guard Ally": {
+      const gt = getClassSkillTurnScaled(skillName, 2);
+      cs.guardAllyTurns = Math.max(cs.guardAllyTurns, gt);
+      appendFightLogFlavorWithEffects("Guard Ally reduces incoming pressure.", [`−12% damage you take`, `${gt}t`]);
       break;
-    case "Sanctuary":
-      cs.sanctuaryTurns = Math.max(cs.sanctuaryTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Sanctuary grants defensive blessing.");
+    }
+    case "Sanctuary": {
+      const stt = getClassSkillTurnScaled(skillName, 2);
+      cs.sanctuaryTurns = Math.max(cs.sanctuaryTurns, stt);
+      appendFightLogFlavorWithEffects("Sanctuary grants defensive blessing.", [`−14% damage you take`, `${stt}t`]);
       break;
+    }
     case "Regeneration":
       cs.regenTurns = Math.max(cs.regenTurns, getClassSkillTurnScaled(skillName, 3));
       cs.regenAmt = Math.max(cs.regenAmt, Math.max(2, Math.floor((4 + totalVit() * 0.11) * healScale)));
-      appendFightLog("Regeneration takes effect.");
+      appendFightLogFlavorWithEffects("Regeneration takes effect.", [
+        `+${roundCombatDisplay(cs.regenAmt)} HP at start of your turns`,
+        `${cs.regenTurns}t`
+      ]);
       break;
     case "Divine Aegis":
       cs.divineAegisShield = Math.max(cs.divineAegisShield, Math.floor((14 + totalVit() * 0.45) * healScale));
-      appendFightLog("Divine Aegis shields you.");
+      appendFightLogFlavorWithEffects("Divine Aegis shields you.", [
+        `${roundCombatDisplay(cs.divineAegisShield)} absorb HP before HP bar`
+      ]);
       break;
-    case "Revitalize":
-      cs.revitalizeTurns = Math.max(cs.revitalizeTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Revitalize amplifies your healing.");
+    case "Revitalize": {
+      const vt = getClassSkillTurnScaled(skillName, 2);
+      cs.revitalizeTurns = Math.max(cs.revitalizeTurns, vt);
+      appendFightLogFlavorWithEffects("Revitalize amplifies your healing.", [`+25% from Heal`, `${vt}t`]);
       break;
-    case "Catalyst":
-      cs.catalystReadyTurns = Math.max(cs.catalystReadyTurns, getClassSkillTurnScaled(skillName, 2));
-      appendFightLog("Catalyst primes your next affliction.");
+    }
+    case "Catalyst": {
+      const ct = getClassSkillTurnScaled(skillName, 2);
+      cs.catalystReadyTurns = Math.max(cs.catalystReadyTurns, ct);
+      appendFightLogFlavorWithEffects("Catalyst primes your next affliction.", [
+        "Next Chain Reaction adds bonus INT-scaled burst",
+        `${ct}t`
+      ]);
       break;
+    }
     case "Purify":
       ensureCombatStatus(st);
       st.status.playerPoison = null;
@@ -10253,7 +10629,11 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       if (targetFoe && skillName === "Frost Bind") {
         if (!targetFoe.combat) targetFoe.combat = {};
         if (targetFoe.combat.staggerLockedTurns > 0) break;
-        targetFoe.combat.staggerLockedTurns = getClassSkillTurnScaled(skillName, 1);
+        const fbt = getClassSkillTurnScaled(skillName, 1);
+        targetFoe.combat.staggerLockedTurns = fbt;
+        appendFightLogFlavorWithEffects(`Frost Bind disrupts ${targetFoe.name}.`, [
+          `${fbt}t stagger lock (forced basics / disrupted tempo)`
+        ]);
       }
       break;
   }
@@ -10275,7 +10655,10 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
           const staggerTurns = lv >= 5 ? 2 : 1;
           foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, staggerTurns);
           foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, 1);
-          appendFightLog(`${foe.name} is staggered by Shield Slam.`);
+          appendFightLogFlavorWithEffects(`${foe.name} is staggered by Shield Slam.`, [
+            `${staggerTurns}t: deals ~12% less damage`,
+            "1t skill tax"
+          ]);
         }
       }
       break;
@@ -10286,6 +10669,10 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const armorBreakPct = clampNumber(10, 28, 8 + armorPen * 0.6 + lv * 2);
         foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, lv >= 5 ? 3 : 2);
         foe.combat.armorBreakPct = Math.max(foe.combat.armorBreakPct || 0, armorBreakPct);
+        appendFightLogFlavorWithEffects(`Crushing Blow shatters ${foe.name}'s guard.`, [
+          `${foe.combat.armorBreakTurns}t armor break`,
+          `+${roundCombatDisplay(foe.combat.armorBreakPct)}% damage taken`
+        ]);
       }
       break;
     case "Heavy Strike":
@@ -10293,7 +10680,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const chancePct = Math.min(18, formulaStrStaggerChancePct(totalStr()) * 0.6);
         if (Math.random() < chancePct / 100) {
           foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
-          appendFightLog(`${foe.name} is staggered by Heavy Strike.`);
+          appendFightLogFlavorWithEffects(`${foe.name} is staggered by Heavy Strike.`, ["1t: deals ~12% less damage"]);
         }
       }
       break;
@@ -10330,10 +10717,17 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         appendFightLog(`Blade Dance cuts again for ${extra}.`);
       }
       break;
-    case "Burning Mark":
-      foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, getClassSkillTurnScaled(skillName, 3));
-      foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, Math.max(2, Math.floor(totalInt() * 0.1)));
+    case "Burning Mark": {
+      const bt = getClassSkillTurnScaled(skillName, 3);
+      foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, bt);
+      const bd = Math.max(2, Math.floor(totalInt() * 0.1));
+      foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, bd);
+      appendFightLogFlavorWithEffects(`Burning Mark sears ${foe.name}.`, [
+        `${roundCombatDisplay(bd)} fire/tick`,
+        `${bt}t`
+      ]);
       break;
+    }
     case "Frost Bind":
       foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, getClassSkillTurnScaled(skillName, 1));
       break;
@@ -11122,72 +11516,48 @@ function formatCombatStaminaLabel(current, max) {
   return "—";
 }
 
-function getFightEnemyStatusLabels(foe) {
-  const out = [];
-  const c = foe && foe.combat && typeof foe.combat === "object" ? foe.combat : null;
-  if (!c) return out;
-  if (typeof c.staggerNextAttackMult === "number" && c.staggerNextAttackMult > 0 && c.staggerNextAttackMult < 1) {
-    out.push("Staggered (next attack weakened)");
+function categorizeHeroStatusTooltipLine(line) {
+  const l = String(line || "").toLowerCase();
+  if (
+    /^(bleed|poison|burn):|weakened strikes|hamstring|brine weak|fragile|stunned|accursed aim|suppressed|combo down|fatigue|pack howl/.test(
+      l
+    )
+  ) {
+    return "debuff";
   }
-  if (typeof c.thickHideTurns === "number" && c.thickHideTurns > 0) {
-    out.push(`Thick Hide (${formatCombatTurnsLabel(c.thickHideTurns)})`);
-  }
-  if (typeof c.mitigationTurns === "number" && c.mitigationTurns > 0) {
-    out.push(`Guarded (${formatCombatTurnsLabel(c.mitigationTurns)})`);
-  }
-  if (typeof c.reflectTurns === "number" && c.reflectTurns > 0) {
-    out.push(`Reflecting damage (${formatCombatTurnsLabel(c.reflectTurns)})`);
-  }
-  if (typeof c.echoCryBonusTurns === "number" && c.echoCryBonusTurns > 0) {
-    out.push(`Echo Cry buff (${formatCombatTurnsLabel(c.echoCryBonusTurns)})`);
-  }
-  if (typeof c.evadeNextChance === "number" && c.evadeNextChance > 0) {
-    out.push("Ready to evade next hit");
-  }
-  if (typeof c.rageStacks === "number" && c.rageStacks > 0) {
-    out.push(`Rage x${Math.floor(c.rageStacks)}`);
-  }
-  if (typeof c.gorillaRampStacks === "number" && c.gorillaRampStacks > 0) {
-    out.push(`Rampage x${Math.floor(c.gorillaRampStacks)}`);
-  }
-  if (c.markedByPlayer) out.push("Marked");
-  if (c.snakeDebuffed) out.push("Debuffed");
-  return out;
+  if (/last bastion/.test(l)) return "neutral";
+  return "buff";
 }
 
-function getFightPartyStatusLabels(st, member) {
-  if (!member || member.kind !== "hero") return [];
-  ensureCombatStatus(st);
-  const s = st.status;
-  const out = [];
-  if (s.playerPoison && s.playerPoison.turns > 0) {
-    out.push(`Poison (${s.playerPoison.dmg}/turn, ${formatCombatTurnsLabel(s.playerPoison.turns)})`);
+function categorizeFoeStatusTooltipLine(line) {
+  const l = String(line || "").toLowerCase();
+  if (
+    /armor broken|player taunt|poisoned|burning|weakened \(|stagger locked|staggered \(|^stagger \(|skill tax|marked by you|snake debuff|next strike weakened/.test(
+      l
+    )
+  ) {
+    return "debuff";
   }
-  if (s.playerBleed && s.playerBleed.turns > 0) {
-    out.push(`Bleed (${s.playerBleed.dmg}/turn, ${formatCombatTurnsLabel(s.playerBleed.turns)})`);
+  if (/damage taken modifier/.test(l)) {
+    const m = l.match(/(-?\d+)%/);
+    if (m) return parseInt(m[1], 10) > 0 ? "debuff" : "buff";
   }
-  if (s.playerBurn && s.playerBurn.turns > 0) {
-    out.push(`Burn (${s.playerBurn.dmg}/turn, ${formatCombatTurnsLabel(s.playerBurn.turns)})`);
+  return "buff";
+}
+
+function buildFightStatusRowsFromLines(lines, categorizer) {
+  const arr = Array.isArray(lines) ? lines.filter((x) => typeof x === "string" && x.trim()) : [];
+  if (!arr.length) {
+    return '<div class="item-tip-desc item-tip-muted">No active combat effects.</div>';
   }
-  if (typeof s.playerStunTurns === "number" && s.playerStunTurns > 0) {
-    out.push(`Stunned (${formatCombatTurnsLabel(s.playerStunTurns)})`);
-  }
-  if (typeof s.playerAttackDebuffTurns === "number" && s.playerAttackDebuffTurns > 0) {
-    out.push(`Weakened (${formatCombatTurnsLabel(s.playerAttackDebuffTurns)})`);
-  }
-  if (typeof s.playerHamstringSlowTurns === "number" && s.playerHamstringSlowTurns > 0) {
-    out.push(`Slowed (${formatCombatTurnsLabel(s.playerHamstringSlowTurns)})`);
-  }
-  if (typeof s.playerBrineWeakTurns === "number" && s.playerBrineWeakTurns > 0) {
-    out.push(`Brine weakness (${formatCombatTurnsLabel(s.playerBrineWeakTurns)})`);
-  }
-  if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) {
-    out.push(`Fragile (${formatCombatTurnsLabel(s.playerFragileTurns)})`);
-  }
-  if (typeof s.packHowlTurns === "number" && s.packHowlTurns > 0) {
-    out.push(`Enemies empowered (${formatCombatTurnsLabel(s.packHowlTurns)})`);
-  }
-  return out;
+  return `<div class="item-tip-status-list">${arr
+    .map((line) => {
+      const k = categorizer(line);
+      const cls =
+        k === "buff" ? "item-tip-status item-tip-status--buff" : k === "debuff" ? "item-tip-status item-tip-status--debuff" : "item-tip-status item-tip-status--neutral";
+      return `<div class="${cls}">${escapeHtml(line)}</div>`;
+    })
+    .join("")}</div>`;
 }
 
 function buildFightEnemyTooltipHtml(foe) {
@@ -11196,16 +11566,18 @@ function buildFightEnemyTooltipHtml(foe) {
   const desc = moodDef && moodDef.description ? moodDef.description : "";
   const moodLine = moodName ? (desc ? `${escapeHtml(moodName)} — ${escapeHtml(desc)}` : escapeHtml(moodName)) : "";
   const lv = typeof foe.level === "number" ? foe.level : 1;
-  const statusLabels = getFightEnemyStatusLabels(foe);
   const def = getEnemyDefByName(foe.name);
   const fallbackMax = getFoeCombatMaxStamina(def || foe);
   const stamina = formatCombatStaminaLabel(
     typeof foe.stamina === "number" ? foe.stamina : fallbackMax,
     typeof foe.maxStamina === "number" ? foe.maxStamina : fallbackMax
   );
-  const statusLine = statusLabels.length ? statusLabels.join(" · ") : "None";
+  const statusHtml = `<div class="item-tip-section"><span class="item-tip-label">Combat status</span>${buildFightStatusRowsFromLines(
+    getFoeCombatStatusEffectLines(foe),
+    categorizeFoeStatusTooltipLine
+  )}</div>`;
   const moodHtml = moodLine ? `<div class="item-tip-desc">${moodLine}</div>` : "";
-  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(foe.name)}</div><div class="item-tip-desc">Level ${lv}</div>${moodHtml}<div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div><div class="item-tip-section"><span class="item-tip-label">Statuses</span><div class="item-tip-mechanics">${escapeHtml(statusLine)}</div></div></div>`;
+  return `<div class="item-tip"><div class="item-tip-name item-tip-name--foe">${escapeHtml(foe.name)}</div><div class="item-tip-desc">Level ${lv}</div>${moodHtml}<div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div>${statusHtml}</div>`;
 }
 
 function buildFightPartyTooltipHtml(member, st) {
@@ -11213,9 +11585,15 @@ function buildFightPartyTooltipHtml(member, st) {
   const maxStamina = member.kind === "hero" ? (typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina()) : member.maxStamina;
   const currentStamina = member.kind === "hero" ? st.stamina : member.stamina;
   const stamina = formatCombatStaminaLabel(currentStamina, maxStamina);
-  const statusLabels = getFightPartyStatusLabels(st, member);
-  const statusLine = statusLabels.length ? statusLabels.join(" · ") : "None";
-  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(member.name)}</div><div class="item-tip-desc">${escapeHtml(role)}</div><div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div><div class="item-tip-section"><span class="item-tip-label">Statuses</span><div class="item-tip-mechanics">${escapeHtml(statusLine)}</div></div></div>`;
+  const statusHtml =
+    member.kind === "hero"
+      ? `<div class="item-tip-section"><span class="item-tip-label">Combat status</span>${buildFightStatusRowsFromLines(
+          getHeroCombatStatusEffectLines(st),
+          categorizeHeroStatusTooltipLine
+        )}</div>`
+      : `<div class="item-tip-desc item-tip-muted">See the hero card for encounter-wide debuffs and buffs.</div>`;
+  const nameCls = member.kind === "hero" ? "item-tip-name item-tip-name--player" : "item-tip-name item-tip-name--ally";
+  return `<div class="item-tip"><div class="${nameCls}">${escapeHtml(member.name)}</div><div class="item-tip-desc">${escapeHtml(role)}</div><div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div>${statusHtml}</div>`;
 }
 
 function buildWorldCampTooltipHtml(data) {
