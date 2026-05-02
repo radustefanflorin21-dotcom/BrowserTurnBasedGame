@@ -629,150 +629,6 @@ const GAME_CONFIG = {
   },
 
   items: {
-    "Skimmer Blade": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "dagger",
-      rarity: "common",
-      itemLevel: 5,
-      attack: 4,
-      image: "Assets/Equips/skimmer_blade.png",
-      description: "Saltwind Skimmer dagger.",
-      bonusSkills: [],
-      bonusStats: { DEX: 5, STR: 3, Crit: 6 }
-    },
-    "Lynx Fang": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "dagger",
-      rarity: "common",
-      itemLevel: 27,
-      attack: 14,
-      image: "Assets/Equips/lynx_fang.png",
-      description: "Rock Lynx dagger.",
-      bonusSkills: [],
-      bonusStats: { DEX: 17, STR: 9, Crit: 10 }
-    },
-    "Hornbreaker Axe": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "two_handed",
-      rarity: "common",
-      itemLevel: 29,
-      attack: 15,
-      image: "Assets/Equips/hornbreaker_axe.png",
-      description: "Rock Ibex two-handed axe.",
-      bonusSkills: [],
-      bonusStats: { STR: 18, VIT: 10, "Phys Damage": 10 }
-    },
-    "Petrify Ring": {
-      type: "armor",
-      slot: "ring1",
-      equipCategory: "ring",
-      rarity: "common",
-      itemLevel: 30,
-      defense: 5,
-      image: "Assets/Equips/petrify_ring.png",
-      description: "Rock Serpent set ring.",
-      bonusSkills: [],
-      bonusStats: { INT: 19, VIT: 10, Duration: 10 }
-    },
-    "Foxfang Blade": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "one_handed_sword",
-      rarity: "common",
-      itemLevel: 38,
-      attack: 20,
-      image: "Assets/Equips/foxfang_blade.png",
-      description: "Greenleaf Fox set sword.",
-      bonusSkills: [],
-      bonusStats: { DEX: 24, STR: 13, Crit: 10 }
-    },
-    "Wraithcall Scepter": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "staff",
-      rarity: "common",
-      itemLevel: 40,
-      attack: 22,
-      image: "Assets/Equips/template_polearm.png",
-      description: "Faded War Wraith set scepter.",
-      bonusSkills: [],
-      bonusStats: { INT: 26, DEX: 15, "Skill Power": 12 }
-    },
-    "Ashmaw Cleaver": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "greatsword",
-      rarity: "common",
-      itemLevel: 45,
-      attack: 23,
-      image: "Assets/Equips/template_greatsword.png",
-      description: "Ash Lizard greatsword.",
-      bonusSkills: [],
-      bonusStats: { STR: 28, INT: 16, "Phys Damage": 12 }
-    },
-    "Emberfang": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "dagger",
-      rarity: "common",
-      itemLevel: 47,
-      attack: 24,
-      image: "Assets/Equips/template_dagger.png",
-      description: "Cinder Stalker dagger.",
-      bonusSkills: [],
-      bonusStats: { DEX: 29, STR: 16, Crit: 12 }
-    },
-    "Magmahide Plate": {
-      type: "armor",
-      slot: "chest",
-      equipCategory: "chest_armor",
-      rarity: "common",
-      itemLevel: 50,
-      defense: 10,
-      image: "Assets/Equips/template_chest.png",
-      description: "Magma Boar set chest.",
-      bonusSkills: [],
-      bonusStats: { VIT: 31, STR: 17 }
-    },
-    "Basilisk Eye Amulet": {
-      type: "armor",
-      slot: "amulet",
-      equipCategory: "amulet",
-      rarity: "common",
-      itemLevel: 52,
-      defense: 8,
-      image: "Assets/Equips/template_amulet.png",
-      description: "Lava Basilisk set amulet.",
-      bonusSkills: [],
-      bonusStats: { INT: 34, VIT: 18, "Status Potency": 12 }
-    },
-    "Glacier Shell": {
-      type: "armor",
-      slot: "chest",
-      equipCategory: "chest_armor",
-      rarity: "common",
-      itemLevel: 49,
-      defense: 10,
-      image: "Assets/Equips/template_chest.png",
-      description: "Glacier Tortoise set chest.",
-      bonusSkills: [],
-      bonusStats: { VIT: 30, STR: 17 }
-    },
-    "Frozen Edge": {
-      type: "weapon",
-      slot: "weapon",
-      equipCategory: "one_handed_sword",
-      rarity: "legendary",
-      itemLevel: 50,
-      attack: 22,
-      image: "Assets/Equips/mirage_edge.png",
-      description: "A frost-touched blade that leaves rime on the air.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
     "Wet Membrane": {
       type: "resource",
       image: "Assets/Resources/wet_membrane.png",
@@ -1173,7 +1029,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 40,
       defense: 7,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/soul_echo_amulet.png",
       description: "Wraith set amulet for long-form control battles.",
       set: "Wraith",
       build: "INT",
@@ -1235,20 +1091,6 @@ const GAME_CONFIG = {
       build: "STR_VIT",
       bonusSkills: [],
       bonusStats: { STR: 30, VIT: 16, "Phys Damage": 10 }
-    },
-    "Basilisk Eye Amulet": {
-      type: "armor",
-      slot: "amulet",
-      equipCategory: "amulet",
-      rarity: "common",
-      itemLevel: 52,
-      defense: 8,
-      image: "Assets/Equips/template_amulet.png",
-      description: "Basilisk set amulet for elite status control.",
-      set: "Basilisk",
-      build: "INT",
-      bonusSkills: [],
-      bonusStats: { INT: 32, VIT: 16, "Status Potency": 12 }
     },
 /* BEGIN SYNCED MMO ITEMS */
     "Skimmer Blade": {
@@ -1730,12 +1572,12 @@ const GAME_CONFIG = {
     "Hornbreaker Axe": {
       type: "weapon",
       slot: "weapon",
-      equipCategory: "polearm",
+      equipCategory: "two_handed",
       rarity: "common",
       itemLevel: 29,
       attack: 15,
       image: "Assets/Equips/hornbreaker_axe.png",
-      description: "An ibex-horn polearm that excels at driving through defenses.",
+      description: "An ibex-horn two-handed axe that excels at driving through defenses.",
       set: "Ibex Dominator",
       build: "STR",
       bonusSkills: [],
@@ -1971,13 +1813,13 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 40,
-      attack: 20,
-      image: "Assets/Equips/template_polearm.png",
+      attack: 22,
+      image: "Assets/Equips/wraithcall_scepter.png",
       description: "A soulbound scepter for persistent magical attrition.",
       set: "Soulbinder",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 26, DEX: 15, "Skill Power": 10, "Status Potency": 8 }
+      bonusStats: { INT: 26, DEX: 15, "Skill Power": 12, "Status Potency": 8 }
     },
     "Gorilla Armor": {
       type: "armor",
@@ -1993,15 +1835,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 26, STR: 15, DR: 8, HP: 400 }
     },
-    "Spirit Bark Armor": {
+    "Wraith Raggs": {
       type: "armor",
       slot: "chest",
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 40,
       defense: 8,
-      image: "Assets/Equips/template_chest.png",
-      description: "Living bark armor for sturdy support casters.",
+      image: "Assets/Equips/wraith_raggs.png",
+      description: "Spectral tatters that wrap the body—sturdy support for casters who walk the veil.",
       set: "Verdant Rite",
       build: "VIT_INT",
       bonusSkills: [],
@@ -2056,7 +1898,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 40,
       defense: 8,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/soul_ring.png",
       description: "A shadowed ring that amplifies sustained magical pressure.",
       set: "Soulbinder",
       build: "INT",
@@ -2126,7 +1968,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 45,
       attack: 22,
-      image: "Assets/Equips/template_greatsword.png",
+      image: "Assets/Equips/ashmaw_cleaver.png",
       description: "A fire-scarred greatsword for punishing heavy swings.",
       set: "Ash Titan",
       build: "STR",
@@ -2139,7 +1981,7 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 47,
-      attack: 23,
+      attack: 24,
       image: "Assets/Equips/template_dagger.png",
       description: "A blazing assassin dagger built for lethal turn bursts.",
       set: "Ember Assassin",
@@ -2271,7 +2113,15 @@ const GAME_CONFIG = {
       set: "Basilisk Oracle",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 32, DEX: 18, "Skill Power": 12, "Status Potency": 10, "Debuff Duration": 10, "Crit Damage": 10 }
+      bonusStats: {
+        INT: 34,
+        VIT: 18,
+        DEX: 18,
+        "Skill Power": 12,
+        "Status Potency": 12,
+        "Debuff Duration": 10,
+        "Crit Damage": 10
+      }
     },
     "Ember Ring": {
       type: "armor",
@@ -4360,7 +4210,7 @@ const GAME_CONFIG = {
           },
           {
             id: "spirit_bark_armor",
-            resultItem: "Spirit Bark Armor",
+            resultItem: "Wraith Raggs",
             resultLevel: 40,
             ingredients: [
               { item: "Rage Core", qty: 7, source: "monster_loot" },
