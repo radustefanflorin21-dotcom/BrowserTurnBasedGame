@@ -92,7 +92,7 @@ function getLevelingConfig() {
 
 function getPlayerMaxLevel() {
   const c = getLevelingConfig();
-  return typeof c.maxLevel === "number" && c.maxLevel > 1 ? Math.floor(c.maxLevel) : 50;
+  return typeof c.maxLevel === "number" && c.maxLevel > 1 ? Math.floor(c.maxLevel) : 60;
 }
 
 /**
