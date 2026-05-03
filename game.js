@@ -12209,7 +12209,7 @@ function getAllCraftingRecipes() {
   const tiers = Array.isArray(cfg.recipeTiers) ? cfg.recipeTiers : [];
   const out = [];
   tiers.forEach((tier) => {
-    const tierLabel = tier && typeof tier.label === "string" ? tier.label : "Recipes";
+    const tierLabel = tier && typeof tier.label === "string" ? tier.label.trim() : "";
     const recipes = tier && Array.isArray(tier.recipes) ? tier.recipes : [];
     recipes.forEach((r) => {
       if (!r || typeof r.resultItem !== "string") return;
@@ -12303,15 +12303,12 @@ function craftRecipeById(recipeId) {
 
 function buildCraftingPanelHtml() {
   const cfg = getCraftingConfig();
-  const intro =
-    typeof cfg.intro === "string" && cfg.intro.trim()
-      ? cfg.intro.trim()
-      : "Crafting recipes are grouped by profession.";
+  const intro = typeof cfg.intro === "string" ? cfg.intro.trim() : "";
   const selectedCraftingProfIds = getSelectedCraftingProfessionIds();
   if (!selectedCraftingProfIds.length) {
-    return `<div class="game-page"><h1 class="game-page-title">Crafting</h1><p class="game-page-lead muted">${escapeHtml(
-      intro
-    )}</p><p class="crafting-empty">No crafting profession selected. Select Weapon smith, Armor smith, or Jeweller in Character -> Professions.</p></div>`;
+    return `<div class="game-page">${
+      intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
+    }<p class="crafting-empty">No crafting profession selected. Select Weapon smith, Armor smith, or Jeweller in Character -> Professions.</p></div>`;
   }
   const activeProfId = ensureActiveCraftingProfessionId(selectedCraftingProfIds);
   const tabsHtml = selectedCraftingProfIds
@@ -12353,7 +12350,13 @@ function buildCraftingPanelHtml() {
         })
         .filter(Boolean)
         .join("");
-      const statusText = !avail.levelOk ? `Level: ${Math.max(1, Math.floor(player.level || 1))}/${avail.requiredLevel}` : "Craftable";
+      const statusText = !avail.levelOk
+        ? `Level: ${Math.max(1, Math.floor(player.level || 1))}/${avail.requiredLevel}`
+        : "";
+      const tierBadge =
+        r.tierLabel && String(r.tierLabel).trim()
+          ? ` <span class="crafting-recipe-tier">${escapeHtml(String(r.tierLabel).trim())}</span>`
+          : "";
       const craftBtn = `<button type="button" class="btn-secondary crafting-craft-btn" data-craft-recipe-id="${escapeAttr(
         r.id || ""
       )}"${avail.craftable ? "" : " disabled"}>Craft</button>`;
@@ -12363,17 +12366,17 @@ function buildCraftingPanelHtml() {
           r.resultItem
         )}"><img class="crafting-result-img" src="${resultImg}" alt="" draggable="false" />${escapeHtml(
           r.resultItem
-        )}</strong> <span class="crafting-recipe-tier">${escapeHtml(r.tierLabel || "")}</span>${craftBtn}</div>
+        )}</strong>${tierBadge}${craftBtn}</div>
         <div class="crafting-recipe-sub">Required level: ${avail.requiredLevel}</div>
-        <div class="crafting-recipe-sub crafting-ingredients">${ingHtml || "No ingredients listed."}</div>
-        <div class="crafting-recipe-sub">${escapeHtml(statusText)}</div>
+        <div class="crafting-recipe-sub crafting-ingredients">${ingHtml || "No ingredients listed."}</div>${
+          statusText ? `<div class="crafting-recipe-sub">${escapeHtml(statusText)}</div>` : ""
+        }
       </div>`;
     })
     .join("");
-  return `<div class="game-page">
-    <h1 class="game-page-title">Crafting</h1>
-    <p class="game-page-lead muted">${escapeHtml(intro)}</p>
-    <div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
+  return `<div class="game-page">${
+    intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
+  }<div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
     <div class="crafting-recipe-list">${recipeRows || '<p class="crafting-empty">No recipes found for this profession.</p>'}</div>
   </div>`;
 }

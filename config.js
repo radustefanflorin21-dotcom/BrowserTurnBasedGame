@@ -1043,7 +1043,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 50,
       defense: 8,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/molten_gaze_ring.png",
       description: "High-tier ring for status-heavy casters.",
       set: "",
       build: "INT",
@@ -1057,7 +1057,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 47,
       defense: 8,
-      image: "Assets/Equips/template_ring.png",
+      image: "Assets/Equips/ember_core_ring.png",
       description: "Ember set ring focused on burst crit tempo.",
       set: "Ember",
       build: "DEX",
@@ -1085,7 +1085,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 49,
       defense: 8,
-      image: "Assets/Equips/template_leggs.png",
+      image: "Assets/Equips/lava_greaves.png",
       description: "Molten set greaves for heavy damage builds.",
       set: "Molten",
       build: "STR_VIT",
@@ -1982,7 +1982,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 47,
       attack: 24,
-      image: "Assets/Equips/template_dagger.png",
+      image: "Assets/Equips/emberfang.png",
       description: "A blazing assassin dagger built for lethal turn bursts.",
       set: "Ember Assassin",
       build: "DEX",
@@ -2010,7 +2010,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 52,
       attack: 25,
-      image: "Assets/Equips/template_polearm.png",
+      image: "Assets/Equips/basilisk_staff.png",
       description: "A basilisk relic staff for high-end control and debuffing.",
       set: "Basilisk Oracle",
       build: "INT",
@@ -2024,7 +2024,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 50,
       defense: 10,
-      image: "Assets/Equips/template_chest.png",
+      image: "Assets/Equips/magmahide_plate.png",
       description: "A furnace-like chestpiece for top-tier tanks.",
       set: "Molten Colossus",
       build: "VIT",
@@ -2052,7 +2052,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 46,
       defense: 9,
-      image: "Assets/Equips/template_feet.png",
+      image: "Assets/Equips/flame_boots.png",
       description: "Heated boots for aggressive burst builds.",
       set: "Ember Assassin",
       build: "DEX_STR",
@@ -2073,15 +2073,15 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 30, INT: 29, DR: 9, "Magic Resist": 12, HP: 384 }
     },
-    "Molten Gloves": {
+    "Molten Bracelet": {
       type: "armor",
       slot: "bracelet",
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 47,
       defense: 9,
-      image: "Assets/Equips/template_bracelet.png",
-      description: "Brutal gauntlets for maximum pressure and penetration.",
+      image: "Assets/Equips/molten_bracelet.png",
+      description: "A molten-forged bracelet for maximum pressure and penetration.",
       set: "Ash Titan",
       build: "STR",
       bonusSkills: [],
@@ -2108,7 +2108,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 52,
       defense: 10,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/basilisk_eye_amulet.png",
       description: "A high-end amulet for status-heavy controllers.",
       set: "Basilisk Oracle",
       build: "INT",
@@ -2123,15 +2123,15 @@ const GAME_CONFIG = {
         "Crit Damage": 10
       }
     },
-    "Ember Ring": {
+    "Ember Bracelet": {
       type: "armor",
-      slot: "ring1",
-      equipCategory: "ring",
+      slot: "bracelet",
+      equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 47,
       defense: 9,
-      image: "Assets/Equips/template_ring.png",
-      description: "A ring that sharpens burst timing and critical conversion.",
+      image: "Assets/Equips/ember_bracelet.png",
+      description: "A bracelet that sharpens burst timing and critical conversion.",
       set: "Ember Assassin",
       build: "DEX",
       bonusSkills: [],
@@ -2158,7 +2158,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 46,
       defense: 9,
-      image: "Assets/Equips/template_amulet.png",
+      image: "Assets/Equips/inferno_charm.png",
       description: "A charm for aggressive hybrid damage builds.",
       set: "Ash Titan",
       build: "STR_INT",
@@ -3504,11 +3504,9 @@ const GAME_CONFIG = {
   },
 
   crafting: {
-    intro: "Crafting recipe data is configured for future professions/forge systems. resultItem must match an item id in GAME_CONFIG.items.",
     recipeTiers: [
       {
         id: "early",
-        label: "Early Game Recipes",
         minLevel: 1,
         maxLevel: 10,
         recipes: [
@@ -3669,7 +3667,6 @@ const GAME_CONFIG = {
       },
       {
         id: "low_mid",
-        label: "Low-Mid Recipes",
         minLevel: 11,
         maxLevel: 20,
         recipes: [
@@ -3900,7 +3897,6 @@ const GAME_CONFIG = {
       },
       {
         id: "mid",
-        label: "Mid Game Recipes",
         minLevel: 21,
         maxLevel: 30,
         recipes: [
@@ -4137,7 +4133,6 @@ const GAME_CONFIG = {
       },
       {
         id: "mid_high",
-        label: "Mid-High Recipes",
         minLevel: 31,
         maxLevel: 40,
         recipes: [
@@ -4375,7 +4370,6 @@ const GAME_CONFIG = {
       },
       {
         id: "high_end",
-        label: "High-End Recipes",
         minLevel: 41,
         maxLevel: 99,
         recipes: [
@@ -4507,8 +4501,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "molten_gloves",
-            resultItem: "Molten Gloves",
+            id: "molten_bracelet",
+            resultItem: "Molten Bracelet",
             resultLevel: 47,
             ingredients: [
               { item: "Basilisk Eye", qty: 8, source: "monster_loot" },
@@ -4539,8 +4533,8 @@ const GAME_CONFIG = {
             ]
           },
           {
-            id: "ember_ring",
-            resultItem: "Ember Ring",
+            id: "ember_bracelet",
+            resultItem: "Ember Bracelet",
             resultLevel: 47,
             ingredients: [
               { item: "Burnt Hide", qty: 8, source: "monster_loot" },
