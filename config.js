@@ -4832,13 +4832,16 @@ const GAME_CONFIG = {
     /** Shared art for all waygates (path relative to index.html). Missing or failed loads use the built-in SVG portal at runtime. */
     portalImage: "Assets/portals/my-portal.png",
     /** Optional shared art for boats in scene cells (path relative to index.html). */
-    boatImage: "Assets/portals/boat.png",
+    boatImage: "Assets/portals/paradise_boat.png",
     encounterSlotsPerTile: 3,
     /**
      * Optional per-coordinate override (path relative to index.html). If unset, the game uses
      * Assets/Biomes/{exact biome name from biomes[]}/{1|2|3|4}.{png|jpg|jpeg|webp} — variant is stable per coordinate.
      */
-    coordinateBackgrounds: {},
+    coordinateBackgrounds: {
+      "29,55": "Assets/Biomes/Paradise South/boat_between_paradises.png",
+      "37,43": "Assets/Biomes/Paradise North/boat_between_paradises.png"
+    },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
       "29,55": {
@@ -4851,6 +4854,9 @@ const GAME_CONFIG = {
             id: "boat_paradise_south",
             label: "Boat",
             editable: true,
+            leftPct: 23.125,
+            topPct: 33.218,
+            scalePct: 148,
             destinations: [{ label: "Paradise North", x: 37, y: 43 }]
           }
         ]
@@ -4865,6 +4871,9 @@ const GAME_CONFIG = {
             id: "boat_paradise_north",
             label: "Boat",
             editable: true,
+            leftPct: 21.25,
+            topPct: 29.051,
+            scalePct: 183,
             destinations: [{ label: "Paradise South", x: 29, y: 55 }]
           }
         ]
@@ -4874,7 +4883,7 @@ const GAME_CONFIG = {
      * Inter-city waygates: one scene + portal per entry, only on the anchor tile (x,y). Adventure backgrounds
      * use Assets/Biomes/{cityName}/{1|2|3|4} per cell (see getCityAdventureBackgroundVariant). Optional bg is unused.
      * Optional layout: leftPct / topPct (0–100, adventure playfield), scalePct (25–200). Player edit-mode overrides
-     * are stored in save `sceneLayout`; use Edit mode → “Export portal layout” to copy resolved values into config.
+     * are stored in save `sceneLayout`; use Edit mode → “Export portal layout” to copy waygates and boat layouts into config.
      */
     cityPortals:[
   {

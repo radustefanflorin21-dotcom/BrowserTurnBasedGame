@@ -7983,6 +7983,12 @@ function getCoordinateCellConfig(x, y) {
   return getCoordinateCellConfigFromConfigOnly(x, y);
 }
 
+function coordinateCellHasBoatAt(x, y) {
+  const cfg = getCoordinateCellConfig(x, y);
+  if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return false;
+  return cfg.elements.some((el) => el && el.type === "boat");
+}
+
 function ensureSceneEditCopy(x, y) {
   if (!player.worldMap.sceneEdits || typeof player.worldMap.sceneEdits !== "object") player.worldMap.sceneEdits = {};
   const key = worldMapKey(x, y);
@@ -8266,8 +8272,58 @@ function buildCityPortalsLayoutExportObjects() {
   });
 }
 
+/**
+ * Resolved boat `leftPct` / `topPct` / `scalePct` per map cell (merged scene + save `sceneLayout`).
+ * Keys are `"x,y"`. Values are arrays of `{ id, leftPct, topPct, scalePct }` for each boat element on that tile.
+ * Paste into `worldMap.coordinateCells[coord].elements` on the matching `type: "boat"` entry by `id`.
+ */
+function buildBoatLayoutExportByCoordinate() {
+  const wm = GAME_CONFIG.worldMap;
+  const keys = new Set();
+  if (wm && wm.coordinateCells && typeof wm.coordinateCells === "object") {
+    Object.keys(wm.coordinateCells).forEach((k) => keys.add(k));
+  }
+  if (player.worldMap.sceneEdits && typeof player.worldMap.sceneEdits === "object") {
+    Object.keys(player.worldMap.sceneEdits).forEach((k) => keys.add(k));
+  }
+  const d = getWorldMapData();
+  const byCoord = {};
+  for (const k of keys) {
+    const { x, y } = parseWorldMapKey(k);
+    if (!d || x < 0 || y < 0 || x >= d.width || y >= d.height) continue;
+    const cfg = getCoordinateCellConfig(x, y);
+    if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) continue;
+    const rows = [];
+    for (const el of cfg.elements) {
+      if (!el || el.type !== "boat") continue;
+      const id = typeof el.id === "string" ? el.id.trim() : "";
+      if (!id) continue;
+      const pos = getSceneLayoutTransform(x, y, id);
+      const isDefault = pos.leftPct === 50 && pos.topPct === 50 && pos.scalePct === 100;
+      const hadAny =
+        (typeof el.leftPct === "number" && Number.isFinite(el.leftPct)) ||
+        (typeof el.topPct === "number" && Number.isFinite(el.topPct)) ||
+        (typeof el.scalePct === "number" && Number.isFinite(el.scalePct));
+      if (!isDefault || hadAny) {
+        rows.push({ id, leftPct: pos.leftPct, topPct: pos.topPct, scalePct: pos.scalePct });
+      }
+    }
+    if (rows.length) byCoord[k] = rows;
+  }
+  return byCoord;
+}
+
+function buildWorldMapLayoutExportSnippet() {
+  const coordinateCellBoatLayouts = buildBoatLayoutExportByCoordinate();
+  const cityPortals = buildCityPortalsLayoutExportObjects();
+  if (!Object.keys(coordinateCellBoatLayouts).length) {
+    return JSON.stringify(cityPortals, null, 2);
+  }
+  return JSON.stringify({ cityPortals, coordinateCellBoatLayouts }, null, 2);
+}
+
 function buildCityPortalsLayoutExportSnippet() {
-  return JSON.stringify(buildCityPortalsLayoutExportObjects(), null, 2);
+  return buildWorldMapLayoutExportSnippet();
 }
 
 async function copyCityPortalLayoutExportToClipboard() {
@@ -8275,13 +8331,17 @@ async function copyCityPortalLayoutExportToClipboard() {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
-      showModal("Copied city portal list (with positions and sizes) to the clipboard. Replace `cityPortals` in config.js and reload.");
+      showModal(
+        "Copied layout JSON to the clipboard. If it is only an array, replace `cityPortals` in config.js as before. " +
+          "If it is an object, replace `cityPortals` with the `cityPortals` property, and merge each entry in `coordinateCellBoatLayouts` " +
+          "into the matching `type: \"boat\"` element (same `id`) under `worldMap.coordinateCells` for that coordinate (`leftPct`, `topPct`, `scalePct`). Then reload."
+      );
     } else {
-      console.warn("cityPortals layout export (clipboard unavailable):\n", text);
+      console.warn("world map layout export (clipboard unavailable):\n", text);
       showModal("Clipboard API unavailable. The full JSON was written to the browser console (F12 → Console).");
     }
   } catch (err) {
-    console.warn("cityPortals layout export:\n", text);
+    console.warn("world map layout export:\n", text);
     showModal(
       `Could not copy to clipboard (${err && err.message ? err.message : String(err)}). The full JSON was written to the console.`
     );
@@ -11671,7 +11731,10 @@ function buildMinimapCellTooltipHtml(mx, my) {
   const cityLine = city
     ? `<div class="item-tip-desc item-tip-desc--city">${escapeHtml(city)}</div>`
     : "";
-  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(nm)}</div>${cityLine}<div class="item-tip-desc">[${mx}, ${my}]</div></div>`;
+  const boatLine = coordinateCellHasBoatAt(mx, my)
+    ? `<div class="item-tip-desc">Boat dock</div>`
+    : "";
+  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(nm)}</div>${cityLine}${boatLine}<div class="item-tip-desc">[${mx}, ${my}]</div></div>`;
 }
 
 function hideItemTooltip() {
@@ -12970,6 +13033,56 @@ function drawWorldMapCityLabels(ctx, cellW, cellH) {
   ctx.restore();
 }
 
+/** Hull + sail icon centered on one map cell (world map modal). */
+function drawWorldMapBoatSymbol(ctx, cx, cy, cellW, cellH) {
+  const scale = Math.min(cellW, cellH) * 0.58;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 0.11;
+  ctx.strokeStyle = "rgba(14, 12, 10, 0.92)";
+  ctx.fillStyle = "rgba(248, 242, 228, 0.96)";
+  ctx.beginPath();
+  ctx.moveTo(-0.58, 0.12);
+  ctx.quadraticCurveTo(0, 0.42, 0.58, 0.12);
+  ctx.lineTo(0.48, 0.32);
+  ctx.lineTo(-0.48, 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, 0.32);
+  ctx.lineTo(0, -0.52);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(215, 195, 165, 0.98)";
+  ctx.beginPath();
+  ctx.moveTo(0.06, -0.12);
+  ctx.lineTo(0, -0.52);
+  ctx.lineTo(-0.44, 0.1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawWorldMapBoatSymbols(ctx, cellW, cellH) {
+  const d = getWorldMapData();
+  if (!d) return;
+  for (let my = 0; my < d.height; my++) {
+    for (let mx = 0; mx < d.width; mx++) {
+      if (!coordinateCellHasBoatAt(mx, my)) continue;
+      drawWorldMapBoatSymbol(ctx, mx * cellW + cellW * 0.5, my * cellH + cellH * 0.5, cellW, cellH);
+    }
+  }
+}
+
+/** Minimap: same hull/mast/sail as {@link drawWorldMapBoatSymbol} (normalized space). Keep paths in sync. */
+function getMinimapBoatIconSvgHtml() {
+  return '<svg class="minimap-boat-icon" viewBox="-0.62 -0.55 1.24 0.95" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M -0.58 0.12 Q 0 0.42 0.58 0.12 L 0.48 0.32 L -0.48 0.32 Z" fill="rgb(248,242,228)" fill-opacity="0.96" stroke="rgb(14,12,10)" stroke-opacity="0.92" stroke-width="0.11" stroke-linejoin="round"/><path d="M 0 0.32 L 0 -0.52" fill="none" stroke="rgb(14,12,10)" stroke-opacity="0.92" stroke-width="0.11" stroke-linecap="round"/><path d="M 0.06 -0.12 L 0 -0.52 L -0.44 0.1 Z" fill="rgb(215,195,165)" fill-opacity="0.98" stroke="rgb(14,12,10)" stroke-opacity="0.92" stroke-width="0.11" stroke-linejoin="round"/></svg>';
+}
+
 function drawWorldMapCanvas() {
   const canvas = document.getElementById("worldMapCanvas");
   const d = getWorldMapData();
@@ -13005,6 +13118,7 @@ function drawWorldMapCanvas() {
     drawWorldMapTransitionOverlays(ctx, d, cellW, cellH);
   }
   drawWorldMapCityLabels(ctx, cellW, cellH);
+  drawWorldMapBoatSymbols(ctx, cellW, cellH);
   ctx.imageSmoothingEnabled = false;
   const px = player.worldMap.x;
   const py = player.worldMap.y;
@@ -13241,10 +13355,12 @@ function buildMinimapHtml(px, py) {
       const nx = px + dx;
       const ny = py + dy;
       const isYou = dx === 0 && dy === 0;
+      const hasBoat = nx >= 0 && ny >= 0 && nx < d.width && ny < d.height && coordinateCellHasBoatAt(nx, ny);
       const styleCss =
         nx >= 0 && ny >= 0 && nx < d.width && ny < d.height ? getMinimapCellBackgroundCss(nx, ny) : "background:#1a1a1a";
+      const boatIcon = hasBoat ? getMinimapBoatIconSvgHtml() : "";
       cells.push(
-        `<div class="minimap-cell${isYou ? " minimap-cell--you" : ""}" style="${escapeAttr(styleCss)}" data-map-x="${nx}" data-map-y="${ny}"></div>`
+        `<div class="minimap-cell${isYou ? " minimap-cell--you" : ""}${hasBoat ? " minimap-cell--boat" : ""}" style="${escapeAttr(styleCss)}" data-map-x="${nx}" data-map-y="${ny}">${boatIcon}</div>`
       );
     }
   }

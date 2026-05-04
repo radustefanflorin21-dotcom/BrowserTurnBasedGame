@@ -2763,15 +2763,26 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 .world-boat-btn {
   width: 100%;
   max-width: 220px;
-  min-height: 58px;
-  border: 1px solid rgba(0, 0, 0, 0.32);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(86, 128, 169, 0.95), rgba(50, 88, 128, 0.95));
-  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.28);
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
+  display: block;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .world-boat-btn:hover {
   filter: brightness(1.06);
+}
+
+.world-boat-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .world-boat-visual {
@@ -2997,6 +3008,28 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   z-index: 1;
+}
+
+.minimap-cell--boat {
+  position: relative;
+  overflow: visible;
+  z-index: 2;
+}
+
+.minimap-cell--you.minimap-cell--boat {
+  z-index: 3;
+}
+
+.minimap-boat-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 20px;
+  margin-left: -15px;
+  margin-top: -10px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.55));
 }
 
 /* Full world map modal (M key) — compact, centered on screen */
