@@ -13635,9 +13635,82 @@ function drawWorldMapBoatSymbols(ctx, cellW, cellH) {
   }
 }
 
+function getDungeonEntranceCoordSet() {
+  const wm = GAME_CONFIG.worldMap;
+  const dungeons = wm && wm.dungeons && typeof wm.dungeons === "object" ? wm.dungeons : {};
+  const out = new Set();
+  Object.keys(dungeons).forEach((id) => {
+    const dg = dungeons[id];
+    if (!dg || typeof dg !== "object" || !dg.entrance) return;
+    const ex = typeof dg.entrance.x === "number" && Number.isFinite(dg.entrance.x) ? Math.floor(dg.entrance.x) : null;
+    const ey = typeof dg.entrance.y === "number" && Number.isFinite(dg.entrance.y) ? Math.floor(dg.entrance.y) : null;
+    if (ex == null || ey == null) return;
+    out.add(worldMapKey(ex, ey));
+  });
+  return out;
+}
+
+function coordinateCellHasDungeonAt(x, y) {
+  return getDungeonEntranceCoordSet().has(worldMapKey(x, y));
+}
+
+/** Skull icon centered on one map cell (world map modal). */
+function drawWorldMapDungeonSymbol(ctx, cx, cy, cellW, cellH) {
+  const scale = Math.min(cellW, cellH) * 0.6;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(14, 12, 10, 0.95)";
+  ctx.lineWidth = 0.1;
+  ctx.fillStyle = "rgba(236, 232, 224, 0.96)";
+  ctx.beginPath();
+  ctx.moveTo(0, -0.5);
+  ctx.bezierCurveTo(0.28, -0.5, 0.48, -0.28, 0.48, -0.02);
+  ctx.lineTo(0.48, 0.17);
+  ctx.lineTo(0.36, 0.27);
+  ctx.lineTo(0.36, 0.45);
+  ctx.lineTo(-0.36, 0.45);
+  ctx.lineTo(-0.36, 0.27);
+  ctx.lineTo(-0.48, 0.17);
+  ctx.lineTo(-0.48, -0.02);
+  ctx.bezierCurveTo(-0.48, -0.28, -0.28, -0.5, 0, -0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(12, 11, 10, 0.9)";
+  ctx.beginPath();
+  ctx.arc(-0.18, -0.12, 0.09, 0, Math.PI * 2);
+  ctx.arc(0.18, -0.12, 0.09, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, -0.01);
+  ctx.lineTo(0.08, 0.12);
+  ctx.lineTo(-0.08, 0.12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawWorldMapDungeonSymbols(ctx, cellW, cellH) {
+  const d = getWorldMapData();
+  if (!d) return;
+  for (let my = 0; my < d.height; my++) {
+    for (let mx = 0; mx < d.width; mx++) {
+      if (!coordinateCellHasDungeonAt(mx, my)) continue;
+      drawWorldMapDungeonSymbol(ctx, mx * cellW + cellW * 0.5, my * cellH + cellH * 0.5, cellW, cellH);
+    }
+  }
+}
+
 /** Minimap: same hull/mast/sail as {@link drawWorldMapBoatSymbol} (normalized space). Keep paths in sync. */
 function getMinimapBoatIconSvgHtml() {
   return '<svg class="minimap-boat-icon" viewBox="-0.62 -0.55 1.24 0.95" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M -0.58 0.12 Q 0 0.42 0.58 0.12 L 0.48 0.32 L -0.48 0.32 Z" fill="rgb(248,242,228)" fill-opacity="0.96" stroke="rgb(14,12,10)" stroke-opacity="0.92" stroke-width="0.11" stroke-linejoin="round"/><path d="M 0 0.32 L 0 -0.52" fill="none" stroke="rgb(14,12,10)" stroke-opacity="0.92" stroke-width="0.11" stroke-linecap="round"/><path d="M 0.06 -0.12 L 0 -0.52 L -0.44 0.1 Z" fill="rgb(215,195,165)" fill-opacity="0.98" stroke="rgb(14,12,10)" stroke-opacity="0.92" stroke-width="0.11" stroke-linejoin="round"/></svg>';
+}
+
+function getMinimapDungeonIconSvgHtml() {
+  return '<svg class="minimap-dungeon-icon" viewBox="-0.58 -0.58 1.16 1.16" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M0 -0.5 C0.29 -0.5 0.48 -0.29 0.48 -0.03 L0.48 0.16 L0.36 0.26 L0.36 0.45 L-0.36 0.45 L-0.36 0.26 L-0.48 0.16 L-0.48 -0.03 C-0.48 -0.29 -0.29 -0.5 0 -0.5 Z" fill="rgb(236,232,224)" fill-opacity="0.96" stroke="rgb(14,12,10)" stroke-opacity="0.95" stroke-width="0.1" stroke-linejoin="round"/><circle cx="-0.18" cy="-0.12" r="0.09" fill="rgb(12,11,10)" fill-opacity="0.9"/><circle cx="0.18" cy="-0.12" r="0.09" fill="rgb(12,11,10)" fill-opacity="0.9"/><path d="M0 -0.01 L0.08 0.12 L-0.08 0.12 Z" fill="rgb(12,11,10)" fill-opacity="0.9"/></svg>';
 }
 
 function drawWorldMapCanvas() {
@@ -13676,6 +13749,7 @@ function drawWorldMapCanvas() {
   }
   drawWorldMapCityLabels(ctx, cellW, cellH);
   drawWorldMapBoatSymbols(ctx, cellW, cellH);
+  drawWorldMapDungeonSymbols(ctx, cellW, cellH);
   ctx.imageSmoothingEnabled = false;
   const px = player.worldMap.x;
   const py = player.worldMap.y;
@@ -13913,11 +13987,13 @@ function buildMinimapHtml(px, py) {
       const ny = py + dy;
       const isYou = dx === 0 && dy === 0;
       const hasBoat = nx >= 0 && ny >= 0 && nx < d.width && ny < d.height && coordinateCellHasBoatAt(nx, ny);
+      const hasDungeon = nx >= 0 && ny >= 0 && nx < d.width && ny < d.height && coordinateCellHasDungeonAt(nx, ny);
       const styleCss =
         nx >= 0 && ny >= 0 && nx < d.width && ny < d.height ? getMinimapCellBackgroundCss(nx, ny) : "background:#1a1a1a";
       const boatIcon = hasBoat ? getMinimapBoatIconSvgHtml() : "";
+      const dungeonIcon = hasDungeon ? getMinimapDungeonIconSvgHtml() : "";
       cells.push(
-        `<div class="minimap-cell${isYou ? " minimap-cell--you" : ""}${hasBoat ? " minimap-cell--boat" : ""}" style="${escapeAttr(styleCss)}" data-map-x="${nx}" data-map-y="${ny}">${boatIcon}</div>`
+        `<div class="minimap-cell${isYou ? " minimap-cell--you" : ""}${hasBoat ? " minimap-cell--boat" : ""}${hasDungeon ? " minimap-cell--dungeon" : ""}" style="${escapeAttr(styleCss)}" data-map-x="${nx}" data-map-y="${ny}">${boatIcon}${dungeonIcon}</div>`
       );
     }
   }

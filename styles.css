@@ -3064,7 +3064,17 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   z-index: 2;
 }
 
+.minimap-cell--dungeon {
+  position: relative;
+  overflow: visible;
+  z-index: 2;
+}
+
 .minimap-cell--you.minimap-cell--boat {
+  z-index: 3;
+}
+
+.minimap-cell--you.minimap-cell--dungeon {
   z-index: 3;
 }
 
@@ -3078,6 +3088,18 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   margin-top: -10px;
   pointer-events: none;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.55));
+}
+
+.minimap-dungeon-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
 }
 
 /* Full world map modal (M key) — compact, centered on screen */
