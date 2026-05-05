@@ -2624,6 +2624,7 @@ function initFoeCombatRuntime(foe) {
 function getFoeEffectiveAttackForCombat(foe) {
   const ms = getMonsterScalingConfig();
   const def = foe && foe.name ? getEnemyDefByName(foe.name) : null;
+  const overrideAtk = def && typeof def.attackOverride === "number" && Number.isFinite(def.attackOverride) ? def.attackOverride : null;
   const roleKey = getEnemyCombatRoleKey(def);
   const level = typeof foe.level === "number" && foe.level > 0 ? Math.floor(foe.level) : 1;
   const basePerLevel =
@@ -2657,7 +2658,8 @@ function getFoeEffectiveAttackForCombat(foe) {
       : 1;
   const moodAttackBonus =
     typeof foe.moodAttackBonus === "number" && Number.isFinite(foe.moodAttackBonus) ? foe.moodAttackBonus : 0;
-  let a = Math.max(1, Math.floor(base * baseAttackMult * moodAttackMult + moodAttackBonus));
+  let a =
+    overrideAtk != null ? Math.max(1, Math.floor(overrideAtk)) : Math.max(1, Math.floor(base * baseAttackMult * moodAttackMult + moodAttackBonus));
   if (foe.combat && foe.combat.script === "tusk_boar" && typeof foe.combat.rageStacks === "number" && foe.combat.rageStacks > 0) {
     a = Math.max(1, Math.floor(a * (1 + 0.05 * foe.combat.rageStacks)));
   }
@@ -3075,6 +3077,16 @@ function dealRawDamageToPlayer(st, rawDamage, foeName, logVerb, opts) {
       rawDamageAdj = applyMonsterCritToRaw(src, rawDamageAdj);
     }
   }
+  const wmc = st && st.worldMapContext && typeof st.worldMapContext === "object" ? st.worldMapContext : null;
+  if (
+    wmc &&
+    typeof wmc.enemyDamageMult === "number" &&
+    Number.isFinite(wmc.enemyDamageMult) &&
+    wmc.enemyDamageMult > 0 &&
+    foeName
+  ) {
+    rawDamageAdj = Math.max(1, Math.floor(rawDamageAdj * wmc.enemyDamageMult));
+  }
   ensureCombatParty(st);
   const o = opts && typeof opts === "object" ? opts : null;
   if (o && o.aoeAllParty) {
@@ -3188,6 +3200,7 @@ function tickPlayerTurnEndBuffs(st) {
       appendFightLog(`${f.name} takes ${d} burn damage.`);
     }
   });
+  despawnSummonsWithDeadSummoners(st);
 }
 
 function applyBleedToPlayer(st, dmgPerTurn, turns) {
@@ -3272,6 +3285,22 @@ function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
   minion.combat.script = "";
   st.foes.push(minion);
   appendFightLog(`${summoner.name} summons ${label}!`);
+}
+
+function despawnSummonsWithDeadSummoners(st) {
+  if (!st || !Array.isArray(st.foes)) return;
+  const deadSummoners = new Set();
+  for (const f of st.foes) {
+    if (!f || f.hp > 0 || typeof f.uid !== "number") continue;
+    deadSummoners.add(f.uid);
+  }
+  if (!deadSummoners.size) return;
+  for (const f of st.foes) {
+    if (!f || f.hp <= 0 || !f.combat || typeof f.combat.summonerUid !== "number") continue;
+    if (!deadSummoners.has(f.combat.summonerUid)) continue;
+    f.hp = 0;
+    appendFightLog(`${f.name} collapses as its summoner falls.`);
+  }
 }
 
 function runTideEchoStrikes(st, summoner) {
@@ -3552,6 +3581,96 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.6 * outMult)), foe.name, "strikes you", {
       partyUid: typeof targetUid === "number" ? targetUid : null
     });
+    return true;
+  }
+
+  if (scriptId === "tidebound_crusher") {
+    // Drown Grip (CD 3): tax stamina usage when available.
+    if (ready("drown_grip")) {
+      setCd("drown_grip", 3);
+      ensureCombatStatus(st);
+      st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 12);
+      st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
+      appendFightLog(`${foe.name} uses Drown Grip (+12% stamina costs).`);
+      return true;
+    }
+
+    // Crushing Wave (CD 2): 1.1x physical + stagger pressure.
+    if (ready("crushing_wave")) {
+      setCd("crushing_wave", 2);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
+      const hit = Math.max(1, Math.floor(atk * 1.1 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Crushing Wave slams you", { partyUid: typeof targetUid === "number" ? targetUid : null });
+      const staggerPct = Math.max(0, formulaStrStaggerChancePct(foe.str || 0) * 0.7);
+      tryPlayerStun(st, Math.min(0.95, staggerPct / 100));
+      return true;
+    }
+
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * outMult)), foe.name, "hits you");
+    return true;
+  }
+
+  if (scriptId === "drowned_channeler") {
+    ensureCombatStatus(st);
+
+    // Abyss Bind (CD 3): -15% accuracy, duration scales with INT.
+    if (ready("abyss_bind")) {
+      setCd("abyss_bind", 3);
+      const dur = Math.max(1, Math.round(2 * (1 + formulaIntDebuffDurationBonusPct(foe.int || 0) / 100)));
+      st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 15);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, dur);
+      appendFightLog(`${foe.name} casts Abyss Bind (-15% accuracy).`);
+      return true;
+    }
+
+    // Tidal Surge (CD 2): 0.9x magic and extends current debuffs by +1 turn.
+    if (ready("tidal_surge")) {
+      setCd("tidal_surge", 2);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "lowest_hp");
+      const hit = Math.max(1, Math.floor(atk * 0.9 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Tidal Surge crashes over you", { partyUid: typeof targetUid === "number" ? targetUid : null });
+      if ((st.status.playerDamageDownTurns || 0) > 0) st.status.playerDamageDownTurns += 1;
+      if ((st.status.playerAccuracyDownTurns || 0) > 0) st.status.playerAccuracyDownTurns += 1;
+      if ((st.status.playerComboChanceDownTurns || 0) > 0) st.status.playerComboChanceDownTurns += 1;
+      if ((st.status.playerStaminaCostUpTurns || 0) > 0) st.status.playerStaminaCostUpTurns += 1;
+      appendFightLog(`${foe.name} extends your debuffs by 1 turn.`);
+      return true;
+    }
+
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.7 * outMult)), foe.name, "lashes you");
+    return true;
+  }
+
+  if (scriptId === "tidemother_aberration") {
+    ensureCombatStatus(st);
+    // Abyssal Pressure (passive): constant fatigue aura.
+    st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 6);
+    st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 1);
+
+    const echoes = st.foes.filter((f) => f && f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === foe.uid);
+    if (echoes.length < 2 && ready("spawn_tide_echo")) {
+      setCd("spawn_tide_echo", 3);
+      summonCombatMinion(st, foe, "Tide Echo", 0.22, 0.32);
+      const created = st.foes.find((f) => f && f.hp > 0 && f.name === "Tide Echo" && (!f.combat || !f.combat.summonerUid));
+      if (created) {
+        if (!created.combat) initFoeCombatRuntime(created);
+        created.combat.summonerUid = foe.uid;
+        created.combat.summonLifetimeTurns = 3;
+      }
+      return true;
+    }
+
+    if (ready("crushing_undertow")) {
+      setCd("crushing_undertow", 2);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
+      const hit = Math.max(1, Math.floor(atk * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Crushing Undertow engulfs you", { partyUid: typeof targetUid === "number" ? targetUid : null });
+      st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 10);
+      st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
+      return true;
+    }
+
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.9 * outMult)), foe.name, "batters you");
     return true;
   }
 
@@ -6480,7 +6599,11 @@ function distributeMonsterStatBudget(level, roleKey) {
 function buildMonsterCharacteristics(level, roleKey, def) {
   const baseBudget = computeMonsterBaseStatBudget(level);
   const rarityMult = getMonsterBudgetDifficultyModifier(def);
-  const budget = Math.max(4, Math.round(baseBudget * rarityMult));
+  const customMult =
+    def && typeof def.statBudgetMultiplier === "number" && Number.isFinite(def.statBudgetMultiplier) && def.statBudgetMultiplier > 0
+      ? def.statBudgetMultiplier
+      : 1;
+  const budget = Math.max(4, Math.round(baseBudget * rarityMult * customMult));
   const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
   const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
   const out = {
@@ -6555,15 +6678,21 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
   const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
   const roleKey = getEnemyCombatRoleKey(def);
   const stats = buildMonsterCharacteristics(level, roleKey, def);
+  const statOverride = def && def.baseStats && typeof def.baseStats === "object" ? def.baseStats : null;
+  if (statOverride) {
+    if (typeof statOverride.str === "number" && Number.isFinite(statOverride.str)) stats.str = Math.max(1, Math.floor(statOverride.str));
+    if (typeof statOverride.dex === "number" && Number.isFinite(statOverride.dex)) stats.dex = Math.max(1, Math.floor(statOverride.dex));
+    if (typeof statOverride.vit === "number" && Number.isFinite(statOverride.vit)) stats.vit = Math.max(1, Math.floor(statOverride.vit));
+    if (typeof statOverride.int === "number" && Number.isFinite(statOverride.int)) stats.int = Math.max(1, Math.floor(statOverride.int));
+  }
   const ms = getMonsterScalingConfig();
   const hpBasePerLv =
     typeof ms.hpLevelBasePerLevel === "number" && Number.isFinite(ms.hpLevelBasePerLevel) ? ms.hpLevelBasePerLevel : 35;
   const hpPerVit = typeof ms.hpPerVit === "number" && Number.isFinite(ms.hpPerVit) ? ms.hpPerVit : 12;
   const bossHpMult = getMonsterHpBossMultiplier(def);
-  const hp = Math.max(
-    1,
-    Math.round((hpBasePerLv * level + stats.vit * hpPerVit) * bossHpMult * scale * hpMult)
-  );
+  const hpFromFormulas = Math.max(1, Math.round((hpBasePerLv * level + stats.vit * hpPerVit) * bossHpMult * scale * hpMult));
+  const hpOverride = def && typeof def.baseHp === "number" && Number.isFinite(def.baseHp) ? Math.max(1, Math.floor(def.baseHp)) : null;
+  const hp = hpOverride != null ? hpOverride : hpFromFormulas;
   const maxStamina = getFoeCombatMaxStamina(def);
   const moodId = typeof mood.id === "string" && mood.id.trim() ? mood.id.trim() : null;
   const moodName = typeof mood.name === "string" ? mood.name.trim() : "";
@@ -6600,7 +6729,12 @@ function spawnEnemiesFromPreview(region, units) {
       if (!def) return null;
       const mood = resolveMoodFromPreviewUnit(u, def);
       const level = typeof u.level === "number" ? u.level : pickLevelFromEnemyDef(def);
-      return buildSpawnedFoe(region, def, uid, level, mood);
+      const foe = buildSpawnedFoe(region, def, uid, level, mood);
+      if (foe) {
+        const pi = u && typeof u.portraitImage === "string" ? u.portraitImage.trim() : "";
+        if (pi) foe.image = pi;
+      }
+      return foe;
     })
     .filter(Boolean);
 }
@@ -7628,6 +7762,47 @@ function parseWorldMapKey(key) {
   return { x, y };
 }
 
+function getDungeonCatalog() {
+  const wm = GAME_CONFIG.worldMap;
+  const d = wm && wm.dungeons && typeof wm.dungeons === "object" ? wm.dungeons : {};
+  return d;
+}
+
+function getDungeonDef(dungeonId) {
+  const id = typeof dungeonId === "string" ? dungeonId.trim() : "";
+  if (!id) return null;
+  const d = getDungeonCatalog()[id];
+  return d && typeof d === "object" ? d : null;
+}
+
+function getActiveDungeonRun() {
+  const r = player.worldMap && player.worldMap.dungeonRun;
+  if (!r || typeof r !== "object" || typeof r.id !== "string" || !r.id.trim()) return null;
+  if (!getDungeonDef(r.id)) return null;
+  return r;
+}
+
+function clearDungeonRun() {
+  if (!player.worldMap || typeof player.worldMap !== "object") return;
+  delete player.worldMap.dungeonRun;
+  delete player.worldMap.dungeonPostCombat;
+}
+
+function resolveDungeonRoomBackgroundUrl(dungeonId, roomIndex, onResolved) {
+  const def = getDungeonDef(dungeonId);
+  if (!def || !Array.isArray(def.rooms) || roomIndex < 0 || roomIndex >= def.rooms.length) {
+    onResolved(null, false);
+    return;
+  }
+  const base = typeof def.assetBase === "string" ? def.assetBase.trim().replace(/\/+$/, "") : "";
+  const stem = def.rooms[roomIndex] && typeof def.rooms[roomIndex].bg === "string" ? def.rooms[roomIndex].bg.trim() : "";
+  if (!base || !stem) {
+    onResolved(null, false);
+    return;
+  }
+  tryAdventureBackgroundExtensions(`${base}/${stem}`, (url) => onResolved(url, false));
+}
+
 /**
  * If portal id was created by {@link applyCityPortalsFromConfig} as `portal_x,y`, returns that anchor tile for teleport.
  * Returns null for editor/custom ids (e.g. `portal_abc123`).
@@ -7969,16 +8144,47 @@ function getCoordinateCellConfigFromConfigOnly(x, y) {
   return normalizeCoordinateCellRaw(raw);
 }
 
+/**
+ * {@link player.worldMap.sceneEdits} replaces config for that tile. Re-attach config NPCs with `dungeonEntrance`
+ * so dungeon doors stay available after editing other props on the same cell.
+ */
+function mergeDungeonEntranceNpcsFromConfigIntoScene(x, y, editScene) {
+  if (!editScene || editScene.kind !== "scene" || !Array.isArray(editScene.elements)) return editScene;
+  const cfgOnly = getCoordinateCellConfigFromConfigOnly(x, y);
+  if (!cfgOnly || cfgOnly.kind !== "scene" || !Array.isArray(cfgOnly.elements)) return editScene;
+  const fromCfg = cfgOnly.elements.filter(
+    (e) => e && e.type === "npc" && typeof e.dungeonEntrance === "string" && e.dungeonEntrance.trim()
+  );
+  if (!fromCfg.length) return editScene;
+  const next = editScene.elements.map((e) => (e && typeof e === "object" ? { ...e } : e)).filter((e) => e != null);
+  const ids = new Set(next.map((e) => (e && typeof e.id === "string" ? e.id.trim() : "")).filter(Boolean));
+  let changed = false;
+  for (const el of fromCfg) {
+    const id = el && typeof el.id === "string" ? el.id.trim() : "";
+    if (!id || ids.has(id)) continue;
+    next.push({ ...el });
+    ids.add(id);
+    changed = true;
+  }
+  if (!changed) return editScene;
+  return {
+    kind: "scene",
+    title: typeof editScene.title === "string" ? editScene.title : "",
+    description: typeof editScene.description === "string" ? editScene.description : "",
+    elements: next
+  };
+}
+
 function getCoordinateCellConfig(x, y) {
   const key = worldMapKey(x, y);
   const edit = player.worldMap.sceneEdits && player.worldMap.sceneEdits[key];
   if (edit && edit.kind === "scene" && Array.isArray(edit.elements)) {
-    return {
+    return mergeDungeonEntranceNpcsFromConfigIntoScene(x, y, {
       kind: "scene",
       title: typeof edit.title === "string" ? edit.title : "",
       description: typeof edit.description === "string" ? edit.description : "",
       elements: edit.elements
-    };
+    });
   }
   return getCoordinateCellConfigFromConfigOnly(x, y);
 }
@@ -8071,7 +8277,8 @@ function getEditableSceneObjectCatalog() {
         id: newSceneElementId("npc"),
         editable: true,
         label: "NPC",
-        text: "…"
+        text: "…",
+        image: ""
       })
     },
     {
@@ -8277,6 +8484,42 @@ function buildCityPortalsLayoutExportObjects() {
  * Keys are `"x,y"`. Values are arrays of `{ id, leftPct, topPct, scalePct }` for each boat element on that tile.
  * Paste into `worldMap.coordinateCells[coord].elements` on the matching `type: "boat"` entry by `id`.
  */
+function buildNpcLayoutExportByCoordinate() {
+  const wm = GAME_CONFIG.worldMap;
+  const keys = new Set();
+  if (wm && wm.coordinateCells && typeof wm.coordinateCells === "object") {
+    Object.keys(wm.coordinateCells).forEach((k) => keys.add(k));
+  }
+  if (player.worldMap.sceneEdits && typeof player.worldMap.sceneEdits === "object") {
+    Object.keys(player.worldMap.sceneEdits).forEach((k) => keys.add(k));
+  }
+  const d = getWorldMapData();
+  const byCoord = {};
+  for (const k of keys) {
+    const { x, y } = parseWorldMapKey(k);
+    if (!d || x < 0 || y < 0 || x >= d.width || y >= d.height) continue;
+    const cfg = getCoordinateCellConfig(x, y);
+    if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) continue;
+    const rows = [];
+    for (const el of cfg.elements) {
+      if (!el || el.type !== "npc") continue;
+      const id = typeof el.id === "string" ? el.id.trim() : "";
+      if (!id) continue;
+      const pos = getSceneLayoutTransform(x, y, id);
+      const isDefault = pos.leftPct === 50 && pos.topPct === 50 && pos.scalePct === 100;
+      const hadAny =
+        (typeof el.leftPct === "number" && Number.isFinite(el.leftPct)) ||
+        (typeof el.topPct === "number" && Number.isFinite(el.topPct)) ||
+        (typeof el.scalePct === "number" && Number.isFinite(el.scalePct));
+      if (!isDefault || hadAny) {
+        rows.push({ id, leftPct: pos.leftPct, topPct: pos.topPct, scalePct: pos.scalePct });
+      }
+    }
+    if (rows.length) byCoord[k] = rows;
+  }
+  return byCoord;
+}
+
 function buildBoatLayoutExportByCoordinate() {
   const wm = GAME_CONFIG.worldMap;
   const keys = new Set();
@@ -8315,11 +8558,17 @@ function buildBoatLayoutExportByCoordinate() {
 
 function buildWorldMapLayoutExportSnippet() {
   const coordinateCellBoatLayouts = buildBoatLayoutExportByCoordinate();
+  const coordinateCellNpcLayouts = buildNpcLayoutExportByCoordinate();
   const cityPortals = buildCityPortalsLayoutExportObjects();
-  if (!Object.keys(coordinateCellBoatLayouts).length) {
+  const hasBoats = Object.keys(coordinateCellBoatLayouts).length > 0;
+  const hasNpcs = Object.keys(coordinateCellNpcLayouts).length > 0;
+  if (!hasBoats && !hasNpcs) {
     return JSON.stringify(cityPortals, null, 2);
   }
-  return JSON.stringify({ cityPortals, coordinateCellBoatLayouts }, null, 2);
+  const out = { cityPortals };
+  if (hasBoats) out.coordinateCellBoatLayouts = coordinateCellBoatLayouts;
+  if (hasNpcs) out.coordinateCellNpcLayouts = coordinateCellNpcLayouts;
+  return JSON.stringify(out, null, 2);
 }
 
 function buildCityPortalsLayoutExportSnippet() {
@@ -8334,7 +8583,8 @@ async function copyCityPortalLayoutExportToClipboard() {
       showModal(
         "Copied layout JSON to the clipboard. If it is only an array, replace `cityPortals` in config.js as before. " +
           "If it is an object, replace `cityPortals` with the `cityPortals` property, and merge each entry in `coordinateCellBoatLayouts` " +
-          "into the matching `type: \"boat\"` element (same `id`) under `worldMap.coordinateCells` for that coordinate (`leftPct`, `topPct`, `scalePct`). Then reload."
+          "into the matching `type: \"boat\"` element (same `id`) under `worldMap.coordinateCells` for that coordinate (`leftPct`, `topPct`, `scalePct`). " +
+          "Do the same for `coordinateCellNpcLayouts` and `type: \"npc\"` elements (same `id`). Then reload."
       );
     } else {
       console.warn("world map layout export (clipboard unavailable):\n", text);
@@ -8867,6 +9117,15 @@ function buildBoatVisualHtml(labelText, imageUrl) {
   return escapeHtml(labelText || "Boat");
 }
 
+/** Per-NPC scene art (path relative to index.html). No global fallback — omit `image` on the element to use a text button instead. */
+function buildNpcVisualHtml(labelText, imageUrl) {
+  const url = typeof imageUrl === "string" ? imageUrl.trim() : "";
+  if (url) {
+    return `<img src="${escapeAttr(url)}" alt="" class="world-npc-img" draggable="false" decoding="async" />`;
+  }
+  return escapeHtml(labelText || "NPC");
+}
+
 /** If {@link getWorldMapPortalImageUrl} is set but the image is missing or fails to load, replace with {@link buildPortalFrameSvgHtml}. */
 function applyPortalImageFallbacks(root) {
   if (!root || !getWorldMapPortalImageUrl()) return;
@@ -8895,6 +9154,24 @@ function applyBoatImageFallbacks(root) {
   });
 }
 
+function applyNpcImageFallbacks(root) {
+  if (!root) return;
+  root.querySelectorAll("img.world-npc-img").forEach((img) => {
+    const swap = () => {
+      const wrap = img.parentElement;
+      if (!wrap || !wrap.classList.contains("world-npc-visual")) return;
+      const btn = wrap.closest(".world-npc-btn");
+      const label =
+        btn && typeof btn.getAttribute("aria-label") === "string" && btn.getAttribute("aria-label").trim()
+          ? btn.getAttribute("aria-label").trim()
+          : "NPC";
+      wrap.textContent = label;
+    };
+    img.addEventListener("error", swap, { once: true });
+    if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) swap();
+  });
+}
+
 /**
  * @returns {{ html: string, hasAnchoredObjects: boolean }}
  */
@@ -8917,12 +9194,40 @@ function buildAdventureSceneHtml(x, y, cfg) {
     if (!el || typeof el !== "object") return "";
     const type = el.type;
     const id = typeof el.id === "string" && el.id.trim() ? el.id.trim() : `el${i}`;
-    const editable = el.editable === true || type === "boat";
-    if (type === "npc" || type === "note") {
+    const imageUrlNpc = type === "npc" && typeof el.image === "string" ? el.image.trim() : "";
+    const npcWithImage = type === "npc" && imageUrlNpc.length > 0;
+    const editable = el.editable === true || type === "boat" || npcWithImage;
+    if (type === "note") {
       const text = typeof el.text === "string" ? el.text : "";
-      const payload = escapeAttr(JSON.stringify({ type: type === "note" ? "note" : "npc", text, id }));
+      const payloadObj = { type: "note", text, id };
+      const payload = escapeAttr(JSON.stringify(payloadObj));
       const label = escapeHtml(typeof el.label === "string" ? el.label : type);
       const tip = escapeHtml(text || label);
+      return wrapIfEditable(
+        id,
+        editable,
+        `<button type="button" class="btn-secondary world-scene-btn" data-world-scene="${payload}" title="${tip}">${label}</button>`
+      );
+    }
+    if (type === "npc") {
+      const text = typeof el.text === "string" ? el.text : "";
+      const payloadObj = { type: "npc", text, id };
+      if (typeof el.dungeonEntrance === "string" && el.dungeonEntrance.trim()) {
+        payloadObj.dungeonEntrance = el.dungeonEntrance.trim();
+      }
+      const payload = escapeAttr(JSON.stringify(payloadObj));
+      const labelRaw = typeof el.label === "string" && el.label.trim() ? el.label.trim() : "NPC";
+      const label = escapeHtml(labelRaw);
+      const tip = escapeHtml(text || labelRaw);
+      const labelAttr = escapeAttr(labelRaw);
+      if (npcWithImage) {
+        const visual = buildNpcVisualHtml(labelRaw, imageUrlNpc);
+        return wrapIfEditable(
+          id,
+          editable,
+          `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="${tip}" aria-label="${labelAttr}"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`
+        );
+      }
       return wrapIfEditable(
         id,
         editable,
@@ -9075,6 +9380,16 @@ function onAdventureSceneButtonClick(e) {
     else save();
     showModal(`You take: ${payload.itemName}.`);
     renderAdventure();
+    return true;
+  }
+  if (payload.type === "dungeon_epilogue" && typeof payload.dungeonId === "string") {
+    if (payload.dungeonId.trim() === "sunken_grotto") {
+      openHollisEpilogueDialog();
+      return true;
+    }
+  }
+  if ((payload.type === "npc" || payload.type === "note") && typeof payload.dungeonEntrance === "string" && payload.dungeonEntrance.trim()) {
+    openHollisEntranceDialog(payload.dungeonEntrance.trim());
     return true;
   }
   if ((payload.type === "npc" || payload.type === "note") && typeof payload.text === "string") {
@@ -9268,6 +9583,8 @@ function beginAdventureMapFade(_dx, _dy, nx, ny) {
 
 function moveWorldMap(dx, dy) {
   ensureWorldMapPosition();
+  const dr = getActiveDungeonRun();
+  if (dr && !dr.epilogue) return;
   const nx = player.worldMap.x + dx;
   const ny = player.worldMap.y + dy;
   if (!canEnterMap(nx, ny)) return;
@@ -9286,6 +9603,13 @@ function moveWorldMap(dx, dy) {
   player.worldMap.y = ny;
   save();
   render();
+}
+
+function startDungeonEncounterFromAdventure() {
+  if (combatState || isFightOverlayOpen()) return;
+  const dr = getActiveDungeonRun();
+  if (!dr || dr.epilogue) return;
+  startDungeonRoomCombat(dr.id, dr.roomIndex);
 }
 
 function startWorldMapFight(setIndex) {
@@ -9751,6 +10075,8 @@ function computeVictoryLoot(foes) {
   const pl = typeof player.level === "number" && player.level > 0 ? player.level : 1;
   (foes || []).forEach((foe) => {
     if (!foe || typeof foe.name !== "string") return;
+    const isSummon = !!(foe.combat && typeof foe.combat.summonerUid === "number");
+    if (isSummon) return;
     const def = getEnemyDefByName(foe.name);
     if (!def) return;
     xp += computeVictoryXpForFoe(foe, pl);
@@ -10117,9 +10443,10 @@ function renderTurnBattle() {
   ensureCombatParty(st);
 
   let partyHtml = "";
-  (st.party || []).forEach((m) => {
-    const dead = !m || m.hp <= 0;
-    const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
+  (st.party || [])
+    .filter((m) => m && m.hp > 0)
+    .forEach((m) => {
+      const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
     const portraitHtml =
       m.kind === "hero"
         ? `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
@@ -10128,25 +10455,26 @@ function renderTurnBattle() {
             ""
           )}</div>`
         : `<img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />`;
-    partyHtml += `<div class="fight-ally-card ${dead ? "fight-ally-card--dead" : ""}" data-party-member="${m.uid}">
+      partyHtml += `<div class="fight-ally-card" data-party-member="${m.uid}">
       ${portraitHtml}
       <span class="fight-card-name">${escapeHtml(m.name)}</span>
       <div class="hp-bar fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
       <span class="fight-card-hp-text">${Math.max(0, m.hp)} / ${m.maxHp}</span>
     </div>`;
-  });
+    });
 
   let enemiesHtml = "";
-  st.foes.forEach((f) => {
-    const dead = f.hp <= 0;
+  st.foes
+    .filter((f) => f && f.hp > 0)
+    .forEach((f) => {
     const pct = f.maxHp ? (Math.max(0, f.hp) / f.maxHp) * 100 : 0;
-    const sel = st.selectedUid === f.uid && !dead;
+      const sel = st.selectedUid === f.uid;
     const label = escapeHtml(f.name);
     const moodLabel = typeof f.moodName === "string" ? f.moodName.trim() : "";
     const moodHtml = moodLabel ? `<span class="fight-card-meta fight-card-mood">${escapeHtml(moodLabel)}</span>` : "";
     const lvl = typeof f.level === "number" ? f.level : 1;
     const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
-    enemiesHtml += `<div class="fight-enemy-card ${dead ? "fight-enemy-card--dead" : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
+      enemiesHtml += `<div class="fight-enemy-card ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
       <div class="fight-enemy-panel">
         ${foeVisualHtml}
         <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
@@ -10158,7 +10486,7 @@ function renderTurnBattle() {
         ${moodHtml}
       </div>
     </div>`;
-  });
+    });
 
   hud.innerHTML = `<div class="fight-battlefield">
     <div class="fight-party-row">${partyHtml}</div>
@@ -10196,11 +10524,15 @@ function renderTurnBattle() {
         <div class="fight-action-row">
           <button type="button" class="btn-primary"${atkDis} data-fight-action="attack">Attack (${atkBase})</button>
           <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">End turn</button>
+          <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
           ${skillBtns}
         </div>`;
     } else {
       actionsEl.classList.remove("hidden");
-      actionsEl.innerHTML = `<p class="fight-hint fight-hint--enemy">Enemies are attacking…</p>`;
+      actionsEl.innerHTML = `<p class="fight-hint fight-hint--enemy">Enemies are attacking…</p>
+        <div class="fight-action-row">
+          <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
+        </div>`;
     }
   }
 
@@ -10305,6 +10637,7 @@ function runEnemyPhase() {
         cur.__monsterDamageSourceFoe = prev;
       }
     }
+    despawnSummonsWithDeadSummoners(cur);
     tickEnemySkillCooldownsEndOfTurn(foe);
     renderTurnBattle();
     shakeFightOverlay();
@@ -10382,7 +10715,16 @@ function finishCombatVictory() {
     items
   };
   applyFightResult(result);
-  if (st.worldMapContext) {
+  const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
+  if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
+    recordMonsterKillsFromNames(killedNamesAll);
+    player.worldMap.dungeonPostCombat = {
+      dungeonId: st.worldMapContext.dungeonId.trim(),
+      roomIndex: typeof st.worldMapContext.roomIndex === "number" ? st.worldMapContext.roomIndex : 0,
+      victory: true
+    };
+    save();
+  } else if (st.worldMapContext && typeof st.worldMapContext.x === "number" && typeof st.worldMapContext.y === "number") {
     const { x, y, setIndex } = st.worldMapContext;
     const key = worldMapKey(x, y);
     const cellCfg = getCoordinateCellConfig(x, y);
@@ -10394,10 +10736,9 @@ function finishCombatVictory() {
     while (player.worldMap.cells[key].defeated.length < slots) player.worldMap.cells[key].defeated.push(null);
     while (player.worldMap.cells[key].defeatedUnits.length < slots) player.worldMap.cells[key].defeatedUnits.push(null);
     while (player.worldMap.cells[key].mobPreviews.length < slots) player.worldMap.cells[key].mobPreviews.push(null);
-    const killedNames = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
-    recordMonsterKillsFromNames(killedNames);
+    recordMonsterKillsFromNames(killedNamesAll);
     player.worldMap.cells[key].defeated[setIndex] = Date.now();
-    player.worldMap.cells[key].defeatedUnits[setIndex] = killedNames;
+    player.worldMap.cells[key].defeatedUnits[setIndex] = killedNamesAll;
     player.worldMap.cells[key].mobPreviews[setIndex] = null;
     save();
   }
@@ -10420,6 +10761,13 @@ function finishCombatDefeat() {
     items: []
   };
   applyFightResult(result);
+  if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
+    player.worldMap.dungeonPostCombat = {
+      dungeonId: st.worldMapContext.dungeonId.trim(),
+      defeat: true
+    };
+    save();
+  }
   showFightResults(false, result);
   renderTurnBattle();
   const closeBtn = document.getElementById("fightCloseBtn");
@@ -10969,10 +11317,7 @@ function playerCombatAction(kind, skillName) {
       finishCombatVictory();
       return;
     }
-    if (st.stamina <= 0) {
-      endPlayerTurn();
-      return;
-    }
+    despawnSummonsWithDeadSummoners(st);
     renderTurnBattle();
     startPlayerTurnTimer();
   }
@@ -11104,6 +11449,16 @@ function playerCombatPass(auto) {
   endPlayerTurn();
 }
 
+function playerForfeitCurrentFight() {
+  const st = combatState;
+  if (!st || st.phase === "ended") return;
+  clearPlayerTurnTimer();
+  appendFightLog(`${player.name} leaves the fight and is defeated.`);
+  st.playerHp = 1;
+  syncCombatPartyHeroMirror(st);
+  finishCombatDefeat();
+}
+
 function onFightOverlayDblClick(ev) {
   const loot = ev.target.closest(".fight-loot-cell[data-item-name]");
   if (!loot || !loot.dataset.itemName) return;
@@ -11132,9 +11487,15 @@ function onFightOverlayDblClick(ev) {
 
 function onFightOverlayClick(ev) {
   const st = combatState;
-  if (!st || st.phase !== "player") return;
+  if (!st) return;
 
   const t = ev.target;
+  if (t.closest("[data-fight-action='leave']")) {
+    playerForfeitCurrentFight();
+    return;
+  }
+  if (st.phase !== "player") return;
+
   const card = t.closest("[data-fight-target]");
   if (card) {
     const uid = parseInt(card.getAttribute("data-fight-target"), 10);
@@ -11160,6 +11521,173 @@ function onFightOverlayClick(ev) {
     const name = skillBtn.getAttribute("data-fight-skill");
     if (name) playerCombatAction("skill", name);
   }
+}
+
+function buildDungeonEnemyUnitsForRoom(dungeonId, roomIndex) {
+  const def = getDungeonDef(dungeonId);
+  const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
+  if (!room || !Array.isArray(room.enemies)) return [];
+  return room.enemies.map((e) => (e && typeof e === "object" ? { ...e } : null)).filter(Boolean);
+}
+
+function enrichDungeonPreviewUnitForMob(u) {
+  if (!u || typeof u !== "object" || typeof u.name !== "string") return null;
+  const def = getEnemyDefByName(u.name);
+  if (!def) return null;
+  const mood = resolveMoodFromPreviewUnit(u, def);
+  const level =
+    typeof u.level === "number" && Number.isFinite(u.level) ? Math.max(1, Math.floor(u.level)) : pickLevelFromEnemyDef(def);
+  const out = {
+    name: u.name,
+    level,
+    moodId: mood.id,
+    moodName: mood.name
+  };
+  if (typeof u.portraitImage === "string" && u.portraitImage.trim()) out.portraitImage = u.portraitImage.trim();
+  return out;
+}
+
+/** Same shape as rolled {@link ensureMobPreview} — for thumbnails, tooltips, and {@link spawnEnemiesFromPreview}. */
+function buildDungeonRoomMobPreview(dungeonId, roomIndex) {
+  const raw = buildDungeonEnemyUnitsForRoom(dungeonId, roomIndex);
+  if (!raw.length) return null;
+  const units = raw.map(enrichDungeonPreviewUnitForMob).filter(Boolean);
+  if (!units.length) return null;
+  const mobTotalLevel = units.reduce((s, u) => s + u.level, 0);
+  return {
+    units,
+    mobTotalLevel,
+    difficultyTier: "dungeon"
+  };
+}
+
+function advanceDungeonToNextRoomOrEpilogue() {
+  const run = getActiveDungeonRun();
+  if (!run || run.epilogue) return;
+  const def = getDungeonDef(run.id);
+  if (!def || !Array.isArray(def.rooms)) return;
+  const nextRoom = run.roomIndex + 1;
+  if (nextRoom < def.rooms.length) {
+    run.roomIndex = nextRoom;
+  } else {
+    run.epilogue = true;
+  }
+  save();
+  render();
+}
+
+function startDungeonRoomCombat(dungeonId, roomIndex) {
+  const def = getDungeonDef(dungeonId);
+  if (!def || !Array.isArray(def.rooms) || roomIndex < 0 || roomIndex >= def.rooms.length) return;
+  const room = def.rooms[roomIndex];
+  const units = buildDungeonEnemyUnitsForRoom(dungeonId, roomIndex);
+  if (!units.length) return;
+  const biome = getWorldBiomeDefAt(player.worldMap.x, player.worldMap.y);
+  const region = {
+    name: def.name || dungeonId,
+    enemyScale: biome && typeof biome.enemyScale === "number" ? biome.enemyScale : 1,
+    mobDifficulty: biome && biome.mobDifficulty ? biome.mobDifficulty : { easy: 3, medium: 6, hard: 10 }
+  };
+  const ctx = { dungeonId, roomIndex };
+  if (typeof room.enemyDamageMult === "number" && Number.isFinite(room.enemyDamageMult) && room.enemyDamageMult > 0) {
+    ctx.enemyDamageMult = room.enemyDamageMult;
+  }
+  beginTurnCombat(region, { units }, ctx);
+  if (combatState && typeof room.modifierText === "string" && room.modifierText.trim()) {
+    appendFightLog(room.modifierText.trim());
+  }
+}
+
+function openHollisEntranceDialog(dungeonId) {
+  const id = typeof dungeonId === "string" ? dungeonId.trim() : "";
+  if (id !== "sunken_grotto") {
+    showModal("This entrance is not configured.");
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Hollis Dredge</p>
+    <p class="npc-dialog-body">Oi—watch your step! Took me three days to dig this cursed door out… and it’s still hummin’ at me. You got the key for it, or are you just here to admire my hole?</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-hollis-choice="give_key">Give Key</button>
+      <button type="button" class="btn-secondary" data-hollis-choice="leave">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openHollisKeyAcceptedDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-body">Ahh… there it is. Right then—if you don’t come back, I’m fillin’ this thing back in.</p>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-hollis-choice="enter_dungeon">Continue</button></div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function beginSunkenGrottoDungeonRunFromModal() {
+  const def = getDungeonDef("sunken_grotto");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Sunken Grotto Key";
+  const idx = player.inventory.indexOf(keyName);
+  if (idx === -1) {
+    showModal("You no longer have the key.");
+    return;
+  }
+  player.inventory.splice(idx, 1);
+  const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
+  player.worldMap.x = ent.x;
+  player.worldMap.y = ent.y;
+  player.worldMap.dungeonRun = { id: "sunken_grotto", roomIndex: 0, epilogue: false };
+  save();
+  closeModal();
+  render();
+}
+
+function openHollisLeaveDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-body">Suit yourself. I ain’t goin’ down there alone anyway…</p>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-hollis-choice="close">Close</button></div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openHollisEpilogueDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Hollis Dredge</p>
+    <p class="npc-dialog-body">So… anything worth the trouble down there?</p>
+    <p class="npc-dialog-body">No? Hah. Thought so. Still—out you go.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="1">Leave Dungeon</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay a Moment</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function buildDungeonEpilogueSceneHtml() {
+  const dungeonId = "sunken_grotto";
+  const payload = escapeAttr(JSON.stringify({ type: "dungeon_epilogue", dungeonId }));
+  const def = getDungeonDef(dungeonId);
+  const ent =
+    def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? def.entrance
+      : { x: 37, y: 55 };
+  const cellCfg = getCoordinateCellConfig(Math.floor(ent.x), Math.floor(ent.y));
+  let hollisBtn = `<button type="button" class="btn-secondary world-scene-btn" data-world-scene="${payload}">Hollis Dredge</button>`;
+  if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+    const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "hollis_dredge");
+    const imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+    if (imgUrl) {
+      const visual = buildNpcVisualHtml("Hollis Dredge", imgUrl);
+      hollisBtn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Hollis Dredge" aria-label="Hollis Dredge"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+    }
+  }
+  return `<div class="world-scene">
+    <h3 class="world-scene-title">Sunken Grotto</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Hollis picked his way down behind you.</p>
+    <div class="world-scene-actions">
+      ${hollisBtn}
+    </div>
+  </div>`;
 }
 
 function beginTurnCombat(region, mob, worldMapContext) {
@@ -11219,6 +11747,11 @@ function applyFightResult(result) {
 }
 
 function closeFightOverlay() {
+  const dungeonPost =
+    player.worldMap && player.worldMap.dungeonPostCombat && typeof player.worldMap.dungeonPostCombat === "object"
+      ? { ...player.worldMap.dungeonPostCombat }
+      : null;
+  if (player.worldMap && player.worldMap.dungeonPostCombat) delete player.worldMap.dungeonPostCombat;
   clearPlayerTurnTimer();
   clearCombatVisualTimer();
   combatState = null;
@@ -11231,6 +11764,30 @@ function closeFightOverlay() {
   }
   const closeBtn = document.getElementById("fightCloseBtn");
   if (closeBtn) closeBtn.onclick = null;
+  if (dungeonPost && dungeonPost.victory && dungeonPost.dungeonId) {
+    const def = getDungeonDef(dungeonPost.dungeonId);
+    const run = getActiveDungeonRun();
+    if (def && run && run.id === dungeonPost.dungeonId) {
+      const nextRoom = dungeonPost.roomIndex + 1;
+      if (nextRoom < def.rooms.length) {
+        run.roomIndex = nextRoom;
+        save();
+        render();
+        return;
+      }
+      run.epilogue = true;
+      save();
+      render();
+      return;
+    }
+  }
+  if (dungeonPost && dungeonPost.defeat) {
+    clearDungeonRun();
+    save();
+    showModal("You stumble back from the grotto, empty-handed.");
+    render();
+    return;
+  }
   render();
 }
 
@@ -13382,10 +13939,12 @@ function renderAdventure() {
   const y = player.worldMap.y;
   rebuildCityPortalCoordsFromWorld();
   const biome = getWorldBiomeDefAt(x, y);
-  const nOk = canEnterMap(x, y - 1);
-  const sOk = canEnterMap(x, y + 1);
-  const eOk = canEnterMap(x + 1, y);
-  const wOk = canEnterMap(x - 1, y);
+  const dungeonRun = getActiveDungeonRun();
+  const blockNavForDungeon = !!(dungeonRun && !dungeonRun.epilogue);
+  const nOk = !blockNavForDungeon && canEnterMap(x, y - 1);
+  const sOk = !blockNavForDungeon && canEnterMap(x, y + 1);
+  const eOk = !blockNavForDungeon && canEnterMap(x + 1, y);
+  const wOk = !blockNavForDungeon && canEnterMap(x - 1, y);
 
   const navBtn = (dir, label, enabled, extraClass) =>
     `<button type="button" class="world-nav-btn ${extraClass || ""}${enabled ? "" : " world-nav-btn--disabled"}" ${
@@ -13398,6 +13957,48 @@ function renderAdventure() {
   const cellCfg = getCoordinateCellConfig(x, y);
   if (!biome.passable) {
     campsHtml = `<p class="world-camps-none muted">This land cannot be crossed.</p>`;
+  } else if (dungeonRun && !dungeonRun.epilogue) {
+    const dgId = dungeonRun.id;
+    const ri = typeof dungeonRun.roomIndex === "number" ? dungeonRun.roomIndex : 0;
+    const defDgLocal = getDungeonDef(dgId);
+    const roomEnemyUnits =
+      defDgLocal && Array.isArray(defDgLocal.rooms) ? buildDungeonEnemyUnitsForRoom(dgId, ri) : [];
+    if (!defDgLocal || !Array.isArray(defDgLocal.rooms) || ri < 0 || ri >= defDgLocal.rooms.length) {
+      campsHtml = `<p class="world-camps-none muted">The path ahead is unclear.</p>`;
+      worldCampsClass = "world-camps world-camps--scene";
+    } else if (!roomEnemyUnits.length) {
+      campsHtml = `<p class="world-camps-none muted">This chamber is empty.</p><div class="world-dungeon-skip-wrap"><button type="button" class="btn-secondary" data-dungeon-skip-room>Continue</button></div>`;
+      worldCampsClass = "world-camps world-camps--scene";
+    } else {
+      const preview = buildDungeonRoomMobPreview(dgId, ri);
+      const thumbsActive =
+        preview && preview.units && preview.units.length ? buildWorldCampMobThumbsHtmlFromUnits(preview.units) : "";
+      const tipPayload =
+        preview && preview.units && preview.units.length
+          ? {
+              kind: "units",
+              tier: preview.difficultyTier || "dungeon",
+              totalLevel:
+                typeof preview.mobTotalLevel === "number"
+                  ? preview.mobTotalLevel
+                  : preview.units.reduce((s, u) => s + (typeof u.level === "number" ? u.level : 0), 0),
+              units: preview.units.map((u) => ({ name: u.name, level: u.level, mood: u.moodName }))
+            }
+          : { kind: "pool", pool: pool.slice(), min: MOB_SIZE_MIN, max: MOB_SIZE_MAX };
+      const campPayload = escapeAttr(JSON.stringify(tipPayload));
+      const campPos = getCachedCampPanelPositions(x, y, 1);
+      const p0 = campPos[0];
+      const posStyle = p0 ? ` style="left:${p0.leftPct}%;top:${p0.topPct}%;transform:translate(-50%,-50%);"` : "";
+      campsHtml = `<div class="mob-cell world-camp world-camp--dungeon" data-world-camp="dungeon" data-camp-enemies="${campPayload}" data-dungeon-fight="1" aria-label="${escapeAttr(
+        "Chamber encounter"
+      )}"${posStyle}>
+        <div class="mob-imgs mob-imgs--world">${thumbsActive}</div>
+      </div>`;
+      worldCampsClass = "world-camps world-camps--spread world-camps--scene";
+    }
+  } else if (dungeonRun && dungeonRun.epilogue) {
+    campsHtml = buildDungeonEpilogueSceneHtml();
+    worldCampsClass = "world-camps world-camps--spread world-camps--scene";
   } else if (cellCfg.kind === "scene") {
     const sceneBundle = buildAdventureSceneHtml(x, y, cellCfg);
     campsHtml = sceneBundle.html;
@@ -13457,9 +14058,14 @@ function renderAdventure() {
 
   const coordBgUrl = getCoordinateBackgroundUrl(x, y);
   const cityHudName = getWorldMapCityName(x, y);
-  const adventureLocationLine = cityHudName
-    ? `${cityHudName} (${biome.name})`
-    : biome.name;
+  const defDg = dungeonRun ? getDungeonDef(dungeonRun.id) : null;
+  const roomIx = dungeonRun && typeof dungeonRun.roomIndex === "number" ? dungeonRun.roomIndex : 0;
+  let adventureLocationLine = cityHudName ? `${cityHudName} (${biome.name})` : biome.name;
+  if (dungeonRun && defDg && !dungeonRun.epilogue) {
+    adventureLocationLine = `${defDg.name} — chamber ${Math.min(defDg.rooms.length, roomIx + 1)} / ${defDg.rooms.length}`;
+  } else if (dungeonRun && defDg && dungeonRun.epilogue) {
+    adventureLocationLine = `${defDg.name} — aftermath`;
+  }
 
   c.innerHTML = `
     <div class="adventure-page" id="adventurePageRoot">
@@ -13508,10 +14114,15 @@ function renderAdventure() {
     stackEl.classList.add("adventure-bg-stack--ready");
   }
 
-  resolveAdventureBackgroundUrl(x, y, coordBgUrl, (url, isCityArt) => crossfadeAdventureBackground(url, isCityArt));
+  if (dungeonRun && defDg) {
+    resolveDungeonRoomBackgroundUrl(dungeonRun.id, roomIx, (url, isCityArt) => crossfadeAdventureBackground(url, isCityArt));
+  } else {
+    resolveAdventureBackgroundUrl(x, y, coordBgUrl, (url, isCityArt) => crossfadeAdventureBackground(url, isCityArt));
+  }
 
-  applyPortalImageFallbacks(c);
-  applyBoatImageFallbacks(c);
+    applyPortalImageFallbacks(c);
+    applyBoatImageFallbacks(c);
+    applyNpcImageFallbacks(c);
 
   c.querySelectorAll("[data-world-nav]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -13526,6 +14137,16 @@ function renderAdventure() {
     el.addEventListener("click", () => {
       const si = parseInt(el.getAttribute("data-world-fight"), 10);
       if (!Number.isNaN(si)) startWorldMapFight(si);
+    });
+  });
+  c.querySelectorAll("[data-dungeon-fight]").forEach((el) => {
+    el.addEventListener("click", () => {
+      startDungeonEncounterFromAdventure();
+    });
+  });
+  c.querySelectorAll("[data-dungeon-skip-room]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      advanceDungeonToNextRoomOrEpilogue();
     });
   });
 
@@ -13873,7 +14494,7 @@ function showModal(text) {
   const mc = document.getElementById("modalContent");
   if (mc) mc.textContent = text;
   if (m) {
-    m.classList.remove("hidden", "modal--portal-network");
+    m.classList.remove("hidden", "modal--portal-network", "modal--npc-bubble");
   }
 }
 
@@ -13885,6 +14506,8 @@ function showModalHtml(html, opts) {
     m.classList.remove("hidden");
     if (opts && opts.portalNetwork) m.classList.add("modal--portal-network");
     else m.classList.remove("modal--portal-network");
+    if (opts && opts.npcBubble) m.classList.add("modal--npc-bubble");
+    else m.classList.remove("modal--npc-bubble");
   }
 }
 
@@ -14025,6 +14648,7 @@ function closeModal() {
   if (m) {
     m.classList.add("hidden");
     m.classList.remove("modal--portal-network");
+    m.classList.remove("modal--npc-bubble");
   }
   if (mc) {
     mc.textContent = "";
@@ -14033,6 +14657,53 @@ function closeModal() {
 }
 
 function onPortalNetworkModalClick(e) {
+  const hChoice = e.target.closest("[data-hollis-choice]");
+  if (hChoice) {
+    const v = hChoice.getAttribute("data-hollis-choice") || "";
+    if (v === "give_key") {
+      const def = getDungeonDef("sunken_grotto");
+      const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Sunken Grotto Key";
+      if (player.inventory.indexOf(keyName) === -1) {
+        const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-body">You pat your pockets—no grotto key on you.</p>
+      <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-hollis-choice="close">Close</button></div>
+    </div>`;
+        showModalHtml(html, { npcBubble: true });
+        return;
+      }
+      openHollisKeyAcceptedDialog();
+      return;
+    }
+    if (v === "enter_dungeon") {
+      beginSunkenGrottoDungeonRunFromModal();
+      return;
+    }
+    if (v === "leave") {
+      openHollisLeaveDialog();
+      return;
+    }
+    if (v === "close") {
+      closeModal();
+      return;
+    }
+    return;
+  }
+  const leaveD = e.target.closest("[data-dungeon-leave]");
+  if (leaveD) {
+    clearDungeonRun();
+    const def = getDungeonDef("sunken_grotto");
+    const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
+    player.worldMap.x = ent.x;
+    player.worldMap.y = ent.y;
+    save();
+    closeModal();
+    render();
+    return;
+  }
+  if (e.target.closest("[data-dungeon-stay]")) {
+    closeModal();
+    return;
+  }
   const discardBtn = e.target.closest("[data-discard-choice]");
   if (discardBtn && pendingDiscardInventoryItemName) {
     const choice = discardBtn.getAttribute("data-discard-choice");

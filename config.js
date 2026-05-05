@@ -16,6 +16,7 @@ const GAME_CONFIG = {
    */
   startingLoadout: [
     { name: "Small Potion", count: 999 },
+    { name: "Sunken Grotto Key", count: 1 }
   ],
 
   /**
@@ -434,7 +435,46 @@ const GAME_CONFIG = {
       image: "Assets/Monsters/coastal_horror.png",
       possibleLevels: [9, 10, 11],
       possibleMoods: ["berserk"],
-    }, 
+    },
+    {
+      name: "Tidebound Crusher",
+      combatScript: "tidebound_crusher",
+      combatRole: "bruiser",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Paradise South/Sunken Grotto/tidebound_crusher.png",
+      possibleLevels: [14],
+      possibleMoods: ["berserk"],
+      statBudgetMultiplier: 1.1
+    },
+    {
+      name: "Drowned Channeler",
+      combatScript: "drowned_channeler",
+      combatRole: "controller",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Paradise South/Sunken Grotto/drowned_channeler.png",
+      possibleLevels: [13],
+      possibleMoods: ["berserk"],
+      statBudgetMultiplier: 1.1
+    },
+    {
+      name: "Tidemother Aberration",
+      combatScript: "tidemother_aberration",
+      combatRole: "summoner",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Paradise South/Sunken Grotto/tidemother_aberraiton.png",
+      possibleLevels: [15],
+      possibleMoods: ["berserk"],
+      statBudgetMultiplier: 1.1
+    },
+    {
+      name: "Tide Echo",
+      combatScript: "tide_hopper",
+      combatRole: "controller",
+      spawnRarity: "rare",
+      image: "Assets/Monsters/tide_echo.png",
+      possibleLevels: [6],
+      possibleMoods: ["berserk"],
+    },
     {
       name: "Saltwind Skimmer",
       combatScript: "saltwind_skimmer",
@@ -879,6 +919,13 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {},
       useHint: "Click to use in inventory."
+    },
+    "Sunken Grotto Key": {
+      type: "resource",
+      image: "Assets/Resources/sunken_grotto_key.png",
+      description: "A salt-crusted key for the dig Hollis opened by the shore.",
+      bonusSkills: [],
+      bonusStats: {}
     }
   ,
   
@@ -4796,6 +4843,7 @@ const GAME_CONFIG = {
    *   kind "encounters" — mob slots (uses biome possibleEnemies); optional encounterSlots overrides the global slot count (0 = none).
    *   kind "scene" — no mob slots; instead show NPCs, doors, pickups, notes (see elements).
    * Elements: npc | note (modal text), door (teleport to target x,y on the same map), pickup | usable (grant itemName once if once !== false),
+   * Optional on npc: `image` (path relative to index.html) — shows a clickable image like boats/portals; omit for a text button.
    * portal (waygate — opens modal to travel to other portals; list shows each portal’s `label` as the location name; shared art from worldMap.portalImage).
    * Optional editable: true — when Edit Mode is on in the sidebar, the object can be dragged, resized, or removed; layout is saved in player.worldMap.sceneLayout.
    * Per-coordinate overrides from the editor are stored in player.worldMap.sceneEdits (same shape as a scene cell); when present, they replace config for that coordinate.
@@ -4877,13 +4925,122 @@ const GAME_CONFIG = {
             destinations: [{ label: "Paradise South", x: 29, y: 55 }]
           }
         ]
+      },
+      "37,55": {
+        kind: "scene",
+        title: "Paradise South — Shore dig",
+        description: "Salt wind and a half-buried frame where Hollis has been working.",
+        elements: [
+          {
+            type: "npc",
+            id: "hollis_dredge",
+            label: "Hollis Dredge",
+            editable: true,
+            leftPct: 71.42045281150125,
+            topPct: 34.93195290478304,
+            scalePct: 56,
+            image: "Assets/Biomes/Paradise South/Sunken Grotto/hollis_dredge.png",
+            text: "Hollis leans on his shovel.",
+            dungeonEntrance: "sunken_grotto"
+          }
+        ]
+      }
+    },
+    /**
+     * Instanced dungeons: `rooms[]` use `bg` stem under `assetBase` (same extensions as biome art).
+     * Each `enemies` entry is a mob-preview unit: `name` (enemy def), optional `level`, `moodId`, `portraitImage` override.
+     * Optional `modifierText` is appended to the combat log at fight start. Each room shows the mob on the adventure
+     * screen; the player clicks it to start combat (no auto-start). Empty `enemies` rooms get a Continue control.
+     */
+    dungeons: {
+      sunken_grotto: {
+        name: "Sunken Grotto",
+        keyItem: "Sunken Grotto Key",
+        entrance: { x: 37, y: 55 },
+        assetBase: "Assets/Biomes/Paradise South/Sunken Grotto",
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Tide Hopper", level: 5, moodId: "berserk" },
+              { name: "Tide Hopper", level: 5, moodId: "berserk" },
+              { name: "Tide Hopper", level: 5, moodId: "berserk" },
+              { name: "Driftling", level: 7, moodId: "berserk" },
+              { name: "Driftling", level: 7, moodId: "berserk" },
+              { name: "Hermit Crab", level: 6, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Hermit Crab", level: 7, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText: "Brine veil — the grotto strikes harder: foes deal +10% damage this fight.",
+            enemyDamageMult: 1.1,
+            enemies: [
+              { name: "Tidebound Crusher", level: 14, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            enemies: [
+              { name: "Tidemeld Revenant", level: 9, moodId: "berserk" },
+              { name: "Tidemeld Revenant", level: 9, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "5",
+            enemies: [
+              { name: "Drowned Channeler", level: 13, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Tidemeld Revenant", level: 9, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "6",
+            enemies: [
+              { name: "Tidemother Aberration", level: 15, moodId: "berserk" },
+              { name: "Drowned Channeler", level: 13, moodId: "berserk" },
+              { name: "Tidebound Crusher", level: 14, moodId: "berserk" },
+              { name: "Tide Hopper", level: 6, moodId: "berserk" },
+              { name: "Driftling", level: 8, moodId: "berserk" },
+              { name: "Hermit Crab", level: 7, moodId: "berserk" },
+              { name: "Tidemeld Revenant", level: 9, moodId: "berserk" },
+              { name: "Tidemeld Revenant", level: 9, moodId: "berserk" }
+            ]
+          }
+        ]
       }
     },
     /**
      * Inter-city waygates: one scene + portal per entry, only on the anchor tile (x,y). Adventure backgrounds
      * use Assets/Biomes/{cityName}/{1|2|3|4} per cell (see getCityAdventureBackgroundVariant). Optional bg is unused.
      * Optional layout: leftPct / topPct (0–100, adventure playfield), scalePct (25–200). Player edit-mode overrides
-     * are stored in save `sceneLayout`; use Edit mode → “Export portal layout” to copy waygates and boat layouts into config.
+     * are stored in save `sceneLayout`; use Edit mode → “Export portal layout” to copy waygates, boat, and npc layouts into config.
      */
     cityPortals:[
   {
@@ -5108,3 +5265,4 @@ const GAME_CONFIG = {
     ]
   }
 };
+
