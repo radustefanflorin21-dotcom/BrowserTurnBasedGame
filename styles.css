@@ -3701,14 +3701,20 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: flex-start;
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
+  padding: 0 4px 2px;
+}
+
+.fight-enemy-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .fight-enemy-card {
@@ -3724,6 +3730,38 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   border: 2px solid transparent;
   cursor: pointer;
   transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.fight-enemy-card--summon {
+  width: 96px;
+  min-width: 96px;
+  gap: 4px;
+  padding: 4px;
+  opacity: 0.95;
+}
+
+.fight-enemy-card--summon .fight-enemy-panel {
+  padding: 4px 4px 3px;
+  gap: 3px;
+}
+
+.fight-enemy-card--summon .fight-enemy-panel .fight-portrait-img--enemy {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+}
+
+.fight-enemy-card--summon .fight-card-name {
+  font-size: 0.64rem;
+}
+
+.fight-enemy-card--summon .fight-card-level,
+.fight-enemy-card--summon .fight-card-meta {
+  font-size: 0.54rem;
+}
+
+.fight-enemy-card--summon .fight-card-hp-text {
+  font-size: 0.52rem;
 }
 
 .fight-enemy-panel {

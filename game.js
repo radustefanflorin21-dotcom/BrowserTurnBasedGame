@@ -3166,14 +3166,6 @@ function tickPlayerTurnEndBuffs(st) {
   st.foes.forEach((f) => {
     if (!f || f.hp <= 0 || !f.combat) return;
     if (typeof f.combat.tauntPlayerTurns === "number" && f.combat.tauntPlayerTurns > 0) f.combat.tauntPlayerTurns -= 1;
-    if (typeof f.combat.summonLifetimeTurns === "number" && f.combat.summonLifetimeTurns > 0) {
-      f.combat.summonLifetimeTurns -= 1;
-      if (f.combat.summonLifetimeTurns <= 0) {
-        f.hp = 0;
-        appendFightLog(`${f.name} fades away.`);
-        return;
-      }
-    }
     if (typeof f.combat.thickHideTurns === "number" && f.combat.thickHideTurns > 0) f.combat.thickHideTurns -= 1;
     if (typeof f.combat.echoCryBonusTurns === "number" && f.combat.echoCryBonusTurns > 0) f.combat.echoCryBonusTurns -= 1;
     if (typeof f.combat.wolfCritBonusTurns === "number" && f.combat.wolfCritBonusTurns > 0) {
@@ -3262,6 +3254,8 @@ function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
   const frac = Math.max(0.12, Math.min(1, atkFrac));
   const matt = Math.max(1, Math.floor(baseAtk * atkFrac));
   const uid = getNextCombatFoeUid(st);
+  const minionDef = getEnemyDefByName(label);
+  const minionImage = minionDef ? resolveImageByState(minionDef, "idle") : "";
   const minion = {
     uid,
     name: label,
@@ -3277,14 +3271,16 @@ function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
     attack: matt,
     damageTakenMult: 1,
     drops: null,
-    image: summoner.image,
-    images: summoner.images,
-    sprites: summoner.sprites
+    image: minionImage || summoner.image,
+    images: (minionDef && minionDef.images) || summoner.images,
+    sprites: (minionDef && minionDef.sprites) || summoner.sprites
   };
   initFoeCombatRuntime(minion);
   minion.combat.script = "";
+  minion.combat.summonerUid = summoner.uid;
   st.foes.push(minion);
   appendFightLog(`${summoner.name} summons ${label}!`);
+  return minion;
 }
 
 function despawnSummonsWithDeadSummoners(st) {
@@ -3509,12 +3505,6 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       const hpFrac = Math.max(0.1, (0.25 * sp));
       if (activeSummons < 2) {
         summonCombatMinion(st, foe, "Tide Echo", hpFrac, 0.35);
-        const created = st.foes.find((f) => f.hp > 0 && f.name === "Tide Echo" && (!f.combat || !f.combat.summonerUid));
-        if (created) {
-          if (!created.combat) initFoeCombatRuntime(created);
-          created.combat.summonerUid = foe.uid;
-          created.combat.summonLifetimeTurns = 3;
-        }
       }
       runTideEchoStrikes(st, foe);
       return true;
@@ -3651,12 +3641,6 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (echoes.length < 2 && ready("spawn_tide_echo")) {
       setCd("spawn_tide_echo", 3);
       summonCombatMinion(st, foe, "Tide Echo", 0.22, 0.32);
-      const created = st.foes.find((f) => f && f.hp > 0 && f.name === "Tide Echo" && (!f.combat || !f.combat.summonerUid));
-      if (created) {
-        if (!created.combat) initFoeCombatRuntime(created);
-        created.combat.summonerUid = foe.uid;
-        created.combat.summonLifetimeTurns = 3;
-      }
       return true;
     }
 
@@ -8395,6 +8379,20 @@ function clampSceneScalePct(n) {
  * @returns {{ leftPct: number, topPct: number, scalePct: number } | null}}
  */
 function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
+  if (elId === "hollis_dredge_epilogue") {
+    const sgDef = getDungeonDef("sunken_grotto");
+    const ent =
+      sgDef && sgDef.entrance && typeof sgDef.entrance.x === "number" && typeof sgDef.entrance.y === "number"
+        ? { x: Math.floor(sgDef.entrance.x), y: Math.floor(sgDef.entrance.y) }
+        : { x: 37, y: 55 };
+    if (x === ent.x && y === ent.y) {
+      return {
+        leftPct: clampScenePct(14.8636763412489),
+        topPct: clampScenePct(31.242937853107343),
+        scalePct: clampSceneScalePct(48)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -8495,6 +8493,11 @@ function buildNpcLayoutExportByCoordinate() {
   }
   const d = getWorldMapData();
   const byCoord = {};
+  const sgDef = getDungeonDef("sunken_grotto");
+  const sgEnt =
+    sgDef && sgDef.entrance && typeof sgDef.entrance.x === "number" && typeof sgDef.entrance.y === "number"
+      ? { x: Math.floor(sgDef.entrance.x), y: Math.floor(sgDef.entrance.y) }
+      : null;
   for (const k of keys) {
     const { x, y } = parseWorldMapKey(k);
     if (!d || x < 0 || y < 0 || x >= d.width || y >= d.height) continue;
@@ -8513,6 +8516,14 @@ function buildNpcLayoutExportByCoordinate() {
         (typeof el.scalePct === "number" && Number.isFinite(el.scalePct));
       if (!isDefault || hadAny) {
         rows.push({ id, leftPct: pos.leftPct, topPct: pos.topPct, scalePct: pos.scalePct });
+      }
+    }
+    if (sgEnt && x === sgEnt.x && y === sgEnt.y) {
+      const epId = "hollis_dredge_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 100;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
       }
     }
     if (rows.length) byCoord[k] = rows;
@@ -9196,7 +9207,7 @@ function buildAdventureSceneHtml(x, y, cfg) {
     const id = typeof el.id === "string" && el.id.trim() ? el.id.trim() : `el${i}`;
     const imageUrlNpc = type === "npc" && typeof el.image === "string" ? el.image.trim() : "";
     const npcWithImage = type === "npc" && imageUrlNpc.length > 0;
-    const editable = el.editable === true || type === "boat" || npcWithImage;
+    const editable = el.editable === true || type === "boat" || type === "npc" || npcWithImage;
     if (type === "note") {
       const text = typeof el.text === "string" ? el.text : "";
       const payloadObj = { type: "note", text, id };
@@ -10463,18 +10474,28 @@ function renderTurnBattle() {
     </div>`;
     });
 
-  let enemiesHtml = "";
-  st.foes
-    .filter((f) => f && f.hp > 0)
-    .forEach((f) => {
+  const aliveFoes = st.foes.filter((f) => f && f.hp > 0);
+  const summonsBySummoner = new Map();
+  const rootFoes = [];
+  aliveFoes.forEach((f) => {
+    const summonerUid = f && f.combat && typeof f.combat.summonerUid === "number" ? f.combat.summonerUid : null;
+    if (summonerUid == null) {
+      rootFoes.push(f);
+      return;
+    }
+    if (!summonsBySummoner.has(summonerUid)) summonsBySummoner.set(summonerUid, []);
+    summonsBySummoner.get(summonerUid).push(f);
+  });
+
+  const renderEnemyCard = (f, cardClass) => {
     const pct = f.maxHp ? (Math.max(0, f.hp) / f.maxHp) * 100 : 0;
-      const sel = st.selectedUid === f.uid;
+    const sel = st.selectedUid === f.uid;
     const label = escapeHtml(f.name);
     const moodLabel = typeof f.moodName === "string" ? f.moodName.trim() : "";
     const moodHtml = moodLabel ? `<span class="fight-card-meta fight-card-mood">${escapeHtml(moodLabel)}</span>` : "";
     const lvl = typeof f.level === "number" ? f.level : 1;
     const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
-      enemiesHtml += `<div class="fight-enemy-card ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
+    return `<div class="fight-enemy-card ${cardClass || ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
       <div class="fight-enemy-panel">
         ${foeVisualHtml}
         <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
@@ -10486,7 +10507,23 @@ function renderTurnBattle() {
         ${moodHtml}
       </div>
     </div>`;
+  };
+
+  let enemiesHtml = "";
+  rootFoes.forEach((foe) => {
+    const summons = summonsBySummoner.get(foe.uid) || [];
+    const summonsHtml = summons.map((s) => renderEnemyCard(s, "fight-enemy-card--summon")).join("");
+    enemiesHtml += `<div class="fight-enemy-group">
+      ${renderEnemyCard(foe, "fight-enemy-card--summoner")}
+      ${summonsHtml}
+    </div>`;
+    summonsBySummoner.delete(foe.uid);
+  });
+  summonsBySummoner.forEach((strays) => {
+    strays.forEach((f) => {
+      enemiesHtml += `<div class="fight-enemy-group">${renderEnemyCard(f, "fight-enemy-card--summon")}</div>`;
     });
+  });
 
   hud.innerHTML = `<div class="fight-battlefield">
     <div class="fight-party-row">${partyHtml}</div>
@@ -11313,11 +11350,12 @@ function playerCombatAction(kind, skillName) {
       finishCombatDefeat();
       return;
     }
+    // Collapse dependent summons first, then evaluate victory on the resulting board.
+    despawnSummonsWithDeadSummoners(st);
     if (!st.foes.some((f) => f.hp > 0)) {
       finishCombatVictory();
       return;
     }
-    despawnSummonsWithDeadSummoners(st);
     renderTurnBattle();
     startPlayerTurnTimer();
   }
@@ -11681,10 +11719,24 @@ function buildDungeonEpilogueSceneHtml() {
       hollisBtn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Hollis Dredge" aria-label="Hollis Dredge"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
     }
   }
+  const epX = Math.floor(ent.x);
+  const epY = Math.floor(ent.y);
+  const hollisLayoutId = "hollis_dredge_epilogue";
+  const hollisLayoutKey = sceneLayoutStorageKey(epX, epY, hollisLayoutId);
+  const pos = getSceneLayoutTransform(epX, epY, hollisLayoutId);
+  const sc = pos.scalePct / 100;
+  hollisBtn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+    hollisLayoutKey
+  )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+    hollisLayoutId
+  )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(
+    hollisLayoutId
+  )}" aria-label="Resize" title="Resize"></span>${hollisBtn}</div>`;
+  const actionsClass = "world-scene-actions world-scene-actions--anchored";
   return `<div class="world-scene">
     <h3 class="world-scene-title">Sunken Grotto</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. Hollis picked his way down behind you.</p>
-    <div class="world-scene-actions">
+    <div class="${actionsClass}">
       ${hollisBtn}
     </div>
   </div>`;
@@ -12291,7 +12343,9 @@ function buildMinimapCellTooltipHtml(mx, my) {
   const boatLine = coordinateCellHasBoatAt(mx, my)
     ? `<div class="item-tip-desc">Boat dock</div>`
     : "";
-  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(nm)}</div>${cityLine}${boatLine}<div class="item-tip-desc">[${mx}, ${my}]</div></div>`;
+  const dungeonNames = getDungeonNamesAtCoordinate(mx, my);
+  const dungeonLines = dungeonNames.map((n) => `<div class="item-tip-desc">Dungeon: ${escapeHtml(n)}</div>`).join("");
+  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(nm)}</div>${cityLine}${boatLine}${dungeonLines}<div class="item-tip-desc">[${mx}, ${my}]</div></div>`;
 }
 
 function hideItemTooltip() {
@@ -13652,6 +13706,22 @@ function getDungeonEntranceCoordSet() {
 
 function coordinateCellHasDungeonAt(x, y) {
   return getDungeonEntranceCoordSet().has(worldMapKey(x, y));
+}
+
+function getDungeonNamesAtCoordinate(x, y) {
+  const wm = GAME_CONFIG.worldMap;
+  const dungeons = wm && wm.dungeons && typeof wm.dungeons === "object" ? wm.dungeons : {};
+  const names = [];
+  Object.keys(dungeons).forEach((id) => {
+    const dg = dungeons[id];
+    if (!dg || typeof dg !== "object" || !dg.entrance) return;
+    const ex = typeof dg.entrance.x === "number" && Number.isFinite(dg.entrance.x) ? Math.floor(dg.entrance.x) : null;
+    const ey = typeof dg.entrance.y === "number" && Number.isFinite(dg.entrance.y) ? Math.floor(dg.entrance.y) : null;
+    if (ex == null || ey == null || ex !== x || ey !== y) return;
+    const label = typeof dg.name === "string" && dg.name.trim() ? dg.name.trim() : id;
+    names.push(label);
+  });
+  return names;
 }
 
 /** Skull icon centered on one map cell (world map modal). */
