@@ -1750,6 +1750,120 @@ body.edit-mode-on .portrait-stack--editing-scale {
   container-name: paperdoll;
 }
 
+.character-roster-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.char-roster-tab {
+  font-size: 0.52rem;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.35);
+  color: inherit;
+  cursor: pointer;
+}
+
+.char-roster-tab.active {
+  background: rgba(80, 120, 180, 0.45);
+  border-color: rgba(40, 70, 120, 0.55);
+  font-weight: 600;
+}
+
+:root[data-theme="scifi"] .char-roster-tab {
+  background: rgba(20, 40, 70, 0.75);
+  border-color: rgba(80, 160, 220, 0.25);
+  color: #cfe8ff;
+}
+
+:root[data-theme="scifi"] .char-roster-tab.active {
+  background: rgba(0, 140, 200, 0.35);
+  border-color: rgba(0, 200, 255, 0.45);
+}
+
+.equipment-doll-with-companions {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 5px;
+  align-items: stretch;
+}
+
+.companion-equipment-switches {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  max-width: 32%;
+  font-size: 0.48rem;
+}
+
+.companion-use-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.companion-use-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--overview-muted, rgba(0, 0, 0, 0.55));
+  white-space: nowrap;
+}
+
+.companion-use-track {
+  display: flex;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.companion-use-end {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  font-size: inherit;
+  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  color: inherit;
+  cursor: pointer;
+}
+
+.companion-use-end--active {
+  background: rgba(90, 140, 90, 0.55);
+  font-weight: 600;
+}
+
+:root[data-theme="scifi"] .companion-use-end {
+  background: rgba(15, 30, 55, 0.9);
+  color: #b8d8f0;
+}
+
+:root[data-theme="scifi"] .companion-use-end--active {
+  background: rgba(0, 160, 120, 0.45);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .equipment-doll-with-companions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .companion-equipment-switches {
+    max-width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
 /* Equipment: square slots sized to fit panel width AND height — no scroll */
 .paper-slots.gladiatus-layout {
   --eq-slot: min(

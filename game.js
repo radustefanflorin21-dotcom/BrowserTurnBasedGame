@@ -33,6 +33,10 @@ let outOfCombatHpRegenTick = null;
 let adventureCampWanderTick = null;
 /** Invalidates pending RAF from startAdventureCampWanderTimer when navigating away quickly. */
 let adventureWanderStartGen = 0;
+/** `"hero"` | `"0"` | `"1"` | `"2"` — which roster member the character panel edits (overview + character modal). */
+let characterPanelRosterTab = "hero";
+
+const COMPANION_SLOT_COUNT = 3;
 /** Per-tile panel positions until wander bucket changes — avoids re-rolling on every render (no micro-jump on map open). */
 const campPanelLayoutCache = new Map();
 /** Sampled average RGB from each tile's adventure background image (world map + minimap). */
@@ -72,6 +76,212 @@ function emptyEquipment() {
     ring1: null,
     ring2: null
   };
+}
+
+function createDefaultCompanionSlot(label) {
+  const starter = getClassDef(DEFAULT_CLASS_ID);
+  const classSkillLevels = {};
+  starter.starterSkills.forEach((name) => {
+    classSkillLevels[name] = 1;
+  });
+  return {
+    enabled: false,
+    name: label,
+    level: 1,
+    xp: 0,
+    hp: 100,
+    maxHp: 100,
+    str: 10,
+    dex: 10,
+    vit: 10,
+    int: 10,
+    baseAttack: 10,
+    charPoints: 0,
+    skillPoints: 0,
+    classId: DEFAULT_CLASS_ID,
+    classSkillLevels,
+    skills: starter.starterSkills.slice(),
+    professions: [],
+    equipment: emptyEquipment(),
+    portraitLayout: {},
+    portraitBaseLayout: getDefaultPortraitBaseLayout()
+  };
+}
+
+function ensurePlayerCompanions(p) {
+  if (!p || typeof p !== "object") return;
+  if (!Array.isArray(p.companions) || p.companions.length !== COMPANION_SLOT_COUNT) {
+    p.companions = [
+      createDefaultCompanionSlot("Companion 1"),
+      createDefaultCompanionSlot("Companion 2"),
+      createDefaultCompanionSlot("Companion 3")
+    ];
+  }
+  for (let i = 0; i < COMPANION_SLOT_COUNT; i++) {
+    let c = p.companions[i];
+    if (!c || typeof c !== "object") {
+      c = createDefaultCompanionSlot(`Companion ${i + 1}`);
+      p.companions[i] = c;
+    }
+    if (typeof c.enabled !== "boolean") c.enabled = false;
+    if (typeof c.name !== "string" || !c.name.trim()) c.name = `Companion ${i + 1}`;
+    if (typeof c.level !== "number" || c.level < 1) c.level = 1;
+    if (typeof c.xp !== "number" || !Number.isFinite(c.xp) || c.xp < 0) c.xp = 0;
+    if (typeof c.str !== "number") c.str = 10;
+    if (typeof c.dex !== "number") {
+      c.dex = typeof c.agi === "number" && Number.isFinite(c.agi) ? c.agi : 10;
+    }
+    if (Object.prototype.hasOwnProperty.call(c, "agi")) delete c.agi;
+    if (typeof c.vit !== "number") c.vit = 10;
+    if (typeof c.int !== "number") c.int = 10;
+    if (typeof c.baseAttack !== "number") c.baseAttack = 10;
+    if (typeof c.charPoints !== "number" || c.charPoints < 0) c.charPoints = 0;
+    if (typeof c.skillPoints !== "number" || c.skillPoints < 0) c.skillPoints = 0;
+    if (!CLASS_DEFS[c.classId]) c.classId = DEFAULT_CLASS_ID;
+    if (!c.classSkillLevels || typeof c.classSkillLevels !== "object") c.classSkillLevels = {};
+    if (!Array.isArray(c.skills)) c.skills = [];
+    syncPlayerClassSkillList(c);
+    if (!Array.isArray(c.professions)) c.professions = [];
+    if (!c.equipment || typeof c.equipment !== "object") c.equipment = emptyEquipment();
+    enforceOffhandRuleForEquipment(c.equipment, p.inventory);
+    if (!c.portraitLayout || typeof c.portraitLayout !== "object") c.portraitLayout = {};
+    if (!c.portraitBaseLayout || typeof c.portraitBaseLayout !== "object") {
+      c.portraitBaseLayout = getDefaultPortraitBaseLayout();
+    }
+    c.maxHp = computeMaxHp(c);
+    if (typeof c.hp !== "number" || !Number.isFinite(c.hp)) c.hp = c.maxHp;
+    c.hp = Math.min(c.maxHp, Math.max(1, c.hp));
+  }
+}
+
+function getCharacterRosterTab() {
+  return typeof characterPanelRosterTab === "string" && characterPanelRosterTab ? characterPanelRosterTab : "hero";
+}
+
+function getRosterActorFromTab(tab) {
+  const t = tab || "hero";
+  if (t === "hero") return player;
+  const idx = parseInt(t, 10);
+  if (Number.isFinite(idx) && idx >= 0 && idx < COMPANION_SLOT_COUNT && player && Array.isArray(player.companions)) {
+    return player.companions[idx] || player;
+  }
+  return player;
+}
+
+function getActiveRosterActor() {
+  return getRosterActorFromTab(getCharacterRosterTab());
+}
+
+function anyCompanionEnabled() {
+  return !!(player && Array.isArray(player.companions) && player.companions.some((c) => c && c.enabled));
+}
+
+function getActorSkillLevel(actor, skillName) {
+  if (!actor || !isClassSkill(skillName)) return 1;
+  const map = actor.classSkillLevels && typeof actor.classSkillLevels === "object" ? actor.classSkillLevels : {};
+  const lv = map[skillName];
+  if (typeof lv !== "number" || !Number.isFinite(lv) || lv <= 0) return 0;
+  return Math.max(0, Math.min(5, Math.floor(lv)));
+}
+
+function getActorSelectedProfessions(actor) {
+  return Array.isArray(actor && actor.professions) ? actor.professions.slice() : [];
+}
+
+function toggleActorProfession(actor, id) {
+  const profId = String(id || "").trim();
+  if (!profId || !getProfessionDefById(profId) || !actor) return false;
+  const selected = getActorSelectedProfessions(actor);
+  const curIdx = selected.indexOf(profId);
+  if (curIdx >= 0) {
+    selected.splice(curIdx, 1);
+    actor.professions = selected;
+    return true;
+  }
+  if (selected.length >= getMaxSelectedProfessions()) return false;
+  selected.push(profId);
+  actor.professions = selected;
+  return true;
+}
+
+function levelUpActor(actor) {
+  if (!actor) return;
+  const maxLv = getPlayerMaxLevel();
+  while (actor.level < maxLv) {
+    const need = xpToNextLevel(actor.level);
+    if (need <= 0 || actor.xp < need) break;
+    actor.xp -= need;
+    actor.level++;
+    actor.charPoints += 5;
+    actor.skillPoints = (typeof actor.skillPoints === "number" ? actor.skillPoints : 0) + 1;
+    actor.baseAttack += 2;
+    actor.maxHp = computeMaxHp(actor);
+    actor.hp = actor.maxHp;
+  }
+}
+
+function getActorDamageRange(actor) {
+  const p = actor || player;
+  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
+  const effStr = Math.max(0, (typeof p.str === "number" ? p.str : 10) + (gear.str || 0));
+  let atk = (typeof p.baseAttack === "number" ? p.baseAttack : 10) + Math.floor(effStr / 2);
+  const w = p.equipment && p.equipment.weapon;
+  if (w) atk += getScaledItemAttack(getItemDef(w), w);
+  const skillsArr = Array.isArray(p.skills) ? p.skills : [];
+  skillsArr.forEach((s) => {
+    const sk = getSkillDef(s);
+    if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier !== "number") atk += sk.bonus;
+  });
+  skillsArr.forEach((s) => {
+    const sk = getSkillDef(s);
+    if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier === "number") atk += sk.bonus;
+  });
+  const base = Math.max(1, Math.floor(atk));
+  const strB = formulaStrPhysicalDamageBonusPct(effStr) / 100;
+  const mid = Math.max(1, Math.floor(base * (1 + strB)));
+  return { min: Math.max(1, mid - 2), max: mid + 2 };
+}
+
+function getActorArmorDefense(actor) {
+  const eq = actor && actor.equipment ? actor.equipment : emptyEquipment();
+  let d = 0;
+  EQUIP_SLOTS.forEach((s) => {
+    const n = eq[s.id];
+    if (!n) return;
+    const def = getItemDef(n);
+    if (def) d += getScaledItemDefense(def, n);
+  });
+  return d;
+}
+
+function getActorCombatStaminaBaseMax() {
+  return getPlayerCombatStaminaBaseMax();
+}
+
+function getActorCombatMaxStamina(actor) {
+  const base = getActorCombatStaminaBaseMax();
+  const fromGear = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment()).stamina || 0;
+  return Math.max(1, base + fromGear);
+}
+
+function applyVictoryXpToEnabledCompanions(xpAmt) {
+  if (!player || !Array.isArray(player.companions) || !(xpAmt > 0)) return;
+  player.companions.forEach((c) => {
+    if (!c || !c.enabled) return;
+    c.xp += xpAmt;
+    levelUpActor(c);
+  });
+}
+
+function syncCompanionHpFromCombatParty(st) {
+  if (!st || !Array.isArray(st.party)) return;
+  st.party.forEach((m) => {
+    if (!m || m.kind !== "companion" || typeof m.companionSlotIndex !== "number") return;
+    const idx = m.companionSlotIndex;
+    const c = player.companions && player.companions[idx];
+    if (!c || !c.enabled) return;
+    c.hp = Math.max(0, Math.min(typeof m.hp === "number" ? m.hp : 0, typeof m.maxHp === "number" ? m.maxHp : c.maxHp));
+  });
 }
 
 function buildStartingInventory() {
@@ -358,7 +568,8 @@ function findNearestScrollableContainer(el) {
   return null;
 }
 
-function unlockOrUpgradeClassSkill(skillName, sourceEl) {
+function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
+  const target = actor || player;
   const sk = getClassSkillDefByName(skillName);
   if (!sk) return false;
   if (overviewStatsTab === "skills") {
@@ -380,21 +591,21 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl) {
       captureOverviewSkillsScroll();
     }
   }
-  if (!player.classSkillLevels || typeof player.classSkillLevels !== "object") player.classSkillLevels = {};
-  const cur = getPlayerSkillLevel(skillName);
+  if (!target.classSkillLevels || typeof target.classSkillLevels !== "object") target.classSkillLevels = {};
+  const cur = getActorSkillLevel(target, skillName);
   const reqLv = getSkillTierMinLevel(sk.tier);
-  if (player.level < reqLv) {
+  if (target.level < reqLv) {
     showModal(`Requires level ${reqLv} (${sk.tier} tier).`);
     return false;
   }
-  if (typeof player.skillPoints !== "number" || player.skillPoints < 1) {
+  if (typeof target.skillPoints !== "number" || target.skillPoints < 1) {
     showModal("Not enough skill points.");
     return false;
   }
   if (cur >= 5) return false;
-  player.classSkillLevels[skillName] = cur + 1;
-  player.skillPoints -= 1;
-  syncPlayerClassSkillList(player);
+  target.classSkillLevels[skillName] = cur + 1;
+  target.skillPoints -= 1;
+  syncPlayerClassSkillList(target);
   save();
   const inPlace = overviewStatsTab === "skills" ? refreshOverviewSkillsSubpanelInPlace() : false;
   if (!inPlace) render();
@@ -581,9 +792,13 @@ function loadPlayer() {
   return defaultPlayer();
 }
 
-player = loadPlayer();
-applyCityPortalsFromConfig();
-pruneDuplicateCityPortalsFromSceneEdits();
+/** Must run after all top-level `const` (e.g. {@link ITEM_DEF_LEGACY_BASE_NAMES}) — {@link loadPlayer} calls {@link migratePlayer} which uses {@link getItemDef}. */
+function initPlayerFromStorage() {
+  player = loadPlayer();
+  ensurePlayerCompanions(player);
+  applyCityPortalsFromConfig();
+  pruneDuplicateCityPortalsFromSceneEdits();
+}
 
 function migratePlayer(p) {
   if (typeof p.name !== "string" || !p.name.trim()) p.name = "Hero";
@@ -812,6 +1027,7 @@ function migratePlayer(p) {
       p.worldMap.mobPreviewGeneration = mpv;
     }
   }
+  ensurePlayerCompanions(p);
 }
 
 function save() {
@@ -1327,28 +1543,30 @@ function isEquippableItemDef(def) {
   return getAllowedEquipSlotsForDef(def).length > 0;
 }
 
-function canEquipItemInSlot(itemName, slotId) {
+function canEquipItemInSlot(itemName, slotId, equipmentObj) {
   const def = getItemDef(itemName);
   if (!def || typeof slotId !== "string" || !slotId) return false;
   const allowedSlots = getAllowedEquipSlotsForDef(def);
   if (!allowedSlots.includes(slotId)) return false;
-  if (slotId === "offhand" && isOffhandBlocked()) return false;
+  const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player && player.equipment;
+  if (slotId === "offhand" && isOffhandBlockedByEquipment(eq)) return false;
   return true;
 }
 
-function pickEquipSlotForDef(def, preferredSlot) {
+function pickEquipSlotForDef(def, preferredSlot, equipmentObj) {
+  const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player && player.equipment;
   const allowedSlots = getAllowedEquipSlotsForDef(def);
   if (!allowedSlots.length) return null;
   if (preferredSlot && allowedSlots.includes(preferredSlot)) return preferredSlot;
   const category = getItemEquipCategory(def);
   if (category === "one_handed" || category === "one_handed_sword" || category === "dagger") {
-    if (!player.equipment.weapon) return "weapon";
-    if (!isOffhandBlocked() && !player.equipment.offhand) return "offhand";
+    if (!eq.weapon) return "weapon";
+    if (!isOffhandBlockedByEquipment(eq) && !eq.offhand) return "offhand";
     return "weapon";
   }
   if (category === "ring") {
-    if (!player.equipment.ring1) return "ring1";
-    if (!player.equipment.ring2) return "ring2";
+    if (!eq.ring1) return "ring1";
+    if (!eq.ring2) return "ring2";
     return "ring1";
   }
   return allowedSlots[0];
@@ -1586,12 +1804,19 @@ function getLegacyPortraitLayoutKey(slotId) {
   return "";
 }
 
-function getPortraitEquipLayout(slotId) {
-  ensurePortraitLayoutStore();
+function ensurePortraitLayoutStoreForOwner(owner) {
+  if (!owner || typeof owner !== "object") return;
+  if (!owner.portraitLayout || typeof owner.portraitLayout !== "object") owner.portraitLayout = {};
+}
+
+function getPortraitEquipLayout(slotId, layoutOwner) {
+  const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
+  if (owner === player) ensurePortraitLayoutStore();
+  else ensurePortraitLayoutStoreForOwner(owner);
   const legacyKey = getLegacyPortraitLayoutKey(slotId);
   const raw =
-    player.portraitLayout[slotId] ||
-    (legacyKey ? player.portraitLayout[legacyKey] : null) ||
+    owner.portraitLayout[slotId] ||
+    (legacyKey ? owner.portraitLayout[legacyKey] : null) ||
     DEFAULT_PORTRAIT_LAYOUT[slotId] ||
     (legacyKey ? DEFAULT_PORTRAIT_LAYOUT[legacyKey] : null);
   if (!raw || typeof raw !== "object") return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
@@ -1600,6 +1825,24 @@ function getPortraitEquipLayout(slotId) {
     offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
     rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
     scalePct: clampPortraitLayoutScalePct(raw.scalePct)
+  };
+}
+
+function ensurePortraitBaseLayoutStoreForOwner(owner) {
+  if (!owner || typeof owner !== "object") return;
+  if (!owner.portraitBaseLayout || typeof owner.portraitBaseLayout !== "object") {
+    owner.portraitBaseLayout = getDefaultPortraitBaseLayout();
+  }
+}
+
+function getPortraitBaseLayoutForOwner(owner) {
+  if (!owner || owner === player) return getPortraitBaseLayout();
+  ensurePortraitBaseLayoutStoreForOwner(owner);
+  return {
+    offsetXPct: clampPortraitLayoutPct(owner.portraitBaseLayout.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(owner.portraitBaseLayout.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(owner.portraitBaseLayout.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(owner.portraitBaseLayout.scalePct)
   };
 }
 
@@ -1623,7 +1866,19 @@ function getBottomHudPortraitLayout() {
   };
 }
 
-function setPortraitBaseLayout(patch) {
+function setPortraitBaseLayout(patch, owner) {
+  const o = owner && typeof owner === "object" ? owner : player;
+  if (o !== player) {
+    ensurePortraitBaseLayoutStoreForOwner(o);
+    const prev = getPortraitBaseLayoutForOwner(o);
+    o.portraitBaseLayout = {
+      offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
+      offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
+      rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
+      scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
+    };
+    return;
+  }
   const prev = getPortraitBaseLayout();
   player.portraitBaseLayout = {
     offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
@@ -1643,16 +1898,18 @@ function setBottomHudPortraitLayout(patch) {
   };
 }
 
-function setPortraitEquipLayout(slotId, patch) {
-  ensurePortraitLayoutStore();
-  const prev = getPortraitEquipLayout(slotId);
+function setPortraitEquipLayout(slotId, patch, layoutOwner) {
+  const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
+  if (owner === player) ensurePortraitLayoutStore();
+  else ensurePortraitLayoutStoreForOwner(owner);
+  const prev = getPortraitEquipLayout(slotId, owner);
   const next = {
     offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
     offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
     rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
     scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
   };
-  player.portraitLayout[slotId] = next;
+  owner.portraitLayout[slotId] = next;
 }
 
 function buildPortraitLayoutExportSnippet() {
@@ -1667,10 +1924,25 @@ function buildPortraitLayoutExportSnippet() {
   return JSON.stringify({ base: getPortraitBaseLayout(), equipment: out }, null, 2);
 }
 
+function buildPortraitLayoutExportSnippetForOwner(owner) {
+  const o = owner && typeof owner === "object" ? owner : player;
+  if (o === player) return buildPortraitLayoutExportSnippet();
+  ensurePortraitLayoutStoreForOwner(o);
+  ensurePortraitBaseLayoutStoreForOwner(o);
+  const out = {};
+  Object.keys(o.portraitLayout || {})
+    .sort()
+    .forEach((slotId) => {
+      out[slotId] = getPortraitEquipLayout(slotId, o);
+    });
+  return JSON.stringify({ base: getPortraitBaseLayoutForOwner(o), equipment: out }, null, 2);
+}
+
 async function copyPortraitLayoutExportToClipboard(opts) {
-  const text = buildPortraitLayoutExportSnippet();
+  const owner = opts && opts.owner && typeof opts.owner === "object" ? opts.owner : player;
+  const text = owner === player ? buildPortraitLayoutExportSnippet() : buildPortraitLayoutExportSnippetForOwner(owner);
   const onlyIfChanged = !!(opts && opts.onlyIfChanged);
-  if (onlyIfChanged && text === (player.portraitLayoutLastExport || "")) {
+  if (onlyIfChanged && owner === player && text === (player.portraitLayoutLastExport || "")) {
     showModal("No portrait layout changes since last export.");
     return;
   }
@@ -1681,7 +1953,7 @@ async function copyPortraitLayoutExportToClipboard(opts) {
       return;
     }
     await navigator.clipboard.writeText(text);
-    player.portraitLayoutLastExport = text;
+    if (owner === player) player.portraitLayoutLastExport = text;
     save();
     showModal("Portrait equipment layout copied to clipboard.");
   } catch (err) {
@@ -1761,14 +2033,16 @@ function openEditModeItemSpawnModal() {
   );
 }
 
-function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
+function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipmentObj, layoutOwner, layoutOwnerTab) {
+  const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player.equipment || emptyEquipment();
+  const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
   const base = escapeAttr(baseRaw);
   const slotOrder = ["legs", "feet", "chest", "bracelet", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
-  const hasWeapon = !!(player.equipment.weapon || getNoWeaponOverlayImage());
+  const hasWeapon = !!(eq.weapon || getNoWeaponOverlayImage());
   const occ = hasWeapon ? getHeroWeaponOcclusionConfig(baseRaw) : null;
   const layerBySlot = {};
   slotOrder.forEach((slotId) => {
-    let itemName = player.equipment[slotId];
+    let itemName = eq[slotId];
     let layoutKey = slotId;
     let src = "";
     if (slotId === "weapon") {
@@ -1797,7 +2071,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
       src = getEquipmentOverlayImage(itemName);
     }
     if (!src) return;
-    const layout = getPortraitEquipLayout(layoutKey);
+    const layout = getPortraitEquipLayout(layoutKey, owner);
     const style = `transform: translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100});`;
     const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
     const layerClassId = slotId === "weapon" ? "mainhand" : slotId;
@@ -1809,7 +2083,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
       itemName
     )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(style)}" />`;
   });
-  const fixedArmLayout = getPortraitEquipLayout("offhand_fixed_arm");
+  const fixedArmLayout = getPortraitEquipLayout("offhand_fixed_arm", owner);
   const fixedArmStyle = `transform: translate(${fixedArmLayout.offsetXPct}%, ${fixedArmLayout.offsetYPct}%) rotate(${fixedArmLayout.rotDeg}deg) scale(${fixedArmLayout.scalePct / 100});`;
   const fixedArmLayer = `<img class="portrait-equip-layer portrait-equip-layer--offhand-fixed-arm" src="${escapeAttr(
     getOffhandFixedArmOverlayImage()
@@ -1830,17 +2104,33 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr) {
     })
     .join("");
   const rootAttr = rootDataAttr ? ` ${rootDataAttr}` : "";
-  return `<div class="portrait-stack"><div class="portrait-root-group"${rootAttr} style="${escapeAttr(
+  const ownerTabAttr =
+    layoutOwnerTab != null && String(layoutOwnerTab).length
+      ? ` data-portrait-owner-tab="${escapeAttr(String(layoutOwnerTab))}"`
+      : "";
+  return `<div class="portrait-stack"${ownerTabAttr}><div class="portrait-root-group"${rootAttr} style="${escapeAttr(
     rootTransformStyle
   )}">${backHandHtml}${backLayers}<img src="${base}" alt="" class="portrait-img portrait-img--base"${baseStyle} />${frontLayers}</div></div>`;
 }
 
 function buildLayeredHeroPortraitHtml() {
-  return buildPortraitLayeredStackHtml(getHeroImageForState("idle"), getPortraitBaseLayout(), "data-portrait-root");
+  return buildPortraitLayeredStackHtml(
+    getHeroImageForState("idle"),
+    getPortraitBaseLayout(),
+    "data-portrait-root",
+    player.equipment,
+    player
+  );
 }
 
 function buildBottomHudLayeredPortraitHtml(state) {
-  return buildPortraitLayeredStackHtml(getHeroImageForState(state), getBottomHudPortraitLayout(), "data-bottom-hud-portrait-root");
+  return buildPortraitLayeredStackHtml(
+    getHeroImageForState(state),
+    getBottomHudPortraitLayout(),
+    "data-bottom-hud-portrait-root",
+    player.equipment,
+    player
+  );
 }
 
 function getSkillImage(skillName) {
@@ -2782,6 +3072,26 @@ function buildCombatPartyForMob(mob) {
       kind: "companion",
       dex: typeof a.dex === "number" ? a.dex : typeof a.agi === "number" ? a.agi : Math.max(4, Math.floor(getEffectiveDex() * 0.65)),
       flatArmor: typeof a.armor === "number" ? a.armor : 0
+    });
+  }
+  if (player && Array.isArray(player.companions)) {
+    player.companions.forEach((comp, slotIdx) => {
+      if (!comp || !comp.enabled || party.length >= COMBAT_PARTY_MAX) return;
+      comp.maxHp = computeMaxHp(comp);
+      const maxHp = Math.max(1, Math.floor(comp.maxHp));
+      const hp = Math.max(1, Math.min(maxHp, typeof comp.hp === "number" && Number.isFinite(comp.hp) ? comp.hp : maxHp));
+      const gear = sumEquippedBonusStatsFromEquipment(comp.equipment || emptyEquipment());
+      const effDex = Math.max(1, Math.floor((typeof comp.dex === "number" ? comp.dex : 10) + (gear.dex || 0)));
+      party.push({
+        uid: uid++,
+        name: typeof comp.name === "string" && comp.name.trim() ? comp.name.trim() : `Companion ${slotIdx + 1}`,
+        hp,
+        maxHp,
+        kind: "companion",
+        dex: effDex,
+        flatArmor: getActorArmorDefense(comp),
+        companionSlotIndex: slotIdx
+      });
     });
   }
   return party;
@@ -5763,40 +6073,69 @@ function useConsumable(itemName) {
   }
 }
 
-function equipFromInventory(itemName, preferredSlot) {
+function resolveEquipTargetActorFromEl(contextEl) {
+  const page = contextEl && contextEl.closest ? contextEl.closest("[data-overview-roster-tab]") : null;
+  if (page && page.dataset && page.dataset.overviewRosterTab) {
+    return getRosterActorFromTab(page.dataset.overviewRosterTab);
+  }
+  return player;
+}
+
+function resolveOverviewRosterActorFromEvent(e) {
+  const page = e && e.target && e.target.closest ? e.target.closest("[data-overview-roster-tab]") : null;
+  return page ? resolveEquipTargetActorFromEl(page) : player;
+}
+
+function resolvePortraitLayoutOwnerFromPortraitStack(stack) {
+  if (!stack || !stack.dataset) return player;
+  const tab = stack.dataset.portraitOwnerTab;
+  if (tab == null || !String(tab).length) return player;
+  return getRosterActorFromTab(String(tab));
+}
+
+function equipFromInventory(itemName, preferredSlot, contextEl) {
+  const target = contextEl ? resolveEquipTargetActorFromEl(contextEl) : player;
   const def = getItemDef(itemName);
   if (!isEquippableItemDef(def)) return false;
   const reqLevel =
     typeof def.itemLevel === "number" && Number.isFinite(def.itemLevel) ? Math.max(1, Math.floor(def.itemLevel)) : 1;
-  const playerLevel =
-    typeof player.level === "number" && Number.isFinite(player.level) ? Math.max(1, Math.floor(player.level)) : 1;
-  if (reqLevel > playerLevel) {
-    showModal(`Cannot equip ${itemName}. Required level: ${reqLevel} (your level: ${playerLevel}).`);
+  const actorLevel =
+    typeof target.level === "number" && Number.isFinite(target.level) ? Math.max(1, Math.floor(target.level)) : 1;
+  if (reqLevel > actorLevel) {
+    showModal(`Cannot equip ${itemName}. Required level: ${reqLevel} (this character's level: ${actorLevel}).`);
     return false;
   }
   const i = player.inventory.indexOf(itemName);
   if (i === -1) return false;
-  const slot = pickEquipSlotForDef(def, preferredSlot);
-  if (!slot || !canEquipItemInSlot(itemName, slot)) return false;
-  const prev = player.equipment[slot];
+  const eq = target.equipment || emptyEquipment();
+  const slot = pickEquipSlotForDef(def, preferredSlot, eq);
+  if (!slot || !canEquipItemInSlot(itemName, slot, eq)) return false;
+  const prev = eq[slot];
   let displacedOffhand = null;
-  if (slot === "weapon" && isTwoHandedWeaponDef(def) && player.equipment.offhand) {
-    displacedOffhand = player.equipment.offhand;
-    player.equipment.offhand = null;
+  if (slot === "weapon" && isTwoHandedWeaponDef(def) && eq.offhand) {
+    displacedOffhand = eq.offhand;
+    eq.offhand = null;
   }
-  player.equipment[slot] = itemName;
+  eq[slot] = itemName;
+  target.equipment = eq;
   player.inventory.splice(i, 1);
   if (prev) player.inventory.push(prev);
   if (displacedOffhand) player.inventory.push(displacedOffhand);
+  enforceOffhandRuleForEquipment(target.equipment, player.inventory);
+  target.maxHp = computeMaxHp(target);
+  target.hp = Math.min(target.maxHp, Math.max(1, typeof target.hp === "number" ? target.hp : target.maxHp));
   save();
   render();
   return true;
 }
 
-function unequipToInventory(slotId) {
-  const name = player.equipment[slotId];
+function unequipToInventory(slotId, contextEl) {
+  const target = contextEl ? resolveEquipTargetActorFromEl(contextEl) : player;
+  const eq = target.equipment || emptyEquipment();
+  const name = eq[slotId];
   if (!name) return;
-  player.equipment[slotId] = null;
+  eq[slotId] = null;
+  target.equipment = eq;
   player.inventory.push(name);
   save();
   render();
@@ -8754,10 +9093,11 @@ function onPortraitLayerPointerDown(e) {
   if (stackFromTarget && !layer) {
     if (e.button !== 0 && e.button !== 2) return;
     const stack = stackFromTarget;
+    const layoutOwner = resolvePortraitLayoutOwnerFromPortraitStack(stack);
     e.preventDefault();
     e.stopPropagation();
     const rootEl = stack.querySelector("[data-portrait-root]");
-    const start = readPortraitLayerLayoutFromElement(rootEl) || getPortraitBaseLayout();
+    const start = readPortraitLayerLayoutFromElement(rootEl) || getPortraitBaseLayoutForOwner(layoutOwner);
     const startX = e.clientX;
     const startY = e.clientY;
     const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
@@ -8804,7 +9144,7 @@ function onPortraitLayerPointerDown(e) {
       stack.classList.remove("portrait-stack--editing-scale");
       const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
       if (dist > 2) portraitLayoutDragSuppressedClick = true;
-      setPortraitBaseLayout(last);
+      setPortraitBaseLayout(last, layoutOwner);
       save();
     };
     document.addEventListener("pointermove", move);
@@ -8819,9 +9159,10 @@ function onPortraitLayerPointerDown(e) {
   if (!slotId) return;
   const stack = layer.closest(".portrait-stack");
   if (!stack) return;
+  const layoutOwner = resolvePortraitLayoutOwnerFromPortraitStack(stack);
   e.preventDefault();
   e.stopPropagation();
-  const start = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId);
+  const start = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId, layoutOwner);
   const startX = e.clientX;
   const startY = e.clientY;
   const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
@@ -8869,7 +9210,7 @@ function onPortraitLayerPointerDown(e) {
     } catch (_) {}
     const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
     if (dist > 2) portraitLayoutDragSuppressedClick = true;
-    setPortraitEquipLayout(slotId, last);
+    setPortraitEquipLayout(slotId, last, layoutOwner);
     save();
   };
   document.addEventListener("pointermove", move);
@@ -8882,18 +9223,22 @@ function onPortraitLayerWheel(e) {
   const layer = e.target.closest(".portrait-equip-layer[data-portrait-slot]");
   const stack = e.target.closest(".portrait-stack");
   if (stack && !layer) {
+    const layoutOwner = resolvePortraitLayoutOwnerFromPortraitStack(stack);
     e.preventDefault();
     e.stopPropagation();
     const root = stack.querySelector("[data-portrait-root]");
-    const cur = readPortraitLayerLayoutFromElement(root) || getPortraitBaseLayout();
+    const cur = readPortraitLayerLayoutFromElement(root) || getPortraitBaseLayoutForOwner(layoutOwner);
     const step = e.shiftKey ? 12 : 6;
     const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
-    setPortraitBaseLayout({
-      offsetXPct: cur.offsetXPct,
-      offsetYPct: cur.offsetYPct,
-      rotDeg: cur.rotDeg,
-      scalePct: nextScale
-    });
+    setPortraitBaseLayout(
+      {
+        offsetXPct: cur.offsetXPct,
+        offsetYPct: cur.offsetYPct,
+        rotDeg: cur.rotDeg,
+        scalePct: nextScale
+      },
+      layoutOwner
+    );
     if (root) {
       root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
     }
@@ -8903,17 +9248,22 @@ function onPortraitLayerWheel(e) {
   if (!layer) return;
   const slotId = layer.getAttribute("data-portrait-slot");
   if (!slotId) return;
+  const layoutOwner = resolvePortraitLayoutOwnerFromPortraitStack(stack);
   e.preventDefault();
   e.stopPropagation();
-  const cur = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId);
+  const cur = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId, layoutOwner);
   const step = e.shiftKey ? 12 : 6;
   const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
-  setPortraitEquipLayout(slotId, {
-    offsetXPct: cur.offsetXPct,
-    offsetYPct: cur.offsetYPct,
-    rotDeg: cur.rotDeg,
-    scalePct: nextScale
-  });
+  setPortraitEquipLayout(
+    slotId,
+    {
+      offsetXPct: cur.offsetXPct,
+      offsetYPct: cur.offsetYPct,
+      rotDeg: cur.rotDeg,
+      scalePct: nextScale
+    },
+    layoutOwner
+  );
   applyPortraitLayerTransformStyle(layer, {
     offsetXPct: cur.offsetXPct,
     offsetYPct: cur.offsetYPct,
@@ -10850,6 +11200,7 @@ function finishCombatVictory() {
   if (!st) return;
   st.phase = "ended";
   syncCombatPartyHeroMirror(st);
+  syncCompanionHpFromCombatParty(st);
   const { gold, xp, items } = computeVictoryLoot(st.foes);
   const result = {
     victory: true,
@@ -10897,6 +11248,7 @@ function finishCombatDefeat() {
   if (!st) return;
   st.phase = "ended";
   syncCombatPartyHeroMirror(st);
+  syncCompanionHpFromCombatParty(st);
   const result = {
     victory: false,
     finalPlayerHp: Math.max(1, st.playerHp),
@@ -11899,6 +12251,7 @@ function applyFightResult(result) {
     player.gold += result.gold;
     result.items.forEach((it) => player.inventory.push(it));
     levelUp();
+    applyVictoryXpToEnabledCompanions(result.xp);
   } else {
     player.hp = Math.max(1, result.finalPlayerHp);
   }
@@ -11977,15 +12330,16 @@ function levelUp() {
   }
 }
 
-function spendCharPoint(statKey) {
+function spendCharPoint(statKey, actor) {
+  const target = actor || player;
   if (!["str", "dex", "vit", "int"].includes(statKey)) return;
-  if (player.charPoints <= 0) return;
-  player.charPoints--;
-  const prevMax = player.maxHp;
-  player[statKey]++;
-  player.maxHp = computeMaxHp(player);
-  const gained = player.maxHp - prevMax;
-  if (gained > 0) player.hp = Math.min(player.maxHp, player.hp + gained);
+  if (target.charPoints <= 0) return;
+  target.charPoints--;
+  const prevMax = target.maxHp;
+  target[statKey]++;
+  target.maxHp = computeMaxHp(target);
+  const gained = target.maxHp - prevMax;
+  if (gained > 0) target.hp = Math.min(target.maxHp, (typeof target.hp === "number" ? target.hp : target.maxHp) + gained);
   save();
   render();
 }
@@ -12634,9 +12988,10 @@ function statBarRowLevelEditable(value, max, statTipKey) {
   </div>`;
 }
 
-function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, gearBonus) {
+function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, gearBonus, charPointsPool) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  const can = player.charPoints > 0;
+  const pts = typeof charPointsPool === "number" ? charPointsPool : player.charPoints;
+  const can = pts > 0;
   const btn = can
     ? `<button type="button" class="stat-alloc-btn" data-char-up="${escapeAttr(statKey)}">+</button>`
     : `<span class="stat-alloc-empty" aria-hidden="true"></span>`;
@@ -12670,15 +13025,16 @@ function applyPortraitAddItemFilter(host) {
   if (filteredNames.includes(previous)) sel.value = previous;
 }
 
-function buildClassSkillsRowsHtml(activeClass) {
+function buildClassSkillsRowsHtml(activeClass, actor) {
+  const a = actor || player;
   return activeClass.skills
     .map((sk) => {
-      const lv = getPlayerSkillLevel(sk.name);
+      const lv = getActorSkillLevel(a, sk.name);
       const reqLv = getSkillTierMinLevel(sk.tier);
       const unlocked = lv > 0;
-      const canTier = player.level >= reqLv;
+      const canTier = a.level >= reqLv;
       const maxed = lv >= 5;
-      const hasPts = (player.skillPoints || 0) > 0;
+      const hasPts = (a.skillPoints || 0) > 0;
       const canSpend = canTier && hasPts && !maxed;
       const btnLabel = unlocked ? (maxed ? "Max" : "Upgrade") : "Unlock";
       const disabled = canSpend ? "" : " disabled";
@@ -12692,7 +13048,25 @@ function buildClassSkillsRowsHtml(activeClass) {
 }
 
 function buildOverviewHtml() {
+  ensurePlayerCompanions(player);
   player.maxHp = computeMaxHp(player);
+  let rosterTab = getCharacterRosterTab();
+  if (rosterTab !== "hero") {
+    const idx = parseInt(rosterTab, 10);
+    if (
+      !Number.isFinite(idx) ||
+      idx < 0 ||
+      idx >= COMPANION_SLOT_COUNT ||
+      !player.companions[idx] ||
+      !player.companions[idx].enabled
+    ) {
+      rosterTab = "hero";
+      characterPanelRosterTab = "hero";
+    }
+  }
+  const actor = rosterTab === "hero" ? player : player.companions[parseInt(rosterTab, 10)];
+  actor.maxHp = computeMaxHp(actor);
+
   const cat = categorizeInventory();
   const tabs = ["equipment", "resources", "consumables"];
   const tabLabels = { equipment: "Equipment", resources: "Resources", consumables: "Consumables" };
@@ -12702,9 +13076,10 @@ function buildOverviewHtml() {
   else if (inventoryTab === "resources") invBlock = buildInventoryGridHtml(cat.resources, "resources");
   else invBlock = buildInventoryGridHtml(cat.consumables, "consumables");
 
+  const eqBag = actor.equipment || emptyEquipment();
   const slotHtml = EQUIP_SLOTS.map((s) => {
-    const name = player.equipment[s.id];
-    const offhandBlocked = s.id === "offhand" && isOffhandBlocked();
+    const name = eqBag[s.id];
+    const offhandBlocked = s.id === "offhand" && isOffhandBlockedByEquipment(eqBag);
     const drag = name ? 'draggable="true"' : "";
     const itemAttr = name ? ` data-item-name="${escapeAttr(name)}"` : "";
     const blockedCls = offhandBlocked ? " slot-drop--blocked" : "";
@@ -12722,27 +13097,66 @@ function buildOverviewHtml() {
       <div class="slot-drop${blockedCls}" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
     </div>`;
   }).join("");
+
+  const companionSwitchesColHtml = [0, 1, 2]
+    .map((si) => {
+      const c = player.companions[si];
+      const on = !!(c && c.enabled);
+      return `<div class="companion-use-row">
+        <span class="companion-use-label">Companion ${si + 1}</span>
+        <div class="companion-use-track" role="group" aria-label="Companion ${si + 1}">
+          <button type="button" class="companion-use-end${!on ? " companion-use-end--active" : ""}" data-companion-slot="${si}" data-companion-set-enabled="0">Off</button>
+          <button type="button" class="companion-use-end${on ? " companion-use-end--active" : ""}" data-companion-slot="${si}" data-companion-set-enabled="1">On</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  const rosterTabsHtml = anyCompanionEnabled()
+    ? `<div class="character-roster-tabs" role="tablist">
+    <button type="button" role="tab" class="char-roster-tab${rosterTab === "hero" ? " active" : ""}" data-roster-tab="hero">Hero</button>${[0, 1, 2]
+        .map((si) => {
+          const c = player.companions[si];
+          if (!c || !c.enabled) return "";
+          const tabId = String(si);
+          return `<button type="button" role="tab" class="char-roster-tab${
+            rosterTab === tabId ? " active" : ""
+          }" data-roster-tab="${si}">${escapeHtml(c.name || `Companion ${si + 1}`)}</button>`;
+        })
+        .join("")}
+  </div>`
+    : "";
+
   const editInvOptions = buildEditInventoryOptionsHtml(getEditableInventoryItemNames());
   const portraitEditControlsHtml = player.editMode
     ? `<div class="portrait-edit-tools portrait-edit-tools-overlay"><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
       <p class="portrait-edit-hint">Edit mode: equip = left move, right rotate, Shift+drag/wheel resize. Character = same controls on base image area.</p>`
     : "";
-  const resetCharacterBtnHtml = player.editMode
+  const resetCharacterBtnHtml = player.editMode && actor === player
     ? `<button type="button" class="btn-reset-char" data-reset-character>Reset character</button>`
     : "";
 
-  const dmg = getDamageRange();
+  const layeredPortraitHtml = buildPortraitLayeredStackHtml(
+    getHeroImageForState("idle"),
+    getPortraitBaseLayoutForOwner(actor),
+    "data-portrait-root",
+    actor.equipment || emptyEquipment(),
+    actor,
+    rosterTab
+  );
+
+  const dmg = getActorDamageRange(actor);
   const maxLv = getPlayerMaxLevel();
-  const xpNeed = player.level >= maxLv ? 0 : xpToNextLevel(player.level);
+  const xpNeed = actor.level >= maxLv ? 0 : xpToNextLevel(actor.level);
   const xpPct =
-    player.level >= maxLv ? 100 : xpNeed > 0 ? Math.min(100, (player.xp / xpNeed) * 100) : 0;
+    actor.level >= maxLv ? 100 : xpNeed > 0 ? Math.min(100, (actor.xp / xpNeed) * 100) : 0;
   const xpNum =
-    player.level >= maxLv ? `${player.xp} (max L${maxLv})` : `${player.xp} / ${xpNeed}`;
-  const hpPct = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
+    actor.level >= maxLv ? `${actor.xp} (max L${maxLv})` : `${actor.xp} / ${xpNeed}`;
+  const hpPct = actor.maxHp > 0 ? (actor.hp / actor.maxHp) * 100 : 0;
 
   const hpRow = `<div class="stat-bar-row stat-tip-row" data-stat-tip="hp">
     <span class="stat-bar-label">Hit points</span>
-    <span class="stat-bar-num">${player.hp} / ${player.maxHp}</span>
+    <span class="stat-bar-num">${actor.hp} / ${actor.maxHp}</span>
     <div class="stat-bar-track stat-bar-hp"><div class="stat-bar-fill" style="width:${hpPct}%"></div></div>
   </div>`;
   const xpRow = `<div class="stat-bar-row stat-tip-row" data-stat-tip="xp">
@@ -12753,21 +13167,21 @@ function buildOverviewHtml() {
 
   const charPointsRow = `<div class="char-points-row stat-tip-row" data-stat-tip="charPoints">
     <span class="char-points-label">Characteristic points</span>
-    <span class="char-points-num">${player.charPoints}</span>
+    <span class="char-points-num">${actor.charPoints}</span>
   </div>`;
 
-  const equipStatBonuses = sumEquippedBonusStats();
-  const staminaPoolMax = getPlayerCombatMaxStamina();
+  const equipStatBonuses = sumEquippedBonusStatsFromEquipment(actor.equipment || emptyEquipment());
+  const staminaPoolMax = getActorCombatMaxStamina(actor);
 
   const characteristicsTabHtml = `
-    ${player.editMode ? statBarRowLevelEditable(player.level, getPlayerMaxLevel(), "level") : statBarRow("Level", player.level, getPlayerMaxLevel(), "level", "level")}
+    ${player.editMode ? statBarRowLevelEditable(actor.level, getPlayerMaxLevel(), "level") : statBarRow("Level", actor.level, getPlayerMaxLevel(), "level", "level")}
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
-    ${statBarRowWithSpend("Strength", player.str, Math.max(BASE_STAT_BAR_SCALE_MAX, player.str), "str", "str", "str", equipStatBonuses.str)}
-    ${statBarRowWithSpend("Dexterity", player.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, player.dex), "dex", "dex", "dex", equipStatBonuses.dex)}
-    ${statBarRowWithSpend("Vitality", player.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, player.vit), "vit", "vit", "vit", equipStatBonuses.vit)}
-    ${statBarRowWithSpend("Intelligence", player.int, Math.max(BASE_STAT_BAR_SCALE_MAX, player.int), "int", "int", "int", equipStatBonuses.int)}
+    ${statBarRowWithSpend("Strength", actor.str, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.str), "str", "str", "str", equipStatBonuses.str, actor.charPoints)}
+    ${statBarRowWithSpend("Dexterity", actor.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.dex), "dex", "dex", "dex", equipStatBonuses.dex, actor.charPoints)}
+    ${statBarRowWithSpend("Vitality", actor.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.vit), "vit", "vit", "vit", equipStatBonuses.vit, actor.charPoints)}
+    ${statBarRowWithSpend("Intelligence", actor.int, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.int), "int", "int", "int", equipStatBonuses.int, actor.charPoints)}
     ${statBarRow(
       "Stamina",
       getPlayerCombatStaminaBaseMax(),
@@ -12777,17 +13191,17 @@ function buildOverviewHtml() {
       equipStatBonuses.stamina
     )}
     <div class="stat-plain-row stat-tip-row" data-stat-tip="armor">
-      <span>Armor</span><strong>${getArmorDefense()}</strong>
+      <span>Armor</span><strong>${getActorArmorDefense(actor)}</strong>
     </div>
     <div class="stat-plain-row stat-tip-row" data-stat-tip="damage">
       <span>Damage</span><strong>${dmg.min} – ${dmg.max}</strong>
     </div>`;
 
-  const activeClass = getClassDef(player.classId);
-  const classSkillsRows = buildClassSkillsRowsHtml(activeClass);
+  const activeClass = getClassDef(actor.classId);
+  const classSkillsRows = buildClassSkillsRowsHtml(activeClass, actor);
   const skillsTabHtml = `<div class="skills-tab-inner">
     <div class="skills-label">${escapeHtml(activeClass.label)} class</div>
-    <div class="stat-plain-row"><span>Skill points</span><strong data-skill-points-value="1">${Math.max(0, Math.floor(player.skillPoints || 0))}</strong></div>
+    <div class="stat-plain-row"><span>Skill points</span><strong data-skill-points-value="1">${Math.max(0, Math.floor(actor.skillPoints || 0))}</strong></div>
     <div class="item-tip-desc">${escapeHtml(activeClass.passive)}</div>
     <div class="class-skills-list" data-skills-scroll-host="1" data-class-skills-list="1">${classSkillsRows}</div>
   </div>`;
@@ -12796,7 +13210,7 @@ function buildOverviewHtml() {
     (GAME_CONFIG.professions && GAME_CONFIG.professions.intro) ||
     "Professions will be added in a future update.";
   const profDefs = getProfessionDefs();
-  const selectedProfIds = getPlayerSelectedProfessions();
+  const selectedProfIds = getActorSelectedProfessions(actor);
   const maxProf = getMaxSelectedProfessions();
   const profRows = profDefs
     .map((d) => {
@@ -12829,15 +13243,16 @@ function buildOverviewHtml() {
   else statsBodyHtml = professionsTabHtml;
 
   return `
-    <div class="overview-page">
+    <div class="overview-page" data-overview-roster-tab="${escapeAttr(rosterTab)}">
+      ${rosterTabsHtml}
       <div class="overview-grid">
         <section class="panel-cell panel-character" aria-label="Character">
           <div class="character-panel">
             <div class="nameplate-wrap">
               ${portraitEditControlsHtml}
-              <div class="nameplate">${escapeHtml(player.name)}</div>
+              <div class="nameplate">${escapeHtml(actor.name || "Hero")}</div>
               <div class="portrait-box">
-                ${buildLayeredHeroPortraitHtml()}
+                ${layeredPortraitHtml}
               </div>
               ${resetCharacterBtnHtml}
             </div>
@@ -12845,8 +13260,11 @@ function buildOverviewHtml() {
         </section>
         <section class="panel-cell panel-equipment equipment-panel" aria-label="Equipment">
           <div class="equipment-panel-head">Equipment</div>
-          <div class="paper-doll">
-            <div class="paper-slots gladiatus-layout">${slotHtml}</div>
+          <div class="equipment-doll-with-companions">
+            <div class="companion-equipment-switches" aria-label="Companion slots">${companionSwitchesColHtml}</div>
+            <div class="paper-doll">
+              <div class="paper-slots gladiatus-layout">${slotHtml}</div>
+            </div>
           </div>
         </section>
         <section class="panel-cell panel-stats" aria-label="Characteristics and skills">
@@ -12917,9 +13335,10 @@ function refreshOverviewSkillsSubpanelInPlace() {
   const list = root.querySelector("[data-class-skills-list]");
   const pts = root.querySelector("[data-skill-points-value]");
   if (!list || !pts) return false;
-  const activeClass = getClassDef(player.classId);
-  pts.textContent = String(Math.max(0, Math.floor(player.skillPoints || 0)));
-  list.innerHTML = buildClassSkillsRowsHtml(activeClass);
+  const actor = getActiveRosterActor();
+  const activeClass = getClassDef(actor.classId);
+  pts.textContent = String(Math.max(0, Math.floor(actor.skillPoints || 0)));
+  list.innerHTML = buildClassSkillsRowsHtml(activeClass, actor);
   return true;
 }
 
@@ -14545,9 +14964,12 @@ function onDragStart(e) {
     e.dataTransfer.effectAllowed = "move";
   } else if (slot) {
     const slotId = slot.dataset.slot;
-    const name = player.equipment[slotId];
+    const overview = slot.closest("[data-overview-roster-tab]");
+    const target = overview ? resolveEquipTargetActorFromEl(overview) : player;
+    const eq = target.equipment || emptyEquipment();
+    const name = eq[slotId];
     if (name) {
-      dragPayload = { kind: "equipped", slot: slotId, item: name };
+      dragPayload = { kind: "equipped", slot: slotId, item: name, equipContextEl: overview || undefined };
       e.dataTransfer.effectAllowed = "move";
     }
   } else {
@@ -14579,8 +15001,10 @@ function onDrop(e) {
   const slotEl = e.target.closest(".slot-drop");
   if (slotEl && dragPayload.kind === "inventory") {
     const slotId = slotEl.dataset.slot;
-    if (slotId && canEquipItemInSlot(dragPayload.item, slotId)) {
-      equipFromInventory(dragPayload.item, slotId);
+    const overviewCtx = slotEl.closest("[data-overview-roster-tab]");
+    const target = overviewCtx ? resolveEquipTargetActorFromEl(overviewCtx) : player;
+    if (slotId && canEquipItemInSlot(dragPayload.item, slotId, target.equipment || emptyEquipment())) {
+      equipFromInventory(dragPayload.item, slotId, overviewCtx || undefined);
     }
   }
 
@@ -14590,7 +15014,7 @@ function onDrop(e) {
     return;
   }
   if (invGrid && dragPayload.kind === "equipped") {
-    unequipToInventory(dragPayload.slot);
+    unequipToInventory(dragPayload.slot, dragPayload.equipContextEl || undefined);
   }
 
   dragPayload = null;
@@ -14608,7 +15032,8 @@ function onContentDblClick(e) {
   const invCell = e.target.closest(".inv-cell[data-item-name]");
   if (invCell && inventoryTab === "equipment") {
     const name = invCell.getAttribute("data-item-name");
-    if (name && equipFromInventory(name)) {
+    const overview = invCell.closest("[data-overview-roster-tab]");
+    if (name && equipFromInventory(name, undefined, overview || undefined)) {
       hideItemTooltip();
       return;
     }
@@ -14616,7 +15041,8 @@ function onContentDblClick(e) {
   const drop = e.target.closest(".slot-drop[data-item-name]");
   if (drop && drop.dataset.slot) {
     hideItemTooltip();
-    unequipToInventory(drop.dataset.slot);
+    const overview = drop.closest("[data-overview-roster-tab]");
+    unequipToInventory(drop.dataset.slot, overview || undefined);
   }
 }
 
@@ -14636,19 +15062,42 @@ function onContentClick(e) {
     }
   }
   if (onAdventureSceneButtonClick(e)) return;
+  const rosterTabBtn = e.target.closest("[data-roster-tab]");
+  if (rosterTabBtn && rosterTabBtn.dataset.rosterTab != null && rosterTabBtn.dataset.rosterTab !== "") {
+    const raw = rosterTabBtn.dataset.rosterTab;
+    characterPanelRosterTab = raw === "hero" ? "hero" : String(Math.max(0, Math.min(COMPANION_SLOT_COUNT - 1, parseInt(raw, 10))));
+    render();
+    return;
+  }
+  const compSeg = e.target.closest("[data-companion-set-enabled]");
+  if (compSeg && compSeg.dataset.companionSlot != null && compSeg.dataset.companionSlot !== "") {
+    const si = parseInt(compSeg.dataset.companionSlot, 10);
+    const wantOn = compSeg.dataset.companionSetEnabled === "1";
+    ensurePlayerCompanions(player);
+    if (Number.isFinite(si) && si >= 0 && si < COMPANION_SLOT_COUNT && player.companions[si]) {
+      player.companions[si].enabled = wantOn;
+      if (!wantOn && characterPanelRosterTab === String(si)) characterPanelRosterTab = "hero";
+      save();
+      render();
+    }
+    return;
+  }
+  const clickActor = resolveOverviewRosterActorFromEvent(e);
   const alloc = e.target.closest("[data-char-up]");
   if (alloc && alloc.dataset.charUp) {
-    spendCharPoint(alloc.dataset.charUp);
+    spendCharPoint(alloc.dataset.charUp, clickActor);
     return;
   }
   const clsUp = e.target.closest("[data-class-skill-up]");
   if (clsUp && clsUp.dataset.classSkillUp) {
-    unlockOrUpgradeClassSkill(clsUp.dataset.classSkillUp, clsUp);
+    unlockOrUpgradeClassSkill(clsUp.dataset.classSkillUp, clsUp, clickActor);
     return;
   }
   const profToggle = e.target.closest("[data-profession-toggle]");
   if (profToggle && profToggle.dataset.professionToggle) {
-    if (!togglePlayerProfession(profToggle.dataset.professionToggle)) {
+    if (toggleActorProfession(clickActor, profToggle.dataset.professionToggle)) {
+      save();
+    } else {
       const cap = getMaxSelectedProfessions();
       window.alert(`You can select at most ${cap} professions.`);
     }
@@ -14656,14 +15105,14 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-portrait-layout-reset]")) {
-    player.portraitLayout = {};
-    player.portraitBaseLayout = getDefaultPortraitBaseLayout();
+    clickActor.portraitLayout = {};
+    clickActor.portraitBaseLayout = getDefaultPortraitBaseLayout();
     save();
     render();
     return;
   }
   if (e.target.closest("[data-portrait-layout-export]")) {
-    void copyPortraitLayoutExportToClipboard();
+    void copyPortraitLayoutExportToClipboard({ owner: clickActor });
     return;
   }
   if (e.target.closest("[data-portrait-add-item]")) {
@@ -14678,15 +15127,16 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-character-level-apply]")) {
+    const levelActor = resolveOverviewRosterActorFromEvent(e);
     const host = e.target.closest(".stat-bar-row");
     const input = host ? host.querySelector("[data-character-level-input]") : null;
     const raw = input ? Number(input.value) : NaN;
     const nextLevel = Number.isFinite(raw) ? Math.max(1, Math.floor(raw)) : NaN;
     if (!Number.isFinite(nextLevel)) return;
-    player.level = nextLevel;
-    player.maxHp = computeMaxHp(player);
-    if (!Number.isFinite(player.hp)) player.hp = player.maxHp;
-    player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
+    levelActor.level = nextLevel;
+    levelActor.maxHp = computeMaxHp(levelActor);
+    if (!Number.isFinite(levelActor.hp)) levelActor.hp = levelActor.maxHp;
+    levelActor.hp = Math.min(levelActor.maxHp, Math.max(1, levelActor.hp));
     if (input) input.value = String(nextLevel);
     save();
     render();
@@ -15307,6 +15757,7 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
   });
 }
 
+initPlayerFromStorage();
 initUi();
 showLoadingOverlay();
 render();
