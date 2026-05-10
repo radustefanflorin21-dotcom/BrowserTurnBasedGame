@@ -14,10 +14,7 @@ const GAME_CONFIG = {
    * Applied only when a brand-new character is created (new save / reset).
    * Each entry grants `count` copies of an item into starting inventory.
    */
-  startingLoadout: [
-    { name: "Small Potion", count: 999 },
-    { name: "Sunken Grotto Key", count: 1 }
-  ],
+  startingLoadout: [{ name: "Small Potion", count: 10 }],
 
   /**
    * Enemy art supports legacy `image`, state images (`images: { idle, walk, attack }`),
@@ -4828,12 +4825,12 @@ const GAME_CONFIG = {
    * World map (Excel World_map.xlsx → world_map_data.js). Biome index matches cell color legend (rows 104+).
    * Layout and presentation are baselined as complete in v2.4 (see `version` above).
    * Export uses the grid from column B; row 2+ maps to y=0,… — height is capped so the last playable y is 99 (rows below in Excel are margin, ignored).
-   * Each passable biome lists possibleEnemies; mobs roll up to 8 units from that pool (see game.js); combat caps at 8v8 (party + foes).
+   * Each passable biome lists possibleEnemies; overworld encounter slots roll fixed group sizes (see game.js): easy 1–3, medium 3–6, hard 5–8 units (combat caps at 8v8). Dungeons use dungeon room definitions only.
    * Optional `partyAllies` on the mob passed to combat: array of `{ name?, maxHp?, hp?, agi?, armor? }` companions (hero always slot 0; max 8 party members total).
    * Per-slot picks use each enemy's `spawnRarity` with `enemySpawnRarityWeights` (weighted tier, then uniform within tier).
    * Optional mobDifficulty: { easy, medium, hard } anchor levels — encounter slots 0/1/2 use easy/medium/hard;
    * the mob's total level (sum of all unit levels) is rolled in ±25% of that anchor (integer bounds).
-   * Omit mobDifficulty to use legacy per-unit level rolling.
+   * Omit mobDifficulty on overworld: same slot group sizes (1–3 / 3–6 / 5–8) with per-unit levels from each enemy's possibleLevels (legacy-style).
    * encounterSlotsPerTile: separate encounter buttons per map cell (cooldown each).
    * coordinateBackgrounds: optional image per map cell for the Adventure screen (path relative to index.html).
    * Optional per-biome map/minimap art in the same folder as adventure art: texture.png is stretched once over
@@ -4856,7 +4853,7 @@ const GAME_CONFIG = {
      * in localStorage are cleared on load when this value differs from the last applied one
      * (see player.worldMap.mobPreviewGeneration).
      */
-    mobPreviewVersion: 8,
+    mobPreviewVersion: 9,
     /** Cooldown after clearing a mob before it respawns on this map (ms). */
     mobRespawnMs: 60000,
     /**

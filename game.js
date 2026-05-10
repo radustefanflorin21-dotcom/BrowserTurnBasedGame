@@ -27,6 +27,8 @@ let activeMenuPanel = null;
 let dragPayload = null;
 /** Respawn label updates on adventure (no full re-render — avoids image flash) */
 let adventureRespawnTick = null;
+/** +HP per second while fight overlay is closed and {@link combatState} is null. */
+let outOfCombatHpRegenTick = null;
 /** Reposition world encounter panels on a timer (config.worldMap.mobPanelWanderMs). */
 let adventureCampWanderTick = null;
 /** Invalidates pending RAF from startAdventureCampWanderTimer when navigating away quickly. */
@@ -6055,6 +6057,23 @@ const MOB_SIZE_MAX = 8;
 const MOB_DIFFICULTY_LEVEL_VARIANCE = 0.25;
 
 const MOB_DIFFICULTY_TIER_LABELS = ["easy", "medium", "hard"];
+
+/** Overworld encounter slot → inclusive unit count bounds (dungeons ignore this; see dungeon rooms in config). */
+function getWorldMapEncounterGroupSizeBounds(slotIndex) {
+  const si =
+    typeof slotIndex === "number" && Number.isFinite(slotIndex) ? Math.floor(slotIndex) : 0;
+  const s = ((si % 3) + 3) % 3;
+  if (s === 0) return { minC: 1, maxC: 3 };
+  if (s === 1) return { minC: 3, maxC: 6 };
+  return { minC: 5, maxC: 8 };
+}
+
+function pickRandomCountInRange(minC, maxC) {
+  const lo = Math.max(1, Math.floor(minC));
+  const hi = Math.max(lo, Math.floor(maxC));
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
 const ENEMY_MOOD_SPAWN_CHANCE = 0.1;
 const MOOD_XP_BONUS_MULT = 1.12;
 const MOOD_LOOT_DROP_RATE_MULT = 1.1;
@@ -6244,7 +6263,44 @@ function pickTargetTotalLevel(minT, maxT, defs) {
   return lo + Math.floor(Math.random() * (hi - lo + 1));
 }
 
-function rollMobCompositionFallbackTotalAnchor(pool, anchor, tier, minTotal, maxTotal, biomeLike) {
+function rollMobCompositionFallbackTotalAnchor(pool, anchor, tier, minTotal, maxTotal, biomeLike, slotIndex, opts) {
+  const worldMap = !!(opts && opts.worldMap);
+  if (worldMap && typeof slotIndex === "number") {
+    const { minC, maxC } = getWorldMapEncounterGroupSizeBounds(slotIndex);
+    for (let count = maxC; count >= minC; count--) {
+      const defs = [];
+      for (let i = 0; i < count; i++) {
+        const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
+        const def = GAME_CONFIG.enemies.find((e) => e.name === name);
+        if (def) defs.push(def);
+      }
+      if (!defs.length) continue;
+      const targetTotal = pickTargetTotalLevel(minTotal, maxTotal, defs);
+      const levels = assignLevelsToTargetSum(defs, targetTotal);
+      if (!levels) continue;
+      const units = [];
+      let sum = 0;
+      for (let i = 0; i < defs.length; i++) {
+        const def = defs[i];
+        const mood = pickMoodFromEnemyDef(def);
+        const level = levels[i];
+        sum += level;
+        units.push({
+          name: def.name,
+          level,
+          moodId: mood.id,
+          moodName: mood.name
+        });
+      }
+      return {
+        units,
+        mobTotalLevel: sum,
+        difficultyTier: tier,
+        difficultyAnchor: anchor
+      };
+    }
+  }
+
   const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
   const def = GAME_CONFIG.enemies.find((e) => e.name === name);
   if (!def) {
@@ -6348,24 +6404,72 @@ function rollMobCompositionLegacy(pool, biomeLike) {
 }
 
 /**
- * Rolls a full mob: 1–8 enemies from the pool. If biomeLike.mobDifficulty is set, slot 0/1/2 maps to
- * easy/medium/hard anchors; the sum of unit levels is rolled in the ±25% band around that anchor (see game.js constants).
+ * Overworld cell with no mobDifficulty anchors: still use per-slot group sizes (1–3 / 3–6 / 5–8) and legacy per-unit levels.
+ */
+function rollWorldMapMobCompositionNoAnchor(pool, slotIndex, biomeLike) {
+  const { minC, maxC } = getWorldMapEncounterGroupSizeBounds(slotIndex);
+  const count = pickRandomCountInRange(minC, maxC);
+  const units = [];
+  for (let i = 0; i < count; i++) {
+    const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
+    const def = GAME_CONFIG.enemies.find((e) => e.name === name);
+    if (!def) continue;
+    const mood = pickMoodFromEnemyDef(def);
+    const level = pickLevelFromEnemyDef(def);
+    units.push({ name, level, moodId: mood.id, moodName: mood.name });
+  }
+  if (!units.length && pool.length) {
+    const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
+    const def = GAME_CONFIG.enemies.find((e) => e.name === name);
+    if (def) {
+      const mood = pickMoodFromEnemyDef(def);
+      const level = pickLevelFromEnemyDef(def);
+      units.push({ name, level, moodId: mood.id, moodName: mood.name });
+    }
+  }
+  const mobTotalLevel = units.reduce((s, u) => s + (typeof u.level === "number" ? u.level : 0), 0);
+  const si =
+    typeof slotIndex === "number" && Number.isFinite(slotIndex) ? Math.floor(slotIndex) : 0;
+  const tier = MOB_DIFFICULTY_TIER_LABELS[((si % 3) + 3) % 3];
+  return {
+    units,
+    mobTotalLevel,
+    difficultyTier: tier,
+    difficultyAnchor: null
+  };
+}
+
+/**
+ * Rolls a full mob from a biome pool.
+ * World map (`opts.worldMap`): slot 0 = easy (1–3 units), 1 = medium (3–6), 2 = hard (5–8); with mobDifficulty, total level still targets easy/medium/hard anchors (±25%).
+ * Non–world-map: legacy 1–8 count when no anchors; dungeons do not use this (fixed room enemies).
  * @param {string[]} pool
  * @param {number} [slotIndex]
  * @param {{ mobDifficulty?: { easy?: number, medium?: number, hard?: number } } | null} [biomeLike]
+ * @param {{ worldMap?: boolean }} [opts]
  */
-function rollMobComposition(pool, slotIndex, biomeLike) {
+function rollMobComposition(pool, slotIndex, biomeLike, opts) {
+  const worldMap = !!(opts && opts.worldMap);
   const anchor =
     biomeLike != null && typeof slotIndex === "number"
       ? getDifficultyAnchorForSlot(biomeLike, slotIndex)
       : null;
-  if (anchor == null) {
+
+  if (!worldMap && anchor == null) {
     return rollMobCompositionLegacy(pool, biomeLike);
   }
+  if (worldMap && anchor == null) {
+    return rollWorldMapMobCompositionNoAnchor(pool, slotIndex, biomeLike);
+  }
+
   const { minL: minTotal, maxL: maxTotal } = difficultyTotalLevelRangeFromAnchor(anchor);
   const tier = MOB_DIFFICULTY_TIER_LABELS[slotIndex % 3];
+  const sizeBounds = worldMap ? getWorldMapEncounterGroupSizeBounds(slotIndex) : { minC: MOB_SIZE_MIN, maxC: MOB_SIZE_MAX };
+
   for (let attempt = 0; attempt < 100; attempt++) {
-    const count = Math.floor(Math.random() * (MOB_SIZE_MAX - MOB_SIZE_MIN + 1)) + MOB_SIZE_MIN;
+    const count = worldMap
+      ? pickRandomCountInRange(sizeBounds.minC, sizeBounds.maxC)
+      : Math.floor(Math.random() * (MOB_SIZE_MAX - MOB_SIZE_MIN + 1)) + MOB_SIZE_MIN;
     const defs = [];
     for (let i = 0; i < count; i++) {
       const name = pickRandomEnemyNameFromPool(pool) || randomFrom(pool);
@@ -6397,7 +6501,7 @@ function rollMobComposition(pool, slotIndex, biomeLike) {
       difficultyAnchor: anchor
     };
   }
-  return rollMobCompositionFallbackTotalAnchor(pool, anchor, tier, minTotal, maxTotal, biomeLike);
+  return rollMobCompositionFallbackTotalAnchor(pool, anchor, tier, minTotal, maxTotal, biomeLike, slotIndex, opts);
 }
 
 /**
@@ -6424,7 +6528,7 @@ function ensureMobPreview(x, y, si) {
   if (rec.mobPreviews[si] && rec.mobPreviews[si].units && rec.mobPreviews[si].units.length) {
     return rec.mobPreviews[si];
   }
-  const roll = rollMobComposition(pool, si, biome);
+  const roll = rollMobComposition(pool, si, biome, { worldMap: true });
   rec.mobPreviews[si] = roll;
   if (roll && Array.isArray(roll.units) && roll.units.length) recordMonsterSpawnsFromUnits(roll.units);
   save();
@@ -12623,6 +12727,9 @@ function buildOverviewHtml() {
     ? `<div class="portrait-edit-tools portrait-edit-tools-overlay"><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
       <p class="portrait-edit-hint">Edit mode: equip = left move, right rotate, Shift+drag/wheel resize. Character = same controls on base image area.</p>`
     : "";
+  const resetCharacterBtnHtml = player.editMode
+    ? `<button type="button" class="btn-reset-char" data-reset-character>Reset character</button>`
+    : "";
 
   const dmg = getDamageRange();
   const maxLv = getPlayerMaxLevel();
@@ -12732,6 +12839,7 @@ function buildOverviewHtml() {
               <div class="portrait-box">
                 ${buildLayeredHeroPortraitHtml()}
               </div>
+              ${resetCharacterBtnHtml}
             </div>
           </div>
         </section>
@@ -13549,6 +13657,21 @@ function isWorldMapModalOpen() {
 function isFightOverlayOpen() {
   const el = document.getElementById("fightOverlay");
   return !!(el && !el.classList.contains("hidden"));
+}
+
+const OUT_OF_COMBAT_HP_REGEN_PER_SEC = 1;
+
+function tickOutOfCombatHpRegen() {
+  if (typeof player === "undefined" || !player) return;
+  if (combatState || isFightOverlayOpen()) return;
+  player.maxHp = computeMaxHp(player);
+  const cur = typeof player.hp === "number" && Number.isFinite(player.hp) ? player.hp : player.maxHp;
+  if (cur >= player.maxHp) return;
+  player.hp = Math.min(player.maxHp, cur + OUT_OF_COMBAT_HP_REGEN_PER_SEC);
+  save();
+  renderBottomHud();
+  if (isCharacterPanelOpen()) renderCharacterPanelContent();
+  if (currentPage === "overview") renderOverview();
 }
 
 function worldMapModalMinMaxCellPx() {
@@ -15073,6 +15196,9 @@ function initUi() {
 
   document.addEventListener("keydown", onDocumentKeydown);
   initWorldMapModal();
+
+  if (outOfCombatHpRegenTick) clearInterval(outOfCombatHpRegenTick);
+  outOfCombatHpRegenTick = setInterval(tickOutOfCombatHpRegen, 1000);
 }
 
 function showLoadingOverlay() {
