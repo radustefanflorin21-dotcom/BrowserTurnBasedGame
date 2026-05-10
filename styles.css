@@ -1617,6 +1617,26 @@ body.edit-mode-on .portrait-stack--editing-scale {
   font-weight: 600;
 }
 
+.stat-bar-num--split {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stat-bar-num-from-equip {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #2a6fc4;
+  text-shadow: 0 0 1px rgba(42, 111, 196, 0.35);
+}
+
+:root[data-theme="scifi"] .stat-bar-num-from-equip {
+  color: #5ad4ff;
+  text-shadow: 0 0 6px rgba(90, 212, 255, 0.45);
+}
+
 .stat-bar-track {
   grid-column: 1 / -1;
   height: 2px;
@@ -1648,6 +1668,14 @@ body.edit-mode-on .portrait-stack--editing-scale {
 .stat-bar-agi .stat-bar-fill,
 .stat-bar-vit .stat-bar-fill {
   background: linear-gradient(90deg, #2d5a2d, #4a8a4a);
+}
+
+.stat-bar-stamina .stat-bar-fill {
+  background: linear-gradient(90deg, #6a5a2a, #b89a3a);
+}
+
+:root[data-theme="scifi"] .stat-bar-stamina .stat-bar-fill {
+  background: linear-gradient(90deg, #2a4a6a, #4a8a9a);
 }
 
 .stat-plain-row {

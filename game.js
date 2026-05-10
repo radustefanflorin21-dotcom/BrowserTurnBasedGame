@@ -1895,10 +1895,13 @@ function sumEquippedBonusStats() {
   return sumEquippedBonusStatsFromEquipment(player.equipment || emptyEquipment());
 }
 
-function getPlayerCombatMaxStamina() {
+function getPlayerCombatStaminaBaseMax() {
   const sys = getStatSystem();
-  const base =
-    typeof sys.staminaPerTurn === "number" && sys.staminaPerTurn > 0 ? Math.floor(sys.staminaPerTurn) : 6;
+  return typeof sys.staminaPerTurn === "number" && sys.staminaPerTurn > 0 ? Math.floor(sys.staminaPerTurn) : 6;
+}
+
+function getPlayerCombatMaxStamina() {
+  const base = getPlayerCombatStaminaBaseMax();
   const fromGear = sumEquippedBonusStats().stamina || 0;
   return Math.max(1, base + fromGear);
 }
@@ -12103,6 +12106,7 @@ const STAT_TIP_LABELS = {
   dex: "Dexterity",
   vit: "Vitality",
   int: "Intelligence",
+  stamina: "Stamina",
   armor: "Armor",
   damage: "Damage"
 };
@@ -12496,12 +12500,20 @@ function onContentInput(e) {
   applyPortraitAddItemFilter(host);
 }
 
-function statBarRow(label, value, max, variant, statTipKey) {
+function statBarNumberSpanHtml(value, gearBonus) {
+  const g =
+    typeof gearBonus === "number" && Number.isFinite(gearBonus) ? Math.round(gearBonus) : 0;
+  if (g === 0) return `<span class="stat-bar-num">${value}</span>`;
+  return `<span class="stat-bar-num stat-bar-num--split"><span class="stat-bar-num-base">${value}</span><span class="stat-bar-num-from-equip" title="From equipment (including set pieces)">${g > 0 ? "+" : ""}${g}</span></span>`;
+}
+
+function statBarRow(label, value, max, variant, statTipKey, gearBonus) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const tip = statTipKey ? ` data-stat-tip="${escapeAttr(statTipKey)}"` : "";
+  const numHtml = arguments.length > 5 ? statBarNumberSpanHtml(value, gearBonus) : `<span class="stat-bar-num">${value}</span>`;
   return `<div class="stat-bar-row stat-tip-row"${tip}>
     <span class="stat-bar-label">${label}</span>
-    <span class="stat-bar-num">${value}</span>
+    ${numHtml}
     <div class="stat-bar-track stat-bar-${variant}"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
   </div>`;
 }
@@ -12518,16 +12530,17 @@ function statBarRowLevelEditable(value, max, statTipKey) {
   </div>`;
 }
 
-function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey) {
+function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, gearBonus) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const can = player.charPoints > 0;
   const btn = can
     ? `<button type="button" class="stat-alloc-btn" data-char-up="${escapeAttr(statKey)}">+</button>`
     : `<span class="stat-alloc-empty" aria-hidden="true"></span>`;
+  const numHtml = statBarNumberSpanHtml(value, gearBonus);
   return `<div class="stat-bar-row stat-bar-row--alloc">
     <div class="stat-bar-row-main stat-tip-row" data-stat-tip="${escapeAttr(statTipKey)}">
       <span class="stat-bar-label">${label}</span>
-      <span class="stat-bar-num">${value}</span>
+      ${numHtml}
       <div class="stat-bar-track stat-bar-${variant}"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
     </div>
     ${btn}
@@ -12636,15 +12649,26 @@ function buildOverviewHtml() {
     <span class="char-points-num">${player.charPoints}</span>
   </div>`;
 
+  const equipStatBonuses = sumEquippedBonusStats();
+  const staminaPoolMax = getPlayerCombatMaxStamina();
+
   const characteristicsTabHtml = `
     ${player.editMode ? statBarRowLevelEditable(player.level, getPlayerMaxLevel(), "level") : statBarRow("Level", player.level, getPlayerMaxLevel(), "level", "level")}
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
-    ${statBarRowWithSpend("Strength", player.str, Math.max(BASE_STAT_BAR_SCALE_MAX, player.str), "str", "str", "str")}
-    ${statBarRowWithSpend("Dexterity", player.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, player.dex), "dex", "dex", "dex")}
-    ${statBarRowWithSpend("Vitality", player.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, player.vit), "vit", "vit", "vit")}
-    ${statBarRowWithSpend("Intelligence", player.int, Math.max(BASE_STAT_BAR_SCALE_MAX, player.int), "int", "int", "int")}
+    ${statBarRowWithSpend("Strength", player.str, Math.max(BASE_STAT_BAR_SCALE_MAX, player.str), "str", "str", "str", equipStatBonuses.str)}
+    ${statBarRowWithSpend("Dexterity", player.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, player.dex), "dex", "dex", "dex", equipStatBonuses.dex)}
+    ${statBarRowWithSpend("Vitality", player.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, player.vit), "vit", "vit", "vit", equipStatBonuses.vit)}
+    ${statBarRowWithSpend("Intelligence", player.int, Math.max(BASE_STAT_BAR_SCALE_MAX, player.int), "int", "int", "int", equipStatBonuses.int)}
+    ${statBarRow(
+      "Stamina",
+      getPlayerCombatStaminaBaseMax(),
+      Math.max(1, staminaPoolMax),
+      "stamina",
+      "stamina",
+      equipStatBonuses.stamina
+    )}
     <div class="stat-plain-row stat-tip-row" data-stat-tip="armor">
       <span>Armor</span><strong>${getArmorDefense()}</strong>
     </div>

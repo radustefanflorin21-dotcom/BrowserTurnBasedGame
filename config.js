@@ -3421,6 +3421,8 @@ const GAME_CONFIG = {
     dex: "Dexterity (total): crit chance, crit damage bonus, evasion, accuracy vs misses, and combo stamina refunds after skills.",
     vit: "Vitality (total): max HP from a flat per-VIT formula, flat damage reduction, status resist, DoT reduction, and heal bonus.",
     int: "Intelligence (total): magic/skill power %, magic resist %, status potency, stamina cost reduction on skills, debuff duration vs foes.",
+    stamina:
+      "Maximum stamina per combat turn: a base value from combat tuning plus bonus max stamina from equipped gear (capped). Skills and attacks spend stamina during your turn.",
     armor: "Armor from gear: flat reduction on incoming hits (combined with Vitality and resistances).",
     damage:
       "Approximate physical attack damage after Strength bonus (no crit); skills use the same weapon core with per-skill multipliers, then stat curves resolve in combat."
