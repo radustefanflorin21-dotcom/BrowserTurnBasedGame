@@ -1759,6 +1759,38 @@ body.edit-mode-on .portrait-stack--editing-scale {
   align-items: center;
 }
 
+.character-roster-tabs--empty {
+  justify-content: flex-end;
+}
+
+.char-panel-close-x {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.4);
+  color: inherit;
+}
+
+.char-panel-close-x:hover {
+  border-color: var(--accent);
+}
+
+:root[data-theme="scifi"] .char-panel-close-x {
+  background: rgba(20, 40, 70, 0.75);
+  border-color: rgba(80, 160, 220, 0.25);
+  color: #cfe8ff;
+}
+
 .char-roster-tab {
   font-size: 0.52rem;
   padding: 3px 8px;

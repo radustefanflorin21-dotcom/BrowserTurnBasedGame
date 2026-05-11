@@ -13112,6 +13112,7 @@ function buildOverviewHtml() {
     })
     .join("");
 
+  const closePanelBtnHtml = `<button type="button" class="char-panel-close-x" data-close-character-panel aria-label="Close character panel">&times;</button>`;
   const rosterTabsHtml = anyCompanionEnabled()
     ? `<div class="character-roster-tabs" role="tablist">
     <button type="button" role="tab" class="char-roster-tab${rosterTab === "hero" ? " active" : ""}" data-roster-tab="hero">Hero</button>${[0, 1, 2]
@@ -13124,8 +13125,9 @@ function buildOverviewHtml() {
           }" data-roster-tab="${si}">${escapeHtml(c.name || `Companion ${si + 1}`)}</button>`;
         })
         .join("")}
+    ${closePanelBtnHtml}
   </div>`
-    : "";
+    : `<div class="character-roster-tabs character-roster-tabs--empty">${closePanelBtnHtml}</div>`;
 
   const editInvOptions = buildEditInventoryOptionsHtml(getEditableInventoryItemNames());
   const portraitEditControlsHtml = player.editMode
@@ -15062,6 +15064,11 @@ function onContentClick(e) {
     }
   }
   if (onAdventureSceneButtonClick(e)) return;
+  if (e.target.closest("[data-close-character-panel]")) {
+    e.preventDefault();
+    closeCharacterPanel();
+    return;
+  }
   const rosterTabBtn = e.target.closest("[data-roster-tab]");
   if (rosterTabBtn && rosterTabBtn.dataset.rosterTab != null && rosterTabBtn.dataset.rosterTab !== "") {
     const raw = rosterTabBtn.dataset.rosterTab;
@@ -15576,12 +15583,8 @@ function initUi() {
     bottomPortrait.addEventListener("wheel", onBottomHudPortraitWheel, { passive: false });
   }
   const characterPanelModal = document.getElementById("characterPanelModal");
-  const characterPanelClose = document.getElementById("characterPanelClose");
   const menuPanelModal = document.getElementById("menuPanelModal");
   const menuPanelClose = document.getElementById("menuPanelClose");
-  if (characterPanelClose) {
-    characterPanelClose.addEventListener("click", () => closeCharacterPanel());
-  }
   if (menuPanelClose) {
     menuPanelClose.addEventListener("click", () => closeMenuPanel());
   }
