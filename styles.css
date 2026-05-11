@@ -1584,10 +1584,10 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .stat-alloc-btn {
   flex-shrink: 0;
-  width: 16px;
-  min-height: 14px;
+  width: 12px;
+  min-height: 12px;
   padding: 0;
-  font-size: 0.55rem;
+  font-size: 0.45rem;
   line-height: 1;
   font-weight: 700;
   cursor: pointer;
@@ -1604,7 +1604,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
 }
 
 .stat-alloc-empty {
-  width: 16px;
+  width: 12px;
   flex-shrink: 0;
 }
 
@@ -3832,6 +3832,17 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-ally-card--dead {
   opacity: 0.45;
+}
+
+.fight-ally-card--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.fight-ally-card--acted {
+  opacity: 0.55;
+  filter: grayscale(35%);
+  cursor: default;
 }
 
 .fight-portrait-img--ally {

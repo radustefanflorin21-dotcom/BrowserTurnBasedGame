@@ -3054,7 +3054,8 @@ function buildCombatPartyForMob(mob) {
       maxHp: player.maxHp,
       kind: "hero",
       dex: getEffectiveDex(),
-      flatArmor: getArmorDefense()
+      flatArmor: getArmorDefense(),
+      acted: false
     }
   ];
   const extras = mob && Array.isArray(mob.partyAllies) ? mob.partyAllies : [];
@@ -3071,7 +3072,10 @@ function buildCombatPartyForMob(mob) {
       maxHp,
       kind: "companion",
       dex: typeof a.dex === "number" ? a.dex : typeof a.agi === "number" ? a.agi : Math.max(4, Math.floor(getEffectiveDex() * 0.65)),
-      flatArmor: typeof a.armor === "number" ? a.armor : 0
+      flatArmor: typeof a.armor === "number" ? a.armor : 0,
+      acted: false,
+      stamina: 0,
+      maxStamina: 0
     });
   }
   if (player && Array.isArray(player.companions)) {
@@ -3082,6 +3086,7 @@ function buildCombatPartyForMob(mob) {
       const hp = Math.max(1, Math.min(maxHp, typeof comp.hp === "number" && Number.isFinite(comp.hp) ? comp.hp : maxHp));
       const gear = sumEquippedBonusStatsFromEquipment(comp.equipment || emptyEquipment());
       const effDex = Math.max(1, Math.floor((typeof comp.dex === "number" ? comp.dex : 10) + (gear.dex || 0)));
+      const compMaxStamina = getActorCombatMaxStamina(comp);
       party.push({
         uid: uid++,
         name: typeof comp.name === "string" && comp.name.trim() ? comp.name.trim() : `Companion ${slotIdx + 1}`,
@@ -3090,7 +3095,10 @@ function buildCombatPartyForMob(mob) {
         kind: "companion",
         dex: effDex,
         flatArmor: getActorArmorDefense(comp),
-        companionSlotIndex: slotIdx
+        companionSlotIndex: slotIdx,
+        acted: false,
+        stamina: compMaxStamina,
+        maxStamina: compMaxStamina
       });
     });
   }
@@ -10867,7 +10875,7 @@ function startPlayerTurnTimer() {
     syncFightTurnTimerDisplay();
     if (Date.now() >= endMs) {
       clearPlayerTurnTimer();
-      playerCombatPass(true);
+      endActiveActorTurn(true);
     }
   }, 250);
 }
@@ -10910,20 +10918,49 @@ function renderTurnBattle() {
   ensureCombatTarget();
   ensureCombatParty(st);
 
+  ensureActivePartyUid(st);
   let partyHtml = "";
   (st.party || [])
     .filter((m) => m && m.hp > 0)
     .forEach((m) => {
       const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
-    const portraitHtml =
-      m.kind === "hero"
-        ? `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
-            getHeroImageForState(getCombatHeroVisualState()),
-            getPortraitBaseLayout(),
-            ""
-          )}</div>`
-        : `<img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />`;
-      partyHtml += `<div class="fight-ally-card" data-party-member="${m.uid}">
+      const isActive = st.phase === "player" && st.activePartyUid === m.uid && !m.acted;
+      const hasActed = st.phase === "player" && m.acted;
+      let portraitHtml;
+      if (m.kind === "hero") {
+        portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
+          getHeroImageForState(getCombatHeroVisualState()),
+          getPortraitBaseLayout(),
+          ""
+        )}</div>`;
+      } else if (
+        m.kind === "companion" &&
+        typeof m.companionSlotIndex === "number" &&
+        player.companions &&
+        player.companions[m.companionSlotIndex]
+      ) {
+        const comp = player.companions[m.companionSlotIndex];
+        portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
+          getHeroImageForState("idle"),
+          getPortraitBaseLayoutForOwner(comp),
+          "",
+          comp.equipment || emptyEquipment(),
+          comp,
+          String(m.companionSlotIndex)
+        )}</div>`;
+      } else {
+        portraitHtml = `<img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />`;
+      }
+      const cardCls = [
+        "fight-ally-card",
+        isActive ? "fight-ally-card--active" : "",
+        hasActed ? "fight-ally-card--acted" : ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const clickable = st.phase === "player" && !m.acted && m.hp > 0;
+      const roleAttrs = clickable ? ' role="button" tabindex="0"' : "";
+      partyHtml += `<div class="${cardCls}" data-party-member="${m.uid}"${roleAttrs}>
       ${portraitHtml}
       <span class="fight-card-name">${escapeHtml(m.name)}</span>
       <div class="hp-bar fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
@@ -10994,33 +11031,52 @@ function renderTurnBattle() {
       actionsEl.innerHTML = "";
     } else if (st.phase === "player") {
       actionsEl.classList.remove("hidden");
-      const skills = getActiveCombatSkills();
-      const hasAoeSkill = skills.some((s) => s.combatAoe === "all_enemies");
-      const stam = typeof st.stamina === "number" ? st.stamina : 0;
-      const maxS = typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina();
-      const atkBase = resolveAttackStaminaCost();
-      const canAtk = stam >= atkBase;
-      let skillBtns = "";
-      skills.forEach((sk) => {
-        const sImg = escapeAttr(getSkillImage(sk.name));
-        const sc = resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name);
-        const canSk = stam >= sc;
-        const dis = canSk ? "" : " disabled";
-        skillBtns += `<button type="button" class="btn-secondary fight-skill-btn"${dis} data-fight-skill="${escapeAttr(sk.name)}" title="${escapeAttr(sk.name)} (${sc} stamina)"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" /></button>`;
-      });
-      const hint = hasAoeSkill
-        ? "Stamina refills each turn. Spend it on attacks and skills; End turn when you are done. Area skills hit all enemies."
-        : "Stamina refills each turn. Spend it on attacks and skills; End turn when you are done.";
-      const atkDis = canAtk ? "" : " disabled";
-      actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
-        <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
-        <p class="fight-hint">${hint}</p>
-        <div class="fight-action-row">
-          <button type="button" class="btn-primary"${atkDis} data-fight-action="attack">Attack (${atkBase})</button>
-          <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">End turn</button>
-          <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
-          ${skillBtns}
-        </div>`;
+      const active = getActivePartyMember(st);
+      if (!active) {
+        actionsEl.innerHTML = `<p class="fight-hint">All allies have ended their turn.</p>
+          <div class="fight-action-row">
+            <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
+          </div>`;
+      } else {
+        const isHero = active.kind === "hero";
+        const actor = isHero
+          ? player
+          : (typeof active.companionSlotIndex === "number" ? player.companions[active.companionSlotIndex] : null);
+        const skills = isHero ? getActiveCombatSkills() : getActiveCombatSkillsForActor(actor);
+        const hasAoeSkill = skills.some((s) => s.combatAoe === "all_enemies");
+        const stam = isHero
+          ? (typeof st.stamina === "number" ? st.stamina : 0)
+          : (typeof active.stamina === "number" ? active.stamina : 0);
+        const maxS = isHero
+          ? (typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina())
+          : (typeof active.maxStamina === "number" ? active.maxStamina : (actor ? getActorCombatMaxStamina(actor) : 0));
+        const atkBase = isHero ? resolveAttackStaminaCost() : getAttackStaminaCost();
+        const canAtk = stam >= atkBase;
+        let skillBtns = "";
+        skills.forEach((sk) => {
+          const sImg = escapeAttr(getSkillImage(sk.name));
+          const sc = isHero
+            ? resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name)
+            : getSkillStaminaCost(sk.name);
+          const canSk = stam >= sc;
+          const dis = canSk ? "" : " disabled";
+          skillBtns += `<button type="button" class="btn-secondary fight-skill-btn"${dis} data-fight-skill="${escapeAttr(sk.name)}" title="${escapeAttr(sk.name)} (${sc} stamina)"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" /></button>`;
+        });
+        const actorLabel = escapeHtml(active.name || (isHero ? "Hero" : "Companion"));
+        const hint = hasAoeSkill
+          ? `Acting: <strong>${actorLabel}</strong>. Stamina refills each turn. Spend it on attacks and skills; End turn when you are done. Area skills hit all enemies.`
+          : `Acting: <strong>${actorLabel}</strong>. Stamina refills each turn. Spend it on attacks and skills; End turn when you are done.`;
+        const atkDis = canAtk ? "" : " disabled";
+        actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
+          <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
+          <p class="fight-hint">${hint}</p>
+          <div class="fight-action-row">
+            <button type="button" class="btn-primary"${atkDis} data-fight-action="attack">Attack (${atkBase})</button>
+            <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">End turn</button>
+            <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
+            ${skillBtns}
+          </div>`;
+      }
     } else {
       actionsEl.classList.remove("hidden");
       actionsEl.innerHTML = `<p class="fight-hint fight-hint--enemy">Enemies are attacking…</p>
@@ -11096,7 +11152,9 @@ function runEnemyPhase() {
       refillCombatStamina(cur);
       cur.comboRefundedThisTurn = false;
       tickPlayerClassStartOfTurn(cur);
+      startPlayerPhaseActors(cur);
       renderTurnBattle();
+      startPlayerTurnTimer();
       return;
     }
     const foe = living[i];
@@ -11939,10 +11997,162 @@ function playerCombatAction(kind, skillName) {
 }
 
 function playerCombatPass(auto) {
+  // Legacy shim — now just ends the active actor's turn (which may roll into enemy phase).
+  endActiveActorTurn(!!auto);
+}
+
+function getActivePartyMember(st) {
+  if (!st || !Array.isArray(st.party)) return null;
+  return st.party.find((m) => m && m.uid === st.activePartyUid && m.hp > 0 && !m.acted) || null;
+}
+
+function ensureActivePartyUid(st) {
+  if (!st || !Array.isArray(st.party)) return;
+  if (st.phase !== "player") return;
+  const elig = st.party.filter((m) => m && m.hp > 0 && !m.acted);
+  if (!elig.length) {
+    st.activePartyUid = null;
+    return;
+  }
+  if (st.activePartyUid == null || !elig.some((m) => m.uid === st.activePartyUid)) {
+    st.activePartyUid = elig[0].uid;
+  }
+}
+
+function startPlayerPhaseActors(st) {
+  if (!st || !Array.isArray(st.party)) return;
+  st.party.forEach((m) => {
+    if (!m) return;
+    m.acted = false;
+    if (m.kind === "companion" && typeof m.companionSlotIndex === "number") {
+      const comp = player.companions && player.companions[m.companionSlotIndex];
+      if (comp) {
+        const maxS = getActorCombatMaxStamina(comp);
+        m.maxStamina = maxS;
+        m.stamina = maxS;
+      }
+    } else if (m.kind === "companion") {
+      // Non-player-roster ally added via mob.partyAllies — give it a small generic pool.
+      if (typeof m.maxStamina !== "number" || m.maxStamina <= 0) m.maxStamina = 4;
+      m.stamina = m.maxStamina;
+    }
+  });
+  const first = st.party.find((m) => m && m.hp > 0);
+  st.activePartyUid = first ? first.uid : null;
+}
+
+function getActiveCombatSkillsForActor(actor) {
+  if (!actor || !Array.isArray(actor.skills)) return [];
+  const out = [];
+  actor.skills.forEach((name) => {
+    const cfg = getSkillDef(name);
+    if (cfg && typeof cfg.combatMultiplier === "number") out.push(cfg);
+  });
+  return out;
+}
+
+function companionCombatAction(member, kind, skillName) {
+  const st = combatState;
+  if (!st || st.phase !== "player") return;
+  if (!member || member.hp <= 0 || member.acted) return;
+  if (member.kind !== "companion") return;
+  ensureCombatTarget();
+  const comp =
+    typeof member.companionSlotIndex === "number" ? player.companions[member.companionSlotIndex] : null;
+  if (!comp) {
+    appendFightLog(`${member.name} cannot act.`);
+    return;
+  }
+  const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
+  if (kind === "skill" && (!skCfg || typeof skCfg.combatMultiplier !== "number")) {
+    appendFightLog(`${member.name} cannot use ${skillName || "that skill"} in combat.`);
+    return;
+  }
+  const cost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
+  const stam = typeof member.stamina === "number" ? member.stamina : 0;
+  if (stam < cost) {
+    appendFightLog(`${member.name} doesn't have enough stamina (need ${cost}, has ${stam}).`);
+    return;
+  }
+  member.stamina = stam - cost;
+
+  const rng = getActorDamageRange(comp);
+  const lo = Math.max(1, Math.floor(rng.min));
+  const hi = Math.max(lo, Math.floor(rng.max));
+  const baseDmg = lo + Math.floor(Math.random() * (hi - lo + 1));
+  const mult = skCfg && typeof skCfg.combatMultiplier === "number" ? skCfg.combatMultiplier : 1;
+  const aoeAllEnemies = !!(skCfg && skCfg.combatAoe === "all_enemies");
+  const label = kind === "skill" && skillName ? skillName : "Attack";
+
+  const dealToFoe = (foe) => {
+    if (!foe || foe.hp <= 0) return;
+    const dmg = Math.max(1, Math.floor(baseDmg * mult));
+    foe.hp = Math.max(0, foe.hp - dmg);
+    appendFightLog(`${member.name} uses ${label} on ${foe.name} for ${dmg} damage.`);
+    if (foe.combat && foe.combat.script === "tusk_boar") {
+      foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
+    }
+  };
+
+  clearPlayerTurnTimer();
+  if (aoeAllEnemies) {
+    const living = st.foes.filter((f) => f.hp > 0);
+    if (!living.length) {
+      member.stamina = stam;
+      appendFightLog("No enemies to hit.");
+      return;
+    }
+    living.forEach(dealToFoe);
+  } else {
+    const foe = st.foes.find((f) => f.uid === st.selectedUid && f.hp > 0);
+    if (!foe) {
+      member.stamina = stam;
+      appendFightLog("Select a living enemy.");
+      return;
+    }
+    dealToFoe(foe);
+  }
+
+  despawnSummonsWithDeadSummoners(st);
+  if (!st.foes.some((f) => f.hp > 0)) {
+    finishCombatVictory();
+    return;
+  }
+  renderTurnBattle();
+  startPlayerTurnTimer();
+}
+
+function activeActorAction(kind, skillName) {
+  const st = combatState;
+  if (!st || st.phase !== "player") return;
+  ensureActivePartyUid(st);
+  const active = getActivePartyMember(st);
+  if (!active) return;
+  if (active.kind === "hero") {
+    playerCombatAction(kind, skillName);
+    return;
+  }
+  companionCombatAction(active, kind, skillName);
+}
+
+function endActiveActorTurn(auto) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
   clearPlayerTurnTimer();
-  appendFightLog(auto ? `${player.name} runs out of time and ends their turn.` : `${player.name} ends their turn.`);
+  ensureActivePartyUid(st);
+  const active = getActivePartyMember(st);
+  if (active) {
+    active.acted = true;
+    const name = active.name || (active.kind === "hero" ? "Hero" : "Companion");
+    appendFightLog(auto ? `${name} runs out of time and ends their turn.` : `${name} ends their turn.`);
+  }
+  const next = (st.party || []).find((m) => m && m.hp > 0 && !m.acted);
+  if (next) {
+    st.activePartyUid = next.uid;
+    renderTurnBattle();
+    startPlayerTurnTimer();
+    return;
+  }
   endPlayerTurn();
 }
 
@@ -11993,6 +12203,20 @@ function onFightOverlayClick(ev) {
   }
   if (st.phase !== "player") return;
 
+  const allyCard = t.closest("[data-party-member]");
+  if (allyCard) {
+    const uid = parseInt(allyCard.getAttribute("data-party-member"), 10);
+    const m = (st.party || []).find((x) => x && x.uid === uid);
+    if (m && m.hp > 0 && !m.acted) {
+      if (st.activePartyUid !== uid) {
+        st.activePartyUid = uid;
+        renderTurnBattle();
+        startPlayerTurnTimer();
+      }
+    }
+    return;
+  }
+
   const card = t.closest("[data-fight-target]");
   if (card) {
     const uid = parseInt(card.getAttribute("data-fight-target"), 10);
@@ -12005,18 +12229,18 @@ function onFightOverlayClick(ev) {
   }
 
   if (t.closest("[data-fight-action='pass']")) {
-    playerCombatPass(false);
+    endActiveActorTurn(false);
     return;
   }
 
   if (t.closest("[data-fight-action='attack']")) {
-    playerCombatAction("attack");
+    activeActorAction("attack");
     return;
   }
   const skillBtn = t.closest("[data-fight-skill]");
   if (skillBtn) {
     const name = skillBtn.getAttribute("data-fight-skill");
-    if (name) playerCombatAction("skill", name);
+    if (name) activeActorAction("skill", name);
   }
 }
 
@@ -12217,6 +12441,7 @@ function beginTurnCombat(region, mob, worldMapContext) {
     playerMax: party[0] ? party[0].maxHp : player.maxHp,
     phase: "player",
     selectedUid: null,
+    activePartyUid: party[0] ? party[0].uid : null,
     fightLog: [],
     worldMapContext: worldMapContext || null,
     status: null,
@@ -12224,6 +12449,7 @@ function beginTurnCombat(region, mob, worldMapContext) {
   };
   ensureCombatStatus(combatState);
   initCombatStamina(combatState);
+  ensureActivePartyUid(combatState);
   clearCombatVisualTimer();
   ensureCombatTarget();
 
@@ -14085,10 +14311,25 @@ const OUT_OF_COMBAT_HP_REGEN_PER_SEC = 1;
 function tickOutOfCombatHpRegen() {
   if (typeof player === "undefined" || !player) return;
   if (combatState || isFightOverlayOpen()) return;
+  let changed = false;
   player.maxHp = computeMaxHp(player);
   const cur = typeof player.hp === "number" && Number.isFinite(player.hp) ? player.hp : player.maxHp;
-  if (cur >= player.maxHp) return;
-  player.hp = Math.min(player.maxHp, cur + OUT_OF_COMBAT_HP_REGEN_PER_SEC);
+  if (cur < player.maxHp) {
+    player.hp = Math.min(player.maxHp, cur + OUT_OF_COMBAT_HP_REGEN_PER_SEC);
+    changed = true;
+  }
+  if (Array.isArray(player.companions)) {
+    player.companions.forEach((c) => {
+      if (!c || !c.enabled) return;
+      c.maxHp = computeMaxHp(c);
+      const cHp = typeof c.hp === "number" && Number.isFinite(c.hp) ? c.hp : c.maxHp;
+      if (cHp <= 0) return;
+      if (cHp >= c.maxHp) return;
+      c.hp = Math.min(c.maxHp, cHp + OUT_OF_COMBAT_HP_REGEN_PER_SEC);
+      changed = true;
+    });
+  }
+  if (!changed) return;
   save();
   renderBottomHud();
   if (isCharacterPanelOpen()) renderCharacterPanelContent();
