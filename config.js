@@ -923,9 +923,51 @@ const GAME_CONFIG = {
       description: "A salt-crusted key for the dig Hollis opened by the shore.",
       bonusSkills: [],
       bonusStats: {}
-    }
-  ,
-  
+    },
+
+    "Rusty Sword": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 1,
+      attack: 2,
+      image: "Assets/Equips/rusty_sword.png",
+      description: "An old corroded blade barely sharp enough to cut flesh. Better than bare hands... probably.",
+      set: "",
+      build: "STR_DEX",
+      bonusSkills: [],
+      bonusStats: { STR: 2, DEX: 1, "Phys Damage": 2 }
+    },
+    "Raggs Shirt": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/raggs_shirt.png",
+      description: "Torn cloth stitched together from scraps and faded fabric. Offers little protection, but keeps the cold away.",
+      set: "",
+      build: "VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 2, HP: 18, "Physical Resist": 1 }
+    },
+    "Raggs Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 1,
+      defense: 1,
+      image: "Assets/Equips/raggs_pants.png",
+      description: "Rough patched trousers held together with twine and stubbornness.",
+      set: "",
+      build: "VIT_DEX",
+      bonusSkills: [],
+      bonusStats: { VIT: 1, DEX: 1, HP: 10 }
+    },
+
     "Burrowstep Boots": {
       type: "armor",
       slot: "feet",

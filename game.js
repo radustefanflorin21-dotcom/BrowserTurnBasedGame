@@ -29,6 +29,8 @@ let dragPayload = null;
 let adventureRespawnTick = null;
 /** +HP per second while fight overlay is closed and {@link combatState} is null. */
 let outOfCombatHpRegenTick = null;
+/** Companion slot waiting for its one-time name before first enable. */
+let pendingCompanionEnableSlot = null;
 /** Reposition world encounter panels on a timer (config.worldMap.mobPanelWanderMs). */
 let adventureCampWanderTick = null;
 /** Invalidates pending RAF from startAdventureCampWanderTimer when navigating away quickly. */
@@ -78,14 +80,34 @@ function emptyEquipment() {
   };
 }
 
+function getStarterEquipment() {
+  return {
+    ...emptyEquipment(),
+    chest: "Raggs Shirt",
+    weapon: "Rusty Sword",
+    legs: "Raggs Pants"
+  };
+}
+
+function equipStarterGearIfEmpty(actor) {
+  if (!actor || typeof actor !== "object") return;
+  const starter = getStarterEquipment();
+  const eq = actor.equipment && typeof actor.equipment === "object" ? actor.equipment : emptyEquipment();
+  if (!eq.weapon) eq.weapon = starter.weapon;
+  if (!eq.chest) eq.chest = starter.chest;
+  if (!eq.legs) eq.legs = starter.legs;
+  actor.equipment = { ...emptyEquipment(), ...eq };
+}
+
 function createDefaultCompanionSlot(label) {
   const starter = getClassDef(DEFAULT_CLASS_ID);
   const classSkillLevels = {};
   starter.starterSkills.forEach((name) => {
     classSkillLevels[name] = 1;
   });
-  return {
+  const companion = {
     enabled: false,
+    hasBeenEnabled: false,
     name: label,
     level: 1,
     xp: 0,
@@ -102,10 +124,13 @@ function createDefaultCompanionSlot(label) {
     classSkillLevels,
     skills: starter.starterSkills.slice(),
     professions: [],
-    equipment: emptyEquipment(),
+    equipment: getStarterEquipment(),
     portraitLayout: {},
     portraitBaseLayout: getDefaultPortraitBaseLayout()
   };
+  companion.maxHp = computeMaxHp(companion);
+  companion.hp = companion.maxHp;
+  return companion;
 }
 
 function ensurePlayerCompanions(p) {
@@ -123,8 +148,13 @@ function ensurePlayerCompanions(p) {
       c = createDefaultCompanionSlot(`Companion ${i + 1}`);
       p.companions[i] = c;
     }
+    const defaultName = `Companion ${i + 1}`;
     if (typeof c.enabled !== "boolean") c.enabled = false;
-    if (typeof c.name !== "string" || !c.name.trim()) c.name = `Companion ${i + 1}`;
+    if (typeof c.hasBeenEnabled !== "boolean") {
+      c.hasBeenEnabled =
+        !!c.enabled || !!(typeof c.name === "string" && c.name.trim() && c.name.trim() !== defaultName);
+    }
+    if (typeof c.name !== "string" || !c.name.trim()) c.name = defaultName;
     if (typeof c.level !== "number" || c.level < 1) c.level = 1;
     if (typeof c.xp !== "number" || !Number.isFinite(c.xp) || c.xp < 0) c.xp = 0;
     if (typeof c.str !== "number") c.str = 10;
@@ -143,6 +173,9 @@ function ensurePlayerCompanions(p) {
     syncPlayerClassSkillList(c);
     if (!Array.isArray(c.professions)) c.professions = [];
     if (!c.equipment || typeof c.equipment !== "object") c.equipment = emptyEquipment();
+    if (!c.hasBeenEnabled && c.equipment && !c.equipment.weapon && !c.equipment.chest && !c.equipment.legs) {
+      equipStarterGearIfEmpty(c);
+    }
     enforceOffhandRuleForEquipment(c.equipment, p.inventory);
     if (!c.portraitLayout || typeof c.portraitLayout !== "object") c.portraitLayout = {};
     if (!c.portraitBaseLayout || typeof c.portraitBaseLayout !== "object") {
@@ -170,6 +203,46 @@ function getRosterActorFromTab(tab) {
 
 function getActiveRosterActor() {
   return getRosterActorFromTab(getCharacterRosterTab());
+}
+
+function completeCompanionFirstEnable(slotIdx, rawName) {
+  ensurePlayerCompanions(player);
+  if (!Number.isFinite(slotIdx) || slotIdx < 0 || slotIdx >= COMPANION_SLOT_COUNT) return false;
+  const comp = player.companions && player.companions[slotIdx];
+  if (!comp) return false;
+  const nextName = typeof rawName === "string" ? rawName.trim().slice(0, 32) : "";
+  if (!nextName) return false;
+  comp.name = nextName;
+  comp.hasBeenEnabled = true;
+  equipStarterGearIfEmpty(comp);
+  comp.maxHp = computeMaxHp(comp);
+  comp.hp = comp.maxHp;
+  comp.enabled = true;
+  save();
+  closeModal();
+  render();
+  return true;
+}
+
+function openCompanionFirstEnableModal(slotIdx) {
+  const fallbackName = `Companion ${slotIdx + 1}`;
+  pendingCompanionEnableSlot = slotIdx;
+  showModalHtml(
+    `<div class="companion-name-modal">
+      <p>Name ${escapeHtml(fallbackName)} before they join your party.</p>
+      <input type="text" class="companion-name-input" data-companion-name-input maxlength="32" placeholder="${escapeAttr(
+        fallbackName
+      )}" autocomplete="off" />
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-companion-name-confirm>Enable companion</button>
+        <button type="button" class="btn-secondary" data-companion-name-cancel>Cancel</button>
+      </div>
+    </div>`
+  );
+  setTimeout(() => {
+    const input = document.querySelector("[data-companion-name-input]");
+    if (input && typeof input.focus === "function") input.focus();
+  }, 0);
 }
 
 function anyCompanionEnabled() {
@@ -620,7 +693,7 @@ const defaultPlayer = () => {
   starter.starterSkills.forEach((name) => {
     classSkillLevels[name] = 1;
   });
-  return {
+  const p = {
     name: "Hero",
     level: 1,
     xp: 0,
@@ -639,7 +712,7 @@ const defaultPlayer = () => {
     skills: starter.starterSkills.slice(),
     professions: [],
     inventory: buildStartingInventory(),
-    equipment: emptyEquipment(),
+    equipment: getStarterEquipment(),
     portraitLayout: {},
     portraitBaseLayout: getDefaultPortraitBaseLayout(),
     bottomHudPortraitLayout: getDefaultBottomHudPortraitLayout(),
@@ -658,6 +731,9 @@ const defaultPlayer = () => {
     },
     editMode: false
   };
+  p.maxHp = computeMaxHp(p);
+  p.hp = p.maxHp;
+  return p;
 };
 
 let player = null;
@@ -1041,7 +1117,7 @@ function save() {
 }
 
 function sumEquippedBonusStatsFromEquipment(equipment) {
-  const out = { str: 0, dex: 0, vit: 0, int: 0, stamina: 0 };
+  const out = { str: 0, dex: 0, vit: 0, int: 0, stamina: 0, hp: 0 };
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
     const n = eq[s.id];
@@ -1056,10 +1132,15 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
         out.stamina += Math.floor(v);
         continue;
       }
+      if (nk === "hp") {
+        out.hp += Math.floor(v);
+        continue;
+      }
       out[nk] += v;
     }
   });
   out.stamina = Math.max(0, Math.min(MAX_STAMINA_FROM_GEAR, Math.floor(out.stamina)));
+  out.hp = Math.max(0, Math.floor(out.hp));
   return out;
 }
 
@@ -1075,7 +1156,8 @@ function computeMaxHp(p) {
   const lv = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
   const baseHp = getBaseHpFromLevel(lv);
   const vitPer = typeof sys.vitHpPerPoint === "number" ? sys.vitHpPerPoint : 12;
-  return Math.max(1, Math.floor(baseHp + vitPer * totalVitFromPlayerRecord(p)));
+  const gearHp = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment()).hp;
+  return Math.max(1, Math.floor(baseHp + vitPer * totalVitFromPlayerRecord(p) + gearHp));
 }
 
 function splitItemInstanceName(name) {
@@ -2179,6 +2261,7 @@ function normalizeEquipmentStatKey(k) {
   if (u === "DEX" || u === "AGI" || u === "AGILITY" || u === "DEXTERITY") return "dex";
   if (u === "VIT" || u === "VITALITY") return "vit";
   if (u === "INT" || u === "INTELLIGENCE") return "int";
+  if (u === "HP" || u === "HEALTH" || u === "MAX_HP" || u === "MAX HEALTH") return "hp";
   if (u === "STA" || u === "STAMINA" || u === "STAMINA_MAX" || u === "MAX_STAMINA") return "stamina";
   return null;
 }
@@ -15323,7 +15406,12 @@ function onContentClick(e) {
     const wantOn = compSeg.dataset.companionSetEnabled === "1";
     ensurePlayerCompanions(player);
     if (Number.isFinite(si) && si >= 0 && si < COMPANION_SLOT_COUNT && player.companions[si]) {
-      player.companions[si].enabled = wantOn;
+      const comp = player.companions[si];
+      if (wantOn && !comp.hasBeenEnabled) {
+        openCompanionFirstEnableModal(si);
+        return;
+      }
+      comp.enabled = wantOn;
       if (!wantOn && characterPanelRosterTab === String(si)) characterPanelRosterTab = "hero";
       save();
       render();
@@ -15634,6 +15722,7 @@ function openBoatTravelModal(destinations) {
 
 function closeModal() {
   pendingDiscardInventoryItemName = null;
+  pendingCompanionEnableSlot = null;
   const m = document.getElementById("modal");
   const mc = document.getElementById("modalContent");
   if (m) {
@@ -15648,6 +15737,31 @@ function closeModal() {
 }
 
 function onPortalNetworkModalClick(e) {
+  if (e.target.closest("[data-companion-name-cancel]")) {
+    closeModal();
+    return;
+  }
+  if (e.target.closest("[data-companion-name-confirm]")) {
+    const input = document.querySelector("[data-companion-name-input]");
+    const rawName = input && typeof input.value === "string" ? input.value : "";
+    if (!completeCompanionFirstEnable(pendingCompanionEnableSlot, rawName)) {
+      showModalHtml(
+        `<div class="companion-name-modal">
+          <p>Please enter a companion name before enabling them.</p>
+          <input type="text" class="companion-name-input" data-companion-name-input maxlength="32" placeholder="Companion name" autocomplete="off" />
+          <div class="npc-dialog-actions">
+            <button type="button" class="btn-primary" data-companion-name-confirm>Enable companion</button>
+            <button type="button" class="btn-secondary" data-companion-name-cancel>Cancel</button>
+          </div>
+        </div>`
+      );
+      setTimeout(() => {
+        const retry = document.querySelector("[data-companion-name-input]");
+        if (retry && typeof retry.focus === "function") retry.focus();
+      }, 0);
+    }
+    return;
+  }
   const hChoice = e.target.closest("[data-hollis-choice]");
   if (hChoice) {
     const v = hChoice.getAttribute("data-hollis-choice") || "";
