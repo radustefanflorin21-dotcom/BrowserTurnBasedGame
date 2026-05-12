@@ -3699,8 +3699,9 @@ const GAME_CONFIG = {
 
   professions: {
     intro:
-      "Choose up to 2 professions. Weapon/Armor/Jeweller/Provisioner are crafting paths; Skinner/Extractor/Harvester unlock extra monster gathering drops.",
+      "Choose up to 2 hero professions, and up to 1 profession per companion. Weapon/Armor/Jeweller/Provisioner are crafting paths; Skinner/Extractor/Harvester unlock extra monster gathering drops.",
     maxSelected: 2,
+    companionMaxSelected: 1,
     available: [
       { id: "weapon_smith", label: "Weapon smith", kind: "crafting" },
       { id: "armor_smith", label: "Armor smith", kind: "crafting" },

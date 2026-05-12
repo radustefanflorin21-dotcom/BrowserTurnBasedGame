@@ -39,6 +39,7 @@ let adventureWanderStartGen = 0;
 let characterPanelRosterTab = "hero";
 
 const COMPANION_SLOT_COUNT = 3;
+const COMPANION_LOOT_CHANCE_MULT = 0.75;
 /** Per-tile panel positions until wander bucket changes — avoids re-rolling on every render (no micro-jump on map open). */
 const campPanelLayoutCache = new Map();
 /** Sampled average RGB from each tile's adventure background image (world map + minimap). */
@@ -171,7 +172,7 @@ function ensurePlayerCompanions(p) {
     if (!c.classSkillLevels || typeof c.classSkillLevels !== "object") c.classSkillLevels = {};
     if (!Array.isArray(c.skills)) c.skills = [];
     syncPlayerClassSkillList(c);
-    if (!Array.isArray(c.professions)) c.professions = [];
+    normalizeActorProfessions(c);
     if (!c.equipment || typeof c.equipment !== "object") c.equipment = emptyEquipment();
     if (!c.hasBeenEnabled && c.equipment && !c.equipment.weapon && !c.equipment.chest && !c.equipment.legs) {
       equipStarterGearIfEmpty(c);
@@ -261,17 +262,32 @@ function getActorSelectedProfessions(actor) {
   return Array.isArray(actor && actor.professions) ? actor.professions.slice() : [];
 }
 
+function normalizeActorProfessions(actor) {
+  if (!actor || typeof actor !== "object") return [];
+  const validProfIds = new Set(getProfessionDefs().map((d) => d.id));
+  const maxPick = getMaxSelectedProfessions(actor);
+  const next = [];
+  const raw = Array.isArray(actor.professions) ? actor.professions : [];
+  raw.forEach((id) => {
+    const k = typeof id === "string" ? id.trim() : "";
+    if (!k || !validProfIds.has(k) || next.includes(k) || next.length >= maxPick) return;
+    next.push(k);
+  });
+  actor.professions = next;
+  return next.slice();
+}
+
 function toggleActorProfession(actor, id) {
   const profId = String(id || "").trim();
   if (!profId || !getProfessionDefById(profId) || !actor) return false;
-  const selected = getActorSelectedProfessions(actor);
+  const selected = normalizeActorProfessions(actor);
   const curIdx = selected.indexOf(profId);
   if (curIdx >= 0) {
     selected.splice(curIdx, 1);
     actor.professions = selected;
     return true;
   }
-  if (selected.length >= getMaxSelectedProfessions()) return false;
+  if (selected.length >= getMaxSelectedProfessions(actor)) return false;
   selected.push(profId);
   actor.professions = selected;
   return true;
@@ -904,22 +920,7 @@ function migratePlayer(p) {
     if (typeof p.skillPoints !== "number" || p.skillPoints < 0) p.skillPoints = 0;
   }
   syncPlayerClassSkillList(p);
-  const profCfg = GAME_CONFIG.professions && typeof GAME_CONFIG.professions === "object" ? GAME_CONFIG.professions : {};
-  const validProfIds = new Set(
-    Array.isArray(profCfg.available)
-      ? profCfg.available
-          .map((d) => (d && typeof d.id === "string" ? d.id.trim() : ""))
-          .filter((id) => !!id)
-      : []
-  );
-  const rawProfs = Array.isArray(p.professions) ? p.professions : [];
-  const nextProfs = [];
-  rawProfs.forEach((id) => {
-    const k = typeof id === "string" ? id.trim() : "";
-    if (!k || !validProfIds.has(k) || nextProfs.includes(k)) return;
-    nextProfs.push(k);
-  });
-  p.professions = nextProfs;
+  normalizeActorProfessions(p);
   const eq = p.equipment || {};
   const base = emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
@@ -10404,17 +10405,31 @@ function getProfessionDefById(id) {
   return defs.find((d) => d.id === key) || null;
 }
 
-function getMaxSelectedProfessions() {
-  return getProfessionDefs().length;
+function isCompanionActor(actor) {
+  if (!actor || !player || !Array.isArray(player.companions)) return false;
+  return player.companions.includes(actor);
+}
+
+function getMaxSelectedProfessions(actor) {
+  const cfg = getProfessionSystemConfig();
+  const companionActor = !!(actor && !Array.isArray(actor.companions) && (actor !== player || isCompanionActor(actor)));
+  const key = companionActor ? "companionMaxSelected" : "maxSelected";
+  const fallback = key === "companionMaxSelected" ? 1 : 2;
+  const raw = typeof cfg[key] === "number" && Number.isFinite(cfg[key]) ? cfg[key] : fallback;
+  return Math.max(0, Math.floor(raw));
 }
 
 function getPlayerSelectedProfessions() {
-  return Array.isArray(player.professions) ? player.professions.slice() : [];
+  return getActorSelectedProfessions(player);
 }
 
 function isGatheringProfessionId(id) {
   const d = getProfessionDefById(id);
   return !!(d && d.kind === "gathering");
+}
+
+function getActorGatheringProfessionIds(actor) {
+  return getActorSelectedProfessions(actor).filter((id) => isGatheringProfessionId(id));
 }
 
 function canProfessionGatherFromCategory(profId, categoryId) {
@@ -10448,7 +10463,7 @@ function getMonsterGatheringCategories(def) {
 function togglePlayerProfession(id) {
   const profId = String(id || "").trim();
   if (!profId || !getProfessionDefById(profId)) return false;
-  const selected = getPlayerSelectedProfessions();
+  const selected = normalizeActorProfessions(player);
   const curIdx = selected.indexOf(profId);
   if (curIdx >= 0) {
     selected.splice(curIdx, 1);
@@ -10456,7 +10471,7 @@ function togglePlayerProfession(id) {
     save();
     return true;
   }
-  const maxPick = getMaxSelectedProfessions();
+  const maxPick = getMaxSelectedProfessions(player);
   if (selected.length >= maxPick) return false;
   selected.push(profId);
   player.professions = selected;
@@ -10568,9 +10583,9 @@ function getGatheringDropChancePctForLevel(level) {
   return 5;
 }
 
-function collectProfessionGatheringLootForFoe(foe, def, moodLootMult) {
+function collectProfessionGatheringLootForFoe(foe, def, moodLootMult, actor, chanceMultiplier) {
   if (!def) return [];
-  const selected = getPlayerSelectedProfessions().filter((id) => isGatheringProfessionId(id));
+  const selected = getActorGatheringProfessionIds(actor || player);
   if (!selected.length) return [];
   const cats = getMonsterGatheringCategories(def);
   if (!cats.length) return [];
@@ -10600,7 +10615,9 @@ function collectProfessionGatheringLootForFoe(foe, def, moodLootMult) {
   });
   if (!materialPool.size) return [];
   const out = [];
-  const mult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
+  const baseMult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
+  const actorMult = Number.isFinite(chanceMultiplier) && chanceMultiplier > 0 ? chanceMultiplier : 1;
+  const mult = baseMult * actorMult;
   materialPool.forEach((matName) => {
     const rolled = rollItemDropEntry({ name: matName, dropRate: basePct }, mult);
     if (rolled) out.push(rolled);
@@ -10608,7 +10625,53 @@ function collectProfessionGatheringLootForFoe(foe, def, moodLootMult) {
   return out;
 }
 
-function canRollConditionedMonsterMaterial(mat) {
+function getCompanionLootActorsFromParty(party) {
+  const out = [];
+  const seen = new Set();
+  const addCompanion = (comp, slotIdx) => {
+    if (!comp || !comp.enabled || seen.has(slotIdx)) return;
+    seen.add(slotIdx);
+    out.push(comp);
+  };
+  if (Array.isArray(party)) {
+    party.forEach((m) => {
+      if (!m || m.kind !== "companion" || typeof m.companionSlotIndex !== "number") return;
+      const idx = m.companionSlotIndex;
+      const comp = player.companions && player.companions[idx];
+      addCompanion(comp, idx);
+    });
+    return out;
+  }
+  if (player && Array.isArray(player.companions)) {
+    player.companions.forEach((comp, idx) => addCompanion(comp, idx));
+  }
+  return out;
+}
+
+function collectCompanionProfessionLootForFoe(foe, def, moodLootMult, perKillMaterials, companions) {
+  if (!def || !Array.isArray(companions) || !companions.length) return [];
+  const out = [];
+  const baseMult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
+  companions.forEach((comp) => {
+    if (!comp || !comp.enabled) return;
+    const selectedGathering = getActorGatheringProfessionIds(comp);
+    if (!selectedGathering.length) return;
+    if (Array.isArray(perKillMaterials) && perKillMaterials.length) {
+      perKillMaterials.forEach((mat) => {
+        if (!mat || typeof mat.name !== "string") return;
+        const cond = getMonsterMaterialCondition(mat);
+        if (!cond || cond === "none" || cond === "any") return;
+        if (!canRollConditionedMonsterMaterialForActor(mat, comp)) return;
+        const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, baseMult * COMPANION_LOOT_CHANCE_MULT);
+        if (rolled) out.push(rolled);
+      });
+    }
+    collectProfessionGatheringLootForFoe(foe, def, baseMult, comp, COMPANION_LOOT_CHANCE_MULT).forEach((n) => out.push(n));
+  });
+  return out;
+}
+
+function getMonsterMaterialCondition(mat) {
   if (!mat || typeof mat !== "object") return false;
   const condRaw =
     typeof mat.condition === "string"
@@ -10616,10 +10679,18 @@ function canRollConditionedMonsterMaterial(mat) {
       : typeof mat.requiredProfession === "string"
         ? mat.requiredProfession
         : "";
-  const cond = condRaw.trim().toLowerCase();
+  return condRaw.trim().toLowerCase();
+}
+
+function canRollConditionedMonsterMaterialForActor(mat, actor) {
+  const cond = getMonsterMaterialCondition(mat);
   if (!cond || cond === "none" || cond === "any") return true;
-  const selected = getPlayerSelectedProfessions().map((id) => String(id || "").trim().toLowerCase());
+  const selected = getActorSelectedProfessions(actor || player).map((id) => String(id || "").trim().toLowerCase());
   return selected.includes(cond);
+}
+
+function canRollConditionedMonsterMaterial(mat) {
+  return canRollConditionedMonsterMaterialForActor(mat, player);
 }
 
 /**
@@ -10627,7 +10698,7 @@ function canRollConditionedMonsterMaterial(mat) {
  * then 1–2 material passes (each material rolls its % per pass). Mood multiplies chances only (not gear pool weights).
  * @returns {string[]}
  */
-function collectMonsterTableLootForFoe(foe, def, moodLootMult) {
+function collectMonsterTableLootForFoe(foe, def, moodLootMult, companionLootActors) {
   const table = getMonsterLootDropTable(def);
   if (!table) return [];
   const out = [];
@@ -10664,7 +10735,34 @@ function collectMonsterTableLootForFoe(foe, def, moodLootMult) {
     const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, mult);
     if (rolled) out.push(rolled);
   });
-  collectProfessionGatheringLootForFoe(foe, def, mult).forEach((n) => out.push(n));
+  if (Array.isArray(companionLootActors) && companionLootActors.length) {
+    companionLootActors.forEach((comp) => {
+      if (!comp || !comp.enabled) return;
+      const companionMult = mult * COMPANION_LOOT_CHANCE_MULT;
+      const companionGearChance = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * companionMult);
+      if (Math.random() < companionGearChance) {
+        const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
+        if (pickedBase) out.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
+      }
+      const companionPasses = rollMaterialPassCount();
+      for (let p = 0; p < companionPasses; p++) {
+        passMaterials.forEach((mat) => {
+          if (!mat || typeof mat.name !== "string") return;
+          const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, companionMult);
+          if (rolled) out.push(rolled);
+        });
+      }
+      perKillMaterials.forEach((mat) => {
+        if (!mat || typeof mat.name !== "string") return;
+        const cond = getMonsterMaterialCondition(mat);
+        if (cond && cond !== "none" && cond !== "any") return;
+        const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, companionMult);
+        if (rolled) out.push(rolled);
+      });
+    });
+  }
+  collectProfessionGatheringLootForFoe(foe, def, mult, player, 1).forEach((n) => out.push(n));
+  collectCompanionProfessionLootForFoe(foe, def, mult, perKillMaterials, companionLootActors).forEach((n) => out.push(n));
   return out;
 }
 
@@ -10744,11 +10842,12 @@ function getDefaultGoldSpecForEnemy(def) {
 /**
  * @param {Array<{ name: string, level?: number }>} foes Defeated encounter units (use `combatState.foes`).
  */
-function computeVictoryLoot(foes) {
+function computeVictoryLoot(foes, party) {
   let gold = 0;
   let xp = 0;
   const items = [];
   const pl = typeof player.level === "number" && player.level > 0 ? player.level : 1;
+  const companionLootActors = getCompanionLootActorsFromParty(party);
   (foes || []).forEach((foe) => {
     if (!foe || typeof foe.name !== "string") return;
     const isSummon = !!(foe.combat && typeof foe.combat.summonerUid === "number");
@@ -10760,7 +10859,11 @@ function computeVictoryLoot(foes) {
     const table = getMonsterLootDropTable(def);
     const goldSpec = table && table.gold != null ? table.gold : getDefaultGoldSpecForEnemy(def);
     gold += rollGoldDrop(goldSpec);
-    if (table) collectMonsterTableLootForFoe(foe, def, moodLootMult).forEach((n) => items.push(n));
+    companionLootActors.forEach((comp) => {
+      if (!comp || !comp.enabled) return;
+      if (Math.random() < COMPANION_LOOT_CHANCE_MULT) gold += rollGoldDrop(goldSpec);
+    });
+    if (table) collectMonsterTableLootForFoe(foe, def, moodLootMult, companionLootActors).forEach((n) => items.push(n));
   });
   return { gold, xp, items };
 }
@@ -11470,7 +11573,7 @@ function finishCombatVictory() {
   st.phase = "ended";
   syncCombatPartyHeroMirror(st);
   syncCompanionHpFromCombatParty(st);
-  const { gold, xp, items } = computeVictoryLoot(st.foes);
+  const { gold, xp, items } = computeVictoryLoot(st.foes, st.party);
   const result = {
     victory: true,
     finalPlayerHp: Math.max(0, st.playerHp),
@@ -13671,12 +13774,9 @@ function buildOverviewHtml() {
     <div class="class-skills-list" data-skills-scroll-host="1" data-class-skills-list="1">${classSkillsRows}</div>
   </div>`;
 
-  const profIntro =
-    (GAME_CONFIG.professions && GAME_CONFIG.professions.intro) ||
-    "Professions will be added in a future update.";
   const profDefs = getProfessionDefs();
-  const selectedProfIds = getActorSelectedProfessions(actor);
-  const maxProf = getMaxSelectedProfessions();
+  const selectedProfIds = normalizeActorProfessions(actor);
+  const maxProf = getMaxSelectedProfessions(actor);
   const profRows = profDefs
     .map((d) => {
       const selected = selectedProfIds.includes(d.id);
@@ -13686,19 +13786,14 @@ function buildOverviewHtml() {
       const kind = d.kind === "gathering" ? "Gathering" : "Crafting";
       return `<div class="stat-plain-row">
         <span>${escapeHtml(d.label)} <small>(${kind})</small></span>
-        <button type="button" class="${cls}" data-profession-toggle="${escapeAttr(d.id)}"${disabled}>${
+        <button type="button" class="${cls} profession-toggle-btn" data-profession-toggle="${escapeAttr(d.id)}"${disabled}>${
           selected ? "Selected" : "Select"
         }</button>
       </div>`;
     })
     .join("");
-  const selectedText = selectedProfIds.length
-    ? selectedProfIds.map((id) => getProfessionDefById(id)?.label || id).join(", ")
-    : "None";
   const professionsTabHtml = `<div class="professions-tab-inner">
-    <p class="professions-intro">${escapeHtml(profIntro)}</p>
     <div class="stat-plain-row"><span>Chosen</span><strong>${selectedProfIds.length}/${maxProf}</strong></div>
-    <div class="item-tip-desc">Selected: ${escapeHtml(selectedText)}</div>
     ${profRows}
   </div>`;
 
@@ -15589,7 +15684,7 @@ function onContentClick(e) {
     if (toggleActorProfession(clickActor, profToggle.dataset.professionToggle)) {
       save();
     } else {
-      const cap = getMaxSelectedProfessions();
+      const cap = getMaxSelectedProfessions(clickActor);
       window.alert(`You can select at most ${cap} professions.`);
     }
     render();

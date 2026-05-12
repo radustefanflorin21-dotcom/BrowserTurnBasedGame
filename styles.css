@@ -1284,6 +1284,18 @@ body.edit-mode-on .portrait-stack--editing-scale {
   padding: 2px 0;
 }
 
+.professions-tab-inner .profession-toggle-btn {
+  height: 14px;
+  min-height: 14px;
+  padding: 0 3px;
+  font-size: 0.48rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+}
+
 .crafting-profession-tabs {
   margin-bottom: 10px;
 }
@@ -1522,13 +1534,6 @@ body.edit-mode-on .portrait-stack--editing-scale {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 6px;
-}
-
-.professions-intro {
-  margin: 0;
-  font-size: 0.5rem;
-  line-height: 1.35;
-  color: var(--overview-muted);
 }
 
 .stat-bar-row {
