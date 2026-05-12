@@ -103,6 +103,30 @@
         { name: "Abyssal Essence", dropRate: 2.5 }
       ]
     },
+    "Tidebound Crusher": {
+      materials: [
+        { name: "Crushed Anchor Shard", dropRate: 35 },
+        { name: "Salt-Encrusted Plate", dropRate: 30 },
+        { name: "Pressure Core", dropRate: 18 },
+        { name: "Barnacle Cluster", dropRate: 12 }
+      ]
+    },
+    "Drowned Channeler": {
+      materials: [
+        { name: "Abyssal Thread", dropRate: 34 },
+        { name: "Echo Residue", dropRate: 25 },
+        { name: "Distorted Core", dropRate: 20 },
+        { name: "Drowned Sigil Fragment", dropRate: 10 }
+      ]
+    },
+    "Tidemother Aberration": {
+      materials: [
+        { name: "Tidemother Core", dropRate: 40 },
+        { name: "Abyss Residue", dropRate: 25 },
+        { name: "Echo Heart", dropRate: 18 },
+        { name: "Corrupted Brine Flesh", dropRate: 12 }
+      ]
+    },
     "Burrow Hare": {
       gear: [{ w: 4, item: "Burrowstep Boots" }, { w: 3.5, item: "Stonepulse Amulet" }],
       materials: [

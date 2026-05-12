@@ -1116,8 +1116,68 @@ function save() {
   }
 }
 
+function addEquipmentBonusStat(out, key, value) {
+  const nk = normalizeEquipmentStatKey(key);
+  if (!nk || typeof value !== "number" || !Number.isFinite(value)) return;
+  const next = nk === "stamina" || nk === "hp" ? Math.floor(value) : value;
+  out[nk] = (out[nk] || 0) + next;
+}
+
+function getEquipmentSetBonusStats(equipment) {
+  const bonuses = GAME_CONFIG.mmoEquipmentSetBonuses;
+  if (!bonuses || typeof bonuses !== "object") return {};
+  const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
+  const counts = {};
+  EQUIP_SLOTS.forEach((s) => {
+    const n = eq[s.id];
+    if (!n) return;
+    const def = getItemDef(n);
+    const setName = def && typeof def.set === "string" ? def.set.trim() : "";
+    if (!setName) return;
+    counts[setName] = (counts[setName] || 0) + 1;
+  });
+  const out = {};
+  Object.keys(counts).forEach((setName) => {
+    const setCfg = bonuses[setName];
+    if (!setCfg || typeof setCfg !== "object") return;
+    Object.keys(setCfg).forEach((thresholdRaw) => {
+      const threshold = parseInt(thresholdRaw, 10);
+      if (!Number.isFinite(threshold) || counts[setName] < threshold) return;
+      const stats = setCfg[thresholdRaw];
+      if (!stats || typeof stats !== "object") return;
+      Object.entries(stats).forEach(([k, v]) => addEquipmentBonusStat(out, k, v));
+    });
+  });
+  return out;
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
-  const out = { str: 0, dex: 0, vit: 0, int: 0, stamina: 0, hp: 0 };
+  const out = {
+    str: 0,
+    dex: 0,
+    vit: 0,
+    int: 0,
+    stamina: 0,
+    hp: 0,
+    physDamage: 0,
+    armorPen: 0,
+    physicalResist: 0,
+    magicResist: 0,
+    skillPower: 0,
+    statusPotency: 0,
+    debuffDuration: 0,
+    combo: 0,
+    stagger: 0,
+    crit: 0,
+    critDamage: 0,
+    accuracy: 0,
+    evasion: 0,
+    dr: 0,
+    heavyArmorPen: 0,
+    staggerDamageDown: 0,
+    debuffStaminaTaxChance: 0,
+    debuffStaminaTax: 0
+  };
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
     const n = eq[s.id];
@@ -1126,18 +1186,12 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
     if (!def) return;
     const scaledBonusStats = getScaledItemBonusStats(def, n);
     for (const [k, v] of Object.entries(scaledBonusStats)) {
-      const nk = normalizeEquipmentStatKey(k);
-      if (!nk || typeof v !== "number" || !Number.isFinite(v)) continue;
-      if (nk === "stamina") {
-        out.stamina += Math.floor(v);
-        continue;
-      }
-      if (nk === "hp") {
-        out.hp += Math.floor(v);
-        continue;
-      }
-      out[nk] += v;
+      addEquipmentBonusStat(out, k, v);
     }
+  });
+  const setBonusStats = getEquipmentSetBonusStats(eq);
+  Object.entries(setBonusStats).forEach(([k, v]) => {
+    if (typeof v === "number" && Number.isFinite(v)) out[k] = (out[k] || 0) + v;
   });
   out.stamina = Math.max(0, Math.min(MAX_STAMINA_FROM_GEAR, Math.floor(out.stamina)));
   out.hp = Math.max(0, Math.floor(out.hp));
@@ -2263,6 +2317,24 @@ function normalizeEquipmentStatKey(k) {
   if (u === "INT" || u === "INTELLIGENCE") return "int";
   if (u === "HP" || u === "HEALTH" || u === "MAX_HP" || u === "MAX HEALTH") return "hp";
   if (u === "STA" || u === "STAMINA" || u === "STAMINA_MAX" || u === "MAX_STAMINA") return "stamina";
+  if (u === "PHYS DAMAGE" || u === "PHYSICAL DAMAGE") return "physDamage";
+  if (u === "ARMOR PEN" || u === "ARMOR PENETRATION") return "armorPen";
+  if (u === "PHYSICAL RESIST" || u === "PHYS RESIST") return "physicalResist";
+  if (u === "MAGIC RESIST") return "magicResist";
+  if (u === "SKILL POWER") return "skillPower";
+  if (u === "STATUS POTENCY") return "statusPotency";
+  if (u === "DEBUFF DURATION") return "debuffDuration";
+  if (u === "COMBO") return "combo";
+  if (u === "STAGGER") return "stagger";
+  if (u === "CRIT") return "crit";
+  if (u === "CRIT DAMAGE") return "critDamage";
+  if (u === "ACCURACY") return "accuracy";
+  if (u === "EVASION") return "evasion";
+  if (u === "DR" || u === "DAMAGE REDUCTION") return "dr";
+  if (u === "HEAVY ARMOR PEN" || u === "HEAVY ARMOR PENETRATION") return "heavyArmorPen";
+  if (u === "STAGGER DAMAGE DOWN") return "staggerDamageDown";
+  if (u === "DEBUFF STAMINA TAX CHANCE") return "debuffStaminaTaxChance";
+  if (u === "DEBUFF STAMINA TAX") return "debuffStaminaTax";
   return null;
 }
 
@@ -2471,6 +2543,7 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const str = totalStr();
   const dex = totalDex();
   const int = totalInt();
+  const gear = sumEquippedBonusStats();
   const sk = skillName ? getSkillDef(skillName) : null;
   let dmgKind = "physical";
   if (sk && sk.damageKind === "magic") dmgKind = "magic";
@@ -2485,12 +2558,12 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
 
   let d1 = Math.max(1, baseSkillDamage);
   if (dmgKind === "physical") {
-    d1 *= 1 + formulaStrPhysicalDamageBonusPct(str) / 100;
+    d1 *= 1 + (formulaStrPhysicalDamageBonusPct(str) + (gear.physDamage || 0)) / 100;
   } else {
-    d1 *= 1 + formulaIntSkillPowerBonusPct(int) / 100;
+    d1 *= 1 + (formulaIntSkillPowerBonusPct(int) + (gear.skillPower || 0)) / 100;
   }
 
-  const critChance = formulaDexCritChancePct(dex) / 100;
+  const critChance = (formulaDexCritChancePct(dex) + (gear.crit || 0)) / 100;
   const defFoe = getEnemyDefByName(foe && foe.name);
   const foeScript = defFoe && typeof defFoe.combatScript === "string" ? defFoe.combatScript.trim() : "";
   const critAuraPenalty = foeScript === "coastal_horror" ? 0.05 : 0;
@@ -2498,13 +2571,15 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const baseCrit = typeof sys.baseCritMultiplierPct === "number" ? sys.baseCritMultiplierPct : 150;
   let d2 = d1;
   if (crit) {
-    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex);
+    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex) + (gear.critDamage || 0);
     d2 = d1 * (critMulPct / 100);
   }
 
   let d3 = d2;
   if (dmgKind === "physical") {
-    const pen = formulaStrArmorPenetrationPct(str);
+    const tags = sk && Array.isArray(sk.combatTags) ? sk.combatTags.map((t) => String(t).toLowerCase()) : [];
+    const heavyPen = kind === "skill" && tags.includes("heavy") ? gear.heavyArmorPen || 0 : 0;
+    const pen = formulaStrArmorPenetrationPct(str) + (gear.armorPen || 0) + heavyPen;
     const resF = getFoePhysicalResistPct(foe);
     const effRes = Math.max(0, resF - pen);
     d3 = d2 * (1 - effRes / 100);
@@ -2557,7 +2632,7 @@ function tryApplyStaggerFromSkill(foe, skillCfg) {
   if (skillCfg.name === "Shield Slam" || skillCfg.name === "Heavy Strike" || skillCfg.name === "Earthshatter") return;
   const tags = skillCfg.combatTags.map((t) => String(t).toLowerCase());
   if (!tags.includes("heavy") && !tags.includes("crushing")) return;
-  const p = formulaStrStaggerChancePct(totalStr()) / 100;
+  const p = (formulaStrStaggerChancePct(totalStr()) + (sumEquippedBonusStats().stagger || 0)) / 100;
   if (Math.random() >= p) return;
   const sys = getStatSystem();
   const mult =
@@ -2565,7 +2640,31 @@ function tryApplyStaggerFromSkill(foe, skillCfg) {
       ? sys.staggerNextAttackMult
       : 0.85;
   foe.combat.staggerNextAttackMult = mult;
+  applyPlayerStaggerDamageDownBonus(foe);
+  maybeApplyChannelerDebuffStaminaTax(foe);
   appendFightLog(`${foe.name} is staggered — next strike is weaker (disrupted tempo).`);
+}
+
+function applyPlayerStaggerDamageDownBonus(foe) {
+  if (!foe || !foe.combat) return;
+  const pct = sumEquippedBonusStats().staggerDamageDown || 0;
+  if (!(pct > 0)) return;
+  foe.combat.playerStaggerDamageDownTurns = Math.max(foe.combat.playerStaggerDamageDownTurns || 0, 1);
+  foe.combat.playerStaggerDamageDownPct = Math.max(foe.combat.playerStaggerDamageDownPct || 0, pct);
+}
+
+function maybeApplyChannelerDebuffStaminaTax(foe) {
+  if (!foe || !foe.combat) return;
+  const gear = sumEquippedBonusStats();
+  const chance = clampNumber(0, 100, gear.debuffStaminaTaxChance || 0);
+  const amount = Math.max(0, Math.floor(gear.debuffStaminaTax || 0));
+  if (!(chance > 0) || !(amount > 0)) return;
+  if (foe.combat.channelerStaminaTaxCooldownTurns > 0) return;
+  if (Math.random() >= chance / 100) return;
+  foe.combat.channelerStaminaTaxTurns = Math.max(foe.combat.channelerStaminaTaxTurns || 0, 1);
+  foe.combat.channelerStaminaTaxAmount = Math.max(foe.combat.channelerStaminaTaxAmount || 0, amount);
+  foe.combat.channelerStaminaTaxCooldownTurns = 2;
+  appendFightLog(`${foe.name}'s next skill is burdened by abyssal bindings (+${amount} stamina cost).`);
 }
 
 function tryDexComboRefundAfterSkill(st) {
@@ -2581,7 +2680,7 @@ function tryDexComboRefundAfterSkill(st) {
     typeof st.status.playerComboChanceDownPct === "number"
       ? Math.max(0, st.status.playerComboChanceDownPct)
       : 0;
-  const p = Math.max(0, formulaDexComboChancePct(totalDex()) - down) / 100;
+  const p = Math.max(0, formulaDexComboChancePct(totalDex()) + (sumEquippedBonusStats().combo || 0) - down) / 100;
   if (Math.random() >= p) return;
   st.comboRefundedThisTurn = true;
   st.stamina = Math.min(st.maxStamina, st.stamina + 1);
@@ -2596,6 +2695,7 @@ function computeHeroIncomingDamage(rawDamage) {
   const strE = totalStr();
   const intE = totalInt();
   const vitE = totalVit();
+  const gear = sumEquippedBonusStats();
   let enemyHit =
     typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
       ? sys.enemyBaseHitChancePct
@@ -2609,7 +2709,7 @@ function computeHeroIncomingDamage(rawDamage) {
   ) {
     enemyHit -= Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, combatState.status.playerAccuracyDownPct));
   }
-  const eva = formulaDexEvasionPct(dexE);
+  const eva = formulaDexEvasionPct(dexE) + (gear.evasion || 0);
   const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
   const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
   const hitPct = Math.min(maxH, Math.max(minH, enemyHit - eva));
@@ -2619,12 +2719,12 @@ function computeHeroIncomingDamage(rawDamage) {
     typeof sys.incomingPhysicalWeight === "number" && sys.incomingPhysicalWeight > 0 && sys.incomingPhysicalWeight < 1
       ? sys.incomingPhysicalWeight
       : 0.55;
-  const pr = formulaStrPhysicalResistPct(strE) / 100;
-  const mr = formulaIntMagicResistPct(intE) / 100;
+  const pr = Math.max(0, formulaStrPhysicalResistPct(strE) + (gear.physicalResist || 0)) / 100;
+  const mr = Math.max(0, formulaIntMagicResistPct(intE) + (gear.magicResist || 0)) / 100;
   let r = rawDamage * (physW * (1 - pr) + (1 - physW) * (1 - mr));
   const flatArmor = getArmorDefense();
   const flatVit = formulaVitFlatDamageReduction(vitE);
-  const physFlat = flatArmor + flatVit;
+  const physFlat = flatArmor + flatVit + (gear.dr || 0);
   const magFlat = Math.max(0, Math.floor(physFlat / 2));
   r -= physW * physFlat + (1 - physW) * magFlat;
   return { taken: Math.max(1, Math.floor(r)), evaded: false };
@@ -3072,6 +3172,14 @@ function getFoeOutgoingDamageMultiplier(st, foe) {
     m *= 1 - clampNumber(0, 95, foe.combat.tauntedByVanguardDamageDownPct) / 100;
   }
   if (foe.combat && typeof foe.combat.staggerDamageDownTurns === "number" && foe.combat.staggerDamageDownTurns > 0) m *= 0.88;
+  if (
+    foe.combat &&
+    typeof foe.combat.playerStaggerDamageDownTurns === "number" &&
+    foe.combat.playerStaggerDamageDownTurns > 0 &&
+    typeof foe.combat.playerStaggerDamageDownPct === "number"
+  ) {
+    m *= 1 - clampNumber(0, 95, foe.combat.playerStaggerDamageDownPct) / 100;
+  }
   if (cs && cs.tauntTurns > 0) m *= 0.94;
   return m;
 }
@@ -3522,6 +3630,12 @@ function tickEnemySkillCooldownsEndOfTurn(foe) {
     if (typeof v === "number" && v > 0) foe.combat.skillCd[k] = v - 1;
   }
   if (typeof foe.combat.staggerSkillTaxTurns === "number" && foe.combat.staggerSkillTaxTurns > 0) foe.combat.staggerSkillTaxTurns -= 1;
+  if (typeof foe.combat.channelerStaminaTaxTurns === "number" && foe.combat.channelerStaminaTaxTurns > 0) {
+    foe.combat.channelerStaminaTaxTurns -= 1;
+  }
+  if (typeof foe.combat.channelerStaminaTaxCooldownTurns === "number" && foe.combat.channelerStaminaTaxCooldownTurns > 0) {
+    foe.combat.channelerStaminaTaxCooldownTurns -= 1;
+  }
   foe.combat.forceBasicThisTurn = false;
 }
 
@@ -3583,6 +3697,9 @@ function tickPlayerTurnEndBuffs(st) {
     if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
     if (typeof f.combat.tauntedByVanguardTurns === "number" && f.combat.tauntedByVanguardTurns > 0) f.combat.tauntedByVanguardTurns -= 1;
     if (typeof f.combat.staggerDamageDownTurns === "number" && f.combat.staggerDamageDownTurns > 0) f.combat.staggerDamageDownTurns -= 1;
+    if (typeof f.combat.playerStaggerDamageDownTurns === "number" && f.combat.playerStaggerDamageDownTurns > 0) {
+      f.combat.playerStaggerDamageDownTurns -= 1;
+    }
     if (typeof f.combat.weakenTurns === "number" && f.combat.weakenTurns > 0) f.combat.weakenTurns -= 1;
     if (typeof f.combat.staggerLockedTurns === "number" && f.combat.staggerLockedTurns > 0) f.combat.staggerLockedTurns -= 1;
     if (typeof f.combat.poisonTurns === "number" && f.combat.poisonTurns > 0 && (f.combat.poisonDamage || 0) > 0) {
@@ -10805,8 +10922,16 @@ function getFoeCombatStatusEffectLines(foe) {
     lines.push(`Armor broken (${c.armorBreakTurns}t): +${roundCombatDisplay(c.armorBreakPct)}% damage taken`);
   }
   if ((c.staggerDamageDownTurns || 0) > 0) lines.push(`Staggered (${c.staggerDamageDownTurns}t): deals ~12% less damage`);
+  if ((c.playerStaggerDamageDownTurns || 0) > 0 && (c.playerStaggerDamageDownPct || 0) > 0) {
+    lines.push(
+      `Crusher stagger (${c.playerStaggerDamageDownTurns}t): deals −${roundCombatDisplay(c.playerStaggerDamageDownPct)}% damage`
+    );
+  }
   if ((c.staggerLockedTurns || 0) > 0) lines.push(`Stagger locked (${c.staggerLockedTurns}t): disrupted skill use`);
   if ((c.staggerSkillTaxTurns || 0) > 0) lines.push(`Skill tax (${c.staggerSkillTaxTurns}t)`);
+  if ((c.channelerStaminaTaxTurns || 0) > 0) {
+    lines.push(`Channeler tax (${c.channelerStaminaTaxTurns}t): next skill costs +${roundCombatDisplay(c.channelerStaminaTaxAmount || 1)}`);
+  }
   if ((c.staggerTurns || 0) > 0) lines.push(`Stagger (${c.staggerTurns}t)`);
   if ((c.thickHideTurns || 0) > 0 && typeof c.thickHideDamagedMult === "number" && c.thickHideDamagedMult > 0) {
     lines.push(`Thick hide (${c.thickHideTurns}t): takes ~${roundCombatDisplay((1 - c.thickHideDamagedMult) * 100)}% less`);
@@ -11255,7 +11380,10 @@ function runEnemyPhase() {
     }
     foe.attackUntil = Date.now() + 320;
     if (foe.combat) {
-      foe.combat.forceBasicThisTurn = !!(typeof foe.combat.staggerSkillTaxTurns === "number" && foe.combat.staggerSkillTaxTurns > 0);
+      foe.combat.forceBasicThisTurn = !!(
+        (typeof foe.combat.staggerSkillTaxTurns === "number" && foe.combat.staggerSkillTaxTurns > 0) ||
+        (typeof foe.combat.channelerStaminaTaxTurns === "number" && foe.combat.channelerStaminaTaxTurns > 0)
+      );
     }
     queueCombatVisualRefresh(340);
     const def = getEnemyDefByName(foe.name);
@@ -11436,7 +11564,8 @@ function applyReflectDamageToPartyHero(st, dmgDealtToFoe, foe) {
 }
 
 function getClassSkillTurnScaled(skillName, turns) {
-  return Math.max(1, Math.floor(turns + getClassSkillDurationBonus(skillName)));
+  const gearPct = sumEquippedBonusStats().debuffDuration || 0;
+  return Math.max(1, Math.round((turns + getClassSkillDurationBonus(skillName)) * (1 + Math.max(0, gearPct) / 100)));
 }
 
 function getPlayerClassOutgoingMult(st, skillName, foe) {
@@ -11698,6 +11827,7 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         if (targetFoe.combat.staggerLockedTurns > 0) break;
         const fbt = getClassSkillTurnScaled(skillName, 1);
         targetFoe.combat.staggerLockedTurns = fbt;
+        maybeApplyChannelerDebuffStaminaTax(targetFoe);
         appendFightLogFlavorWithEffects(`Frost Bind disrupts ${targetFoe.name}.`, [
           `${fbt}t stagger lock (forced basics / disrupted tempo)`
         ]);
@@ -11721,6 +11851,8 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         if (Math.random() < chancePct / 100) {
           const staggerTurns = lv >= 5 ? 2 : 1;
           foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, staggerTurns);
+          applyPlayerStaggerDamageDownBonus(foe);
+          maybeApplyChannelerDebuffStaminaTax(foe);
           foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, 1);
           appendFightLogFlavorWithEffects(`${foe.name} is staggered by Shield Slam.`, [
             `${staggerTurns}t: deals ~12% less damage`,
@@ -11736,6 +11868,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const armorBreakPct = clampNumber(10, 28, 8 + armorPen * 0.6 + lv * 2);
         foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, lv >= 5 ? 3 : 2);
         foe.combat.armorBreakPct = Math.max(foe.combat.armorBreakPct || 0, armorBreakPct);
+        maybeApplyChannelerDebuffStaminaTax(foe);
         appendFightLogFlavorWithEffects(`Crushing Blow shatters ${foe.name}'s guard.`, [
           `${foe.combat.armorBreakTurns}t armor break`,
           `+${roundCombatDisplay(foe.combat.armorBreakPct)}% damage taken`
@@ -11747,6 +11880,8 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const chancePct = Math.min(18, formulaStrStaggerChancePct(totalStr()) * 0.6);
         if (Math.random() < chancePct / 100) {
           foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
+          applyPlayerStaggerDamageDownBonus(foe);
+          maybeApplyChannelerDebuffStaminaTax(foe);
           appendFightLogFlavorWithEffects(`${foe.name} is staggered by Heavy Strike.`, ["1t: deals ~12% less damage"]);
         }
       }
@@ -11757,11 +11892,14 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const chancePct = clampNumber(15, 40, 12 + formulaStrStaggerChancePct(totalStr()) * 0.5 + lv * 2);
         if (Math.random() < chancePct / 100) {
           foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
+          applyPlayerStaggerDamageDownBonus(foe);
+          maybeApplyChannelerDebuffStaminaTax(foe);
         }
       }
       break;
     case "Piercing Thrust":
       foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Quick Slash":
       grantStaminaRefund(st, 1, "Quick Slash");
@@ -11787,8 +11925,9 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
     case "Burning Mark": {
       const bt = getClassSkillTurnScaled(skillName, 3);
       foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, bt);
-      const bd = Math.max(2, Math.floor(totalInt() * 0.1));
+      const bd = Math.max(2, Math.floor(totalInt() * 0.1 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)));
       foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, bd);
+      maybeApplyChannelerDebuffStaminaTax(foe);
       appendFightLogFlavorWithEffects(`Burning Mark sears ${foe.name}.`, [
         `${roundCombatDisplay(bd)} fire/tick`,
         `${bt}t`
@@ -11801,10 +11940,15 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
     case "Chain Pulse":
     case "Static Field":
       foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Meteor":
       foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, getClassSkillTurnScaled(skillName, 2));
-      foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, Math.max(3, Math.floor(totalInt() * 0.13)));
+      foe.combat.burnDamage = Math.max(
+        foe.combat.burnDamage || 0,
+        Math.max(3, Math.floor(totalInt() * 0.13 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)))
+      );
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Time Warp":
       ["flowStateTurns", "exposeWeaknessTurns", "manaSurgeTurns", "focusFireTurns", "rageTurns"].forEach((k) => {
@@ -11832,6 +11976,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
     case "Storm":
     case "Storm of Blades":
       foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, 1);
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Phantom":
     case "Phantom Chain":
@@ -11866,32 +12011,41 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
     case "Savage Roar":
       foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
       foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Toxic Flask":
       foe.combat.poisonTurns = Math.max(foe.combat.poisonTurns || 0, getClassSkillTurnScaled(skillName, 3));
-      foe.combat.poisonDamage = Math.max(foe.combat.poisonDamage || 0, Math.max(2, Math.floor(totalInt() * 0.14)));
+      foe.combat.poisonDamage = Math.max(
+        foe.combat.poisonDamage || 0,
+        Math.max(2, Math.floor(totalInt() * 0.14 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)))
+      );
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Weakening Bomb":
     case "Weakening Brew":
       foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Acid Rain":
     case "Acid Splash":
       foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Corrosive Strike":
     case "Corrosive Cloud":
       foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Plague":
     case "Plague Storm":
       cs.plagueStacks = Math.min(6, (cs.plagueStacks || 0) + 1);
       foe.combat.poisonTurns = Math.max(foe.combat.poisonTurns || 0, getClassSkillTurnScaled(skillName, 3));
       foe.combat.poisonDamage = Math.max(foe.combat.poisonDamage || 0, 2 + Math.floor(cs.plagueStacks / 2));
+      maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Chain Reaction":
       if (cs.catalystReadyTurns > 0) {
-        const burst = Math.max(2, Math.floor(totalInt() * 0.2));
+        const burst = Math.max(2, Math.floor(totalInt() * 0.2 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)));
         foe.hp = Math.max(0, foe.hp - burst);
         cs.catalystReadyTurns = 0;
         appendFightLog(`Catalyst detonates for ${burst} bonus damage.`);
@@ -13764,6 +13918,7 @@ function getCraftRecipeById(recipeId) {
 function getCraftingProfessionIdForRecipe(recipe) {
   const def = getItemDef(recipe && recipe.resultItem);
   if (!def) return "armor_smith";
+  if (def.type === "consumable" || String(def.category || "").trim().toLowerCase() === "key") return "provisioner";
   if (def.type === "weapon") return "weapon_smith";
   const cat = getItemEquipCategory(def);
   if (cat === "ring" || cat === "amulet" || cat === "bracelet") return "jeweller";
@@ -13844,7 +13999,7 @@ function buildCraftingPanelHtml() {
   if (!selectedCraftingProfIds.length) {
     return `<div class="game-page">${
       intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
-    }<p class="crafting-empty">No crafting profession selected. Select Weapon smith, Armor smith, or Jeweller in Character -> Professions.</p></div>`;
+    }<p class="crafting-empty">No crafting profession selected. Select Weapon smith, Armor smith, Jeweller, or Provisioner in Character -> Professions.</p></div>`;
   }
   const activeProfId = ensureActiveCraftingProfessionId(selectedCraftingProfIds);
   const tabsHtml = selectedCraftingProfIds

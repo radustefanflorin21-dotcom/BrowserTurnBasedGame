@@ -919,6 +919,7 @@ const GAME_CONFIG = {
     },
     "Sunken Grotto Key": {
       type: "resource",
+      category: "key",
       image: "Assets/Resources/sunken_grotto_key.png",
       description: "A salt-crusted key for the dig Hollis opened by the shore.",
       bonusSkills: [],
@@ -1354,7 +1355,7 @@ const GAME_CONFIG = {
       rarity: "common",
       itemLevel: 7,
       defense: 2,
-      image: "Assets/Equips/drift_bracelet.png",
+      image: "Assets/Equips/abyssbind_band.png",
       description: "A coral-bound bracelet for slippery skirmishers.",
       set: "Skimmer",
       build: "DEX_VIT",
@@ -1402,6 +1403,132 @@ const GAME_CONFIG = {
       build: "INT_VIT",
       bonusSkills: [],
       bonusStats: { INT: 7, VIT: 3, "Debuff Duration": 6, "Magic Resist": 4 }
+    },
+    "Crusher's Anchor Cleaver": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "two_handed",
+      rarity: "common",
+      itemLevel: 14,
+      attack: 9,
+      image: "Assets/Equips/crusher_anchor_cleaver.png",
+      description: "A crushing two-handed cleaver forged from anchor shards and pressure cores.",
+      set: "Crusher Set",
+      build: "STR",
+      bonusSkills: [],
+      bonusStats: { STR: 12, VIT: 6, "Phys Damage": 6, "Armor Pen": 4, Stagger: 5 }
+    },
+    "Saltbound Bulwark Plate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 14,
+      defense: 4,
+      image: "Assets/Equips/saltbound_bulwark_plate.png",
+      description: "Salt-encrusted heavy plate built to absorb crushing pressure.",
+      set: "Crusher Set",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 14, STR: 6, DR: 3, "Physical Resist": 5, HP: 140 }
+    },
+    "Pressure Loop": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 14,
+      defense: 3,
+      image: "Assets/Equips/pressure_loop.png",
+      description: "A dense loop that turns tidal pressure into stagger force.",
+      set: "Crusher Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 10, VIT: 5, Stagger: 5 }
+    },
+    "Channeler's Focus Rod": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 13,
+      attack: 8,
+      image: "Assets/Equips/channeler_focus_rod.png",
+      description: "A drowned focus rod for control magic and stamina manipulation.",
+      set: "Channeler Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 12, DEX: 5, "Skill Power": 5, "Status Potency": 4, "Debuff Duration": 4 }
+    },
+    "Abyssbind Band": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 13,
+      defense: 3,
+      image: "Assets/Equips/drift_bracelet.png",
+      description: "A binding abyssal band that steadies control chains and combo tempo.",
+      set: "Channeler Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 10, DEX: 6, "Status Potency": 4, "Debuff Duration": 4, Combo: 3 }
+    },
+    "Drowned Sigil Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 13,
+      defense: 3,
+      image: "Assets/Equips/drowned_sigil_amulet.png",
+      description: "A drowned sigil focus for resilient control casters.",
+      set: "Channeler Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 11, VIT: 5, "Magic Resist": 4, "Debuff Duration": 5 }
+    },
+    "Tidemother Fangblade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 15,
+      attack: 9,
+      image: "Assets/Equips/tidemother_fangblade.png",
+      description: "A one-handed fangblade shaped from the Tidemother's corrupt pressure.",
+      set: "Tidemother Set",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 12, INT: 10, Crit: 6, "Status Potency": 5, Combo: 4 }
+    },
+    "Abyssal Carapace Vest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 4,
+      image: "Assets/Equips/abyssal_carapace_vest.png",
+      description: "A corrupted brine carapace that protects while amplifying abyssal focus.",
+      set: "Tidemother Set",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 15, INT: 10, DR: 3, "Magic Resist": 6, HP: 180 }
+    },
+    "Echo Loop of the Deep": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 3,
+      image: "Assets/Equips/echo_loop_of_the_deep.png",
+      description: "A deep echo loop for high-value debuff and status builds.",
+      set: "Tidemother Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 13, DEX: 7, "Debuff Duration": 6, "Status Potency": 5, "Crit Damage": 4 }
     },
     "Sandfang Blade": {
       type: "weapon",
@@ -2937,6 +3064,60 @@ const GAME_CONFIG = {
       image: "Assets/Resources/pressure_core.png",
       description: "Pressure Core used in crafting and loot."
     },
+    "Crushed Anchor Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/crushed_anchor_shard.png",
+      description: "Core shard from a tidebound anchor. Used for Strength and armor penetration gear."
+    },
+    "Salt-Encrusted Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/salt_encrusted_plate.png",
+      description: "Salt-hardened plating used for armor and damage reduction gear."
+    },
+    "Barnacle Cluster": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bernacle_cluster.png",
+      description: "Dense barnacle growth used for defensive and hybrid gear."
+    },
+    "Abyssal Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/abyssal_thread.png",
+      description: "A wet abyssal filament used for debuff-focused crafting."
+    },
+    "Echo Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/echo_residue.png",
+      description: "Lingering echo residue used to extend control effects."
+    },
+    "Drowned Sigil Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/drowned_sigil_fragment.png",
+      description: "A fractured drowned sigil used for advanced control accessories."
+    },
+    "Tidemother Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/tidemother_core.png",
+      description: "Boss core from the Tidemother Aberration. Used for high-value abyssal items."
+    },
+    "Echo Heart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/echo_heart.png",
+      description: "A pulsing heart of abyssal echoes used in boss-tier crafting."
+    },
+    "Corrupted Brine Flesh": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/corrupted_brine_flesh.png",
+      description: "Corrupted brine flesh used for resilient abyssal armor."
+    },
     "Primal Essence": {
       type: "material",
       value: 5,
@@ -3518,12 +3699,13 @@ const GAME_CONFIG = {
 
   professions: {
     intro:
-      "Choose up to 2 professions. Weapon/Armor/Jeweller are crafting paths; Skinner/Extractor/Harvester unlock extra monster gathering drops.",
+      "Choose up to 2 professions. Weapon/Armor/Jeweller/Provisioner are crafting paths; Skinner/Extractor/Harvester unlock extra monster gathering drops.",
     maxSelected: 2,
     available: [
       { id: "weapon_smith", label: "Weapon smith", kind: "crafting" },
       { id: "armor_smith", label: "Armor smith", kind: "crafting" },
       { id: "jeweller", label: "Jeweller", kind: "crafting" },
+      { id: "provisioner", label: "Provisioner", kind: "crafting" },
       { id: "skinner", label: "Skinner", kind: "gathering" },
       { id: "extractor", label: "Extractor", kind: "gathering" },
       { id: "harvester", label: "Harvester", kind: "gathering" }
@@ -3546,6 +3728,9 @@ const GAME_CONFIG = {
     "Wavebreaker Idol": ["construct", "stone"],
     "Tidemeld Revenant": ["undead", "elemental"],
     "Coastal Horror": ["beast", "elemental"],
+    "Tidebound Crusher": ["undead", "stone"],
+    "Drowned Channeler": ["undead", "elemental"],
+    "Tidemother Aberration": ["beast", "elemental"],
     Tideharrow: ["elemental"],
     "Burrow Hare": ["beast"],
     "Plains Raptor": ["beast"],
@@ -3749,6 +3934,21 @@ const GAME_CONFIG = {
             ingredients: [
               { item: "Abyss Residue", qty: 6, source: "monster_loot" },
               { item: "Sharp Fin", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "sunken_grotto_key",
+            resultItem: "Sunken Grotto Key",
+            resultLevel: 10,
+            ingredients: [
+              { item: "Ripple Core", qty: 5, source: "monster_loot" },
+              { item: "Hardened Shell", qty: 6, source: "monster_loot" },
+              { item: "Wet Membrane", qty: 5, source: "monster_loot" },
+              { item: "Fluid Sac", qty: 4, source: "monster_loot" },
+              { item: "Abyss Residue", qty: 3, source: "monster_loot" },
+              { item: "Salt Flesh", qty: 5, source: "monster_loot" },
+              { item: "Residue", qty: 4, source: "gathering_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" }
             ]
           }
         ]
@@ -3978,6 +4178,102 @@ const GAME_CONFIG = {
               { item: "Illusion Essence", qty: 5, source: "monster_loot" },
               { item: "Distorted Core", qty: 3, source: "gathering_loot" },
               { item: "Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "crushers_anchor_cleaver",
+            resultItem: "Crusher's Anchor Cleaver",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Crushed Anchor Shard", qty: 6, source: "monster_loot" },
+              { item: "Pressure Core", qty: 4, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Raw Hide", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "saltbound_bulwark_plate",
+            resultItem: "Saltbound Bulwark Plate",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Salt-Encrusted Plate", qty: 6, source: "monster_loot" },
+              { item: "Barnacle Cluster", qty: 4, source: "monster_loot" },
+              { item: "Tough Hide", qty: 3, source: "gathering_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "pressure_loop",
+            resultItem: "Pressure Loop",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Pressure Core", qty: 5, source: "monster_loot" },
+              { item: "Crushed Anchor Shard", qty: 4, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "channelers_focus_rod",
+            resultItem: "Channeler's Focus Rod",
+            resultLevel: 13,
+            ingredients: [
+              { item: "Abyssal Thread", qty: 6, source: "monster_loot" },
+              { item: "Distorted Core", qty: 4, source: "monster_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" },
+              { item: "Plant Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "abyssbind_band",
+            resultItem: "Abyssbind Band",
+            resultLevel: 13,
+            ingredients: [
+              { item: "Echo Residue", qty: 6, source: "monster_loot" },
+              { item: "Abyssal Thread", qty: 4, source: "monster_loot" },
+              { item: "Root Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "drowned_sigil_amulet",
+            resultItem: "Drowned Sigil Amulet",
+            resultLevel: 13,
+            ingredients: [
+              { item: "Drowned Sigil Fragment", qty: 3, source: "monster_loot" },
+              { item: "Distorted Core", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "tidemother_fangblade",
+            resultItem: "Tidemother Fangblade",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Tidemother Core", qty: 4, source: "monster_loot" },
+              { item: "Echo Heart", qty: 3, source: "monster_loot" },
+              { item: "Abyss Residue", qty: 3, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Living Fiber", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "abyssal_carapace_chest",
+            resultItem: "Abyssal Carapace Vest",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Corrupted Brine Flesh", qty: 6, source: "monster_loot" },
+              { item: "Tidemother Core", qty: 3, source: "monster_loot" },
+              { item: "Tough Hide", qty: 4, source: "gathering_loot" },
+              { item: "Reinforced Bone", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "echo_loop_of_the_deep",
+            resultItem: "Echo Loop of the Deep",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Echo Heart", qty: 5, source: "monster_loot" },
+              { item: "Abyss Residue", qty: 4, source: "monster_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
             ]
           },
 
@@ -4779,6 +5075,8 @@ const GAME_CONFIG = {
     Basilisk: 1,
     "Basilisk Oracle": 2,
     Boarbreaker: 5,
+    "Channeler Set": 3,
+    "Crusher Set": 3,
     Dunestrike: 4,
     Earthbinder: 3,
     Ember: 1,
@@ -4803,9 +5101,25 @@ const GAME_CONFIG = {
     "Thornback Bulwark": 3,
     Tidecaster: 5,
     Tideguard: 7,
+    "Tidemother Set": 3,
     Venomcaster: 2,
     "Verdant Rite": 5,
     Wraith: 1
+  },
+
+  mmoEquipmentSetBonuses: {
+    "Channeler Set": {
+      2: { "Debuff Duration": 8, "Status Potency": 5 },
+      3: { "Debuff Stamina Tax Chance": 10, "Debuff Stamina Tax": 1 }
+    },
+    "Crusher Set": {
+      2: { Stagger: 6, "Physical Resist": 4 },
+      3: { "Heavy Armor Pen": 10, "Stagger Damage Down": 5 }
+    },
+    "Tidemother Set": {
+      2: { "Debuff Duration": 6 },
+      3: { Stamina: 1, "Status Potency": 8 }
+    }
   },
 
   /**
