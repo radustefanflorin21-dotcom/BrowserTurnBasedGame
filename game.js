@@ -309,6 +309,36 @@ function levelUpActor(actor) {
   }
 }
 
+/**
+ * Recomputes characteristic points, skill points, and base attack after edit-mode level change.
+ * Matches retrospective char-point math and per-level rewards from {@link levelUp} / {@link levelUpActor}.
+ */
+function syncActorProgressionForEditedLevel(actor) {
+  if (!actor || typeof actor !== "object") return;
+  const maxLv = getPlayerMaxLevel();
+  let level = typeof actor.level === "number" && actor.level >= 1 ? Math.floor(actor.level) : 1;
+  level = Math.min(maxLv, Math.max(1, level));
+  actor.level = level;
+
+  const earnedChar = Math.max(0, (level - 1) * 5);
+  const s = Math.max(0, (typeof actor.str === "number" ? actor.str : 10) - 10);
+  const dexVal = typeof actor.dex === "number" ? actor.dex : 10;
+  const a = Math.max(0, dexVal - 10);
+  const v = Math.max(0, (typeof actor.vit === "number" ? actor.vit : 10) - 10);
+  const inc = Math.max(0, (typeof actor.int === "number" ? actor.int : 10) - 10);
+  actor.charPoints = Math.max(0, earnedChar - (s + a + v + inc));
+
+  const earnedSkill = Math.max(0, level - 1);
+  let spentSkill = 0;
+  if (actor.classSkillLevels && typeof actor.classSkillLevels === "object") {
+    Object.values(actor.classSkillLevels).forEach((lv) => {
+      if (typeof lv === "number" && lv > 0) spentSkill += Math.min(5, Math.floor(lv));
+    });
+  }
+  actor.skillPoints = Math.max(0, earnedSkill - spentSkill);
+  actor.baseAttack = 10 + Math.max(0, level - 1) * 2;
+}
+
 function getActorDamageRange(actor) {
   const p = actor || player;
   const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
@@ -1152,6 +1182,24 @@ function getEquipmentSetBonusStats(equipment) {
   return out;
 }
 
+function countEquippedSetPieces(equipment, setName) {
+  const want = typeof setName === "string" ? setName.trim() : "";
+  if (!want) return 0;
+  const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
+  let count = 0;
+  EQUIP_SLOTS.forEach((s) => {
+    const n = eq[s.id];
+    if (!n) return;
+    const def = getItemDef(n);
+    if (def && def.set === want) count += 1;
+  });
+  return count;
+}
+
+function getPlayerEquippedSetPieceCount(setName) {
+  return countEquippedSetPieces(player && player.equipment ? player.equipment : emptyEquipment(), setName);
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -1177,7 +1225,10 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
     heavyArmorPen: 0,
     staggerDamageDown: 0,
     debuffStaminaTaxChance: 0,
-    debuffStaminaTax: 0
+    debuffStaminaTax: 0,
+    stormMarkDamage: 0,
+    dodgeCritDamage: 0,
+    critVsDebuffed: 0
   };
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
@@ -1633,6 +1684,11 @@ function isTwoHandedWeaponDef(def) {
   );
 }
 
+function isOneHandedWeaponDef(def) {
+  const c = getItemEquipCategory(def);
+  return c === "one_handed" || c === "one_handed_sword" || c === "dagger";
+}
+
 function getWeaponPoseCategory(def) {
   const category = getItemEquipCategory(def);
   if (category === "dagger") return "dagger";
@@ -1680,6 +1736,24 @@ function isEquippableItemDef(def) {
   return getAllowedEquipSlotsForDef(def).length > 0;
 }
 
+function getDuplicateEquipConflictSlot(itemName, slotId, equipmentObj) {
+  const def = getItemDef(itemName);
+  const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player && player.equipment;
+  if (!def || !eq) return "";
+  const baseName = getItemBaseName(itemName);
+  if (isOneHandedWeaponDef(def) && (slotId === "weapon" || slotId === "offhand")) {
+    const otherSlot = slotId === "weapon" ? "offhand" : "weapon";
+    const otherName = typeof eq[otherSlot] === "string" ? eq[otherSlot] : "";
+    if (otherName && isOneHandedWeaponDef(getItemDef(otherName)) && getItemBaseName(otherName) === baseName) return otherSlot;
+  }
+  if (getItemEquipCategory(def) === "ring" && (slotId === "ring1" || slotId === "ring2")) {
+    const otherSlot = slotId === "ring1" ? "ring2" : "ring1";
+    const otherName = typeof eq[otherSlot] === "string" ? eq[otherSlot] : "";
+    if (otherName && getItemEquipCategory(getItemDef(otherName)) === "ring" && getItemBaseName(otherName) === baseName) return otherSlot;
+  }
+  return "";
+}
+
 function canEquipItemInSlot(itemName, slotId, equipmentObj) {
   const def = getItemDef(itemName);
   if (!def || typeof slotId !== "string" || !slotId) return false;
@@ -1687,23 +1761,25 @@ function canEquipItemInSlot(itemName, slotId, equipmentObj) {
   if (!allowedSlots.includes(slotId)) return false;
   const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player && player.equipment;
   if (slotId === "offhand" && isOffhandBlockedByEquipment(eq)) return false;
+  if (getDuplicateEquipConflictSlot(itemName, slotId, eq)) return false;
   return true;
 }
 
-function pickEquipSlotForDef(def, preferredSlot, equipmentObj) {
+function pickEquipSlotForDef(def, itemName, preferredSlot, equipmentObj) {
   const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player && player.equipment;
   const allowedSlots = getAllowedEquipSlotsForDef(def);
   if (!allowedSlots.length) return null;
   if (preferredSlot && allowedSlots.includes(preferredSlot)) return preferredSlot;
   const category = getItemEquipCategory(def);
+  const baseName = getItemBaseName(itemName);
   if (category === "one_handed" || category === "one_handed_sword" || category === "dagger") {
-    if (!eq.weapon) return "weapon";
-    if (!isOffhandBlockedByEquipment(eq) && !eq.offhand) return "offhand";
+    if (!eq.weapon) return eq.offhand && getItemBaseName(eq.offhand) === baseName ? "offhand" : "weapon";
+    if (!isOffhandBlockedByEquipment(eq) && !eq.offhand && getItemBaseName(eq.weapon) !== baseName) return "offhand";
     return "weapon";
   }
   if (category === "ring") {
-    if (!eq.ring1) return "ring1";
-    if (!eq.ring2) return "ring2";
+    if (!eq.ring1) return eq.ring2 && getItemBaseName(eq.ring2) === baseName ? "ring2" : "ring1";
+    if (!eq.ring2 && getItemBaseName(eq.ring1) !== baseName) return "ring2";
     return "ring1";
   }
   return allowedSlots[0];
@@ -1711,10 +1787,30 @@ function pickEquipSlotForDef(def, preferredSlot, equipmentObj) {
 
 function enforceOffhandRuleForEquipment(eq, inventory) {
   if (!eq || typeof eq !== "object") return;
-  if (!isOffhandBlockedByEquipment(eq)) return;
-  if (!eq.offhand) return;
-  if (Array.isArray(inventory)) inventory.push(eq.offhand);
-  eq.offhand = null;
+  if (isOffhandBlockedByEquipment(eq) && eq.offhand) {
+    if (Array.isArray(inventory)) inventory.push(eq.offhand);
+    eq.offhand = null;
+  }
+  if (
+    eq.weapon &&
+    eq.offhand &&
+    isOneHandedWeaponDef(getItemDef(eq.weapon)) &&
+    isOneHandedWeaponDef(getItemDef(eq.offhand)) &&
+    getItemBaseName(eq.weapon) === getItemBaseName(eq.offhand)
+  ) {
+    if (Array.isArray(inventory)) inventory.push(eq.offhand);
+    eq.offhand = null;
+  }
+  if (
+    eq.ring1 &&
+    eq.ring2 &&
+    getItemEquipCategory(getItemDef(eq.ring1)) === "ring" &&
+    getItemEquipCategory(getItemDef(eq.ring2)) === "ring" &&
+    getItemBaseName(eq.ring1) === getItemBaseName(eq.ring2)
+  ) {
+    if (Array.isArray(inventory)) inventory.push(eq.ring2);
+    eq.ring2 = null;
+  }
 }
 
 function getItemImage(itemName) {
@@ -2336,6 +2432,9 @@ function normalizeEquipmentStatKey(k) {
   if (u === "STAGGER DAMAGE DOWN") return "staggerDamageDown";
   if (u === "DEBUFF STAMINA TAX CHANCE") return "debuffStaminaTaxChance";
   if (u === "DEBUFF STAMINA TAX") return "debuffStaminaTax";
+  if (u === "STORM MARK DAMAGE") return "stormMarkDamage";
+  if (u === "DODGE CRIT DAMAGE") return "dodgeCritDamage";
+  if (u === "CRIT VS DEBUFFED" || u === "CRIT CHANCE VS DEBUFFED") return "critVsDebuffed";
   return null;
 }
 
@@ -2554,7 +2653,9 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
   const acc = formulaDexAccuracyPct(dex);
   const evF = getFoeEvasionPct(foe);
-  const hitPct = Math.min(maxH, Math.max(minH, acc - evF));
+  const activeMember = combatState ? getPartyMemberByUid(combatState, combatState.activePartyUid) : null;
+  const accPenalty = getPlayerOutgoingAccuracyPenaltyPct(combatState, activeMember);
+  const hitPct = Math.min(maxH, Math.max(minH, acc - evF - accPenalty));
   if (Math.random() * 100 >= hitPct) return { damage: 0, missed: true, crit: false };
 
   let d1 = Math.max(1, baseSkillDamage);
@@ -2564,7 +2665,10 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
     d1 *= 1 + (formulaIntSkillPowerBonusPct(int) + (gear.skillPower || 0)) / 100;
   }
 
-  const critChance = (formulaDexCritChancePct(dex) + (gear.crit || 0)) / 100;
+  const critChanceBase = (formulaDexCritChancePct(dex) + (gear.crit || 0)) / 100;
+  const critVsDebuffed = Math.max(0, Number(gear.critVsDebuffed) || 0) / 100;
+  const critChance =
+    critVsDebuffed > 0 && isFoeStormwakeCritDebuffed(foe) ? critChanceBase + critVsDebuffed : critChanceBase;
   const defFoe = getEnemyDefByName(foe && foe.name);
   const foeScript = defFoe && typeof defFoe.combatScript === "string" ? defFoe.combatScript.trim() : "";
   const critAuraPenalty = foeScript === "coastal_horror" ? 0.05 : 0;
@@ -2572,7 +2676,14 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const baseCrit = typeof sys.baseCritMultiplierPct === "number" ? sys.baseCritMultiplierPct : 150;
   let d2 = d1;
   if (crit) {
-    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex) + (gear.critDamage || 0);
+    const stormfangCrit =
+      combatState &&
+      combatState.status &&
+      (combatState.status.playerStormfangCritDamageTurns || 0) > 0 &&
+      (combatState.status.playerStormfangCritDamagePct || 0) > 0
+        ? combatState.status.playerStormfangCritDamagePct
+        : 0;
+    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex) + (gear.critDamage || 0) + stormfangCrit;
     d2 = d1 * (critMulPct / 100);
   }
 
@@ -2623,6 +2734,14 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   ) {
     takenMult *= foe.combat.mitigationMult;
   }
+  if (
+    foe.combat &&
+    typeof foe.combat.playerStormwakeMarkTurns === "number" &&
+    foe.combat.playerStormwakeMarkTurns > 0
+  ) {
+    takenMult *= 1.06;
+    if (kind === "skill" && getPlayerEquippedSetPieceCount("Stormwake Set") >= 4) takenMult *= 1.04;
+  }
   fin = Math.max(1, Math.floor(fin * takenMult));
 
   return { damage: fin, missed: false, crit };
@@ -2665,7 +2784,8 @@ function maybeApplyChannelerDebuffStaminaTax(foe) {
   foe.combat.channelerStaminaTaxTurns = Math.max(foe.combat.channelerStaminaTaxTurns || 0, 1);
   foe.combat.channelerStaminaTaxAmount = Math.max(foe.combat.channelerStaminaTaxAmount || 0, amount);
   foe.combat.channelerStaminaTaxCooldownTurns = 2;
-  appendFightLog(`${foe.name}'s next skill is burdened by abyssal bindings (+${amount} stamina cost).`);
+  const procName = getPlayerEquippedSetPieceCount("Tempest Caller Set") >= 3 ? "Static Drag" : "Abyssal bindings";
+  appendFightLog(`${procName}: ${foe.name}'s next skill costs +${amount} stamina.`);
 }
 
 function tryDexComboRefundAfterSkill(st) {
@@ -2690,7 +2810,7 @@ function tryDexComboRefundAfterSkill(st) {
 }
 
 /** @returns {{ taken: number, evaded: boolean }} */
-function computeHeroIncomingDamage(rawDamage) {
+function computeHeroIncomingDamage(rawDamage, attackingFoe) {
   const sys = getStatSystem();
   const dexE = totalDex();
   const strE = totalStr();
@@ -2701,6 +2821,14 @@ function computeHeroIncomingDamage(rawDamage) {
     typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
       ? sys.enemyBaseHitChancePct
       : 100;
+  if (
+    attackingFoe &&
+    attackingFoe.combat &&
+    typeof attackingFoe.combat.playerStormwakeMarkTurns === "number" &&
+    attackingFoe.combat.playerStormwakeMarkTurns > 0
+  ) {
+    enemyHit -= 4;
+  }
   if (
     combatState &&
     combatState.status &&
@@ -2888,12 +3016,144 @@ function ensureCombatStatus(st) {
       playerAccuracyDownTurns: 0,
       playerDamageDownPct: 0,
       playerDamageDownTurns: 0,
+      playerOutgoingAccuracyDownPct: 0,
+      playerOutgoingAccuracyDownTurns: 0,
       playerComboChanceDownPct: 0,
       playerComboChanceDownTurns: 0,
       playerStaminaCostUpPct: 0,
-      playerStaminaCostUpTurns: 0
+      playerStaminaCostUpTurns: 0,
+      playerStormfangCritDamagePct: 0,
+      playerStormfangCritDamageTurns: 0,
+      playerStormfangCritDamageCooldownTurns: 0
     };
   }
+}
+
+function getPartyMemberByUid(st, uid) {
+  if (!st || !Array.isArray(st.party) || typeof uid !== "number") return null;
+  return st.party.find((m) => m && m.uid === uid) || null;
+}
+
+/** Stable snapshot of foe debuff-relevant fields (for Stormwake Storm Surge debuff detection). */
+function getFoeStormwakeDebuffSignature(combat) {
+  if (!combat || typeof combat !== "object") return "";
+  const pick = (k) => (typeof combat[k] === "number" && combat[k] > 0 ? Math.floor(combat[k]) : 0);
+  return [
+    pick("armorBreakTurns"),
+    pick("poisonTurns"),
+    pick("burnTurns"),
+    pick("weakenTurns"),
+    pick("staggerDamageDownTurns"),
+    pick("staggerLockedTurns"),
+    pick("staggerTurns"),
+    pick("playerStaggerDamageDownTurns"),
+    pick("tauntedByVanguardTurns"),
+    pick("channelerStaminaTaxTurns")
+  ].join("|");
+}
+
+function isFoeStormwakeCritDebuffed(foe) {
+  if (!foe || !foe.combat) return false;
+  const c = foe.combat;
+  if (typeof c.playerStormwakeMarkTurns === "number" && c.playerStormwakeMarkTurns > 0) return true;
+  if ((c.armorBreakTurns || 0) > 0) return true;
+  if ((c.poisonTurns || 0) > 0 && (c.poisonDamage || 0) > 0) return true;
+  if ((c.burnTurns || 0) > 0 && (c.burnDamage || 0) > 0) return true;
+  if ((c.weakenTurns || 0) > 0) return true;
+  if ((c.staggerDamageDownTurns || 0) > 0) return true;
+  if ((c.staggerLockedTurns || 0) > 0) return true;
+  if ((c.staggerTurns || 0) > 0) return true;
+  if ((c.playerStaggerDamageDownTurns || 0) > 0) return true;
+  if ((c.tauntedByVanguardTurns || 0) > 0) return true;
+  if ((c.channelerStaminaTaxTurns || 0) > 0) return true;
+  return false;
+}
+
+/**
+ * Stormwake Set (3pc): 15% on debuff application or crit to apply Storm Mark (2t), per-foe cooldown 2 turns.
+ * @param {{ crit: boolean, debuffApplied: boolean }} opts
+ */
+function tryStormwakeStormSurgeOnStrike(st, foe, opts) {
+  if (getPlayerEquippedSetPieceCount("Stormwake Set") < 3) return;
+  if (!st || !foe || foe.hp <= 0) return;
+  if (!opts || (!opts.crit && !opts.debuffApplied)) return;
+  if (!foe.combat) foe.combat = {};
+  if ((foe.combat.stormwakeSurgeCooldownTurns || 0) > 0) return;
+  if (Math.random() >= 0.15) return;
+  foe.combat.playerStormwakeMarkTurns = Math.max(foe.combat.playerStormwakeMarkTurns || 0, 2);
+  foe.combat.stormwakeSurgeCooldownTurns = Math.max(foe.combat.stormwakeSurgeCooldownTurns || 0, 2);
+  appendFightLog(`Storm Surge: ${foe.name} is Storm Marked (2t: +6% damage taken, −4% accuracy).`);
+}
+
+function isPartyMemberStormMarked(member) {
+  return !!(member && typeof member.stormMarkTurns === "number" && member.stormMarkTurns > 0);
+}
+
+function isFoeStormMarked(foe) {
+  return !!(
+    foe &&
+    foe.combat &&
+    ((typeof foe.combat.stormMarkTurns === "number" && foe.combat.stormMarkTurns > 0) ||
+      (typeof foe.combat.stormMarkedTurns === "number" && foe.combat.stormMarkedTurns > 0))
+  );
+}
+
+function getStormMarkAccuracyPenaltyPct(member) {
+  return isPartyMemberStormMarked(member) ? 5 : 0;
+}
+
+function getPlayerOutgoingAccuracyPenaltyPct(st, member) {
+  let pct = 0;
+  if (st && st.status && (st.status.playerOutgoingAccuracyDownTurns || 0) > 0) {
+    pct += Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, Number(st.status.playerOutgoingAccuracyDownPct) || 0));
+  }
+  pct += getStormMarkAccuracyPenaltyPct(member);
+  return Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, pct));
+}
+
+function applyPlayerOutgoingAccuracyDown(st, pct, turns) {
+  ensureCombatStatus(st);
+  st.status.playerOutgoingAccuracyDownPct = Math.max(
+    st.status.playerOutgoingAccuracyDownPct || 0,
+    Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, pct))
+  );
+  st.status.playerOutgoingAccuracyDownTurns = Math.max(st.status.playerOutgoingAccuracyDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+function applyPlayerStaminaCostUp(st, pct, turns) {
+  ensureCombatStatus(st);
+  st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, Math.max(0, pct));
+  st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+function getActiveStormfangAttacker(st) {
+  return st ? getPartyMemberByUid(st, st.activePartyUid) : null;
+}
+
+function maybeApplyStormfangStormMarkDamageBonus(st, foe, rawDamage) {
+  if (!st || !foe) return rawDamage;
+  const gear = sumEquippedBonusStats();
+  const pct = Math.max(0, Number(gear.stormMarkDamage) || 0);
+  if (!(pct > 0) || st.stormfangMarkDamageUsedThisPlayerTurn) return rawDamage;
+  const activeMember = getActiveStormfangAttacker(st);
+  if (!isFoeStormMarked(foe) && !isPartyMemberStormMarked(activeMember)) return rawDamage;
+  st.stormfangMarkDamageUsedThisPlayerTurn = true;
+  appendFightLog(`Stormfang Set: +${roundCombatDisplay(pct)}% damage against storm-marked pressure.`);
+  return Math.max(1, Math.floor(rawDamage * (1 + pct / 100)));
+}
+
+function maybeApplyStormfangDodgeCritDamageBuff(st) {
+  if (!st) return;
+  ensureCombatStatus(st);
+  const s = st.status;
+  if ((s.playerStormfangCritDamageCooldownTurns || 0) > 0) return;
+  const gear = sumEquippedBonusStats();
+  const pct = Math.max(0, Number(gear.dodgeCritDamage) || 0);
+  if (!(pct > 0)) return;
+  s.playerStormfangCritDamagePct = Math.max(s.playerStormfangCritDamagePct || 0, pct);
+  s.playerStormfangCritDamageTurns = Math.max(s.playerStormfangCritDamageTurns || 0, 1);
+  s.playerStormfangCritDamageCooldownTurns = 2;
+  appendFightLog(`Stormfang Set: dodging charges your next turn (+${roundCombatDisplay(pct)}% crit damage).`);
 }
 
 function getMonsterDifficultyTierForTaunt(def) {
@@ -3309,6 +3569,59 @@ function getLivingPartyMembers(st) {
   return st.party.filter((m) => m && m.hp > 0);
 }
 
+function isStormbreakHollowCombat(st) {
+  const ctx = st && st.worldMapContext && typeof st.worldMapContext === "object" ? st.worldMapContext : null;
+  if (!ctx || ctx.dungeonId !== "stormbreak_hollow") return false;
+  const def = getDungeonDef(ctx.dungeonId);
+  return !!(def && def.stormPressure);
+}
+
+/** Final Stormbreak Hollow room (Stormwake Leviathan): special fight UI layout only here. */
+function isStormbreakHollowLeviathanBossRoomFight(st) {
+  if (!isStormbreakHollowCombat(st)) return false;
+  const ctx = st.worldMapContext;
+  if (typeof ctx.roomIndex !== "number") return false;
+  const def = getDungeonDef(ctx.dungeonId);
+  if (!def || !Array.isArray(def.rooms) || def.rooms.length < 1) return false;
+  return ctx.roomIndex === def.rooms.length - 1;
+}
+
+function isStormwakeLeviathanPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp <= 0.3
+  );
+}
+
+function tickStormMarksAtStartOfPlayerTurn(st) {
+  if (!st || !Array.isArray(st.party)) return;
+  st.party.forEach((m) => {
+    if (m && typeof m.stormMarkTurns === "number" && m.stormMarkTurns > 0) m.stormMarkTurns -= 1;
+  });
+}
+
+function applyStormPressureIfDue(st) {
+  if (!isStormbreakHollowCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const interval = isStormwakeLeviathanPhase3Active(st) ? 1 : 2;
+  ctx.stormPressureTurns = (typeof ctx.stormPressureTurns === "number" ? ctx.stormPressureTurns : 0) + 1;
+  if (ctx.stormPressureTurns % interval !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const markCount = Math.min(living.length, living.length >= 3 ? 2 : 1);
+  const pool = living.slice();
+  const marked = [];
+  while (pool.length && marked.length < markCount) {
+    const idx = Math.floor(Math.random() * pool.length);
+    const member = pool.splice(idx, 1)[0];
+    member.stormMarkTurns = Math.max(member.stormMarkTurns || 0, 2);
+    marked.push(member.name || (member.kind === "hero" ? "Hero" : "Companion"));
+  }
+  if (marked.length) {
+    appendFightLog(`Storm Pressure marks ${marked.join(", ")} (+8% damage taken, -5% accuracy).`);
+  }
+}
+
 function pickPartyTargetLowestMaxHpUid(st) {
   const living = getLivingPartyMembers(st);
   if (!living.length) return null;
@@ -3497,6 +3810,7 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
   const m = st.party.find((x) => x && x.uid === partyUid);
   if (!m || m.hp <= 0) return;
   let raw = rawDamage;
+  if (isPartyMemberStormMarked(m)) raw = Math.max(1, Math.floor(raw * 1.08));
   if (m.kind === "hero") {
     ensureCombatStatus(st);
     if (typeof st.status.playerFragileTurns === "number" && st.status.playerFragileTurns > 0) raw += 2;
@@ -3516,9 +3830,10 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
       if (cs.sanctuaryTurns > 0) raw = Math.max(1, Math.floor(raw * 0.86));
       if (cs.guardAllyTurns > 0) raw = Math.max(1, Math.floor(raw * 0.88));
     }
-    const hit = computeHeroIncomingDamage(raw);
+    const hit = computeHeroIncomingDamage(raw, st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null);
     if (hit.evaded) {
       appendFightLog(`${foeName} attacks ${m.name} — ${m.name} evades!`);
+      maybeApplyStormfangDodgeCritDamageBuff(st);
       syncCombatPartyHeroMirror(st);
       return;
     }
@@ -3682,8 +3997,13 @@ function tickPlayerTurnEndBuffs(st) {
   if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) s.playerFragileTurns -= 1;
   if (typeof s.playerAccuracyDownTurns === "number" && s.playerAccuracyDownTurns > 0) s.playerAccuracyDownTurns -= 1;
   if (typeof s.playerDamageDownTurns === "number" && s.playerDamageDownTurns > 0) s.playerDamageDownTurns -= 1;
+  if (typeof s.playerOutgoingAccuracyDownTurns === "number" && s.playerOutgoingAccuracyDownTurns > 0) s.playerOutgoingAccuracyDownTurns -= 1;
   if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) s.playerComboChanceDownTurns -= 1;
   if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) s.playerStaminaCostUpTurns -= 1;
+  if (typeof s.playerStormfangCritDamageTurns === "number" && s.playerStormfangCritDamageTurns > 0) s.playerStormfangCritDamageTurns -= 1;
+  if (typeof s.playerStormfangCritDamageCooldownTurns === "number" && s.playerStormfangCritDamageCooldownTurns > 0) {
+    s.playerStormfangCritDamageCooldownTurns -= 1;
+  }
   st.foes.forEach((f) => {
     if (!f || f.hp <= 0 || !f.combat) return;
     if (typeof f.combat.tauntPlayerTurns === "number" && f.combat.tauntPlayerTurns > 0) f.combat.tauntPlayerTurns -= 1;
@@ -3714,6 +4034,12 @@ function tickPlayerTurnEndBuffs(st) {
       f.hp = Math.max(0, f.hp - d);
       f.combat.burnTurns -= 1;
       appendFightLog(`${f.name} takes ${d} burn damage.`);
+    }
+    if (typeof f.combat.playerStormwakeMarkTurns === "number" && f.combat.playerStormwakeMarkTurns > 0) {
+      f.combat.playerStormwakeMarkTurns -= 1;
+    }
+    if (typeof f.combat.stormwakeSurgeCooldownTurns === "number" && f.combat.stormwakeSurgeCooldownTurns > 0) {
+      f.combat.stormwakeSurgeCooldownTurns -= 1;
     }
   });
   despawnSummonsWithDeadSummoners(st);
@@ -5973,6 +6299,124 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     return true;
   }
 
+  if (scriptId === "stormfang_ravager") {
+    const stormActive = isStormbreakHollowCombat(st) && getLivingPartyMembers(st).some((m) => isPartyMemberStormMarked(m));
+    if (stormActive) foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.12);
+
+    if (ready("thunder_leap")) {
+      setCd("thunder_leap", 2);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+      const target = getPartyMemberByUid(st, typeof targetUid === "number" ? targetUid : null);
+      const markedMult = isPartyMemberStormMarked(target) ? 1.2 : 1;
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.25 * markedMult * outMult)), foe.name, "Thunder Leaps into you", {
+        partyUid: target && typeof target.uid === "number" ? target.uid : null
+      });
+      return true;
+    }
+
+    if (ready("static_pulse")) {
+      setCd("static_pulse", 3);
+      const dmg = Math.max(1, Math.floor(monsterIntScaledValue(foe, 8, "effect") * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "releases Static Pulse", { aoeAllParty: true });
+      applyPlayerOutgoingAccuracyDown(st, 10, 2);
+      applyPlayerStaminaCostUp(st, 5, 2);
+      appendFightLog(`${foe.name}'s Static Pulse disrupts accuracy and stamina flow.`);
+      return true;
+    }
+
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.75 * outMult)), foe.name, "claws you", {
+      partyUid: typeof targetUid === "number" ? targetUid : null
+    });
+    return true;
+  }
+
+  if (scriptId === "abyssal_tempest_caller") {
+    if (ready("tempest_bind")) {
+      setCd("tempest_bind", 2);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+      const dmg = Math.max(1, Math.floor(monsterIntScaledValue(foe, 14, "effect") * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "casts Tempest Bind on you", {
+        partyUid: typeof targetUid === "number" ? targetUid : null
+      });
+      applyPlayerOutgoingAccuracyDown(st, 15, 2);
+      return true;
+    }
+
+    if (ready("static_barrier")) {
+      setCd("static_barrier", 3);
+      st.foes.forEach((target) => {
+        if (!target || target.hp <= 0) return;
+        if (!target.combat) initFoeCombatRuntime(target);
+        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.12);
+      });
+      appendFightLog(`${foe.name} raises a Static Barrier (+12% next dodge for allies).`);
+      return true;
+    }
+
+    if (ready("storm_collapse")) {
+      setCd("storm_collapse", 4);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(monsterIntScaledValue(foe, 10, "effect") * outMult)), foe.name, "collapses the storm", {
+        aoeAllParty: true
+      });
+      applyPlayerStaminaCostUp(st, 15, 2);
+      return true;
+    }
+
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "lashes stormwater at you", {
+      partyUid: typeof targetUid === "number" ? targetUid : null
+    });
+    return true;
+  }
+
+  if (scriptId === "stormwake_leviathan") {
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (hpFrac <= 0.7 && !foe.combat.stormwakePhase2) {
+      foe.combat.stormwakePhase2 = true;
+      foe.combat.stormwakeCritBonusPct = 15;
+      appendFightLog(`${foe.name} enters Lightning Collapse: Storm Echoes answer its roar.`);
+      summonCombatMinion(st, foe, "Storm Echo", 0.18, 0.45);
+      summonCombatMinion(st, foe, "Storm Echo", 0.18, 0.45);
+      return true;
+    }
+    if (hpFrac <= 0.3 && !foe.combat.stormwakePhase3) {
+      foe.combat.stormwakePhase3 = true;
+      appendFightLog(`${foe.name} becomes the Tempest Incarnate. Storm Pressure will trigger every turn.`);
+    }
+
+    if (hpFrac <= 0.3 && ready("endless_maelstrom")) {
+      setCd("endless_maelstrom", 4);
+      const dmg = Math.max(1, Math.floor((monsterIntScaledValue(foe, 18, "effect") + atk * 0.45) * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "unleashes Endless Maelstrom", { aoeAllParty: true });
+      applyPlayerStaminaCostUp(st, 20, 2);
+      return true;
+    }
+
+    if (hpFrac <= 0.7 && ready("cataclysm_strike")) {
+      setCd("cataclysm_strike", 3);
+      const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
+      const target = getPartyMemberByUid(st, typeof targetUid === "number" ? targetUid : null);
+      const markedMult = isPartyMemberStormMarked(target) ? 1.25 : 1;
+      const hybrid = Math.max(1, Math.floor((atk * 0.9 + monsterIntScaledValue(foe, 10, "effect")) * 1.6 * markedMult * outMult));
+      dealRawDamageToPlayer(st, hybrid, foe.name, "drives Cataclysm Strike into you", {
+        partyUid: target && typeof target.uid === "number" ? target.uid : null
+      });
+      return true;
+    }
+
+    if (ready("tempest_roar")) {
+      setCd("tempest_roar", 2);
+      const dmg = Math.max(1, Math.floor(monsterIntScaledValue(foe, 13, "effect") * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "roars a Tempest", { aoeAllParty: true });
+      applyPlayerOutgoingAccuracyDown(st, 10, 2);
+      return true;
+    }
+
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.85 * outMult)), foe.name, "crushes you");
+    return true;
+  }
+
   return false;
 }
 
@@ -6317,8 +6761,14 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
   const i = player.inventory.indexOf(itemName);
   if (i === -1) return false;
   const eq = target.equipment || emptyEquipment();
-  const slot = pickEquipSlotForDef(def, preferredSlot, eq);
-  if (!slot || !canEquipItemInSlot(itemName, slot, eq)) return false;
+  const slot = pickEquipSlotForDef(def, itemName, preferredSlot, eq);
+  if (!slot) return false;
+  const duplicateSlot = getDuplicateEquipConflictSlot(itemName, slot, eq);
+  if (duplicateSlot) {
+    showModal(`Cannot equip ${getItemBaseName(itemName)} twice.`);
+    return false;
+  }
+  if (!canEquipItemInSlot(itemName, slot, eq)) return false;
   const prev = eq[slot];
   let displacedOffhand = null;
   if (slot === "weapon" && isTwoHandedWeaponDef(def) && eq.offhand) {
@@ -6594,6 +7044,8 @@ function hydrateSpriteAnimations(root) {
 const PLAYER_TURN_SECONDS = 30;
 /** @type {ReturnType<typeof setInterval> | null} */
 let playerTurnTimerTick = null;
+/** @type {ReturnType<typeof setInterval> | null} */
+let enemyTurnTimerTick = null;
 
 /** Mob size when spawning from a biome/region pool (inclusive). */
 const MOB_SIZE_MIN = 1;
@@ -7303,7 +7755,11 @@ function applyMonsterCritToRaw(foe, raw) {
   const dex = typeof foe.dex === "number" && foe.dex > 0 ? foe.dex : 0;
   const base = typeof ms.enemyCritBasePct === "number" ? ms.enemyCritBasePct : 5;
   const perDex = typeof ms.enemyCritPerDexPct === "number" ? ms.enemyCritPerDexPct : 0.2;
-  const p = Math.min(0.55, (base + dex * perDex) / 100);
+  const bonus =
+    foe && foe.combat && typeof foe.combat.stormwakeCritBonusPct === "number" && Number.isFinite(foe.combat.stormwakeCritBonusPct)
+      ? Math.max(0, foe.combat.stormwakeCritBonusPct)
+      : 0;
+  const p = Math.min(0.55, (base + dex * perDex + bonus) / 100);
   const mult = typeof ms.enemyCritDamageMult === "number" ? ms.enemyCritDamageMult : 1.5;
   if (Math.random() < p) return Math.max(1, Math.floor(raw * mult));
   return raw;
@@ -7565,8 +8021,15 @@ function getCoordinateBackgroundUrl(x, y) {
 
 const BIOME_BG_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 
-/** Crossfade duration matches `.adventure-bg-stack--ready .adventure-bg-layer` in styles.css */
+/** Crossfade duration matches `.adventure-bg-stack` defaults in styles.css (normal cell/city moves). */
 const ADVENTURE_BG_CROSSFADE_MS = 520;
+/** Boss-room phase stems (`bgPhaseStems`): slower blend + lightning overlay (see crossfade options). */
+const DUNGEON_PHASE_BG_CROSSFADE_MS = 1050;
+/** Stormwake Leviathan: brighten (ms), then instant BG swap at peak white, then fade flash down. */
+const LEVIATHAN_PHASE_BRIGHTEN_MS = 1000;
+const LEVIATHAN_PHASE_FADE_DOWN_MS = 820;
+const LEVIATHAN_PHASE_FLASH_MAX_OPACITY = 0.94;
+const DUNGEON_PHASE_BG_EASE = "cubic-bezier(0.42, 0, 0.18, 1)";
 
 /**
  * Cardinal map moves: blur builds slowly while opaque, then quick fade; new cell sharpens slowly.
@@ -7589,6 +8052,14 @@ let adventureBgLastUrl = null;
 let adventureBgLastIsCity = false;
 /** Which layer is logically “front” after the last completed transition: 0 = A, 1 = B */
 let adventureBgActiveLayer = 0;
+
+/** Avoids repeated phase crossfades on every {@link renderTurnBattle} when the visual phase is unchanged. */
+let lastDungeonPhaseBgCrossfadeKey = "";
+
+/**
+ * When set, dungeon phase BG crossfade is deferred until {@link runLeviathanPhaseCeremony} runs at enemy-phase start.
+ */
+let pendingLeviathanPhaseCeremony = null;
 
 /** Stable 1–4 per coordinate (which of the four biome images to use). */
 function biomeBackgroundVariantIndex(x, y) {
@@ -7895,18 +8366,73 @@ function resolveAdventureBackgroundUrl(x, y, coordBgUrl, onResolved) {
 }
 
 /**
+ * Full-bleed scene art inside {@link #fightOverlay}, driven by the same URL as adventure layers.
+ * Backdrop-filter alone often fails to sample `#content` behind a fixed overlay; mirroring guarantees visible map art during combat (including dungeon phase swaps).
+ */
+function syncFightSceneBackdropFromAdventure() {
+  const overlay = document.getElementById("fightOverlay");
+  const mirror = document.getElementById("fightSceneBackdropImg");
+  if (!mirror || !overlay || overlay.classList.contains("hidden")) return;
+  if (!adventureBgLastUrl) {
+    mirror.removeAttribute("src");
+    mirror.classList.remove("fight-scene-backdrop__img--city");
+    return;
+  }
+  mirror.classList.toggle("fight-scene-backdrop__img--city", !!adventureBgLastIsCity);
+  mirror.src = adventureBgLastUrl;
+}
+
+/**
  * Crossfades between two stacked layers when the image URL changes (moving to another cell).
  * @param {boolean} isCityArt city folder art only — adds {@link adventure-bg-layer--city} for sharpen styling.
+ * @param {{ crossfadeMs?: number, ease?: string, lightning?: boolean } | null} [opts] Dungeon phase transitions: longer fade + optional lightning flash.
  */
-function crossfadeAdventureBackground(url, isCityArt) {
+function crossfadeAdventureBackground(url, isCityArt, opts) {
   const stack = document.getElementById("adventureBgStack");
   const la = document.getElementById("adventureBgLayerA");
   const lb = document.getElementById("adventureBgLayerB");
   if (!stack || !la || !lb) return;
 
+  const effectiveCrossfadeMs =
+    opts && typeof opts.crossfadeMs === "number" && opts.crossfadeMs > 0
+      ? Math.floor(opts.crossfadeMs)
+      : ADVENTURE_BG_CROSSFADE_MS;
+
   const markReady = () => stack.classList.add("adventure-bg-stack--ready");
 
+  const applyPhaseTransitionStyle = () => {
+    if (opts && typeof opts.crossfadeMs === "number" && opts.crossfadeMs > 0) {
+      stack.style.setProperty("--adventure-bg-crossfade-ms", `${effectiveCrossfadeMs}ms`);
+    }
+    if (opts && typeof opts.ease === "string" && opts.ease.trim()) {
+      stack.style.setProperty("--adventure-bg-crossfade-ease", opts.ease.trim());
+    }
+    if (opts && opts.lightning) {
+      stack.style.setProperty("--adventure-lightning-ms", `${effectiveCrossfadeMs}ms`);
+      stack.classList.remove("adventure-bg-stack--lightning-active");
+      void stack.offsetWidth;
+      stack.classList.add("adventure-bg-stack--lightning-active");
+      if (stack._adventureLightningClearT) window.clearTimeout(stack._adventureLightningClearT);
+      stack._adventureLightningClearT = window.setTimeout(() => {
+        stack.classList.remove("adventure-bg-stack--lightning-active");
+        stack._adventureLightningClearT = 0;
+      }, effectiveCrossfadeMs + 220);
+    }
+  };
+
+  const clearPhaseTransitionStyle = () => {
+    stack.style.removeProperty("--adventure-lightning-ms");
+    stack.style.removeProperty("--adventure-bg-crossfade-ms");
+    stack.style.removeProperty("--adventure-bg-crossfade-ease");
+    stack.classList.remove("adventure-bg-stack--lightning-active");
+    if (stack._adventureLightningClearT) {
+      window.clearTimeout(stack._adventureLightningClearT);
+      stack._adventureLightningClearT = 0;
+    }
+  };
+
   if (!url) {
+    clearPhaseTransitionStyle();
     la.classList.remove("adventure-bg-layer--visible", "adventure-bg--visible", "adventure-bg-layer--city");
     lb.classList.remove("adventure-bg-layer--visible", "adventure-bg--visible", "adventure-bg-layer--city");
     la.removeAttribute("src");
@@ -7915,6 +8441,7 @@ function crossfadeAdventureBackground(url, isCityArt) {
     lb.style.zIndex = "";
     adventureBgLastUrl = null;
     adventureBgLastIsCity = false;
+    syncFightSceneBackdropFromAdventure();
     return;
   }
 
@@ -7924,6 +8451,9 @@ function crossfadeAdventureBackground(url, isCityArt) {
   img.onload = () => {
     if (!la.isConnected) return;
     if (adventureBgLastUrl === null) {
+      if (opts && (opts.crossfadeMs || opts.ease || opts.lightning)) {
+        applyPhaseTransitionStyle();
+      }
       la.src = url;
       la.classList.toggle("adventure-bg-layer--city", !!isCityArt);
       la.classList.add("adventure-bg--visible", "adventure-bg-layer--visible");
@@ -7935,10 +8465,17 @@ function crossfadeAdventureBackground(url, isCityArt) {
       adventureBgLastIsCity = !!isCityArt;
       adventureBgActiveLayer = 0;
       markReady();
+      syncFightSceneBackdropFromAdventure();
+      if (opts && (opts.crossfadeMs || opts.ease || opts.lightning)) {
+        window.setTimeout(() => clearPhaseTransitionStyle(), effectiveCrossfadeMs + 80);
+      }
       return;
     }
     const incoming = adventureBgActiveLayer === 0 ? lb : la;
     const outgoing = adventureBgActiveLayer === 0 ? la : lb;
+    if (opts && (opts.crossfadeMs || opts.ease || opts.lightning)) {
+      applyPhaseTransitionStyle();
+    }
     incoming.src = url;
     incoming.classList.toggle("adventure-bg-layer--city", !!isCityArt);
     incoming.classList.add("adventure-bg--visible");
@@ -7952,17 +8489,194 @@ function crossfadeAdventureBackground(url, isCityArt) {
       adventureBgLastUrl = url;
       adventureBgLastIsCity = !!isCityArt;
       markReady();
+      syncFightSceneBackdropFromAdventure();
       window.setTimeout(() => {
         if (!outgoing.isConnected) return;
         outgoing.removeAttribute("src");
         outgoing.classList.remove("adventure-bg-layer--city");
         outgoing.style.zIndex = "0";
         incoming.style.zIndex = "1";
-      }, ADVENTURE_BG_CROSSFADE_MS + 40);
+        clearPhaseTransitionStyle();
+      }, effectiveCrossfadeMs + 40);
     });
   };
-  img.onerror = () => crossfadeAdventureBackground(null, false);
+  img.onerror = () => crossfadeAdventureBackground(null, false, null);
   img.src = url;
+}
+
+/**
+ * Swaps adventure BG layers with CSS transitions disabled so the cut is invisible (used at peak white).
+ * @param {HTMLImageElement | null} [preloaded] optional image that already loaded this URL
+ */
+function swapAdventureBackgroundInstant(url, isCityArt, preloaded) {
+  const stack = document.getElementById("adventureBgStack");
+  const la = document.getElementById("adventureBgLayerA");
+  const lb = document.getElementById("adventureBgLayerB");
+  if (!stack || !la || !lb || !url) return;
+  if (url === adventureBgLastUrl) return;
+
+  const markReady = () => stack.classList.add("adventure-bg-stack--ready");
+
+  const cleanupStackDecor = () => {
+    stack.style.removeProperty("--adventure-lightning-ms");
+    stack.style.removeProperty("--adventure-bg-crossfade-ms");
+    stack.style.removeProperty("--adventure-bg-crossfade-ease");
+    stack.classList.remove("adventure-bg-stack--lightning-active");
+    if (stack._adventureLightningClearT) {
+      window.clearTimeout(stack._adventureLightningClearT);
+      stack._adventureLightningClearT = 0;
+    }
+  };
+
+  const applySwap = () => {
+    if (!la.isConnected) return;
+    cleanupStackDecor();
+    stack.classList.add("adventure-bg-stack--instant-swap");
+    try {
+      if (adventureBgLastUrl === null) {
+        la.src = url;
+        la.classList.toggle("adventure-bg-layer--city", !!isCityArt);
+        la.classList.add("adventure-bg--visible", "adventure-bg-layer--visible");
+        lb.classList.remove("adventure-bg-layer--visible", "adventure-bg--visible", "adventure-bg-layer--city");
+        lb.removeAttribute("src");
+        la.style.zIndex = "1";
+        lb.style.zIndex = "0";
+        adventureBgLastUrl = url;
+        adventureBgLastIsCity = !!isCityArt;
+        adventureBgActiveLayer = 0;
+        markReady();
+        syncFightSceneBackdropFromAdventure();
+        return;
+      }
+      const incoming = adventureBgActiveLayer === 0 ? lb : la;
+      const outgoing = adventureBgActiveLayer === 0 ? la : lb;
+      incoming.src = url;
+      incoming.classList.toggle("adventure-bg-layer--city", !!isCityArt);
+      incoming.classList.add("adventure-bg--visible");
+      incoming.style.zIndex = "2";
+      outgoing.style.zIndex = "1";
+      incoming.classList.add("adventure-bg-layer--visible");
+      outgoing.classList.remove("adventure-bg-layer--visible", "adventure-bg--visible");
+      outgoing.classList.remove("adventure-bg-layer--city");
+      adventureBgActiveLayer = 1 - adventureBgActiveLayer;
+      adventureBgLastUrl = url;
+      adventureBgLastIsCity = !!isCityArt;
+      markReady();
+      syncFightSceneBackdropFromAdventure();
+      outgoing.removeAttribute("src");
+      outgoing.style.zIndex = "0";
+      incoming.style.zIndex = "1";
+    } finally {
+      stack.classList.remove("adventure-bg-stack--instant-swap");
+    }
+  };
+
+  if (preloaded && preloaded.complete && preloaded.naturalWidth > 0) {
+    applySwap();
+    return;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    if (!la.isConnected) return;
+    applySwap();
+  };
+  img.onerror = () => {
+    stack.classList.remove("adventure-bg-stack--instant-swap");
+  };
+  img.src = url;
+}
+
+function getLeviathanPhaseCeremonyTimings() {
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return {
+        brightenMs: 1,
+        fadeDownMs: 1,
+        flashMaxOpacity: 0.88,
+        shake: false
+      };
+    }
+  } catch (_e) {
+    /* ignore */
+  }
+  return {
+    brightenMs: LEVIATHAN_PHASE_BRIGHTEN_MS,
+    fadeDownMs: LEVIATHAN_PHASE_FADE_DOWN_MS,
+    flashMaxOpacity: LEVIATHAN_PHASE_FLASH_MAX_OPACITY,
+    shake: true
+  };
+}
+
+function getLeviathanPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "The storm surges—the arena warps as the leviathan's phase shifts.",
+    2: "Thunder tightens its coil—the battlefield shears into a deadlier shape.",
+    3: "The maelstrom peaks—lightning tears the horizon as the arena transforms."
+  };
+  return byStem[ix] || "The Stormwake Leviathan's domain shifts into a new phase.";
+}
+
+function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
+  const def = getDungeonDef(dungeonId);
+  const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
+  const stems = room && Array.isArray(room.bgPhaseStems) ? room.bgPhaseStems : null;
+  if (!stems || stems.length < 2) return false;
+  const levi = st.foes && st.foes.find((f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0);
+  return !!levi;
+}
+
+function runLeviathanPhaseCeremony(done) {
+  const pend = pendingLeviathanPhaseCeremony;
+  if (!pend || !pend.url) {
+    if (typeof done === "function") done();
+    return;
+  }
+  const timings = getLeviathanPhaseCeremonyTimings();
+  const flash = document.getElementById("fightPhaseFlashOverlay");
+  const field = document.querySelector("#fightOverlay .fight-field-area");
+
+  appendFightLog(pend.message);
+  if (timings.shake && field) field.classList.add("fight-field-area--phase-shake");
+
+  const cleanupFlashStyles = () => {
+    if (!flash) return;
+    flash.style.opacity = "";
+    flash.style.transition = "";
+  };
+
+  const finish = () => {
+    if (field) field.classList.remove("fight-field-area--phase-shake");
+    pendingLeviathanPhaseCeremony = null;
+    cleanupFlashStyles();
+    if (typeof done === "function") done();
+  };
+
+  if (!flash || timings.brightenMs <= 1) {
+    swapAdventureBackgroundInstant(pend.url, pend.isCityArt, pend.preloadImg);
+    lastDungeonPhaseBgCrossfadeKey = pend.resolveKey;
+    finish();
+    return;
+  }
+
+  flash.style.opacity = "0";
+  flash.style.transition = "none";
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      flash.style.transition = `opacity ${timings.brightenMs}ms cubic-bezier(0.42, 0, 0.58, 1)`;
+      flash.style.opacity = String(timings.flashMaxOpacity);
+    });
+  });
+
+  window.setTimeout(() => {
+    if (field) field.classList.remove("fight-field-area--phase-shake");
+    swapAdventureBackgroundInstant(pend.url, pend.isCityArt, pend.preloadImg);
+    lastDungeonPhaseBgCrossfadeKey = pend.resolveKey;
+    flash.style.transition = `opacity ${timings.fadeDownMs}ms cubic-bezier(0.35, 0, 0.45, 1)`;
+    flash.style.opacity = "0";
+    window.setTimeout(finish, timings.fadeDownMs + 50);
+  }, timings.brightenMs);
 }
 
 /**
@@ -8425,21 +9139,102 @@ function clearDungeonRun() {
   if (!player.worldMap || typeof player.worldMap !== "object") return;
   delete player.worldMap.dungeonRun;
   delete player.worldMap.dungeonPostCombat;
+  lastDungeonPhaseBgCrossfadeKey = "";
+  pendingLeviathanPhaseCeremony = null;
 }
 
-function resolveDungeonRoomBackgroundUrl(dungeonId, roomIndex, onResolved) {
+function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
+  const def = getDungeonDef(dungeonId);
+  const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
+  const stems = room && Array.isArray(room.bgPhaseStems) ? room.bgPhaseStems : null;
+  if (!stems || stems.length < 2) return null;
+  const co = combatOptional;
+  const ctx = co && co.worldMapContext;
+  const inThisRoomFight =
+    co &&
+    co.phase !== "ended" &&
+    ctx &&
+    ctx.dungeonId === dungeonId &&
+    typeof ctx.roomIndex === "number" &&
+    ctx.roomIndex === roomIndex;
+  if (!inThisRoomFight) return 0;
+  const levi = co.foes && co.foes.find((f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0);
+  if (!levi || !(levi.maxHp > 0)) return Math.min(1, stems.length - 1);
+  const frac = levi.hp / levi.maxHp;
+  if (frac > 0.7) return Math.min(1, stems.length - 1);
+  if (frac > 0.3) return Math.min(2, stems.length - 1);
+  return Math.min(3, stems.length - 1);
+}
+
+function resolveDungeonRoomBackgroundUrl(dungeonId, roomIndex, phaseStemIndex, onResolved) {
   const def = getDungeonDef(dungeonId);
   if (!def || !Array.isArray(def.rooms) || roomIndex < 0 || roomIndex >= def.rooms.length) {
     onResolved(null, false);
     return;
   }
   const base = typeof def.assetBase === "string" ? def.assetBase.trim().replace(/\/+$/, "") : "";
-  const stem = def.rooms[roomIndex] && typeof def.rooms[roomIndex].bg === "string" ? def.rooms[roomIndex].bg.trim() : "";
+  const room = def.rooms[roomIndex];
+  const stems = room && Array.isArray(room.bgPhaseStems) ? room.bgPhaseStems : null;
+  let stem = "";
+  if (stems && stems.length) {
+    const ix =
+      typeof phaseStemIndex === "number" && Number.isFinite(phaseStemIndex)
+        ? Math.max(0, Math.min(Math.floor(phaseStemIndex), stems.length - 1))
+        : 0;
+    stem = typeof stems[ix] === "string" ? stems[ix].trim() : "";
+  } else if (room && typeof room.bg === "string") {
+    stem = room.bg.trim();
+  }
   if (!base || !stem) {
     onResolved(null, false);
     return;
   }
   tryAdventureBackgroundExtensions(`${base}/${stem}`, (url) => onResolved(url, false));
+}
+
+function refreshDungeonPhaseBackgroundFromCombat(st) {
+  if (!st || st.phase === "ended") return;
+  const ctx = st.worldMapContext;
+  if (!ctx || typeof ctx.dungeonId !== "string" || typeof ctx.roomIndex !== "number") return;
+  const idx = getDungeonRoomBgPhaseStemIndex(ctx.dungeonId, ctx.roomIndex, st);
+  if (idx === null) return;
+  const key = `${ctx.dungeonId}|${ctx.roomIndex}|${idx}`;
+  if (key === lastDungeonPhaseBgCrossfadeKey) return;
+  if (pendingLeviathanPhaseCeremony && pendingLeviathanPhaseCeremony.resolveKey === key) return;
+
+  const deferCeremony =
+    lastDungeonPhaseBgCrossfadeKey !== "" &&
+    shouldDeferLeviathanPhaseBgCeremony(ctx.dungeonId, ctx.roomIndex, st);
+
+  if (deferCeremony) {
+    resolveDungeonRoomBackgroundUrl(ctx.dungeonId, ctx.roomIndex, idx, (url, isCityArt) => {
+      if (!url) return;
+      const preloadImg = new Image();
+      preloadImg.onload = () => {};
+      preloadImg.onerror = () => {};
+      preloadImg.src = url;
+      pendingLeviathanPhaseCeremony = {
+        url,
+        isCityArt,
+        stemIndex: idx,
+        message: getLeviathanPhaseTransitionLogMessage(idx),
+        resolveKey: key,
+        preloadImg
+      };
+    });
+    return;
+  }
+
+  lastDungeonPhaseBgCrossfadeKey = key;
+  resolveDungeonRoomBackgroundUrl(ctx.dungeonId, ctx.roomIndex, idx, (url, isCityArt) => {
+    if (url) {
+      crossfadeAdventureBackground(url, isCityArt, {
+        crossfadeMs: DUNGEON_PHASE_BG_CROSSFADE_MS,
+        ease: DUNGEON_PHASE_BG_EASE,
+        lightning: true
+      });
+    }
+  });
 }
 
 /**
@@ -9048,6 +9843,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "nera_stormwatch_epilogue") {
+    const sbDef = getDungeonDef("stormbreak_hollow");
+    const ex =
+      sbDef && sbDef.entrance && typeof sbDef.entrance.x === "number" ? Math.floor(sbDef.entrance.x) : 28;
+    const ey =
+      sbDef && sbDef.entrance && typeof sbDef.entrance.y === "number" ? Math.floor(sbDef.entrance.y) : 43;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(72.73526824978013),
+        topPct: clampScenePct(64.16592328278324),
+        scalePct: clampSceneScalePct(54)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -9175,6 +9984,19 @@ function buildNpcLayoutExportByCoordinate() {
     }
     if (sgEnt && x === sgEnt.x && y === sgEnt.y) {
       const epId = "hollis_dredge_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 100;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const sbDef = getDungeonDef("stormbreak_hollow");
+    const sbEnt =
+      sbDef && sbDef.entrance && typeof sbDef.entrance.x === "number" && typeof sbDef.entrance.y === "number"
+        ? { x: Math.floor(sbDef.entrance.x), y: Math.floor(sbDef.entrance.y) }
+        : null;
+    if (sbEnt && x === sbEnt.x && y === sbEnt.y) {
+      const epId = "nera_stormwatch_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 100;
       if (!epDefault) {
@@ -10060,13 +10882,11 @@ function onAdventureSceneButtonClick(e) {
     return true;
   }
   if (payload.type === "dungeon_epilogue" && typeof payload.dungeonId === "string") {
-    if (payload.dungeonId.trim() === "sunken_grotto") {
-      openHollisEpilogueDialog();
-      return true;
-    }
+    openDungeonEpilogueDialog(payload.dungeonId.trim());
+    return true;
   }
   if ((payload.type === "npc" || payload.type === "note") && typeof payload.dungeonEntrance === "string" && payload.dungeonEntrance.trim()) {
-    openHollisEntranceDialog(payload.dungeonEntrance.trim());
+    openDungeonEntranceDialog(payload.dungeonEntrance.trim());
     return true;
   }
   if ((payload.type === "npc" || payload.type === "note") && typeof payload.text === "string") {
@@ -10990,6 +11810,11 @@ function getHeroCombatStatusEffectLines(st) {
   if ((s.playerDamageDownTurns || 0) > 0 && (s.playerDamageDownPct || 0) > 0) {
     lines.push(`Suppressed (${s.playerDamageDownTurns}t): −${roundCombatDisplay(s.playerDamageDownPct)}% damage you deal`);
   }
+  if ((s.playerOutgoingAccuracyDownTurns || 0) > 0 && (s.playerOutgoingAccuracyDownPct || 0) > 0) {
+    lines.push(
+      `Accuracy down (${s.playerOutgoingAccuracyDownTurns}t): −${roundCombatDisplay(s.playerOutgoingAccuracyDownPct)}% hit chance`
+    );
+  }
   if ((s.playerComboChanceDownTurns || 0) > 0 && (s.playerComboChanceDownPct || 0) > 0) {
     lines.push(
       `Combo down (${s.playerComboChanceDownTurns}t): −${roundCombatDisplay(s.playerComboChanceDownPct)}% combo stamina refund chance`
@@ -10997,6 +11822,11 @@ function getHeroCombatStatusEffectLines(st) {
   }
   if ((s.playerStaminaCostUpTurns || 0) > 0 && (s.playerStaminaCostUpPct || 0) > 0) {
     lines.push(`Fatigue (${s.playerStaminaCostUpTurns}t): +${roundCombatDisplay(s.playerStaminaCostUpPct)}% stamina costs`);
+  }
+  if ((s.playerStormfangCritDamageTurns || 0) > 0 && (s.playerStormfangCritDamagePct || 0) > 0) {
+    lines.push(
+      `Stormfang charge (${s.playerStormfangCritDamageTurns}t): +${roundCombatDisplay(s.playerStormfangCritDamagePct)}% crit damage`
+    );
   }
   return lines;
 }
@@ -11044,6 +11874,11 @@ function getFoeCombatStatusEffectLines(foe) {
   if ((c.poisonTurns || 0) > 0 && (c.poisonDamage || 0) > 0)
     lines.push(`Poisoned (${c.poisonTurns}t): ${roundCombatDisplay(c.poisonDamage)}/turn`);
   if ((c.weakenTurns || 0) > 0) lines.push(`Weakened (${c.weakenTurns}t): deals ~12% less`);
+  if ((c.playerStormwakeMarkTurns || 0) > 0) {
+    const extra =
+      getPlayerEquippedSetPieceCount("Stormwake Set") >= 4 ? ", +4% skill damage taken" : "";
+    lines.push(`Storm Mark (${c.playerStormwakeMarkTurns}t): +6% damage taken, −4% accuracy${extra}`);
+  }
   if ((c.echoCryBonusTurns || 0) > 0) lines.push(`Echo Cry (${c.echoCryBonusTurns}t): ~+25% damage dealt`);
   if (typeof c.evadeNextChance === "number" && c.evadeNextChance > 0.001) {
     lines.push(`Next dodge chance: ${roundCombatDisplay(c.evadeNextChance * 100)}%`);
@@ -11149,6 +11984,13 @@ function clearPlayerTurnTimer() {
   }
 }
 
+function clearEnemyTurnTimer() {
+  if (enemyTurnTimerTick) {
+    clearInterval(enemyTurnTimerTick);
+    enemyTurnTimerTick = null;
+  }
+}
+
 function syncFightTurnTimerDisplay() {
   const el = document.getElementById("fightTurnTimer");
   if (!el) return;
@@ -11165,6 +12007,51 @@ function syncFightTurnTimerDisplay() {
   }
   const left = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
   el.textContent = `${left}s`;
+}
+
+function syncEnemyTurnTimerDisplay() {
+  const el = document.getElementById("fightEnemyTurnTimer");
+  if (!el) return;
+  const st = combatState;
+  if (!st || st.phase !== "enemy") {
+    el.textContent = "—";
+    return;
+  }
+  const end = el.getAttribute("data-end-at");
+  const endMs = end ? parseInt(end, 10) : 0;
+  if (!endMs) {
+    el.textContent = `${PLAYER_TURN_SECONDS}s`;
+    return;
+  }
+  const left = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
+  el.textContent = `${left}s`;
+}
+
+/** Visible countdown during enemy phase (reserved for PvP / turns that enforce a clock; solo play does not end the phase at 0). */
+function startEnemyTurnTimer() {
+  clearEnemyTurnTimer();
+  const st = combatState;
+  if (!st || st.phase !== "enemy") return;
+  const el = document.getElementById("fightEnemyTurnTimer");
+  let endMs =
+    typeof st.enemyTurnTimerEndMs === "number"
+      ? st.enemyTurnTimerEndMs
+      : Date.now() + PLAYER_TURN_SECONDS * 1000;
+  if (typeof st.enemyTurnTimerEndMs !== "number") {
+    st.enemyTurnTimerEndMs = endMs;
+  }
+  if (el) {
+    el.setAttribute("data-end-at", String(endMs));
+  }
+  syncEnemyTurnTimerDisplay();
+  enemyTurnTimerTick = setInterval(() => {
+    const cur = combatState;
+    if (!cur || cur.phase !== "enemy") {
+      clearEnemyTurnTimer();
+      return;
+    }
+    syncEnemyTurnTimerDisplay();
+  }, 250);
 }
 
 function startPlayerTurnTimer() {
@@ -11216,6 +12103,47 @@ function shakeFightOverlay() {
   overlay.classList.add("shake");
 }
 
+/**
+ * Skill icon buttons for the combat action row; dims icons for cooldown or insufficient stamina; overlays CD turns when applicable.
+ * @param {{ stamina?: number }} [_active] Party member when `isHero` is false (companion stamina).
+ */
+function buildCombatSkillButtonsHtml(st, skills, isHero, _active) {
+  const readonly = st.phase === "ended";
+  const stam = isHero
+    ? typeof st.stamina === "number"
+      ? st.stamina
+      : 0
+    : _active && typeof _active.stamina === "number"
+      ? _active.stamina
+      : 0;
+  let html = "";
+  skills.forEach((sk) => {
+    const sImg = escapeAttr(getSkillImage(sk.name));
+    const sc = isHero
+      ? resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name)
+      : getSkillStaminaCost(sk.name);
+    const cdLeft = getClassSkillCooldownRemaining(st, sk.name);
+    const onCd = cdLeft > 0;
+    const staminaBlocked = !readonly && !onCd && stam < sc;
+    const dimmed = onCd || staminaBlocked;
+    const canUse = !readonly && stam >= sc && !onCd;
+    const dis = canUse ? "" : " disabled";
+    const cdClass = dimmed ? " fight-skill-btn--cooldown" : "";
+    const titleBase = `${sk.name} (${sc} stamina)`;
+    let title = titleBase;
+    if (onCd && cdLeft > 0) {
+      title = `${titleBase} — Cooldown: ${cdLeft} turn${cdLeft === 1 ? "" : "s"}`;
+    } else if (staminaBlocked) {
+      title = `${titleBase} — Need ${sc} stamina (have ${stam})`;
+    }
+    const badge = onCd ? `<span class="fight-skill-cd-badge">${cdLeft}</span>` : "";
+    html += `<button type="button" class="btn-secondary fight-skill-btn${cdClass}"${dis} data-fight-skill="${escapeAttr(
+      sk.name
+    )}" title="${escapeAttr(title)}"><span class="fight-skill-btn-stack"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" />${badge}</span></button>`;
+  });
+  return html;
+}
+
 function renderTurnBattle() {
   const st = combatState;
   const hud = document.getElementById("fightHud");
@@ -11230,6 +12158,7 @@ function renderTurnBattle() {
   ensureCombatParty(st);
 
   ensureActivePartyUid(st);
+  const megaLeviathanPortrait = isStormbreakHollowLeviathanBossRoomFight(st);
   let partyHtml = "";
   (st.party || [])
     .filter((m) => m && m.hp > 0)
@@ -11299,8 +12228,11 @@ function renderTurnBattle() {
     const moodLabel = typeof f.moodName === "string" ? f.moodName.trim() : "";
     const moodHtml = moodLabel ? `<span class="fight-card-meta fight-card-mood">${escapeHtml(moodLabel)}</span>` : "";
     const lvl = typeof f.level === "number" ? f.level : 1;
+    const megaBoss =
+      megaLeviathanPortrait && f.name === "The Stormwake Leviathan" && cardClass === "fight-enemy-card--summoner";
+    const megaCls = megaBoss ? " fight-enemy-card--leviathan-mega" : "";
     const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
-    return `<div class="fight-enemy-card ${cardClass || ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
+    return `<div class="fight-enemy-card ${cardClass || ""}${megaCls} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
       <div class="fight-enemy-panel">
         ${foeVisualHtml}
         <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
@@ -11318,7 +12250,9 @@ function renderTurnBattle() {
   rootFoes.forEach((foe) => {
     const summons = summonsBySummoner.get(foe.uid) || [];
     const summonsHtml = summons.map((s) => renderEnemyCard(s, "fight-enemy-card--summon")).join("");
-    enemiesHtml += `<div class="fight-enemy-group">
+    const groupMega = megaLeviathanPortrait && foe.name === "The Stormwake Leviathan";
+    const groupCls = groupMega ? "fight-enemy-group fight-enemy-group--leviathan-mega" : "fight-enemy-group";
+    enemiesHtml += `<div class="${groupCls}">
       ${renderEnemyCard(foe, "fight-enemy-card--summoner")}
       ${summonsHtml}
     </div>`;
@@ -11338,8 +12272,25 @@ function renderTurnBattle() {
 
   if (actionsEl) {
     if (st.phase === "ended") {
-      actionsEl.classList.add("hidden");
-      actionsEl.innerHTML = "";
+      actionsEl.classList.remove("hidden");
+      const atkBasePreview = resolveAttackStaminaCost();
+      const stamEnd = typeof st.stamina === "number" ? st.stamina : 0;
+      const maxSEnd = typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina();
+      const skillsPreview = getActiveCombatSkills();
+      const skillBtnsPreview = buildCombatSkillButtonsHtml(st, skillsPreview, true, null);
+      const won = st.endOutcome !== "defeat";
+      const hintEnd = won
+        ? "Victory — XP, gold, and loot are listed beside the combat log."
+        : "Defeat — no rewards. Close when ready.";
+      actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span class="fight-turn-timer fight-turn-timer--inactive">—</span></div>
+          <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stamEnd} / ${maxSEnd}</span></div>
+          <p class="fight-hint">${hintEnd}</p>
+          <div class="fight-action-row fight-action-row--ended">
+            <button type="button" class="btn-primary" disabled data-fight-action="attack">Attack (${atkBasePreview})</button>
+            <button type="button" class="btn-secondary fight-pass-btn" disabled data-fight-action="pass">End turn</button>
+            <button type="button" class="btn-secondary" disabled data-fight-action="leave">Leave (forfeit)</button>
+            ${skillBtnsPreview}
+          </div>`;
     } else if (st.phase === "player") {
       actionsEl.classList.remove("hidden");
       const active = getActivePartyMember(st);
@@ -11363,16 +12314,7 @@ function renderTurnBattle() {
           : (typeof active.maxStamina === "number" ? active.maxStamina : (actor ? getActorCombatMaxStamina(actor) : 0));
         const atkBase = isHero ? resolveAttackStaminaCost() : getAttackStaminaCost();
         const canAtk = stam >= atkBase;
-        let skillBtns = "";
-        skills.forEach((sk) => {
-          const sImg = escapeAttr(getSkillImage(sk.name));
-          const sc = isHero
-            ? resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name)
-            : getSkillStaminaCost(sk.name);
-          const canSk = stam >= sc;
-          const dis = canSk ? "" : " disabled";
-          skillBtns += `<button type="button" class="btn-secondary fight-skill-btn"${dis} data-fight-skill="${escapeAttr(sk.name)}" title="${escapeAttr(sk.name)} (${sc} stamina)"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" /></button>`;
-        });
+        const skillBtns = buildCombatSkillButtonsHtml(st, skills, isHero, active);
         const actorLabel = escapeHtml(active.name || (isHero ? "Hero" : "Companion"));
         const hint = hasAoeSkill
           ? `Acting: <strong>${actorLabel}</strong>. Stamina refills each turn. Spend it on attacks and skills; End turn when you are done. Area skills hit all enemies.`
@@ -11390,10 +12332,12 @@ function renderTurnBattle() {
       }
     } else {
       actionsEl.classList.remove("hidden");
-      actionsEl.innerHTML = `<p class="fight-hint fight-hint--enemy">Enemies are attacking…</p>
-        <div class="fight-action-row">
-          <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
-        </div>`;
+      actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Enemy time</span><span id="fightEnemyTurnTimer" class="fight-turn-timer" data-end-at="">${PLAYER_TURN_SECONDS}s</span></div>
+          <div class="fight-stamina-row fight-stamina-row--enemy-phase" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num fight-stamina-num--inactive">—</span></div>
+          <p class="fight-hint fight-hint--enemy">Enemies are attacking…</p>
+          <div class="fight-action-row fight-action-row--enemy-phase">
+            <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
+          </div>`;
     }
   }
 
@@ -11405,22 +12349,41 @@ function renderTurnBattle() {
     }
   }
 
+  clearEnemyTurnTimer();
   if (st.phase === "player") {
     startPlayerTurnTimer();
+  } else if (st.phase === "enemy") {
+    clearPlayerTurnTimer();
+    startEnemyTurnTimer();
   } else {
     clearPlayerTurnTimer();
+    clearEnemyTurnTimer();
     const tEl = document.getElementById("fightTurnTimer");
     if (tEl) {
       tEl.removeAttribute("data-end-at");
       tEl.textContent = "—";
     }
+    const eEl = document.getElementById("fightEnemyTurnTimer");
+    if (eEl) {
+      eEl.removeAttribute("data-end-at");
+      eEl.textContent = "—";
+    }
   }
+
+  const fightTitleEl = document.querySelector("#fightOverlay .fight-title");
+  if (fightTitleEl) {
+    if (st.phase === "ended") fightTitleEl.textContent = st.endOutcome === "defeat" ? "Defeat" : "Victory";
+    else fightTitleEl.textContent = "Combat";
+  }
+
+  refreshDungeonPhaseBackgroundFromCombat(st);
 }
 
 function runEnemyPhase() {
   const st = combatState;
   if (!st) return;
   st.phase = "enemy";
+  st.enemyTurnTimerEndMs = Date.now() + PLAYER_TURN_SECONDS * 1000;
   const cs = ensurePlayerClassCombatState(st);
   cs.unbreakableTriggeredThisEnemyPhase = false;
   cs.indomitableTriggeredThisEnemyPhase = false;
@@ -11434,6 +12397,7 @@ function runEnemyPhase() {
     return;
   }
 
+  function beginEnemyAttackLoop() {
   let i = 0;
   function nextHit() {
     const cur = combatState;
@@ -11444,6 +12408,8 @@ function runEnemyPhase() {
     }
     if (i >= living.length) {
       tickEffectsAtStartOfPlayerTurn(cur);
+      tickStormMarksAtStartOfPlayerTurn(cur);
+      applyStormPressureIfDue(cur);
       if (!isPartyAlive(cur)) {
         syncCombatPartyHeroMirror(cur);
         setTimeout(() => finishCombatDefeat(), 200);
@@ -11459,13 +12425,13 @@ function runEnemyPhase() {
         return;
       }
       cur.phase = "player";
+      delete cur.enemyTurnTimerEndMs;
       ensureCombatTarget();
       refillCombatStamina(cur);
       cur.comboRefundedThisTurn = false;
       tickPlayerClassStartOfTurn(cur);
       startPlayerPhaseActors(cur);
       renderTurnBattle();
-      startPlayerTurnTimer();
       return;
     }
     const foe = living[i];
@@ -11516,6 +12482,14 @@ function runEnemyPhase() {
   }
 
   setTimeout(nextHit, 200);
+  }
+
+  if (pendingLeviathanPhaseCeremony) {
+    runLeviathanPhaseCeremony(() => beginEnemyAttackLoop());
+    return;
+  }
+
+  beginEnemyAttackLoop();
 }
 
 function hideFightResults() {
@@ -11571,6 +12545,7 @@ function finishCombatVictory() {
   const st = combatState;
   if (!st) return;
   st.phase = "ended";
+  st.endOutcome = "victory";
   syncCombatPartyHeroMirror(st);
   syncCompanionHpFromCombatParty(st);
   const { gold, xp, items } = computeVictoryLoot(st.foes, st.party);
@@ -11619,6 +12594,7 @@ function finishCombatDefeat() {
   const st = combatState;
   if (!st) return;
   st.phase = "ended";
+  st.endOutcome = "defeat";
   syncCombatPartyHeroMirror(st);
   syncCompanionHpFromCombatParty(st);
   const result = {
@@ -12193,6 +13169,7 @@ function playerCombatAction(kind, skillName) {
       kind === "skill" && skillName ? getCombatDamage("skill", skillName) : getCombatDamage("attack");
     raw = Math.max(1, Math.floor(raw * getPlayerOutgoingDamageMultFromStatus(st.status)));
     raw = Math.max(1, Math.floor(raw * getPlayerClassOutgoingMult(st, kind === "skill" ? skillName : null, targetFoe || null)));
+    raw = maybeApplyStormfangStormMarkDamageBonus(st, targetFoe || null, raw);
     return raw;
   }
 
@@ -12230,18 +13207,28 @@ function playerCombatAction(kind, skillName) {
     st.heroAttackUntil = Date.now() + 320;
     queueCombatVisualRefresh(340);
     for (const foe of living) {
+      if (!foe.combat) foe.combat = {};
+      const stormwakeSig0 = getFoeStormwakeDebuffSignature(foe.combat);
       const baseDmg = resolveOutgoingBaseDamage(foe);
       if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
         const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
         foe.combat.evadeNextChance = 0;
         if (Math.random() < p) {
           appendFightLog(`${foe.name} evades ${label}!`);
+          tryStormwakeStormSurgeOnStrike(st, foe, {
+            crit: false,
+            debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
+          });
           continue;
         }
       }
       const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
       if (res.missed) {
         appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+        tryStormwakeStormSurgeOnStrike(st, foe, {
+          crit: false,
+          debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
+        });
         continue;
       }
       const dmg = res.damage;
@@ -12259,6 +13246,10 @@ function playerCombatAction(kind, skillName) {
       if (foe.combat && foe.combat.script === "grass_snake") {
         foe.combat.markedByPlayer = true;
       }
+      tryStormwakeStormSurgeOnStrike(st, foe, {
+        crit: !!res.crit,
+        debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
+      });
     }
     afterHitsCommit();
     return;
@@ -12289,6 +13280,8 @@ function playerCombatAction(kind, skillName) {
   }
 
   const label = kind === "skill" && skillName ? skillName : "Attack";
+  if (!foe.combat) foe.combat = {};
+  const stormwakeSig0 = getFoeStormwakeDebuffSignature(foe.combat);
   applyPlayerClassSkillCast(st, skillName, foe);
   if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
     const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
@@ -12302,6 +13295,10 @@ function playerCombatAction(kind, skillName) {
         finishCombatVictory();
         return;
       }
+      tryStormwakeStormSurgeOnStrike(st, foe, {
+        crit: false,
+        debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
+      });
       afterHitsCommit();
       return;
     }
@@ -12314,6 +13311,10 @@ function playerCombatAction(kind, skillName) {
   queueCombatVisualRefresh(340);
   if (res.missed) {
     appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+    tryStormwakeStormSurgeOnStrike(st, foe, {
+      crit: false,
+      debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
+    });
     afterHitsCommit();
     return;
   }
@@ -12332,6 +13333,11 @@ function playerCombatAction(kind, skillName) {
   if (foe.combat && foe.combat.script === "grass_snake") {
     foe.combat.markedByPlayer = true;
   }
+
+  tryStormwakeStormSurgeOnStrike(st, foe, {
+    crit: !!res.crit,
+    debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
+  });
 
   afterHitsCommit();
 }
@@ -12361,6 +13367,7 @@ function ensureActivePartyUid(st) {
 
 function startPlayerPhaseActors(st) {
   if (!st || !Array.isArray(st.party)) return;
+  st.stormfangMarkDamageUsedThisPlayerTurn = false;
   st.party.forEach((m) => {
     if (!m) return;
     m.acted = false;
@@ -12426,6 +13433,11 @@ function companionCombatAction(member, kind, skillName) {
 
   const dealToFoe = (foe) => {
     if (!foe || foe.hp <= 0) return;
+    const accPenalty = getPlayerOutgoingAccuracyPenaltyPct(st, member);
+    if (accPenalty > 0 && Math.random() * 100 < accPenalty) {
+      appendFightLog(`${member.name} uses ${label} on ${foe.name}, but misses.`);
+      return;
+    }
     const dmg = Math.max(1, Math.floor(baseDmg * mult));
     foe.hp = Math.max(0, foe.hp - dmg);
     appendFightLog(`${member.name} uses ${label} on ${foe.name} for ${dmg} damage.`);
@@ -12669,24 +13681,136 @@ function openHollisEntranceDialog(dungeonId) {
     <p class="npc-dialog-speaker">Hollis Dredge</p>
     <p class="npc-dialog-body">Oi—watch your step! Took me three days to dig this cursed door out… and it’s still hummin’ at me. You got the key for it, or are you just here to admire my hole?</p>
     <div class="npc-dialog-actions">
-      <button type="button" class="btn-primary" data-hollis-choice="give_key">Give Key</button>
-      <button type="button" class="btn-secondary" data-hollis-choice="leave">Leave</button>
+      <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="sunken_grotto">Give Key</button>
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="sunken_grotto">Leave</button>
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
 }
 
-function openHollisKeyAcceptedDialog() {
+function openNeraStormwatchEntranceDialog() {
   const html = `<div class="npc-dialog-bubble">
-    <p class="npc-dialog-body">Ahh… there it is. Right then—if you don’t come back, I’m fillin’ this thing back in.</p>
-    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-hollis-choice="enter_dungeon">Continue</button></div>
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">Hold there. That arch doesn't open for curiosity.</p>
+    <p class="npc-dialog-body">Stormbreak Hollow eats fools, gear, and sometimes the cliff under your feet.</p>
+    <p class="npc-dialog-body">If you've got a Stormbreak Hollow Key, I can get you through. If not, I suggest admiring the view from somewhere safer.</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-choice="stormbreak_use_key" data-dungeon-id="stormbreak_hollow">Use Stormbreak Hollow Key</button>
+      <button type="button" class="btn-secondary" data-dungeon-choice="stormbreak_leave_intro" data-dungeon-id="stormbreak_hollow">Leave</button>
+    </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
 }
 
-function beginSunkenGrottoDungeonRunFromModal() {
-  const def = getDungeonDef("sunken_grotto");
-  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Sunken Grotto Key";
+function openNeraStormwatchReadyDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">Hah. You actually brought one.</p>
+    <p class="npc-dialog-body">Good. When the door starts screaming, don't scream back. It only encourages the place.</p>
+    <p class="npc-dialog-body">Ready?</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-choice="stormbreak_enter" data-dungeon-id="stormbreak_hollow">Enter Stormbreak Hollow</button>
+      <button type="button" class="btn-secondary" data-dungeon-choice="stormbreak_leave_ready" data-dungeon-id="stormbreak_hollow">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openNeraStormwatchEnterFlavorDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">Right then. Key goes in, storm wakes up… and you lot try not to become weather.</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="stormbreak_hollow">Continue</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openNeraStormwatchNoKeyDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">No key.</p>
+    <p class="npc-dialog-body">That's usually the part where brave people become sensible people.</p>
+    <p class="npc-dialog-body">You'll need a Stormbreak Hollow Key before I let you near that door. I'm not scraping another hero off the rocks today.</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="stormbreak_no_key_leave" data-dungeon-id="stormbreak_hollow">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openNeraStormwatchLeaveHesitateDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">Smart enough to hesitate. That's rare out here.</p>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="close" data-dungeon-id="stormbreak_hollow">Close</button></div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openNeraStormwatchNoKeyPartingDialog() {
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">Come back when you've got the key… or better judgment. Either works.</p>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="close" data-dungeon-id="stormbreak_hollow">Close</button></div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openDungeonEntranceDialog(dungeonId) {
+  const id = typeof dungeonId === "string" ? dungeonId.trim() : "";
+  const def = getDungeonDef(id);
+  if (!def) {
+    showModal("This entrance is not configured.");
+    return;
+  }
+  if (id === "sunken_grotto") {
+    openHollisEntranceDialog(id);
+    return;
+  }
+  if (id === "stormbreak_hollow") {
+    openNeraStormwatchEntranceDialog();
+    return;
+  }
+  const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
+  const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">${escapeHtml(name)}</p>
+    <p class="npc-dialog-body">Stormwater grinds behind the sealed stone. The hollow will open only for ${escapeHtml(keyName)}.</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="${escapeAttr(id)}">Give Key</button>
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="${escapeAttr(id)}">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openDungeonKeyAcceptedDialog(dungeonId) {
+  const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
+  const isSunken = id === "sunken_grotto";
+  const body = isSunken
+    ? "Ahh… there it is. Right then—if you don’t come back, I’m fillin’ this thing back in."
+    : "The key turns by itself. Thunder exhales from the gap ahead.";
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-body">${escapeHtml(body)}</p>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openHollisKeyAcceptedDialog() {
+  openDungeonKeyAcceptedDialog("sunken_grotto");
+}
+
+function beginDungeonRunFromModal(dungeonId) {
+  const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
+  const def = getDungeonDef(id);
+  if (!def) {
+    showModal("This dungeon is not configured.");
+    return;
+  }
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Dungeon Key";
   const idx = player.inventory.indexOf(keyName);
   if (idx === -1) {
     showModal("You no longer have the key.");
@@ -12696,16 +13820,34 @@ function beginSunkenGrottoDungeonRunFromModal() {
   const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
   player.worldMap.x = ent.x;
   player.worldMap.y = ent.y;
-  player.worldMap.dungeonRun = { id: "sunken_grotto", roomIndex: 0, epilogue: false };
+  player.worldMap.dungeonRun = { id, roomIndex: 0, epilogue: false };
   save();
   closeModal();
   render();
 }
 
+function beginSunkenGrottoDungeonRunFromModal() {
+  beginDungeonRunFromModal("sunken_grotto");
+}
+
 function openHollisLeaveDialog() {
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">Suit yourself. I ain’t goin’ down there alone anyway…</p>
-    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-hollis-choice="close">Close</button></div>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="close" data-dungeon-id="sunken_grotto">Close</button></div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openDungeonLeaveDialog(dungeonId) {
+  if (dungeonId === "sunken_grotto") {
+    openHollisLeaveDialog();
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-body">The pressure settles back behind the seal.</p>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="close" data-dungeon-id="${escapeAttr(
+      dungeonId
+    )}">Close</button></div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
 }
@@ -12724,14 +13866,93 @@ function openHollisEpilogueDialog() {
   showModalHtml(html, { npcBubble: true });
 }
 
+function openDungeonEpilogueDialog(dungeonId) {
+  const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
+  if (id === "sunken_grotto") {
+    openHollisEpilogueDialog();
+    return;
+  }
+  if (id === "stormbreak_hollow") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nera Stormwatch</p>
+    <p class="npc-dialog-body">There you are—still shaped like a person. Good.</p>
+    <p class="npc-dialog-body">The hollow likes leftovers. Don't oblige it.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Leave Dungeon</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay a Moment</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const def = getDungeonDef(id);
+  const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">${escapeHtml(name)}</p>
+    <p class="npc-dialog-body">The last chamber quiets. The way back is open.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Leave Dungeon</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay a Moment</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
 function buildDungeonEpilogueSceneHtml() {
-  const dungeonId = "sunken_grotto";
+  const activeRun = getActiveDungeonRun();
+  const dungeonId = activeRun && typeof activeRun.id === "string" ? activeRun.id : "sunken_grotto";
   const payload = escapeAttr(JSON.stringify({ type: "dungeon_epilogue", dungeonId }));
   const def = getDungeonDef(dungeonId);
   const ent =
     def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
       ? def.entrance
       : { x: 37, y: 55 };
+  if (dungeonId !== "sunken_grotto") {
+    const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
+    let btn = `<button type="button" class="btn-secondary world-scene-btn" data-world-scene="${payload}">Exit ${escapeHtml(
+      name
+    )}</button>`;
+    const epX = Math.floor(ent.x);
+    const epY = Math.floor(ent.y);
+    if (dungeonId === "stormbreak_hollow") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "nera_stormwatch");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Nera Stormwatch", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Nera Stormwatch" aria-label="Nera Stormwatch"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "nera_stormwatch_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Nera watches the horizon like it's owed money.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. The entrance waits behind you.</p>
+    <div class="world-scene-actions">
+      ${btn}
+    </div>
+  </div>`;
+  }
   const cellCfg = getCoordinateCellConfig(Math.floor(ent.x), Math.floor(ent.y));
   let hollisBtn = `<button type="button" class="btn-secondary world-scene-btn" data-world-scene="${payload}">Hollis Dredge</button>`;
   if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
@@ -12800,6 +14021,7 @@ function beginTurnCombat(region, mob, worldMapContext) {
 
   overlay.classList.remove("hidden");
   overlay.classList.add("fight-active");
+  syncFightSceneBackdropFromAdventure();
   hideFightResults();
   logEl.innerHTML = "";
   appendFightLog("— Fight start —");
@@ -12831,14 +14053,22 @@ function closeFightOverlay() {
       : null;
   if (player.worldMap && player.worldMap.dungeonPostCombat) delete player.worldMap.dungeonPostCombat;
   clearPlayerTurnTimer();
+  clearEnemyTurnTimer();
   clearCombatVisualTimer();
   combatState = null;
+  lastDungeonPhaseBgCrossfadeKey = "";
+  pendingLeviathanPhaseCeremony = null;
   hideItemTooltip();
   hideFightResults();
   const overlay = document.getElementById("fightOverlay");
   if (overlay) {
     overlay.classList.add("hidden");
     overlay.classList.remove("fight-active", "shake");
+    const mirror = document.getElementById("fightSceneBackdropImg");
+    if (mirror) {
+      mirror.removeAttribute("src");
+      mirror.classList.remove("fight-scene-backdrop__img--city");
+    }
   }
   const closeBtn = document.getElementById("fightCloseBtn");
   if (closeBtn) closeBtn.onclick = null;
@@ -12860,9 +14090,11 @@ function closeFightOverlay() {
     }
   }
   if (dungeonPost && dungeonPost.defeat) {
+    const def = getDungeonDef(dungeonPost.dungeonId);
+    const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "the dungeon";
     clearDungeonRun();
     save();
-    showModal("You stumble back from the grotto, empty-handed.");
+    showModal(`You stumble back from ${name}, empty-handed.`);
     render();
     return;
   }
@@ -13238,7 +14470,7 @@ function formatCombatStaminaLabel(current, max) {
 function categorizeHeroStatusTooltipLine(line) {
   const l = String(line || "").toLowerCase();
   if (
-    /^(bleed|poison|burn):|weakened strikes|hamstring|brine weak|fragile|stunned|accursed aim|suppressed|combo down|fatigue|pack howl/.test(
+    /^(bleed|poison|burn):|weakened strikes|hamstring|brine weak|fragile|stunned|accursed aim|suppressed|accuracy down|combo down|fatigue|pack howl|storm mark|stormfang charge/.test(
       l
     )
   ) {
@@ -13299,18 +14531,32 @@ function buildFightEnemyTooltipHtml(foe) {
   return `<div class="item-tip"><div class="item-tip-name item-tip-name--foe">${escapeHtml(foe.name)}</div><div class="item-tip-desc">Level ${lv}</div>${moodHtml}<div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div>${statusHtml}</div>`;
 }
 
+function getPartyMemberLocalStatusEffectLines(member) {
+  const lines = [];
+  if (isPartyMemberStormMarked(member)) {
+    lines.push(`Storm Mark (${member.stormMarkTurns}t): +8% damage taken, -5% accuracy`);
+  }
+  return lines;
+}
+
 function buildFightPartyTooltipHtml(member, st) {
   const role = member.kind === "hero" ? "Player character" : "Companion";
   const maxStamina = member.kind === "hero" ? (typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina()) : member.maxStamina;
   const currentStamina = member.kind === "hero" ? st.stamina : member.stamina;
   const stamina = formatCombatStaminaLabel(currentStamina, maxStamina);
+  const localLines = getPartyMemberLocalStatusEffectLines(member);
   const statusHtml =
     member.kind === "hero"
       ? `<div class="item-tip-section"><span class="item-tip-label">Combat status</span>${buildFightStatusRowsFromLines(
-          getHeroCombatStatusEffectLines(st),
+          getHeroCombatStatusEffectLines(st).concat(localLines),
           categorizeHeroStatusTooltipLine
         )}</div>`
-      : `<div class="item-tip-desc item-tip-muted">See the hero card for encounter-wide debuffs and buffs.</div>`;
+      : localLines.length
+        ? `<div class="item-tip-section"><span class="item-tip-label">Combat status</span>${buildFightStatusRowsFromLines(
+            localLines,
+            categorizeHeroStatusTooltipLine
+          )}</div>`
+        : `<div class="item-tip-desc item-tip-muted">See the hero card for encounter-wide debuffs and buffs.</div>`;
   const nameCls = member.kind === "hero" ? "item-tip-name item-tip-name--player" : "item-tip-name item-tip-name--ally";
   return `<div class="item-tip"><div class="${nameCls}">${escapeHtml(member.name)}</div><div class="item-tip-desc">${escapeHtml(role)}</div><div class="item-tip-desc">Stamina: ${escapeHtml(stamina)}</div>${statusHtml}</div>`;
 }
@@ -13857,6 +15103,7 @@ function buildOverviewHtml() {
 }
 
 function renderOverview() {
+  captureOverviewSkillsScroll();
   const c = document.getElementById("content");
   c.innerHTML = buildOverviewHtml();
   restoreOverviewSkillsScroll();
@@ -13870,6 +15117,7 @@ function isCharacterPanelOpen() {
 function renderCharacterPanelContent() {
   const host = document.getElementById("characterPanelContent");
   if (!host || !isCharacterPanelOpen()) return;
+  captureOverviewSkillsScroll();
   host.innerHTML = buildOverviewHtml();
   restoreOverviewSkillsScroll();
 }
@@ -14170,7 +15418,7 @@ function buildCraftingPanelHtml() {
 function getAtlasRegions() {
   const wm = GAME_CONFIG.worldMap && typeof GAME_CONFIG.worldMap === "object" ? GAME_CONFIG.worldMap : {};
   const biomes = Array.isArray(wm.biomes) ? wm.biomes : [];
-  return biomes
+  const regions = biomes
     .filter((b) => b && Array.isArray(b.possibleEnemies) && b.possibleEnemies.length)
     .map((b) => {
       const minLv =
@@ -14184,6 +15432,57 @@ function getAtlasRegions() {
         monsters: b.possibleEnemies.filter((n) => typeof n === "string" && n.trim()).map((n) => n.trim())
       };
     });
+  const dungeons = wm.dungeons && typeof wm.dungeons === "object" ? wm.dungeons : {};
+  Object.keys(dungeons).forEach((id) => {
+    const dg = dungeons[id];
+    if (!dg || typeof dg !== "object" || !Array.isArray(dg.rooms)) return;
+    const monsters = [];
+    const monsterLevels = {};
+    const addMonster = (nameRaw, levelRaw) => {
+      const name = typeof nameRaw === "string" ? nameRaw.trim() : "";
+      if (!name) return;
+      if (!monsters.includes(name)) monsters.push(name);
+      const level = typeof levelRaw === "number" && Number.isFinite(levelRaw) ? Math.max(1, Math.floor(levelRaw)) : null;
+      if (level == null) return;
+      const prev = monsterLevels[name];
+      monsterLevels[name] = prev
+        ? { min: Math.min(prev.min, level), max: Math.max(prev.max, level) }
+        : { min: level, max: level };
+    };
+    dg.rooms.forEach((room) => {
+      const enemies = room && Array.isArray(room.enemies) ? room.enemies : [];
+      enemies.forEach((entry) => {
+        addMonster(entry && entry.name, entry && entry.level);
+      });
+    });
+    if (monsters.includes("Tidemeld Revenant") || monsters.includes("Tidemother Aberration")) {
+      const tideSummoners = ["Tidemeld Revenant", "Tidemother Aberration"]
+        .map((name) => monsterLevels[name])
+        .filter(Boolean);
+      const minSummoner = tideSummoners.length ? Math.min(...tideSummoners.map((l) => l.min)) : null;
+      const maxSummoner = tideSummoners.length ? Math.max(...tideSummoners.map((l) => l.max)) : null;
+      addMonster("Tide Echo", minSummoner);
+      if (maxSummoner != null) addMonster("Tide Echo", maxSummoner);
+    }
+    if (monsters.includes("The Stormwake Leviathan")) {
+      const bossLevels = monsterLevels["The Stormwake Leviathan"];
+      addMonster("Storm Echo", bossLevels ? bossLevels.min : null);
+      if (bossLevels && bossLevels.max !== bossLevels.min) addMonster("Storm Echo", bossLevels.max);
+    }
+    if (!monsters.length) return;
+    const levels = Object.values(monsterLevels);
+    const minLv = levels.length ? Math.min(...levels.map((l) => l.min)) : 1;
+    const maxLv = levels.length ? Math.max(...levels.map((l) => l.max)) : minLv;
+    regions.push({
+      name: typeof dg.name === "string" && dg.name.trim() ? dg.name.trim() : id,
+      levelMin: minLv,
+      levelMax: maxLv,
+      monsters,
+      monsterLevels,
+      atlasKind: "dungeon"
+    });
+  });
+  return regions;
 }
 
 function getAtlasMonsterImage(def) {
@@ -14315,7 +15614,20 @@ function buildAtlasPanelHtml() {
         )
         .join("")}</div>`
     : '<p class="crafting-empty">No configured loot items.</p>';
-  const levelRange = selectedRegion ? `${selectedRegion.levelMin}-${selectedRegion.levelMax}` : "—";
+  const selectedMonsterLevels =
+    selectedRegion &&
+    selectedRegion.monsterLevels &&
+    atlasSelectedMonsterName &&
+    selectedRegion.monsterLevels[atlasSelectedMonsterName]
+      ? selectedRegion.monsterLevels[atlasSelectedMonsterName]
+      : null;
+  const levelRange = selectedMonsterLevels
+    ? selectedMonsterLevels.min === selectedMonsterLevels.max
+      ? `${selectedMonsterLevels.min}`
+      : `${selectedMonsterLevels.min}-${selectedMonsterLevels.max}`
+    : selectedRegion
+      ? `${selectedRegion.levelMin}-${selectedRegion.levelMax}`
+      : "—";
   const rightHtml = atlasSelectedMonsterName
     ? `<div class="atlas-detail-card">
         <img class="atlas-monster-img" src="${escapeAttr(getAtlasMonsterImage(def))}" alt="${escapeAttr(atlasSelectedMonsterName)}" draggable="false" />
@@ -15403,14 +16715,17 @@ function renderAdventure() {
   }
 
   if (dungeonRun && defDg) {
-    resolveDungeonRoomBackgroundUrl(dungeonRun.id, roomIx, (url, isCityArt) => crossfadeAdventureBackground(url, isCityArt));
+    const phaseIx = getDungeonRoomBgPhaseStemIndex(dungeonRun.id, roomIx, null);
+    resolveDungeonRoomBackgroundUrl(dungeonRun.id, roomIx, phaseIx !== null ? phaseIx : undefined, (url, isCityArt) =>
+      crossfadeAdventureBackground(url, isCityArt)
+    );
   } else {
     resolveAdventureBackgroundUrl(x, y, coordBgUrl, (url, isCityArt) => crossfadeAdventureBackground(url, isCityArt));
   }
 
-    applyPortalImageFallbacks(c);
-    applyBoatImageFallbacks(c);
-    applyNpcImageFallbacks(c);
+  applyPortalImageFallbacks(c);
+  applyBoatImageFallbacks(c);
+  applyNpcImageFallbacks(c);
 
   c.querySelectorAll("[data-world-nav]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -15717,13 +17032,15 @@ function onContentClick(e) {
     const host = e.target.closest(".stat-bar-row");
     const input = host ? host.querySelector("[data-character-level-input]") : null;
     const raw = input ? Number(input.value) : NaN;
-    const nextLevel = Number.isFinite(raw) ? Math.max(1, Math.floor(raw)) : NaN;
+    const maxLv = getPlayerMaxLevel();
+    const nextLevel = Number.isFinite(raw) ? Math.max(1, Math.min(maxLv, Math.floor(raw))) : NaN;
     if (!Number.isFinite(nextLevel)) return;
     levelActor.level = nextLevel;
+    syncActorProgressionForEditedLevel(levelActor);
     levelActor.maxHp = computeMaxHp(levelActor);
     if (!Number.isFinite(levelActor.hp)) levelActor.hp = levelActor.maxHp;
     levelActor.hp = Math.min(levelActor.maxHp, Math.max(1, levelActor.hp));
-    if (input) input.value = String(nextLevel);
+    if (input) input.value = String(levelActor.level);
     save();
     render();
     return;
@@ -16012,6 +17329,80 @@ function onPortalNetworkModalClick(e) {
     }
     return;
   }
+  const dChoice = e.target.closest("[data-dungeon-choice]");
+  if (dChoice) {
+    const v = dChoice.getAttribute("data-dungeon-choice") || "";
+    const id = dChoice.getAttribute("data-dungeon-id") || "sunken_grotto";
+    const def = getDungeonDef(id);
+    const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Dungeon Key";
+    if (v === "stormbreak_use_key") {
+      if (!def || id !== "stormbreak_hollow") {
+        showModal("This entrance is not configured.");
+        return;
+      }
+      if (player.inventory.indexOf(keyName) === -1) {
+        openNeraStormwatchNoKeyDialog();
+        return;
+      }
+      openNeraStormwatchReadyDialog();
+      return;
+    }
+    if (v === "stormbreak_leave_intro" || v === "stormbreak_leave_ready") {
+      openNeraStormwatchLeaveHesitateDialog();
+      return;
+    }
+    if (v === "stormbreak_no_key_leave") {
+      openNeraStormwatchNoKeyPartingDialog();
+      return;
+    }
+    if (v === "stormbreak_enter") {
+      if (!def || id !== "stormbreak_hollow") {
+        showModal("This entrance is not configured.");
+        return;
+      }
+      if (player.inventory.indexOf(keyName) === -1) {
+        openNeraStormwatchNoKeyDialog();
+        return;
+      }
+      openNeraStormwatchEnterFlavorDialog();
+      return;
+    }
+    if (v === "give_key") {
+      if (!def) {
+        showModal("This dungeon is not configured.");
+        return;
+      }
+      if (player.inventory.indexOf(keyName) === -1) {
+        const missingText =
+          id === "sunken_grotto"
+            ? "You pat your pockets—no grotto key on you."
+            : `You do not have ${keyName}.`;
+        const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-body">${escapeHtml(missingText)}</p>
+      <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="close" data-dungeon-id="${escapeAttr(
+        id
+      )}">Close</button></div>
+    </div>`;
+        showModalHtml(html, { npcBubble: true });
+        return;
+      }
+      openDungeonKeyAcceptedDialog(id);
+      return;
+    }
+    if (v === "enter_dungeon") {
+      beginDungeonRunFromModal(id);
+      return;
+    }
+    if (v === "leave") {
+      openDungeonLeaveDialog(id);
+      return;
+    }
+    if (v === "close") {
+      closeModal();
+      return;
+    }
+    return;
+  }
   const hChoice = e.target.closest("[data-hollis-choice]");
   if (hChoice) {
     const v = hChoice.getAttribute("data-hollis-choice") || "";
@@ -16045,8 +17436,11 @@ function onPortalNetworkModalClick(e) {
   }
   const leaveD = e.target.closest("[data-dungeon-leave]");
   if (leaveD) {
+    const run = getActiveDungeonRun();
+    const idFromAttr = leaveD.getAttribute("data-dungeon-leave") || "";
+    const dungeonId = idFromAttr && idFromAttr !== "1" ? idFromAttr : run && run.id ? run.id : "sunken_grotto";
+    const def = getDungeonDef(dungeonId);
     clearDungeonRun();
-    const def = getDungeonDef("sunken_grotto");
     const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
     player.worldMap.x = ent.x;
     player.worldMap.y = ent.y;

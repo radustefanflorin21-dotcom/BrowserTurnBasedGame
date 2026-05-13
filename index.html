@@ -88,14 +88,22 @@
 </div>
 
 <div id="fightOverlay" class="fight-overlay hidden" aria-live="polite">
+  <div class="fight-scene-backdrop" aria-hidden="true">
+    <img id="fightSceneBackdropImg" class="fight-scene-backdrop__img" alt="" draggable="false" decoding="async" />
+  </div>
+  <div id="fightPhaseFlashOverlay" class="fight-phase-flash-overlay" aria-hidden="true"></div>
   <div class="fight-panel fight-panel--turn">
     <h3 class="fight-title">Combat</h3>
     <div class="fight-body">
       <div class="fight-main-column">
-        <div id="fightHud" class="fight-hud"></div>
-        <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
-        <div class="fight-actions">
-          <button type="button" id="fightCloseBtn" class="btn-primary btn-fight-close hidden">Close</button>
+        <div class="fight-field-area">
+          <div id="fightHud" class="fight-hud"></div>
+        </div>
+        <div class="fight-controls-subpanel" aria-label="Combat actions">
+          <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
+          <div class="fight-actions">
+            <button type="button" id="fightCloseBtn" class="btn-primary btn-fight-close hidden">Close</button>
+          </div>
         </div>
       </div>
       <aside class="fight-side-column">

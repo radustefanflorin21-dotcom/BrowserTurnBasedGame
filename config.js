@@ -473,6 +473,47 @@ const GAME_CONFIG = {
       possibleMoods: ["berserk"],
     },
     {
+      name: "Storm Echo",
+      combatRole: "controller",
+      spawnRarity: "rare",
+      image: "Assets/Monsters/tide_echo.png",
+      possibleLevels: [13, 14, 15],
+      possibleMoods: ["berserk"],
+    },
+    {
+      name: "Stormfang Ravager",
+      combatScript: "stormfang_ravager",
+      combatRole: "bruiser",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Paradise North/Stormbreak Hollow/stormfang_ravager.png",
+      possibleLevels: [14],
+      possibleMoods: ["berserk"],
+      baseStats: { str: 42, dex: 48, vit: 30, int: 18 },
+      baseHp: 420
+    },
+    {
+      name: "Abyssal Tempest Caller",
+      combatScript: "abyssal_tempest_caller",
+      combatRole: "controller",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Paradise North/Stormbreak Hollow/abyssal_tempest_caller.png",
+      possibleLevels: [13],
+      possibleMoods: ["berserk"],
+      baseStats: { str: 12, dex: 26, vit: 34, int: 52 },
+      baseHp: 390
+    },
+    {
+      name: "The Stormwake Leviathan",
+      combatScript: "stormwake_leviathan",
+      combatRole: "bruiser",
+      spawnRarity: "myth",
+      image: "Assets/Biomes/Paradise North/Stormbreak Hollow/the_stormwake_leviathan.png",
+      possibleLevels: [15],
+      possibleMoods: ["berserk"],
+      baseStats: { str: 58, dex: 40, vit: 65, int: 48 },
+      baseHp: 1400
+    },
+    {
       name: "Saltwind Skimmer",
       combatScript: "saltwind_skimmer",
       combatRole: "assassin",
@@ -922,6 +963,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/sunken_grotto_key.png",
       description: "A salt-crusted key for the dig Hollis opened by the shore.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Stormbreak Hollow Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/sunken_grotto_key.png",
+      description: "A storm-scored dungeon key for the sealed entrance beneath the northern cliffs.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -1529,6 +1578,160 @@ const GAME_CONFIG = {
       build: "INT_DEX",
       bonusSkills: [],
       bonusStats: { INT: 13, DEX: 7, "Debuff Duration": 6, "Status Potency": 5, "Crit Damage": 4 }
+    },
+    "Leviathan Arcblade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "one_handed_sword",
+      rarity: "common",
+      itemLevel: 15,
+      attack: 9,
+      image: "Assets/Equips/leviathan_archblade.png",
+      description: "A leviathan-forged arcblade that channels stormwake resonance through every critical line.",
+      set: "Stormwake Set",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 12, INT: 10, Crit: 6, "Status Potency": 5, Combo: 4 }
+    },
+    "Leviathan Scale Mantle": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 4,
+      image: "Assets/Equips/leviathan_scale_mantle.png",
+      description: "Scaled mantle from the deep stormwake, balancing vitality and arcane ward.",
+      set: "Stormwake Set",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 14, INT: 10, DR: 3, "Magic Resist": 6, HP: 160 }
+    },
+    "Maelstrom Eye Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 3,
+      image: "Assets/Equips/maelstorm_eye_ring.png",
+      description: "A ring set with a stilling maelstrom eye—draws out debuffs and sharpens critical follow-through.",
+      set: "Stormwake Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 13, DEX: 7, "Debuff Duration": 6, "Status Potency": 5, "Crit Damage": 4 }
+    },
+    "Stormwake Legguards": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 15,
+      defense: 3,
+      image: "Assets/Equips/stormwake_legguards.png",
+      description: "Legguards laced with stormwake threading for mobility under magical pressure.",
+      set: "Stormwake Set",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 10, DEX: 10, HP: 150, Evasion: 4, "Magic Resist": 4 }
+    },
+    "Thunderclaw Dirk": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "common",
+      itemLevel: 14,
+      attack: 9,
+      image: "Assets/Equips/thunderclaw_dirk.png",
+      description: "A storm-charged dirk carved from Stormfang talons for fast critical openings.",
+      set: "Stormfang Set",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 12, STR: 6, Crit: 6, Accuracy: 4, Evasion: 3 }
+    },
+    "Stormhide Boots": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "common",
+      itemLevel: 14,
+      defense: 3,
+      image: "Assets/Equips/stormhide_boots.png",
+      description: "Storm-slick boots that keep their wearer light through pressure and spray.",
+      set: "Stormfang Set",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { DEX: 10, VIT: 6, Evasion: 6, Combo: 3 }
+    },
+    "Static Fang Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "common",
+      itemLevel: 14,
+      defense: 3,
+      image: "Assets/Equips/static_fang_bracelet.png",
+      description: "A crackling fang bracelet that stores static charge for lethal follow-throughs.",
+      set: "Stormfang Set",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 9, STR: 6, "Crit Damage": 5, Combo: 4 }
+    },
+    "Gale-Slashed Leggings": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 14,
+      defense: 3,
+      image: "Assets/Equips/gale_slashed_leggings.png",
+      description: "Wind-cut leggings reinforced with charged hide and storm-thread stitching.",
+      set: "Stormfang Set",
+      build: "DEX_VIT",
+      bonusSkills: [],
+      bonusStats: { DEX: 10, VIT: 5, HP: 120, Evasion: 5, Accuracy: 3 }
+    },
+    "Tempest Caller Rod": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 13,
+      attack: 8,
+      image: "Assets/Equips/tempest_caller_rod.png",
+      description: "A two-handed storm rod wrapped in brine currents and static control runes.",
+      set: "Tempest Caller Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 12, DEX: 5, "Skill Power": 5, "Status Potency": 4, "Debuff Duration": 4 }
+    },
+    "Stormbind Hood": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 13,
+      defense: 3,
+      image: "Assets/Equips/stormbind_hood.png",
+      description: "A drowned ritual hood that grounds storm pressure through the wearer's focus.",
+      set: "Tempest Caller Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 10, VIT: 6, "Magic Resist": 4, "Debuff Duration": 4, HP: 80 }
+    },
+    "Brinestorm Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "common",
+      itemLevel: 13,
+      defense: 3,
+      image: "Assets/Equips/brinestorm_amulet.png",
+      description: "An amulet filled with spiraling brine and faint lightning arcs.",
+      set: "Tempest Caller Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 11, VIT: 5, "Status Potency": 5, "Debuff Duration": 5 }
     },
     "Sandfang Blade": {
       type: "weapon",
@@ -3100,6 +3303,78 @@ const GAME_CONFIG = {
       image: "Assets/Resources/drowned_sigil_fragment.png",
       description: "A fractured drowned sigil used for advanced control accessories."
     },
+    "Abyssal Lightning Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/abyssal_lightning_scale.png",
+      description: "A scale crackling with abyssal lightning, taken from the Stormwake Leviathan."
+    },
+    "Charged Brine Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/charged_brine_core.png",
+      description: "A brine-saturated power core from abyssal tempests; used in storm and control crafts."
+    },
+    "Drowned Spark Residue": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/drowned_spark_residue.png",
+      description: "Faint sparking residue from drowned storm sigils."
+    },
+    "Eye of the Maelstrom": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/eye_of_the_maelstrom.png",
+      description: "A still-churning focus from the heart of a maelstrom; used in jeweler storm crafts."
+    },
+    "Leviathan Stormcore": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/leviathan_stormcore.png",
+      description: "A dense storm core from the leviathan; anchor material for high-tier storm gear."
+    },
+    "Charged Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/charged_scale.png",
+      description: "Stormfang scale charged with coastal static; used in storm-themed armor and weapons."
+    },
+    "Static Fang Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/static_fang_core.png",
+      description: "A crystallized fang core that holds a stormfang's bite."
+    },
+    "Stormfang Claw": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/stormfang_claw.png",
+      description: "A talon from a Stormfang Ravager, sharp enough for fine metalwork."
+    },
+    "Stormhide Strip": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/stormhide_strip.png",
+      description: "Treated stormhide strip; flexible and weather-sealed for boots and leathers."
+    },
+    "Storm Sigil Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/storm_sigil_fragment.png",
+      description: "A shard of a storm sigil from the abyssal tempest caller's rites."
+    },
+    "Stormwake Tendril": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/stormwake_tendril.png",
+      description: "A writhing storm-tendril sample from the deep grotto leviathan."
+    },
+    "Tempest Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/tempest_thread.png",
+      description: "Woven tempest thread used for staff bindings and storm-channeling gear."
+    },
     "Tidemother Core": {
       type: "material",
       value: 5,
@@ -3774,6 +4049,9 @@ const GAME_CONFIG = {
     "Ash Skulker": ["beast", "elemental"],
     "Remnant of Rust": ["construct"],
     Driftling: ["elemental"],
+    "Stormfang Ravager": ["beast", "elemental"],
+    "Abyssal Tempest Caller": ["beast", "elemental"],
+    "The Stormwake Leviathan": ["beast", "elemental"],
     "Cliff Lurker": ["beast", "stone"]
   },
 
@@ -3959,6 +4237,21 @@ const GAME_CONFIG = {
         minLevel: 11,
         maxLevel: 20,
         recipes: [
+          {
+            id: "stormbreak_hollow_key",
+            resultItem: "Stormbreak Hollow Key",
+            resultLevel: 12,
+            ingredients: [
+              { item: "Sharp Fin", qty: 5, source: "monster_loot" },
+              { item: "Wind Scale", qty: 4, source: "monster_loot" },
+              { item: "Acid Gland", qty: 4, source: "monster_loot" },
+              { item: "Fluid Sac", qty: 4, source: "monster_loot" },
+              { item: "Stone Core", qty: 5, source: "monster_loot" },
+              { item: "Ancient Fragment", qty: 3, source: "monster_loot" },
+              { item: "Tide Fragment", qty: 4, source: "monster_loot" },
+              { item: "Pressure Core", qty: 3, source: "monster_loot" }
+            ]
+          },
           {
             id: "sandfang_blade",
             resultItem: "Sandfang Blade",
@@ -4265,6 +4558,154 @@ const GAME_CONFIG = {
               { item: "Tidemother Core", qty: 3, source: "monster_loot" },
               { item: "Tough Hide", qty: 4, source: "gathering_loot" },
               { item: "Reinforced Bone", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "thunderclaw_dirk_craft",
+            resultItem: "Thunderclaw Dirk",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Stormfang Claw", qty: 6, source: "monster_loot" },
+              { item: "Charged Scale", qty: 4, source: "monster_loot" },
+              { item: "Sharp Fin", qty: 4, source: "monster_loot" },
+              { item: "Wet Membrane", qty: 3, source: "monster_loot" },
+              { item: "Elastic Tendon", qty: 3, source: "monster_loot" },
+              { item: "Acid Gland", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "stormhide_boots_craft",
+            resultItem: "Stormhide Boots",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Stormhide Strip", qty: 6, source: "monster_loot" },
+              { item: "Charged Scale", qty: 4, source: "monster_loot" },
+              { item: "Sharp Fin", qty: 3, source: "monster_loot" },
+              { item: "Salt Flesh", qty: 3, source: "monster_loot" },
+              { item: "Raw Hide", qty: 3, source: "gathering_loot" },
+              { item: "Tide Fragment", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "static_fang_bracelet_craft",
+            resultItem: "Static Fang Bracelet",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Static Fang Core", qty: 4, source: "monster_loot" },
+              { item: "Stormfang Claw", qty: 4, source: "monster_loot" },
+              { item: "Stormhide Strip", qty: 3, source: "monster_loot" },
+              { item: "Ripple Core", qty: 3, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "gale_slashed_leggings_craft",
+            resultItem: "Gale-Slashed Leggings",
+            resultLevel: 14,
+            ingredients: [
+              { item: "Stormhide Strip", qty: 5, source: "monster_loot" },
+              { item: "Charged Scale", qty: 4, source: "monster_loot" },
+              { item: "Stormfang Claw", qty: 3, source: "monster_loot" },
+              { item: "Hardened Shell", qty: 4, source: "monster_loot" },
+              { item: "Raw Hide", qty: 3, source: "gathering_loot" },
+              { item: "Ancient Fragment", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "tempest_caller_rod_craft",
+            resultItem: "Tempest Caller Rod",
+            resultLevel: 13,
+            ingredients: [
+              { item: "Tempest Thread", qty: 6, source: "monster_loot" },
+              { item: "Storm Sigil Fragment", qty: 4, source: "monster_loot" },
+              { item: "Fluid Sac", qty: 4, source: "monster_loot" },
+              { item: "Ripple Core", qty: 3, source: "monster_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" },
+              { item: "Plant Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stormbind_hood_craft",
+            resultItem: "Stormbind Hood",
+            resultLevel: 13,
+            ingredients: [
+              { item: "Tempest Thread", qty: 5, source: "monster_loot" },
+              { item: "Charged Brine Core", qty: 3, source: "monster_loot" },
+              { item: "Abyss Residue", qty: 4, source: "monster_loot" },
+              { item: "Salt Flesh", qty: 3, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "brinestorm_amulet_craft",
+            resultItem: "Brinestorm Amulet",
+            resultLevel: 13,
+            ingredients: [
+              { item: "Storm Sigil Fragment", qty: 5, source: "monster_loot" },
+              { item: "Drowned Spark Residue", qty: 3, source: "monster_loot" },
+              { item: "Charged Brine Core", qty: 2, source: "monster_loot" },
+              { item: "Ripple Core", qty: 4, source: "monster_loot" },
+              { item: "Fluid Sac", qty: 3, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "leviathan_arcblade_craft",
+            resultItem: "Leviathan Arcblade",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Leviathan Stormcore", qty: 4, source: "monster_loot" },
+              { item: "Abyssal Lightning Scale", qty: 5, source: "monster_loot" },
+              { item: "Stormfang Claw", qty: 4, source: "monster_loot" },
+              { item: "Tempest Thread", qty: 4, source: "monster_loot" },
+              { item: "Sharp Fin", qty: 4, source: "monster_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "leviathan_scale_mantle_craft",
+            resultItem: "Leviathan Scale Mantle",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Abyssal Lightning Scale", qty: 6, source: "monster_loot" },
+              { item: "Leviathan Stormcore", qty: 3, source: "monster_loot" },
+              { item: "Charged Brine Core", qty: 3, source: "monster_loot" },
+              { item: "Charged Scale", qty: 4, source: "monster_loot" },
+              { item: "Hardened Shell", qty: 5, source: "monster_loot" },
+              { item: "Salt Flesh", qty: 3, source: "monster_loot" },
+              { item: "Plant Fiber", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "maelstrom_eye_ring_craft",
+            resultItem: "Maelstrom Eye Ring",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Eye of the Maelstrom", qty: 2, source: "monster_loot" },
+              { item: "Stormwake Tendril", qty: 5, source: "monster_loot" },
+              { item: "Storm Sigil Fragment", qty: 4, source: "monster_loot" },
+              { item: "Static Fang Core", qty: 3, source: "monster_loot" },
+              { item: "Ripple Core", qty: 4, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stormwake_legguards_craft",
+            resultItem: "Stormwake Legguards",
+            resultLevel: 15,
+            ingredients: [
+              { item: "Abyssal Lightning Scale", qty: 5, source: "monster_loot" },
+              { item: "Stormwake Tendril", qty: 4, source: "monster_loot" },
+              { item: "Leviathan Stormcore", qty: 3, source: "monster_loot" },
+              { item: "Charged Scale", qty: 4, source: "monster_loot" },
+              { item: "Stormhide Strip", qty: 3, source: "monster_loot" },
+              { item: "Bone Fragment", qty: 3, source: "gathering_loot" },
+              { item: "Residue", qty: 3, source: "gathering_loot" }
             ]
           },
           {
@@ -5099,6 +5540,9 @@ const GAME_CONFIG = {
     Skimmer: 4,
     Soulbinder: 2,
     Stoneguard: 4,
+    "Stormfang Set": 4,
+    "Stormwake Set": 4,
+    "Tempest Caller Set": 3,
     "Thornback Bulwark": 3,
     Tidecaster: 5,
     Tideguard: 7,
@@ -5116,6 +5560,19 @@ const GAME_CONFIG = {
     "Crusher Set": {
       2: { Stagger: 6, "Physical Resist": 4 },
       3: { "Heavy Armor Pen": 10, "Stagger Damage Down": 5 }
+    },
+    "Stormfang Set": {
+      2: { Crit: 5, Evasion: 4 },
+      3: { "Storm Mark Damage": 12 },
+      4: { "Dodge Crit Damage": 8 }
+    },
+    "Stormwake Set": {
+      2: { "Status Potency": 6, "Crit Vs Debuffed": 5 },
+      4: { Stamina: 1 }
+    },
+    "Tempest Caller Set": {
+      2: { "Debuff Duration": 6, "Status Potency": 4 },
+      3: { "Debuff Stamina Tax Chance": 12, "Debuff Stamina Tax": 1 }
     },
     "Tidemother Set": {
       2: { "Debuff Duration": 6 },
@@ -5244,7 +5701,7 @@ const GAME_CONFIG = {
      */
     coordinateBackgrounds: {
       "29,55": "Assets/Biomes/Paradise South/boat_between_paradises.png",
-      "37,43": "Assets/Biomes/Paradise North/boat_between_paradises.png"
+      "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -5275,9 +5732,9 @@ const GAME_CONFIG = {
             id: "boat_paradise_north",
             label: "Boat",
             editable: true,
-            leftPct: 21.25,
-            topPct: 29.051,
-            scalePct: 183,
+            leftPct: 23.57080035180299,
+            topPct: 24.3919119833482,
+            scalePct: 125,
             destinations: [{ label: "Paradise South", x: 29, y: 55 }]
           }
         ]
@@ -5300,10 +5757,31 @@ const GAME_CONFIG = {
             dungeonEntrance: "sunken_grotto"
           }
         ]
+      },
+      "28,43": {
+        kind: "scene",
+        title: "Paradise North — Stormbreak Hollow",
+        description: "A broken cliff mouth hums with pressure, its stone ribs lit by trapped stormwater.",
+        elements: [
+          {
+            type: "npc",
+            id: "nera_stormwatch",
+            label: "Nera Stormwatch",
+            editable: true,
+            leftPct: 76.69305189094108,
+            topPct: 29.149568837347605,
+            scalePct: 72,
+            image: "Assets/Biomes/Paradise North/Stormbreak Hollow/nera_stormwatch.png",
+            text: "Hold there. That arch doesn't open for curiosity.",
+            dungeonEntrance: "stormbreak_hollow"
+          }
+        ]
       }
     },
     /**
      * Instanced dungeons: `rooms[]` use `bg` stem under `assetBase` (same extensions as biome art).
+     * Optional `bgPhaseStems`: string stems `[preFight, phase1, phase2, phase3]` under `assetBase` — adventure uses index 0
+     * before combat; during Stormwake Leviathan fights index 1–3 track HP (>70%, ≤70% & >30%, ≤30%). `bg` remains fallback.
      * Each `enemies` entry is a mob-preview unit: `name` (enemy def), optional `level`, `moodId`, `portraitImage` override.
      * Optional `modifierText` is appended to the combat log at fight start. Each room shows the mob on the adventure
      * screen; the player clicks it to start combat (no auto-start). Empty `enemies` rooms get a Continue control.
@@ -5387,6 +5865,82 @@ const GAME_CONFIG = {
               { name: "Hermit Crab", level: 7, moodId: "berserk" },
               { name: "Tidemeld Revenant", level: 9, moodId: "berserk" },
               { name: "Tidemeld Revenant", level: 9, moodId: "berserk" }
+            ]
+          }
+        ]
+      },
+      stormbreak_hollow: {
+        name: "Stormbreak Hollow",
+        keyItem: "Stormbreak Hollow Key",
+        entrance: { x: 28, y: 43 },
+        assetBase: "Assets/Biomes/Paradise North/Stormbreak Hollow",
+        stormPressure: true,
+        rooms: [
+          {
+            bg: "1",
+            modifierText: "Storm Pressure gathers in the hollow: every 2 turns, random party members become Storm Marked.",
+            enemies: [
+              { name: "Saltwind Skimmer", level: 5, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 5, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 5, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 7, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 7, moodId: "berserk" },
+              { name: "Wavebreaker Idol", level: 9, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Cliff Lurker", level: 11, moodId: "berserk" },
+              { name: "Cliff Lurker", level: 11, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 6, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 6, moodId: "berserk" },
+              { name: "Tideharrow", level: 13, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            enemies: [
+              { name: "Stormfang Ravager", level: 14, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 6, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 6, moodId: "berserk" },
+              { name: "Cliff Lurker", level: 11, moodId: "berserk" },
+              { name: "Cliff Lurker", level: 11, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            enemies: [
+              { name: "Tideharrow", level: 13, moodId: "berserk" },
+              { name: "Tideharrow", level: 13, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" },
+              { name: "Wavebreaker Idol", level: 10, moodId: "berserk" },
+              { name: "Wavebreaker Idol", level: 10, moodId: "berserk" },
+              { name: "Saltwind Skimmer", level: 6, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "5",
+            enemies: [
+              { name: "Abyssal Tempest Caller", level: 13, moodId: "berserk" },
+              { name: "Tideharrow", level: 13, moodId: "berserk" },
+              { name: "Tideharrow", level: 13, moodId: "berserk" },
+              { name: "Wavebreaker Idol", level: 10, moodId: "berserk" },
+              { name: "Wavebreaker Idol", level: 10, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" },
+              { name: "Brinegullet Spitter", level: 8, moodId: "berserk" },
+              { name: "Cliff Lurker", level: 11, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "6",
+            bgPhaseStems: ["5_0", "5_1", "5_2", "5_3"],
+            enemies: [
+              { name: "The Stormwake Leviathan", level: 15, moodId: "berserk" }
             ]
           }
         ]

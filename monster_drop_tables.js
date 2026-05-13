@@ -12,7 +12,8 @@
       { name: "Abyss Flesh", dropRate: 32.5 },
       { name: "Dark Residue", dropRate: 20 },
       { name: "Abyss Core", dropRate: 6 },
-      { name: "Deepwater Essence", dropRate: 2.5 }
+      { name: "Deepwater Essence", dropRate: 2.5 },
+      { name: "Abyss Residue", dropRate: 18 }
     ]
   };
 
@@ -54,8 +55,9 @@
     "Hermit Crab": {
       gear: [{ w: 5, item: "Scaleguard Shirt" }],
       materials: [
-        { name: "Hardened Shell", dropRate: 37.5 },
-        { name: "Crust Fragment", dropRate: 22.5 },
+        { name: "Hardened Shell", dropRate: 32 },
+        { name: "Salt Flesh", dropRate: 20 },
+        { name: "Crust Fragment", dropRate: 20 },
         { name: "Defensive Core", dropRate: 7.5 },
         { name: "Ocean Essence", dropRate: 2.5 }
       ]
@@ -63,9 +65,9 @@
     "Saltwind Skimmer": {
       gear: [{ w: 7, item: "Skimmer Blade" }],
       materials: [
-        { name: "Sharp Fin", dropRate: 35 },
-        { name: "Wind Scale", dropRate: 20 },
-        { name: "Razor Edge Fragment", dropRate: 7.5 },
+        { name: "Sharp Fin", dropRate: 34 },
+        { name: "Wind Scale", dropRate: 22 },
+        { name: "Razor Edge Fragment", dropRate: 9 },
         { name: "Wind Essence", dropRate: 2.5 }
       ]
     },
@@ -103,12 +105,60 @@
         { name: "Abyssal Essence", dropRate: 2.5 }
       ]
     },
+    "Cliff Lurker": {
+      materials: [
+        { name: "Stone Fragment", dropRate: 30 },
+        { name: "Rough Core", dropRate: 22 },
+        { name: "Bone Fragment", dropRate: 18 },
+        { name: "Cliff Moss", dropRate: 12 }
+      ]
+    },
     "Tidebound Crusher": {
       materials: [
         { name: "Crushed Anchor Shard", dropRate: 35 },
         { name: "Salt-Encrusted Plate", dropRate: 30 },
         { name: "Pressure Core", dropRate: 18 },
-        { name: "Barnacle Cluster", dropRate: 12 }
+        { name: "Barnacle Cluster", dropRate: 12 },
+        { name: "Wet Membrane", dropRate: 12 },
+        { name: "Ripple Core", dropRate: 10 },
+        { name: "Fluid Sac", dropRate: 9 },
+        { name: "Tide Fragment", dropRate: 8 }
+      ]
+    },
+    "Stormfang Ravager": {
+      materials: [
+        { name: "Stormfang Claw", dropRate: 26 },
+        { name: "Charged Scale", dropRate: 20 },
+        { name: "Stormhide Strip", dropRate: 18 },
+        { name: "Static Fang Core", dropRate: 14 },
+        { name: "Sharp Fin", dropRate: 12 },
+        { name: "Wind Scale", dropRate: 10 },
+        { name: "Pressure Core", dropRate: 8 },
+        { name: "Abyss Residue", dropRate: 6 }
+      ]
+    },
+    "Abyssal Tempest Caller": {
+      materials: [
+        { name: "Tempest Thread", dropRate: 26 },
+        { name: "Storm Sigil Fragment", dropRate: 20 },
+        { name: "Charged Brine Core", dropRate: 16 },
+        { name: "Drowned Spark Residue", dropRate: 12 },
+        { name: "Abyssal Thread", dropRate: 12 },
+        { name: "Echo Residue", dropRate: 10 },
+        { name: "Distorted Core", dropRate: 8 },
+        { name: "Drowned Sigil Fragment", dropRate: 6 }
+      ]
+    },
+    "The Stormwake Leviathan": {
+      materials: [
+        { name: "Leviathan Stormcore", dropRate: 22 },
+        { name: "Abyssal Lightning Scale", dropRate: 22 },
+        { name: "Stormwake Tendril", dropRate: 18 },
+        { name: "Eye of the Maelstrom", dropRate: 12 },
+        { name: "Wind Scale", dropRate: 8 },
+        { name: "Pressure Core", dropRate: 7 },
+        { name: "Abyss Residue", dropRate: 6 },
+        { name: "Distorted Core", dropRate: 5 }
       ]
     },
     "Drowned Channeler": {
@@ -116,7 +166,11 @@
         { name: "Abyssal Thread", dropRate: 34 },
         { name: "Echo Residue", dropRate: 25 },
         { name: "Distorted Core", dropRate: 20 },
-        { name: "Drowned Sigil Fragment", dropRate: 10 }
+        { name: "Drowned Sigil Fragment", dropRate: 10 },
+        { name: "Sharp Fin", dropRate: 12 },
+        { name: "Wind Scale", dropRate: 10 },
+        { name: "Pressure Core", dropRate: 9 },
+        { name: "Abyss Residue", dropRate: 8 }
       ]
     },
     "Tidemother Aberration": {
@@ -124,7 +178,11 @@
         { name: "Tidemother Core", dropRate: 40 },
         { name: "Abyss Residue", dropRate: 25 },
         { name: "Echo Heart", dropRate: 18 },
-        { name: "Corrupted Brine Flesh", dropRate: 12 }
+        { name: "Corrupted Brine Flesh", dropRate: 12 },
+        { name: "Wet Membrane", dropRate: 10 },
+        { name: "Ripple Core", dropRate: 9 },
+        { name: "Fluid Sac", dropRate: 8 },
+        { name: "Distorted Core", dropRate: 7 }
       ]
     },
     "Burrow Hare": {
