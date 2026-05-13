@@ -26,7 +26,7 @@
 <div class="bottom-hud" id="bottomHud">
   <section class="bottom-hud-chat" aria-label="Chat">
     <div class="bottom-chat-head">Chat</div>
-    <div class="bottom-chat-log" aria-live="polite">
+    <div id="bottomChatLog" class="bottom-chat-log" aria-live="polite">
       <p><strong>System:</strong> Welcome to the world.</p>
       <p><strong>Guide:</strong> Open Adventure to explore.</p>
     </div>
@@ -87,7 +87,7 @@
   </section>
 </div>
 
-<div id="fightOverlay" class="fight-overlay hidden" aria-live="polite">
+<div id="fightOverlay" class="fight-overlay fight-page hidden" aria-live="polite">
   <div class="fight-scene-backdrop" aria-hidden="true">
     <img id="fightSceneBackdropImg" class="fight-scene-backdrop__img" alt="" draggable="false" decoding="async" />
   </div>
@@ -99,10 +99,14 @@
         <div class="fight-field-area">
           <div id="fightHud" class="fight-hud"></div>
         </div>
-        <div class="fight-controls-subpanel" aria-label="Combat actions">
-          <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
-          <div class="fight-actions">
-            <button type="button" id="fightCloseBtn" class="btn-primary btn-fight-close hidden">Close</button>
+        <div class="fight-bottom-strip">
+          <section class="fight-chat-embed" aria-label="Chat">
+            <div class="fight-chat-head">Chat</div>
+            <div id="fightChatLog" class="fight-chat-log" aria-live="polite"></div>
+            <input class="fight-chat-input" type="text" placeholder="Type a message..." aria-label="Chat message" disabled>
+          </section>
+          <div class="fight-controls-subpanel" aria-label="Combat actions">
+            <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
           </div>
         </div>
       </div>
@@ -111,9 +115,13 @@
           <span class="fight-section-label">Combat log</span>
           <div id="fightLog" class="fight-log"></div>
         </div>
-        <div id="fightResults" class="fight-results hidden" aria-live="polite"></div>
+        <div id="fightMinimapSlot" class="fight-side-minimap" aria-label="Minimap"></div>
       </aside>
     </div>
+  </div>
+  <div id="fightResultsHost" class="fight-results-host hidden" aria-hidden="true">
+    <div class="fight-results-host__scrim" aria-hidden="true"></div>
+    <div id="fightResults" class="fight-results fight-results--modal hidden" role="dialog" aria-modal="true" aria-labelledby="fightResultsDialogTitle" aria-live="polite"></div>
   </div>
 </div>
 

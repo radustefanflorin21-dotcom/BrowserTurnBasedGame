@@ -37,6 +37,8 @@ let adventureCampWanderTick = null;
 let adventureWanderStartGen = 0;
 /** `"hero"` | `"0"` | `"1"` | `"2"` — which roster member the character panel edits (overview + character modal). */
 let characterPanelRosterTab = "hero";
+/** Set while the characteristic-point spend modal is open ({@link openCharPointSpendModal}). Cleared in {@link closeModal}. */
+let pendingCharSpend = null;
 
 const COMPANION_SLOT_COUNT = 3;
 const COMPANION_LOOT_CHANCE_MULT = 0.75;
@@ -12144,11 +12146,48 @@ function buildCombatSkillButtonsHtml(st, skills, isHero, _active) {
   return html;
 }
 
+function syncFightEmbeddedChat() {
+  const src = document.getElementById("bottomChatLog");
+  const dst = document.getElementById("fightChatLog");
+  if (!src || !dst) return;
+  dst.innerHTML = src.innerHTML;
+}
+
+/** Match fight minimap box to chat column height and #fightLog width (ResizeObserver keeps this in sync). */
+function syncFightMinimapLayoutToChatAndLog() {
+  const overlay = document.getElementById("fightOverlay");
+  const chat = document.querySelector("#fightOverlay .fight-chat-embed");
+  const logEl = document.getElementById("fightLog");
+  if (!overlay || overlay.classList.contains("hidden")) return;
+  const apply = () => {
+    if (chat) {
+      const h = Math.round(chat.getBoundingClientRect().height);
+      if (h > 0) overlay.style.setProperty("--fight-chat-measured-height", `${h}px`);
+    }
+    if (logEl) {
+      const w = Math.round(logEl.getBoundingClientRect().width);
+      if (w > 0) overlay.style.setProperty("--fight-minimap-match-width", `${w}px`);
+    }
+  };
+  requestAnimationFrame(() => requestAnimationFrame(apply));
+}
+
+function initFightMinimapLayoutObserver() {
+  const overlay = document.getElementById("fightOverlay");
+  const body = document.querySelector("#fightOverlay .fight-body");
+  if (!overlay || !body || overlay.dataset.fightMinimapLayoutObs) return;
+  overlay.dataset.fightMinimapLayoutObs = "1";
+  const ro = new ResizeObserver(() => {
+    const o = document.getElementById("fightOverlay");
+    if (combatState && o && !o.classList.contains("hidden")) syncFightMinimapLayoutToChatAndLog();
+  });
+  ro.observe(body);
+}
+
 function renderTurnBattle() {
   const st = combatState;
   const hud = document.getElementById("fightHud");
   const actionsEl = document.getElementById("fightPlayerActions");
-  const closeBtn = document.getElementById("fightCloseBtn");
   if (!hud || !st) return;
 
   /** Replacing fight DOM drops hovered elements without firing mouseout — clear stale tooltips. */
@@ -12305,7 +12344,6 @@ function renderTurnBattle() {
           ? player
           : (typeof active.companionSlotIndex === "number" ? player.companions[active.companionSlotIndex] : null);
         const skills = isHero ? getActiveCombatSkills() : getActiveCombatSkillsForActor(actor);
-        const hasAoeSkill = skills.some((s) => s.combatAoe === "all_enemies");
         const stam = isHero
           ? (typeof st.stamina === "number" ? st.stamina : 0)
           : (typeof active.stamina === "number" ? active.stamina : 0);
@@ -12315,14 +12353,9 @@ function renderTurnBattle() {
         const atkBase = isHero ? resolveAttackStaminaCost() : getAttackStaminaCost();
         const canAtk = stam >= atkBase;
         const skillBtns = buildCombatSkillButtonsHtml(st, skills, isHero, active);
-        const actorLabel = escapeHtml(active.name || (isHero ? "Hero" : "Companion"));
-        const hint = hasAoeSkill
-          ? `Acting: <strong>${actorLabel}</strong>. Stamina refills each turn. Spend it on attacks and skills; End turn when you are done. Area skills hit all enemies.`
-          : `Acting: <strong>${actorLabel}</strong>. Stamina refills each turn. Spend it on attacks and skills; End turn when you are done.`;
         const atkDis = canAtk ? "" : " disabled";
         actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
-          <p class="fight-hint">${hint}</p>
           <div class="fight-action-row">
             <button type="button" class="btn-primary"${atkDis} data-fight-action="attack">Attack (${atkBase})</button>
             <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">End turn</button>
@@ -12338,14 +12371,6 @@ function renderTurnBattle() {
           <div class="fight-action-row fight-action-row--enemy-phase">
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
           </div>`;
-    }
-  }
-
-  if (closeBtn) {
-    if (st.phase === "ended") {
-      closeBtn.classList.remove("hidden");
-    } else {
-      closeBtn.classList.add("hidden");
     }
   }
 
@@ -12376,6 +12401,9 @@ function renderTurnBattle() {
     else fightTitleEl.textContent = "Combat";
   }
 
+  syncFightEmbeddedChat();
+  syncMinimapSlots();
+  syncFightMinimapLayoutToChatAndLog();
   refreshDungeonPhaseBackgroundFromCombat(st);
 }
 
@@ -12495,9 +12523,15 @@ function runEnemyPhase() {
 function hideFightResults() {
   hideItemTooltip();
   const el = document.getElementById("fightResults");
+  const host = document.getElementById("fightResultsHost");
   if (el) {
     el.classList.add("hidden");
     el.innerHTML = "";
+    el.removeAttribute("aria-labelledby");
+  }
+  if (host) {
+    host.classList.add("hidden");
+    host.setAttribute("aria-hidden", "true");
   }
 }
 
@@ -12513,18 +12547,25 @@ function buildFightLootHtml(items) {
       const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
       return `<div class="fight-loot-cell" data-item-name="${escapeAttr(name)}" data-loot-qty="${qty}">${invCellImg(name)}${qtyBadge}</div>`;
     })
-    .join("")}</div>
-    <p class="fight-loot-hint">Double-click equipment here to equip. On Overview, double-click a worn item in the paper doll to unequip.</p>`;
+    .join("")}</div>`;
 }
 
 function showFightResults(victory, result) {
   hideItemTooltip();
   const el = document.getElementById("fightResults");
-  if (!el) return;
+  const host = document.getElementById("fightResultsHost");
+  if (!el || !host) return;
+  const titleId = "fightResultsDialogTitle";
+  el.setAttribute("aria-labelledby", titleId);
+  host.classList.remove("hidden");
+  host.setAttribute("aria-hidden", "false");
   el.classList.remove("hidden");
+  const closeFooter = `<div class="fight-results-footer">
+      <button type="button" id="fightResultsCloseBtn" class="btn-primary fight-results-close">Close</button>
+    </div>`;
   if (victory) {
     const lootBlock = buildFightLootHtml(result.items);
-    el.innerHTML = `<div class="fight-results-head fight-results-head--win">Victory</div>
+    el.innerHTML = `<div class="fight-results-head fight-results-head--win" id="${titleId}">Victory</div>
       <div class="fight-results-body">
         <div class="fight-results-row"><span class="fight-results-k">XP gained</span><span class="fight-results-v">+${result.xp}</span></div>
         <div class="fight-results-row"><span class="fight-results-k">Gold</span><span class="fight-results-v">+${result.gold}</span></div>
@@ -12532,13 +12573,17 @@ function showFightResults(victory, result) {
           <span class="fight-results-loot-label">Loot</span>
           ${lootBlock}
         </div>
-      </div>`;
+      </div>
+      ${closeFooter}`;
   } else {
-    el.innerHTML = `<div class="fight-results-head fight-results-head--lose">Defeat</div>
+    el.innerHTML = `<div class="fight-results-head fight-results-head--lose" id="${titleId}">Defeat</div>
       <div class="fight-results-body">
         <p class="fight-results-msg">You were defeated. No XP, gold, or loot.</p>
-      </div>`;
+      </div>
+      ${closeFooter}`;
   }
+  const btn = document.getElementById("fightResultsCloseBtn");
+  if (btn) btn.onclick = () => closeFightOverlay();
 }
 
 function finishCombatVictory() {
@@ -12586,8 +12631,6 @@ function finishCombatVictory() {
   }
   showFightResults(true, result);
   renderTurnBattle();
-  const closeBtn = document.getElementById("fightCloseBtn");
-  if (closeBtn) closeBtn.onclick = () => closeFightOverlay();
 }
 
 function finishCombatDefeat() {
@@ -12614,8 +12657,6 @@ function finishCombatDefeat() {
   }
   showFightResults(false, result);
   renderTurnBattle();
-  const closeBtn = document.getElementById("fightCloseBtn");
-  if (closeBtn) closeBtn.onclick = () => closeFightOverlay();
 }
 
 function applyReflectDamageToPartyHero(st, dmgDealtToFoe, foe) {
@@ -14016,7 +14057,6 @@ function beginTurnCombat(region, mob, worldMapContext) {
 
   const overlay = document.getElementById("fightOverlay");
   const logEl = document.getElementById("fightLog");
-  const closeBtn = document.getElementById("fightCloseBtn");
   if (!overlay || !logEl) return;
 
   overlay.classList.remove("hidden");
@@ -14025,10 +14065,6 @@ function beginTurnCombat(region, mob, worldMapContext) {
   hideFightResults();
   logEl.innerHTML = "";
   appendFightLog("— Fight start —");
-  if (closeBtn) {
-    closeBtn.classList.add("hidden");
-    closeBtn.onclick = null;
-  }
   renderTurnBattle();
 }
 
@@ -14064,14 +14100,14 @@ function closeFightOverlay() {
   if (overlay) {
     overlay.classList.add("hidden");
     overlay.classList.remove("fight-active", "shake");
+    overlay.style.removeProperty("--fight-chat-measured-height");
+    overlay.style.removeProperty("--fight-minimap-match-width");
     const mirror = document.getElementById("fightSceneBackdropImg");
     if (mirror) {
       mirror.removeAttribute("src");
       mirror.classList.remove("fight-scene-backdrop__img--city");
     }
   }
-  const closeBtn = document.getElementById("fightCloseBtn");
-  if (closeBtn) closeBtn.onclick = null;
   if (dungeonPost && dungeonPost.victory && dungeonPost.dungeonId) {
     const def = getDungeonDef(dungeonPost.dungeonId);
     const run = getActiveDungeonRun();
@@ -14128,18 +14164,81 @@ function levelUp() {
   }
 }
 
-function spendCharPoint(statKey, actor) {
+/**
+ * Spend up to `amount` characteristic points on one base stat (1:1). Caps by the actor’s remaining pool.
+ * @returns {number} points actually spent
+ */
+function spendCharPoints(statKey, actor, amount) {
   const target = actor || player;
-  if (!["str", "dex", "vit", "int"].includes(statKey)) return;
-  if (target.charPoints <= 0) return;
-  target.charPoints--;
+  if (!["str", "dex", "vit", "int"].includes(statKey)) return 0;
+  const pool = typeof target.charPoints === "number" ? Math.max(0, Math.floor(target.charPoints)) : 0;
+  const want = Math.max(0, Math.floor(Number(amount)));
+  const n = Math.min(want, pool);
+  if (n <= 0) return 0;
+  target.charPoints = pool - n;
   const prevMax = target.maxHp;
-  target[statKey]++;
+  target[statKey] += n;
   target.maxHp = computeMaxHp(target);
   const gained = target.maxHp - prevMax;
   if (gained > 0) target.hp = Math.min(target.maxHp, (typeof target.hp === "number" ? target.hp : target.maxHp) + gained);
   save();
   render();
+  return n;
+}
+
+function spendCharPoint(statKey, actor) {
+  spendCharPoints(statKey, actor, 1);
+}
+
+function openCharPointSpendModal(statKey, rosterTab) {
+  if (!["str", "dex", "vit", "int"].includes(statKey)) return;
+  const tab = rosterTab != null && String(rosterTab).length ? String(rosterTab) : getCharacterRosterTab();
+  const actor = getRosterActorFromTab(tab);
+  const pool = typeof actor.charPoints === "number" ? Math.max(0, Math.floor(actor.charPoints)) : 0;
+  if (pool <= 0) return;
+  pendingCharSpend = { statKey, rosterTab: tab };
+  const labels = { str: "Strength", dex: "Dexterity", vit: "Vitality", int: "Intelligence" };
+  const label = labels[statKey] || statKey;
+  const who = escapeHtml(actor.name || (tab === "hero" ? "Hero" : "Companion"));
+  const defaultSpend = Math.min(100, pool);
+  showModalHtml(
+    `<form class="char-spend-modal" data-char-spend-form>
+      <h3 class="char-spend-modal__title">Spend characteristic points</h3>
+      <p class="char-spend-modal__line muted">Increase <strong>${escapeHtml(label)}</strong> · ${who}</p>
+      <p class="char-spend-modal__line">Available: <strong>${pool}</strong></p>
+      <label class="char-spend-modal__label" for="charSpendAmountInput">How many points to spend?</label>
+      <input id="charSpendAmountInput" class="char-spend-modal__input" type="number" name="amount" min="1" max="${pool}" value="${defaultSpend}" step="1" data-char-spend-input required />
+      <div class="char-spend-modal__actions">
+        <button type="submit" class="btn-primary" data-char-spend-apply>Apply</button>
+        <button type="button" class="btn-secondary" data-char-spend-cancel>Cancel</button>
+      </div>
+    </form>`,
+    { charSpend: true }
+  );
+  setTimeout(() => {
+    const inp = document.getElementById("charSpendAmountInput");
+    if (inp && typeof inp.focus === "function") {
+      inp.focus();
+      if (typeof inp.select === "function") inp.select();
+    }
+  }, 0);
+}
+
+function applyCharSpendFromModal() {
+  const p = pendingCharSpend;
+  if (!p || !p.statKey) {
+    pendingCharSpend = null;
+    closeModal();
+    return;
+  }
+  const inp = document.querySelector("[data-char-spend-input]");
+  const raw = inp && inp.value != null ? parseInt(String(inp.value).trim(), 10) : NaN;
+  let n = Number.isFinite(raw) ? Math.floor(raw) : 1;
+  n = Math.max(1, n);
+  const actor = getRosterActorFromTab(p.rosterTab);
+  spendCharPoints(p.statKey, actor, n);
+  pendingCharSpend = null;
+  closeModal();
 }
 
 function escapeAttr(s) {
@@ -16775,6 +16874,18 @@ function renderAdventure() {
   }
 }
 
+function syncMinimapSlots() {
+  let miniHtml = "";
+  if (currentPage === "adventure") {
+    ensureWorldMapPosition();
+    miniHtml = `<div class="minimap-panel">${buildMinimapHtml(player.worldMap.x, player.worldMap.y)}</div>`;
+  }
+  const miniSlot = document.getElementById("bottomHudMinimapSlot");
+  if (miniSlot) miniSlot.innerHTML = miniHtml;
+  const fightMini = document.getElementById("fightMinimapSlot");
+  if (fightMini) fightMini.innerHTML = miniHtml;
+}
+
 function renderBottomHud() {
   const hpFill = document.getElementById("bottomHudHpFill");
   const hpText = document.getElementById("bottomHudHpText");
@@ -16804,14 +16915,7 @@ function renderBottomHud() {
   const atlasBtn = document.getElementById("atlasPanelBtn");
   if (atlasBtn) atlasBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "atlas");
 
-  const miniSlot = document.getElementById("bottomHudMinimapSlot");
-  if (!miniSlot) return;
-  if (currentPage === "adventure") {
-    ensureWorldMapPosition();
-    miniSlot.innerHTML = `<div class="minimap-panel">${buildMinimapHtml(player.worldMap.x, player.worldMap.y)}</div>`;
-  } else {
-    miniSlot.innerHTML = "";
-  }
+  syncMinimapSlots();
 }
 
 function render() {
@@ -16986,7 +17090,12 @@ function onContentClick(e) {
   const clickActor = resolveOverviewRosterActorFromEvent(e);
   const alloc = e.target.closest("[data-char-up]");
   if (alloc && alloc.dataset.charUp) {
-    spendCharPoint(alloc.dataset.charUp, clickActor);
+    const rosterPage = e.target.closest("[data-overview-roster-tab]");
+    const tab =
+      rosterPage && rosterPage.dataset && rosterPage.dataset.overviewRosterTab != null
+        ? rosterPage.dataset.overviewRosterTab
+        : getCharacterRosterTab();
+    openCharPointSpendModal(alloc.dataset.charUp, tab);
     return;
   }
   const clsUp = e.target.closest("[data-class-skill-up]");
@@ -17140,7 +17249,7 @@ function showModal(text) {
   const mc = document.getElementById("modalContent");
   if (mc) mc.textContent = text;
   if (m) {
-    m.classList.remove("hidden", "modal--portal-network", "modal--npc-bubble");
+    m.classList.remove("hidden", "modal--portal-network", "modal--npc-bubble", "modal--char-spend");
   }
 }
 
@@ -17154,6 +17263,8 @@ function showModalHtml(html, opts) {
     else m.classList.remove("modal--portal-network");
     if (opts && opts.npcBubble) m.classList.add("modal--npc-bubble");
     else m.classList.remove("modal--npc-bubble");
+    if (opts && opts.charSpend) m.classList.add("modal--char-spend");
+    else m.classList.remove("modal--char-spend");
   }
 }
 
@@ -17290,12 +17401,14 @@ function openBoatTravelModal(destinations) {
 function closeModal() {
   pendingDiscardInventoryItemName = null;
   pendingCompanionEnableSlot = null;
+  pendingCharSpend = null;
   const m = document.getElementById("modal");
   const mc = document.getElementById("modalContent");
   if (m) {
     m.classList.add("hidden");
     m.classList.remove("modal--portal-network");
     m.classList.remove("modal--npc-bubble");
+    m.classList.remove("modal--char-spend");
   }
   if (mc) {
     mc.textContent = "";
@@ -17304,6 +17417,11 @@ function closeModal() {
 }
 
 function onPortalNetworkModalClick(e) {
+  if (e.target.closest("[data-char-spend-cancel]")) {
+    pendingCharSpend = null;
+    closeModal();
+    return;
+  }
   if (e.target.closest("[data-companion-name-cancel]")) {
     closeModal();
     return;
@@ -17568,11 +17686,18 @@ function initUi() {
     fightOverlay.addEventListener("mouseover", onContentTooltipOver);
     fightOverlay.addEventListener("mouseout", onContentTooltipOut);
     fightOverlay.addEventListener("mousemove", onContentTooltipMove);
+    initFightMinimapLayoutObserver();
   }
 
   const modalEl = document.getElementById("modal");
   if (modalEl) {
     modalEl.addEventListener("click", onPortalNetworkModalClick);
+    modalEl.addEventListener("submit", (ev) => {
+      const form = ev.target;
+      if (!form || !form.matches || !form.matches("form[data-char-spend-form]")) return;
+      ev.preventDefault();
+      applyCharSpendFromModal();
+    });
     modalEl.addEventListener("dblclick", onModalDblClick);
   }
   const bottomPortrait = document.getElementById("bottomHudPortrait");
@@ -17644,6 +17769,12 @@ function initUi() {
     bottomMini.addEventListener("mouseover", onContentTooltipOver);
     bottomMini.addEventListener("mouseout", onContentTooltipOut);
     bottomMini.addEventListener("mousemove", onContentTooltipMove);
+  }
+  const fightMini = document.getElementById("fightMinimapSlot");
+  if (fightMini) {
+    fightMini.addEventListener("mouseover", onContentTooltipOver);
+    fightMini.addEventListener("mouseout", onContentTooltipOut);
+    fightMini.addEventListener("mousemove", onContentTooltipMove);
   }
 
   document.addEventListener("keydown", onDocumentKeydown);
