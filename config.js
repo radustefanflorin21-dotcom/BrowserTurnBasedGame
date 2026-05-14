@@ -35,8 +35,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/burrow_hare.png",
       possibleLevels: [11, 12, 13, 14, 15],
-      possibleMoods: ["cautious"],
-    },
+      possibleMoods: ["cautious"]},
     {
       name: "Plains Raptor",
       combatScript: "plains_raptor",
@@ -44,8 +43,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/plains_raptor.png",
       possibleLevels: [13, 14, 15, 16, 17],
-      possibleMoods: ["focused"],
-    },
+      possibleMoods: ["focused"]},
     {
       name: "Grass Snake",
       combatScript: "grass_snake",
@@ -53,8 +51,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/grass_snake.png",
       possibleLevels: [15, 16, 17, 18, 19],
-      possibleMoods: ["focused"],
-    },
+      possibleMoods: ["focused"]},
     {
       name: "Tusk Boar",
       combatScript: "tusk_boar",
@@ -62,8 +59,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/tusk_boar.png",
       possibleLevels: [17, 18, 19, 20],
-      possibleMoods: ["steady"],
-    },
+      possibleMoods: ["steady"]},
     {
       name: "Field Wolf",
       combatScript: "field_wolf",
@@ -71,26 +67,23 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/field_wolf.png",
       possibleLevels: [19, 20, 21],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Leafdart Squirrel",
       combatScript: "greenleaf_squirrel",
-      combatRole: "heart_harasser",
+      combatRole: "harasser",
       spawnRarity: "common",
       image: "Assets/Monsters/leafdart_squirrel.png",
       possibleLevels: [31, 32, 33, 34, 35],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Canopy Screecher",
       combatScript: "greenleaf_parrot",
-      combatRole: "heart_buffer",
+      combatRole: "buffer",
       spawnRarity: "common",
       image: "Assets/Monsters/canopy_screecher.png",
       possibleLevels: [33, 34, 35, 36, 37],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Greenleaf Fox",
       combatScript: "greenleaf_fox",
@@ -98,8 +91,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/greenleaf_fox.png",
       possibleLevels: [35, 36, 37, 38, 39],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Jungle Stag",
       combatScript: "greenleaf_stag",
@@ -107,8 +99,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/jungle_stag.png",
       possibleLevels: [37, 38, 39, 40],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Gorilla",
       combatScript: "gorilla",
@@ -116,8 +107,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/greenleaf_gorilla.png",
       possibleLevels: [39, 40, 41, 42],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Stone Marmot",
       combatScript: "stone_marmot",
@@ -125,8 +115,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/stone_marmot.png",
       possibleLevels: [21, 22, 23, 24, 25],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Rock Lynx",
       combatScript: "rock_lynx",
@@ -134,8 +123,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/rock_lynx.png",
       possibleLevels: [23, 24, 25, 26, 27],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Rock Ibex",
       combatScript: "rock_ibex",
@@ -143,8 +131,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/rock_ibex.png",
       possibleLevels: [25, 26, 27, 28, 29],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Rock Serpent",
       combatScript: "rock_serpent",
@@ -152,8 +139,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/rock_serpent.png",
       possibleLevels: [27, 28, 29, 30],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Rock Lizard",
       combatScript: "rock_lizard",
@@ -161,8 +147,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/rock_lizard.png",
       possibleLevels: [29, 30, 31],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Ash Lizard",
       combatScript: "ash_lizard",
@@ -170,8 +155,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/ash_lizard.png",
       possibleLevels: [41, 42, 43, 44, 45],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Cinder Stalker",
       combatScript: "cinder_stalker",
@@ -179,8 +163,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/cinder_stalker.png",
       possibleLevels: [43, 44, 45, 46, 47],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Ember Scuttler",
       combatScript: "ember_scuttler",
@@ -188,8 +171,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/ember_scuttler.png",
       possibleLevels: [45, 46, 47, 48, 49],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Magma Boar",
       combatScript: "magma_boar",
@@ -197,8 +179,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/magma_boar.png",
       possibleLevels: [47, 48, 49, 50],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Lava Basilisk",
       combatScript: "lava_basilisk",
@@ -206,8 +187,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/lava_basilisk.png",
       possibleLevels: [49, 50, 51, 52, 53],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Icy Mink",
       combatScript: "icy_mink",
@@ -215,8 +195,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/icy_mink.png",
       possibleLevels: [41, 42, 43, 44, 45],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Icy Serpent",
       combatScript: "icy_serpent",
@@ -224,8 +203,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/icy_serpent.png",
       possibleLevels: [43, 44, 45, 46, 47],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Glacier Turtoise",
       combatScript: "glacier_turtoise",
@@ -233,8 +211,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/glacier_turtoise.png",
       possibleLevels: [45, 46, 47, 48, 49],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Frozen Stalker",
       combatScript: "frozen_stalker",
@@ -242,8 +219,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/frozen_stalker.png",
       possibleLevels: [47, 48, 49, 50],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Frost Skitter",
       combatScript: "frost_skitter",
@@ -251,8 +227,7 @@ const GAME_CONFIG = {
       spawnRarity: "myth",
       image: "Assets/Monsters/frost_skitter.png",
       possibleLevels: [49, 50, 51, 52, 53],
-      possibleMoods: ["berserk"],
-    },  
+      possibleMoods: ["berserk"]},  
     {
       name: "Pinebound Fawn",
       combatScript: "pinebound_fawn",
@@ -260,8 +235,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/pinebound_fawn.png",
       possibleLevels: [21, 22, 23, 24, 25],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Frozen Pinecone",
       combatScript: "frozen_pinecone",
@@ -269,8 +243,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/frozen_pinecone.png",
       possibleLevels: [23, 24, 25, 26, 27],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Ice-Tusked Boar",
       combatScript: "ice_tusked_boar",
@@ -278,8 +251,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/ice_tusked_boar.png",
       possibleLevels: [25, 26, 27, 28, 29],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Barkhide Spriggan",
       combatScript: "barkhide_spriggan",
@@ -287,8 +259,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/barkhide_spriggan.png",
       possibleLevels: [27, 28, 29, 30],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Winter Guardian",
       combatScript: "winter_guardian",
@@ -296,8 +267,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/winter_guardian.png",
       possibleLevels: [29, 30, 31],
-      possibleMoods: ["berserk"],
-    }, 
+      possibleMoods: ["berserk"]}, 
     {
       name: "Dust Carver",
       combatScript: "dust_carver",
@@ -305,8 +275,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/dust_carver.png",
       possibleLevels: [11, 12, 13, 14, 15],
-      possibleMoods: ["berserk"],
-    }, 
+      possibleMoods: ["berserk"]}, 
     {
       name: "Desert Thornback Crawler",
       combatScript: "desert_thornback_crawler",
@@ -314,8 +283,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/desert_thornback_crawler.png",
       possibleLevels: [15, 16, 17, 18, 19],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Mirage Lurker",
       combatScript: "mirage_lurker",
@@ -323,8 +291,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/mirage_lurker.png",
       possibleLevels: [17, 18, 19, 20],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Dune Devourer",
       combatScript: "dune_devourer",
@@ -332,8 +299,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/dune_devourer.png",
       possibleLevels: [19, 20, 21],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Witherling",
       combatScript: "witherling",
@@ -341,8 +307,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/witherling.png",
       possibleLevels: [13, 14, 15, 16, 17],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Remnant of Rust",
       combatScript: "remnant_of_rust",
@@ -350,8 +315,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/remnant_of_rust.png",
       possibleLevels: [37, 38, 39, 40],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Faded War Wraith",
       combatScript: "faded_war_wraith",
@@ -359,8 +323,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/faded_war_wraith.png",
       possibleLevels: [39, 40, 41, 42],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Ash Horror",
       combatScript: "ash_horror",
@@ -368,8 +331,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/ash_horror.png",
       possibleLevels: [31, 32, 33, 34, 35],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Cinder Husk",
       combatScript: "cinder_husk",
@@ -377,8 +339,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/cinder_husk.png",
       possibleLevels: [33, 34, 35, 36, 37],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Ash Skulker",
       combatScript: "ash_skulker",
@@ -386,8 +347,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/ash_skulker.png",
       possibleLevels: [35, 36, 37, 38, 39],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Tide Hopper",
       combatScript: "tide_hopper",
@@ -395,8 +355,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/tide_hopper.png",
       possibleLevels: [1, 2, 3, 4, 5],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Hermit Crab",
       combatScript: "hermit_crab",
@@ -404,8 +363,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/hermit_crab.png",
       possibleLevels: [3, 4, 5, 6, 7],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Driftling",
       combatScript: "driftling",
@@ -413,8 +371,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/driftling.png",
       possibleLevels: [5, 6, 7, 8, 9],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Tidemeld Revenant",
       combatScript: "tidemeld_revenant",
@@ -422,8 +379,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/tidemeld_revenant.png",
       possibleLevels: [7, 8, 9, 10],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Coastal Horror",
       combatScript: "coastal_horror",
@@ -431,8 +387,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/coastal_horror.png",
       possibleLevels: [9, 10, 11],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Tidebound Crusher",
       combatScript: "tidebound_crusher",
@@ -470,16 +425,14 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/tide_echo.png",
       possibleLevels: [6],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Storm Echo",
       combatRole: "controller",
       spawnRarity: "rare",
       image: "Assets/Monsters/tide_echo.png",
       possibleLevels: [13, 14, 15],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Stormfang Ravager",
       combatScript: "stormfang_ravager",
@@ -520,8 +473,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/saltwind_skimmer.png",
       possibleLevels: [1, 2, 3, 4, 5],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Brinegullet Spitter",
       combatScript: "brinegullet_spitter",
@@ -529,8 +481,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/brinegullet_spitter.png",
       possibleLevels: [3, 4, 5, 6, 7],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Wavebreaker Idol",
       combatScript: "wavebreaker_idol",
@@ -538,8 +489,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/wavebreaker_idol.png",
       possibleLevels: [5, 6, 7, 8, 9],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Cliff Lurker",
       combatScript: "cliff_lurker",
@@ -547,8 +497,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/cliff_lurker.png",
       possibleLevels: [7, 8, 9, 10],
-      possibleMoods: ["berserk"],
-    },
+      possibleMoods: ["berserk"]},
     {
       name: "Tideharrow",
       combatScript: "tideharrow",
@@ -556,29 +505,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/tideharrow.png",
       possibleLevels: [9, 10, 11],
-      possibleMoods: ["berserk"],
-    },
-    {
-      name: "Bandit",
-      spawnRarity: "common",
-      image: "Assets/Monsters/burrow_hare.png",
-      possibleLevels: [1, 2, 3, 4, 5],
-      possibleMoods: ["cautious", "focused"],
-    },
-    {
-      name: "Wolf",
-      spawnRarity: "rare",
-      image: "Assets/Monsters/field_wolf.png",
-      possibleLevels: [3, 4, 5, 6, 7],
-      possibleMoods: ["berserk", "focused"],
-    },
-    {
-      name: "Drone",
-      spawnRarity: "epic",
-      image: "Assets/Monsters/plains_raptor.png",
-      possibleLevels: [8, 10, 12, 14, 16],
-      possibleMoods: ["focused", "steady"],
-    }
+      possibleMoods: ["berserk"]}
   ],
 
   /**
@@ -630,32 +557,41 @@ const GAME_CONFIG = {
 
   /**
    * Monster characteristics and combat scaling.
-   * Budget model:
-   *   baseBudget = round((level * statBudgetPerLevel + statBudgetFlat) * (1 + (level / statBudgetCurveDivisor)^statBudgetCurveExponent))
-   *   finalBudget = round(baseBudget * rarityDifficultyModifier)
-   * Role split uses `enemyRoles` weights with rounding correction to the role main stat (see game.js).
+   * Stat budget: round((6 + level * 4) * rarityStatBudgetMultipliers[tier] * optional per-def statBudgetMultiplier).
+   * HP: round((level * 10 + VIT * 4) * rarityHpMultipliers[tier]); then × region enemyScale × mood hpMult (see buildSpawnedFoe).
+   * Role stat split uses `enemyRoles` weights with rounding correction to the role main stat (see game.js).
    */
   monsterScaling: {
-    statBudgetPerLevel: 4.8,
-    statBudgetFlat: 10,
-    statBudgetCurveDivisor: 60,
-    statBudgetCurveExponent: 1.6,
+    /** Applied inside the stat budget formula (see computeMonsterStatBudget in game.js). */
+    rarityStatBudgetMultipliers: {
+      common: 1.0,
+      rare: 1.15,
+      epic: 1.35,
+      myth: 1.8,
+      ancient: 2.05
+    },
+    /** @deprecated Use rarityStatBudgetMultipliers; kept as alias for older tooling reads. */
     rarityDifficultyModifiers: {
       common: 1.0,
-      rare: 1.08,
-      epic: 1.2,
-      myth: 1.5,
-      ancient: 1.8
-    },
-    rarityHpBossMultipliers: {
-      common: 1.0,
-      rare: 1.0,
-      epic: 1.0,
+      rare: 1.15,
+      epic: 1.35,
       myth: 1.8,
-      ancient: 2.2
+      ancient: 2.05
     },
-    hpLevelBasePerLevel: 35,
-    hpPerVit: 12,
+    rarityHpMultipliers: {
+      common: 1.0,
+      rare: 1.08,
+      epic: 1.22,
+      myth: 1.45,
+      ancient: 1.65
+    },
+    foeStaminaByRarity: {
+      common: 6,
+      rare: 7,
+      epic: 7,
+      myth: 8,
+      ancient: 9
+    },
     attackLevelBasePerLevel: 3.4,
     basicAttackGlobalMultiplier: 1.18,
     physicalAtkStrCoeff: 0.62,
@@ -701,9 +637,7 @@ const GAME_CONFIG = {
     support: { STR: 0.1, DEX: 0.18, VIT: 0.32, INT: 0.4 },
     summoner: { STR: 0.08, DEX: 0.18, VIT: 0.3, INT: 0.44 },
     harasser: { STR: 0.18, DEX: 0.42, VIT: 0.2, INT: 0.2 },
-    buffer: { STR: 0.08, DEX: 0.2, VIT: 0.28, INT: 0.44 },
-    heart_harasser: { STR: 0.18, DEX: 0.42, VIT: 0.2, INT: 0.2 },
-    heart_buffer: { STR: 0.08, DEX: 0.2, VIT: 0.28, INT: 0.44 }
+    buffer: { STR: 0.08, DEX: 0.2, VIT: 0.28, INT: 0.44 }
   },
 
   items: {
@@ -995,7 +929,6 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/raggs_shirt.png",
       description: "Torn cloth stitched together from scraps and faded fabric. Offers little protection, but keeps the cold away.",
       set: "",
@@ -1009,7 +942,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/raggs_pants.png",
       description: "Rough patched trousers held together with twine and stubbornness.",
       set: "",
@@ -1024,7 +956,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 15,
-      defense: 4,
       image: "Assets/Equips/burrowstep_boots.png",
       description: "Fast repositioning boots for early skirmishers.",
       set: "",
@@ -1038,13 +969,12 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 19,
-      defense: 4,
       image: "Assets/Equips/boarhide_leggins.png",
       description: "Boarbreaker set leg protection.",
       set: "Boarbreaker",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 11, STR: 6, DR: 2 }
+      bonusStats: { VIT: 11, STR: 6 }
     },
     "Devourer Axe": {
       type: "weapon",
@@ -1080,7 +1010,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 16,
-      defense: 3,
       image: "Assets/Equips/mirage_ring.png",
       description: "A mirage-tuned ring for precision hybrids.",
       set: "",
@@ -1094,13 +1023,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 28,
-      defense: 7,
       image: "Assets/Equips/stonescale_armor.png",
       description: "Stoneguard chest built for sustained tanking.",
       set: "Stoneguard",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 17, STR: 9, DR: 5 }
+      bonusStats: { VIT: 17, STR: 9 }
     },
     "Marmot Helm": {
       type: "armor",
@@ -1108,7 +1036,6 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 25,
-      defense: 5,
       image: "Assets/Equips/marmot_helm.png",
       description: "Dense helm for steady frontliners.",
       set: "",
@@ -1122,13 +1049,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 29,
-      defense: 5,
       image: "Assets/Equips/stonepulse_amulet.png",
       description: "Arcane earth pulse focus for casters.",
       set: "",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 17, VIT: 9, "Skill Power": 8 }
+      bonusStats: { INT: 17, VIT: 9, "Magic Damage": 8 }
     },
     "Swiftbrush Boots": {
       type: "armor",
@@ -1136,7 +1062,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 37,
-      defense: 7,
       image: "Assets/Equips/swiftbrush_boots.png",
       description: "Greenleaf set boots for evasive play.",
       set: "Greenleaf",
@@ -1150,7 +1075,6 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 36,
-      defense: 7,
       image: "Assets/Equips/greenleaf_vest.png",
       description: "Greenleaf set vest for durable skirmishers.",
       set: "Greenleaf",
@@ -1164,13 +1088,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 40,
-      defense: 7,
       image: "Assets/Equips/soul_echo_amulet.png",
       description: "Wraith set amulet for long-form control battles.",
       set: "Wraith",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 24, DEX: 12, "Debuff Duration": 10 }
+      bonusStats: { INT: 24, DEX: 12 }
     },
     "Molten Gaze Ring": {
       type: "armor",
@@ -1178,13 +1101,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 50,
-      defense: 8,
       image: "Assets/Equips/molten_gaze_ring.png",
       description: "High-tier ring for status-heavy casters.",
       set: "",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 30, VIT: 15, "Status Potency": 12 }
+      bonusStats: { INT: 30, VIT: 15 }
     },
     "Ember Core Ring": {
       type: "armor",
@@ -1192,7 +1114,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 47,
-      defense: 8,
       image: "Assets/Equips/ember_core_ring.png",
       description: "Ember set ring focused on burst crit tempo.",
       set: "Ember",
@@ -1206,7 +1127,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 48,
-      defense: 8,
       image: "Assets/Equips/icebound_boots.png",
       description: "Frost set boots built for resistant duelers.",
       set: "Frost",
@@ -1220,7 +1140,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 49,
-      defense: 8,
       image: "Assets/Equips/lava_greaves.png",
       description: "Molten set greaves for heavy damage builds.",
       set: "Molten",
@@ -1249,13 +1168,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 6,
-      defense: 2,
       image: "Assets/Equips/tidecall_amulet.png",
       description: "A tidebound focus that bends wave pressure into utility spell control.",
       set: "Tidecaster",
       build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { INT: 5, DEX: 3, "Skill Power": 4, "Debuff Duration": 3 }
+      bonusStats: { INT: 5, DEX: 3, "Magic Damage": 4 }
     },
     "Shellsplitter": {
       type: "weapon",
@@ -1269,7 +1187,7 @@ const GAME_CONFIG = {
       set: "Tideguard",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 6, VIT: 3, "Phys Damage": 4, "Armor Pen": 3 }
+      bonusStats: { STR: 6, VIT: 3, "Phys Damage": 4 }
     },
     "Ripple Staff": {
       type: "weapon",
@@ -1283,7 +1201,7 @@ const GAME_CONFIG = {
       set: "Tidecaster",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 7, DEX: 4, "Skill Power": 4, "Status Potency": 3 }
+      bonusStats: { INT: 7, DEX: 4, "Magic Damage": 4 }
     },
     "Scaleguard Shirt": {
       type: "armor",
@@ -1291,13 +1209,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 7,
-      defense: 2,
       image: "Assets/Equips/scaleguard_shirt.png",
       description: "Layered crab shell armor built to absorb early-game punishment.",
       set: "Tideguard",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 6, STR: 3, DR: 1, HP: 70 }
+      bonusStats: { VIT: 6, STR: 3, HP: 70 }
     },
     "Tide Horror Vest": {
       type: "armor",
@@ -1305,13 +1222,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 8,
-      defense: 2,
       image: "Assets/Equips/tide_horror_vest.png",
       description: "A lighter tidal cuirass offering balanced defense and magical poise.",
       set: "Tideguard",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 6, INT: 7, DR: 1, "Magic Resist": 4, HP: 64 }
+      bonusStats: { VIT: 6, INT: 7, "Magic Resist": 4, HP: 64 }
     },
     "Wet Boots": {
       type: "armor",
@@ -1319,7 +1235,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 6,
-      defense: 2,
       image: "Assets/Equips/wet_boots.png",
       description: "Flexible sea-soaked boots that improve footing and evasive movement.",
       set: "Skimmer",
@@ -1333,13 +1248,12 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 8,
-      defense: 2,
       image: "Assets/Equips/coastal_hat.png",
       description: "A crested helm made from coastal shell and bone.",
       set: "Tideguard",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 6, STR: 7, DR: 2, "Physical Resist": 4, HP: 64 }
+      bonusStats: { VIT: 6, STR: 7, "Physical Resist": 4, HP: 64 }
     },
     "Driftcloak Vest": {
       type: "armor",
@@ -1347,7 +1261,6 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 7,
-      defense: 2,
       image: "Assets/Equips/driftcloak_vest.png",
       description: "A fluid-light vest that shifts with the tide to keep the wearer elusive and steady.",
       set: "Skimmer",
@@ -1361,7 +1274,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 9,
-      defense: 3,
       image: "Assets/Equips/wave_leggins.png",
       description: "Layered leggings stitched from membrane and hide for balanced survival.",
       set: "Tideguard",
@@ -1375,7 +1287,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 6,
-      defense: 2,
       image: "Assets/Equips/flow_ring.png",
       description: "A simple ring that sharpens water-aligned timing and control.",
       set: "Tidecaster",
@@ -1389,13 +1300,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 8,
-      defense: 2,
       image: "Assets/Equips/salt_amulet.png",
       description: "A salt-crystal amulet that steadies the wearer in drawn-out fights.",
       set: "Tideguard",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 5, INT: 6, DR: 1, "Magic Resist": 4, "Debuff Duration": 3 }
+      bonusStats: { VIT: 5, INT: 6, "Magic Resist": 4 }
     },
     "Drift Bracelet": {
       type: "armor",
@@ -1403,7 +1313,6 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 7,
-      defense: 2,
       image: "Assets/Equips/abyssbind_band.png",
       description: "A coral-bound bracelet for slippery skirmishers.",
       set: "Skimmer",
@@ -1417,13 +1326,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 9,
-      defense: 3,
       image: "Assets/Equips/ripple_charm.png",
       description: "A charm attuned to ripples in magic and momentum.",
       set: "Tidecaster",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 6, DEX: 3, "Skill Power": 4, "Status Potency": 3, "Debuff Duration": 3, "Crit Damage": 3 }
+      bonusStats: { INT: 6, DEX: 3, "Magic Damage": 4, "Crit Damage": 3 }
     },
     "Sand Band": {
       type: "armor",
@@ -1431,13 +1339,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 8,
-      defense: 2,
       image: "Assets/Equips/sand_band.png",
       description: "A sturdy shell band favored by frontline bruisers.",
       set: "Tideguard",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 6, VIT: 3, "Phys Damage": 4, "Armor Pen": 3 }
+      bonusStats: { STR: 6, VIT: 3, "Phys Damage": 4 }
     },
     "Tide Loop": {
       type: "armor",
@@ -1445,13 +1352,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 10,
-      defense: 3,
       image: "Assets/Equips/tide_loop.png",
       description: "A polished loop carrying the weight and patience of the sea.",
       set: "Tidecaster",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 7, VIT: 3, "Debuff Duration": 6, "Magic Resist": 4 }
+      bonusStats: { INT: 7, VIT: 3, "Magic Resist": 4 }
     },
     "Crusher's Anchor Cleaver": {
       type: "weapon",
@@ -1465,7 +1371,7 @@ const GAME_CONFIG = {
       set: "Crusher Set",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 12, VIT: 6, "Phys Damage": 6, "Armor Pen": 4, Stagger: 5 }
+      bonusStats: { STR: 12, VIT: 6, "Phys Damage": 6 }
     },
     "Saltbound Bulwark Plate": {
       type: "armor",
@@ -1473,13 +1379,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 14,
-      defense: 4,
       image: "Assets/Equips/saltbound_bulwark_plate.png",
       description: "Salt-encrusted heavy plate built to absorb crushing pressure.",
       set: "Crusher Set",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 14, STR: 6, DR: 3, "Physical Resist": 5, HP: 140 }
+      bonusStats: { VIT: 14, STR: 6, "Physical Resist": 5, HP: 140 }
     },
     "Pressure Loop": {
       type: "armor",
@@ -1487,13 +1392,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 14,
-      defense: 3,
       image: "Assets/Equips/pressure_loop.png",
       description: "A dense loop that turns tidal pressure into stagger force.",
       set: "Crusher Set",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 10, VIT: 5, Stagger: 5 }
+      bonusStats: { STR: 10, VIT: 5 }
     },
     "Channeler's Focus Rod": {
       type: "weapon",
@@ -1507,7 +1411,7 @@ const GAME_CONFIG = {
       set: "Channeler Set",
       build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { INT: 12, DEX: 5, "Skill Power": 5, "Status Potency": 4, "Debuff Duration": 4 }
+      bonusStats: { INT: 12, DEX: 5, "Magic Damage": 5 }
     },
     "Abyssbind Band": {
       type: "armor",
@@ -1515,13 +1419,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 13,
-      defense: 3,
       image: "Assets/Equips/drift_bracelet.png",
       description: "A binding abyssal band that steadies control chains and combo tempo.",
       set: "Channeler Set",
       build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { INT: 10, DEX: 6, "Status Potency": 4, "Debuff Duration": 4, Combo: 3 }
+      bonusStats: { INT: 10, DEX: 6 }
     },
     "Drowned Sigil Amulet": {
       type: "armor",
@@ -1529,13 +1432,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 13,
-      defense: 3,
       image: "Assets/Equips/drowned_sigil_amulet.png",
       description: "A drowned sigil focus for resilient control casters.",
       set: "Channeler Set",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 11, VIT: 5, "Magic Resist": 4, "Debuff Duration": 5 }
+      bonusStats: { INT: 11, VIT: 5, "Magic Resist": 4 }
     },
     "Tidemother Fangblade": {
       type: "weapon",
@@ -1549,7 +1451,7 @@ const GAME_CONFIG = {
       set: "Tidemother Set",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 12, INT: 10, Crit: 6, "Status Potency": 5, Combo: 4 }
+      bonusStats: { DEX: 12, INT: 10, Crit: 6 }
     },
     "Abyssal Carapace Vest": {
       type: "armor",
@@ -1557,13 +1459,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 15,
-      defense: 4,
       image: "Assets/Equips/abyssal_carapace_vest.png",
       description: "A corrupted brine carapace that protects while amplifying abyssal focus.",
       set: "Tidemother Set",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 15, INT: 10, DR: 3, "Magic Resist": 6, HP: 180 }
+      bonusStats: { VIT: 15, INT: 10, "Magic Resist": 6, HP: 180 }
     },
     "Echo Loop of the Deep": {
       type: "armor",
@@ -1571,13 +1472,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 15,
-      defense: 3,
       image: "Assets/Equips/echo_loop_of_the_deep.png",
       description: "A deep echo loop for high-value debuff and status builds.",
       set: "Tidemother Set",
       build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { INT: 13, DEX: 7, "Debuff Duration": 6, "Status Potency": 5, "Crit Damage": 4 }
+      bonusStats: { INT: 13, DEX: 7, "Crit Damage": 4 }
     },
     "Leviathan Arcblade": {
       type: "weapon",
@@ -1591,7 +1491,7 @@ const GAME_CONFIG = {
       set: "Stormwake Set",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 12, INT: 10, Crit: 6, "Status Potency": 5, Combo: 4 }
+      bonusStats: { DEX: 12, INT: 10, Crit: 6 }
     },
     "Leviathan Scale Mantle": {
       type: "armor",
@@ -1599,13 +1499,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 15,
-      defense: 4,
       image: "Assets/Equips/leviathan_scale_mantle.png",
       description: "Scaled mantle from the deep stormwake, balancing vitality and arcane ward.",
       set: "Stormwake Set",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 14, INT: 10, DR: 3, "Magic Resist": 6, HP: 160 }
+      bonusStats: { VIT: 14, INT: 10, "Magic Resist": 6, HP: 160 }
     },
     "Maelstrom Eye Ring": {
       type: "armor",
@@ -1613,13 +1512,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 15,
-      defense: 3,
       image: "Assets/Equips/maelstorm_eye_ring.png",
       description: "A ring set with a stilling maelstrom eye—draws out debuffs and sharpens critical follow-through.",
       set: "Stormwake Set",
       build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { INT: 13, DEX: 7, "Debuff Duration": 6, "Status Potency": 5, "Crit Damage": 4 }
+      bonusStats: { INT: 13, DEX: 7, "Crit Damage": 4 }
     },
     "Stormwake Legguards": {
       type: "armor",
@@ -1627,7 +1525,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 15,
-      defense: 3,
       image: "Assets/Equips/stormwake_legguards.png",
       description: "Legguards laced with stormwake threading for mobility under magical pressure.",
       set: "Stormwake Set",
@@ -1655,13 +1552,12 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 14,
-      defense: 3,
       image: "Assets/Equips/stormhide_boots.png",
       description: "Storm-slick boots that keep their wearer light through pressure and spray.",
       set: "Stormfang Set",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 10, VIT: 6, Evasion: 6, Combo: 3 }
+      bonusStats: { DEX: 10, VIT: 6, Evasion: 6 }
     },
     "Static Fang Bracelet": {
       type: "armor",
@@ -1669,13 +1565,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 14,
-      defense: 3,
       image: "Assets/Equips/static_fang_bracelet.png",
       description: "A crackling fang bracelet that stores static charge for lethal follow-throughs.",
       set: "Stormfang Set",
       build: "DEX_STR",
       bonusSkills: [],
-      bonusStats: { DEX: 9, STR: 6, "Crit Damage": 5, Combo: 4 }
+      bonusStats: { DEX: 9, STR: 6, "Crit Damage": 5 }
     },
     "Gale-Slashed Leggings": {
       type: "armor",
@@ -1683,7 +1578,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 14,
-      defense: 3,
       image: "Assets/Equips/gale_slashed_leggings.png",
       description: "Wind-cut leggings reinforced with charged hide and storm-thread stitching.",
       set: "Stormfang Set",
@@ -1703,7 +1597,7 @@ const GAME_CONFIG = {
       set: "Tempest Caller Set",
       build: "INT_DEX",
       bonusSkills: [],
-      bonusStats: { INT: 12, DEX: 5, "Skill Power": 5, "Status Potency": 4, "Debuff Duration": 4 }
+      bonusStats: { INT: 12, DEX: 5, "Magic Damage": 5 }
     },
     "Stormbind Hood": {
       type: "armor",
@@ -1711,13 +1605,12 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 13,
-      defense: 3,
       image: "Assets/Equips/stormbind_hood.png",
       description: "A drowned ritual hood that grounds storm pressure through the wearer's focus.",
       set: "Tempest Caller Set",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 10, VIT: 6, "Magic Resist": 4, "Debuff Duration": 4, HP: 80 }
+      bonusStats: { INT: 10, VIT: 6, "Magic Resist": 4, HP: 80 }
     },
     "Brinestorm Amulet": {
       type: "armor",
@@ -1725,13 +1618,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 13,
-      defense: 3,
       image: "Assets/Equips/brinestorm_amulet.png",
       description: "An amulet filled with spiraling brine and faint lightning arcs.",
       set: "Tempest Caller Set",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 11, VIT: 5, "Status Potency": 5, "Debuff Duration": 5 }
+      bonusStats: { INT: 11, VIT: 5 }
     },
     "Sandfang Blade": {
       type: "weapon",
@@ -1759,7 +1651,7 @@ const GAME_CONFIG = {
       set: "Mirage",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 11, INT: 11, Combo: 6, "Status Potency": 4 }
+      bonusStats: { DEX: 11, INT: 11 }
     },
     "Boarbreaker Axe": {
       type: "weapon",
@@ -1773,7 +1665,7 @@ const GAME_CONFIG = {
       set: "Boarbreaker",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 13, VIT: 7, "Phys Damage": 6, "Armor Pen": 4, "Stamina Reduction": 0 }
+      bonusStats: { STR: 13, VIT: 7, "Phys Damage": 6, "Stamina Reduction": 0 }
     },
     "Venom Channeler": {
       type: "weapon",
@@ -1787,7 +1679,7 @@ const GAME_CONFIG = {
       set: "Venomcaster",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 13, DEX: 8, "Skill Power": 6, "Status Potency": 4 }
+      bonusStats: { INT: 13, DEX: 8, "Magic Damage": 6 }
     },
     "Thornback Armor": {
       type: "armor",
@@ -1795,13 +1687,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 20,
-      defense: 5,
       image: "Assets/Equips/thornback_armor.png",
       description: "Heavy desert armor reinforced with spined carapace plates.",
       set: "Thornback Bulwark",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 14, STR: 8, DR: 4, HP: 200 }
+      bonusStats: { VIT: 14, STR: 8, HP: 200 }
     },
     "Boarhide Chest": {
       type: "armor",
@@ -1809,13 +1700,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 20,
-      defense: 5,
       image: "Assets/Equips/boarhide_chest.png",
       description: "A thick-hide chestpiece built for stubborn frontliners.",
       set: "Boarbreaker",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 13, STR: 13, DR: 4, "Physical Resist": 8, HP: 160 }
+      bonusStats: { VIT: 13, STR: 13, "Physical Resist": 8, HP: 160 }
     },
     "Sandstep Boots": {
       type: "armor",
@@ -1823,7 +1713,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 15,
-      defense: 4,
       image: "Assets/Equips/sandstep_boots.png",
       description: "Low-profile boots favored by dune duelists.",
       set: "Dunestrike",
@@ -1837,7 +1726,6 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 17,
-      defense: 4,
       image: "Assets/Equips/mirage_helm.png",
       description: "A helm tuned to distortions and openings in the fight.",
       set: "Mirage",
@@ -1851,13 +1739,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 18,
-      defense: 4,
       image: "Assets/Equips/template_bracelet.png",
       description: "Dense wristguards lashed with beast bone for impact builds.",
       set: "Boarbreaker",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 12, VIT: 6, Stagger: 6, "Physical Resist": 4 }
+      bonusStats: { STR: 12, VIT: 6, "Physical Resist": 4 }
     },
     "Dune Leggings": {
       type: "armor",
@@ -1865,7 +1752,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 19,
-      defense: 4,
       image: "Assets/Equips/dune_leggings.png",
       description: "Leg armor suited for long pursuits and attrition.",
       set: "Thornback Bulwark",
@@ -1879,13 +1765,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 19,
-      defense: 4,
       image: "Assets/Equips/venom_ring.png",
       description: "A serpent-themed ring that deepens status potency.",
       set: "Venomcaster",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 12, DEX: 7, "Skill Power": 6, "Status Potency": 4, "Debuff Duration": 4, "Crit Damage": 4 }
+      bonusStats: { INT: 12, DEX: 7, "Magic Damage": 6, "Crit Damage": 4 }
     },
     "Sand Amulet": {
       type: "armor",
@@ -1893,7 +1778,6 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 16,
-      defense: 4,
       image: "Assets/Equips/template_amulet.png",
       description: "A desert talisman that rewards steady blade work.",
       set: "Dunestrike",
@@ -1907,13 +1791,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 17,
-      defense: 4,
       image: "Assets/Equips/mirage_bracelet.png",
       description: "A wavering bracelet made for deceptive fighters.",
       set: "Mirage",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 10, INT: 10, Combo: 6, "Status Potency": 4, "Debuff Duration": 4, "Crit Damage": 4 }
+      bonusStats: { DEX: 10, INT: 10, "Crit Damage": 4 }
     },
     "Bone Charm": {
       type: "armor",
@@ -1921,13 +1804,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 18,
-      defense: 4,
       image: "Assets/Equips/bone_charm.png",
       description: "A charm carved from desert bone to reinforce brute force.",
       set: "Boarbreaker",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 12, VIT: 6, "Phys Damage": 6, "Armor Pen": 4 }
+      bonusStats: { STR: 12, VIT: 6, "Phys Damage": 6 }
     },
     "Fang Loop": {
       type: "armor",
@@ -1935,7 +1817,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 20,
-      defense: 5,
       image: "Assets/Equips/fang_loop.png",
       description: "A fang-set loop meant for finishers and bleeders.",
       set: "Dunestrike",
@@ -1949,13 +1830,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 15,
-      defense: 4,
       image: "Assets/Equips/dune_band.png",
       description: "A plain but durable band worn by survivalists of the sands.",
       set: "Thornback Bulwark",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 10, STR: 5, DR: 3, HP: 150 }
+      bonusStats: { VIT: 10, STR: 5, HP: 150 }
     },
     "Lynx Fang": {
       type: "weapon",
@@ -1983,7 +1863,7 @@ const GAME_CONFIG = {
       set: "",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 18, INT: 18, Combo: 8, "Status Potency": 6 }
+      bonusStats: { DEX: 18, INT: 18 }
     },
     "Hornbreaker Axe": {
       type: "weapon",
@@ -1997,7 +1877,7 @@ const GAME_CONFIG = {
       set: "Ibex Dominator",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 19, VIT: 11, "Phys Damage": 8, "Armor Pen": 6, "Stamina Reduction": 0 }
+      bonusStats: { STR: 19, VIT: 11, "Phys Damage": 8, "Stamina Reduction": 0 }
     },
     "Stonecaller": {
       type: "weapon",
@@ -2011,7 +1891,7 @@ const GAME_CONFIG = {
       set: "Earthbinder",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 20, DEX: 12, "Skill Power": 8, "Status Potency": 6 }
+      bonusStats: { INT: 20, DEX: 12, "Magic Damage": 8 }
     },
     "Marmot Bulwark": {
       type: "armor",
@@ -2019,13 +1899,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 25,
-      defense: 6,
       image: "Assets/Equips/marmot_bullwark.png",
       description: "A stone-backed chestpiece designed for long, grinding fights.",
       set: "Stoneguard",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 17, STR: 10, DR: 5, HP: 250 }
+      bonusStats: { VIT: 17, STR: 10, HP: 250 }
     },
     "Earthshell Armor": {
       type: "armor",
@@ -2033,13 +1912,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 26,
-      defense: 6,
       image: "Assets/Equips/earthshell_armor.png",
       description: "A compact earthward armor with defensive magical utility.",
       set: "Rock Serpent",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 17, INT: 16, DR: 4, "Magic Resist": 8, HP: 208 }
+      bonusStats: { VIT: 17, INT: 16, "Magic Resist": 8, HP: 208 }
     },
     "Rock Serpent Boots": {
       type: "armor",
@@ -2047,7 +1925,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 27,
-      defense: 6,
       image: "Assets/Equips/rock_serpent_boots.png",
       description: "Grip-heavy boots that improve footing on broken terrain.",
       set: "Rock Serpent",
@@ -2061,13 +1938,12 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 28,
-      defense: 6,
       image: "Assets/Equips/stone_lizzard_helmet.png",
       description: "A dense helm that favors tanks and bruisers alike.",
       set: "Stoneguard",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 18, STR: 18, DR: 6, "Physical Resist": 8, HP: 224 }
+      bonusStats: { VIT: 18, STR: 18, "Physical Resist": 8, HP: 224 }
     },
     "Claw Ring": {
       type: "armor",
@@ -2075,7 +1951,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 26,
-      defense: 6,
       image: "Assets/Equips/claw_ring.png",
       description: "A claw-etched ring that sharpens aggressive melee patterns.",
       set: "Lynxstrike",
@@ -2089,13 +1964,12 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 29,
-      defense: 6,
       image: "Assets/Equips/stonescale_leggings.png",
       description: "Reinforced leggings threaded with stable core fragments.",
       set: "",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 18, INT: 18, DR: 5, "Magic Resist": 8, HP: 232 }
+      bonusStats: { VIT: 18, INT: 18, "Magic Resist": 8, HP: 232 }
     },
     "Petrify Ring": {
       type: "armor",
@@ -2103,13 +1977,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 30,
-      defense: 6,
       image: "Assets/Equips/petrify_ring.png",
       description: "A ring meant for controllers who win with time and pressure.",
       set: "Earthbinder",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 19, VIT: 11, "Debuff Duration": 8, "Magic Resist": 6 }
+      bonusStats: { INT: 19, VIT: 11, "Magic Resist": 6 }
     },
     "Core Amulet": {
       type: "armor",
@@ -2117,13 +1990,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 29,
-      defense: 6,
       image: "Assets/Equips/core_amulet.png",
       description: "A stable core pendant for controlled casting.",
       set: "Earthbinder",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 18, DEX: 10, "Skill Power": 8, "Status Potency": 6, "Debuff Duration": 6, "Crit Damage": 6 }
+      bonusStats: { INT: 18, DEX: 10, "Magic Damage": 8, "Crit Damage": 6 }
     },
     "Stone Bracelet": {
       type: "armor",
@@ -2131,13 +2003,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 25,
-      defense: 6,
       image: "Assets/Equips/stone_bracelet.png",
       description: "A rough bracelet that reinforces survival over burst.",
       set: "Stoneguard",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 16, STR: 9, DR: 5, HP: 250 }
+      bonusStats: { VIT: 16, STR: 9, HP: 250 }
     },
     "Fang Charm": {
       type: "armor",
@@ -2145,7 +2016,6 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 27,
-      defense: 6,
       image: "Assets/Equips/fang_charm.png",
       description: "A predatory charm that rewards accurate strikes.",
       set: "Rock Serpent",
@@ -2159,13 +2029,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 28,
-      defense: 6,
       image: "Assets/Equips/serpent_grip.png",
       description: "A grounded loop that supports bruiser builds.",
       set: "Rock Serpent",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 18, VIT: 10, Stagger: 8, "Physical Resist": 6 }
+      bonusStats: { STR: 18, VIT: 10, "Physical Resist": 6 }
     },
     "Stonekind Band": {
       type: "armor",
@@ -2173,7 +2042,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 30,
-      defense: 6,
       image: "Assets/Equips/stonekind_band.png",
       description: "A polished band used by hybrid earth spellblades.",
       set: "",
@@ -2207,7 +2075,7 @@ const GAME_CONFIG = {
       set: "Verdant Rite",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 24, INT: 24, Combo: 10, "Status Potency": 8 }
+      bonusStats: { DEX: 24, INT: 24 }
     },
     "Gorilla Crusher": {
       type: "weapon",
@@ -2221,7 +2089,7 @@ const GAME_CONFIG = {
       set: "Primal Rage",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 26, VIT: 15, "Phys Damage": 10, "Armor Pen": 8, "Stamina Reduction": 0 }
+      bonusStats: { STR: 26, VIT: 15, "Phys Damage": 10, "Stamina Reduction": 0 }
     },
     "Wraithcall Scepter": {
       type: "weapon",
@@ -2235,7 +2103,7 @@ const GAME_CONFIG = {
       set: "Soulbinder",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 26, DEX: 15, "Skill Power": 12, "Status Potency": 8 }
+      bonusStats: { INT: 26, DEX: 15, "Magic Damage": 12 }
     },
     "Gorilla Armor": {
       type: "armor",
@@ -2243,13 +2111,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 40,
-      defense: 8,
       image: "Assets/Equips/gorilla_armor.png",
       description: "Heavy jungle armor that turns durability into momentum.",
       set: "Jungle Titan",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 26, STR: 15, DR: 8, HP: 400 }
+      bonusStats: { VIT: 26, STR: 15, HP: 400 }
     },
     "Wraith Raggs": {
       type: "armor",
@@ -2257,13 +2124,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 40,
-      defense: 8,
       image: "Assets/Equips/wraith_raggs.png",
       description: "Spectral tatters that wrap the body—sturdy support for casters who walk the veil.",
       set: "Verdant Rite",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 25, INT: 24, DR: 7, "Magic Resist": 10, HP: 320 }
+      bonusStats: { VIT: 25, INT: 24, "Magic Resist": 10, HP: 320 }
     },
     "Primate Boots": {
       type: "armor",
@@ -2271,7 +2137,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 37,
-      defense: 8,
       image: "Assets/Equips/primate_boots.png",
       description: "Durable primate-hide boots built for fast, sustained hunts.",
       set: "Greenleaf Assassin",
@@ -2285,13 +2150,12 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 38,
-      defense: 8,
       image: "Assets/Equips/antler_helm.png",
       description: "A helm crowned with stag antler to enhance supportive patterns.",
       set: "Verdant Rite",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 25, VIT: 14, "Debuff Duration": 10, "Magic Resist": 8, HP: 304 }
+      bonusStats: { INT: 25, VIT: 14, "Magic Resist": 8, HP: 304 }
     },
     "Forest Leggings": {
       type: "armor",
@@ -2299,7 +2163,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 39,
-      defense: 8,
       image: "Assets/Equips/Forest_Leggings.png",
       description: "Dense forest leathers offering survival without losing pace.",
       set: "Jungle Titan",
@@ -2313,13 +2176,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 40,
-      defense: 8,
       image: "Assets/Equips/soul_ring.png",
       description: "A shadowed ring that amplifies sustained magical pressure.",
       set: "Soulbinder",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 25, DEX: 14, "Skill Power": 10, "Status Potency": 8, "Debuff Duration": 8, "Crit Damage": 8 }
+      bonusStats: { INT: 25, DEX: 14, "Magic Damage": 10, "Crit Damage": 8 }
     },
     "Heart of the Jungle": {
       type: "armor",
@@ -2327,13 +2189,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 38,
-      defense: 8,
       image: "Assets/Equips/heart_of_the_jungle.png",
       description: "A living core attuned to the deep jungle—extends your control windows in long fights.",
       set: "Verdant Rite",
       build: "INT_VIT",
       bonusSkills: [],
-      bonusStats: { INT: 24, VIT: 13, "Debuff Duration": 10, "Magic Resist": 8 }
+      bonusStats: { INT: 24, VIT: 13, "Magic Resist": 8 }
     },
     "Primate Bracelet": {
       type: "armor",
@@ -2341,13 +2202,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 37,
-      defense: 8,
       image: "Assets/Equips/primate_bracelet.png",
       description: "A dense primate bracelet used by dominant frontliners.",
       set: "Jungle Titan",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 23, VIT: 13, Stagger: 10, "Physical Resist": 8 }
+      bonusStats: { STR: 23, VIT: 13, "Physical Resist": 8 }
     },
     "Fang Charm ALT": {
       type: "armor",
@@ -2355,7 +2215,6 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 35,
-      defense: 7,
       image: "Assets/Equips/template_amulet.png",
       description: "A refined fang charm for burst-oriented finishers.",
       set: "Greenleaf Assassin",
@@ -2369,13 +2228,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 36,
-      defense: 7,
       image: "Assets/Equips/growth_loop.png",
       description: "A loop that rewards support and recovery play.",
       set: "Verdant Rite",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 22, INT: 21, DR: 6, "Magic Resist": 10, "Debuff Duration": 8 }
+      bonusStats: { VIT: 22, INT: 21, "Magic Resist": 10 }
     },
     "Ashmaw Cleaver": {
       type: "weapon",
@@ -2389,7 +2247,7 @@ const GAME_CONFIG = {
       set: "Ash Titan",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 29, VIT: 17, "Phys Damage": 12, "Armor Pen": 10, "Stamina Reduction": 0 }
+      bonusStats: { STR: 29, VIT: 17, "Phys Damage": 12, "Stamina Reduction": 0 }
     },
     "Emberfang": {
       type: "weapon",
@@ -2431,7 +2289,7 @@ const GAME_CONFIG = {
       set: "Basilisk Oracle",
       build: "INT",
       bonusSkills: [],
-      bonusStats: { INT: 33, DEX: 19, "Skill Power": 12, "Status Potency": 10 }
+      bonusStats: { INT: 33, DEX: 19, "Magic Damage": 12 }
     },
     "Magmahide Plate": {
       type: "armor",
@@ -2439,13 +2297,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 50,
-      defense: 10,
       image: "Assets/Equips/magmahide_plate.png",
       description: "A furnace-like chestpiece for top-tier tanks.",
       set: "Molten Colossus",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 32, STR: 18, DR: 10, HP: 500 }
+      bonusStats: { VIT: 32, STR: 18, HP: 500 }
     },
     "Glacier Shell": {
       type: "armor",
@@ -2453,13 +2310,12 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 49,
-      defense: 10,
       image: "Assets/Equips/glacier_shell.png",
       description: "A glacier-forged shell piece combining defense and calm magic.",
       set: "Frozen Bastion",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 30, INT: 29, DR: 9, "Magic Resist": 12, HP: 392 }
+      bonusStats: { VIT: 30, INT: 29, "Magic Resist": 12, HP: 392 }
     },
     "Flame Boots": {
       type: "armor",
@@ -2467,7 +2323,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 46,
-      defense: 9,
       image: "Assets/Equips/flame_boots.png",
       description: "Heated boots for aggressive burst builds.",
       set: "Ember Assassin",
@@ -2481,13 +2336,12 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 48,
-      defense: 10,
       image: "Assets/Equips/ice_helm.png",
       description: "A cold-forged helm that stabilizes endgame survivability.",
       set: "Frozen Bastion",
       build: "VIT_INT",
       bonusSkills: [],
-      bonusStats: { VIT: 30, INT: 29, DR: 9, "Magic Resist": 12, HP: 384 }
+      bonusStats: { VIT: 30, INT: 29, "Magic Resist": 12, HP: 384 }
     },
     "Molten Bracelet": {
       type: "armor",
@@ -2495,13 +2349,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 47,
-      defense: 9,
       image: "Assets/Equips/molten_bracelet.png",
       description: "A molten-forged bracelet for maximum pressure and penetration.",
       set: "Ash Titan",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 29, VIT: 16, "Phys Damage": 12, "Armor Pen": 10 }
+      bonusStats: { STR: 29, VIT: 16, "Phys Damage": 12 }
     },
     "Frost Leggings": {
       type: "armor",
@@ -2509,7 +2362,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 50,
-      defense: 10,
       image: "Assets/Equips/frost_leggings.png",
       description: "Leggings designed for long cold skirmishes and clean finishers.",
       set: "Frostfang",
@@ -2523,7 +2375,6 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 52,
-      defense: 10,
       image: "Assets/Equips/basilisk_eye_amulet.png",
       description: "A high-end amulet for status-heavy controllers.",
       set: "Basilisk Oracle",
@@ -2533,9 +2384,7 @@ const GAME_CONFIG = {
         INT: 34,
         VIT: 18,
         DEX: 18,
-        "Skill Power": 12,
-        "Status Potency": 12,
-        "Debuff Duration": 10,
+        "Magic Damage": 12,
         "Crit Damage": 10
       }
     },
@@ -2545,7 +2394,6 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 47,
-      defense: 9,
       image: "Assets/Equips/ember_bracelet.png",
       description: "A bracelet that sharpens burst timing and critical conversion.",
       set: "Ember Assassin",
@@ -2559,13 +2407,12 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 49,
-      defense: 10,
       image: "Assets/Equips/frost_bracelet.png",
       description: "A bracelet that rewards precise frost setups.",
       set: "Frostfang",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 29, INT: 28, Combo: 12, "Status Potency": 10, "Debuff Duration": 10, "Crit Damage": 10 }
+      bonusStats: { DEX: 29, INT: 28, "Crit Damage": 10 }
     },
     "Inferno Charm": {
       type: "armor",
@@ -2573,13 +2420,12 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 46,
-      defense: 9,
       image: "Assets/Equips/inferno_charm.png",
       description: "A charm for aggressive hybrid damage builds.",
       set: "Ash Titan",
       build: "STR_INT",
       bonusSkills: [],
-      bonusStats: { STR: 28, INT: 26, "Phys Damage": 12, "Skill Power": 10, "Debuff Duration": 10 }
+      bonusStats: { STR: 28, INT: 26, "Phys Damage": 12, "Magic Damage": 10 }
     },
     "Ice Band": {
       type: "armor",
@@ -2587,13 +2433,12 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 48,
-      defense: 10,
       image: "Assets/Equips/ice_band.png",
       description: "A disciplined endgame band focused on resistance and endurance.",
       set: "Frozen Bastion",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 30, STR: 17, DR: 10, HP: 480 }
+      bonusStats: { VIT: 30, STR: 17, HP: 480 }
     },
   /* END SYNCED MMO ITEMS */
 
@@ -3802,7 +3647,6 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/_template_hat.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3814,7 +3658,6 @@ const GAME_CONFIG = {
       equipCategory: "chest_armor",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/_template_chest.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3826,7 +3669,6 @@ const GAME_CONFIG = {
       equipCategory: "feet_armor",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/_template_feet.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3838,7 +3680,6 @@ const GAME_CONFIG = {
       equipCategory: "leg_armor",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/_template_leggs.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3850,7 +3691,6 @@ const GAME_CONFIG = {
       equipCategory: "ring",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/template_ring.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3862,7 +3702,6 @@ const GAME_CONFIG = {
       equipCategory: "bracelet",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/template_bracelet.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3874,13 +3713,11 @@ const GAME_CONFIG = {
       equipCategory: "amulet",
       rarity: "common",
       itemLevel: 1,
-      defense: 1,
       image: "Assets/Equips/template_amulet.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
       bonusStats: {}
-    },
-},
+    }},
 
   /**
    * Combat tuning. Core stat curves (STR/DEX/VIT/INT) are implemented in game.js as documented formulas.
@@ -3898,29 +3735,37 @@ const GAME_CONFIG = {
     /** Max HP = baseHpFromLevel + vitHpPerPoint * total Vitality (base + gear). */
     baseHpFromLevel: 50,
     hpPerLevel: 10,
-    vitHpPerPoint: 12,
+    vitHpPerPoint: 5,
     /** Incoming damage split before resists (physical fraction 0–1). */
     incomingPhysicalWeight: 0.55,
     staggerNextAttackMult: 0.85
   },
 
-  /** Short blurbs for overview tooltips; combat math lives in game.js */
+  /** Short blurbs for overview tooltips (characteristics tab hover). */
   statHelp: {
-    level:
-      "Your overall tier. Each level grants 5 characteristic points, +2 base attack, and refills HP. XP required per level grows with the curve in config (leveling).",
-    hp: "Hit points: when this reaches 0 in combat, you are defeated. Max HP grows with level and Vitality.",
-    xp: "Experience toward the next level. The bar shows progress vs the XP required for your current level (see leveling formula in config).",
-    charPoints:
-      "Earned each time you level (5 per level). Spend 1 point on Strength, Dexterity, Vitality, or Intelligence (max 50 each).",
-    str: "Strength (total): physical damage %, armor penetration %, physical resist %, and stagger on Heavy-tagged skills.",
-    dex: "Dexterity (total): crit chance, crit damage bonus, evasion, accuracy vs misses, and combo stamina refunds after skills.",
-    vit: "Vitality (total): max HP from a flat per-VIT formula, flat damage reduction, status resist, DoT reduction, and heal bonus.",
-    int: "Intelligence (total): magic/skill power %, magic resist %, status potency, stamina cost reduction on skills, debuff duration vs foes.",
-    stamina:
-      "Maximum stamina per combat turn: a base value from combat tuning plus bonus max stamina from equipped gear (capped). Skills and attacks spend stamina during your turn.",
-    armor: "Armor from gear: flat reduction on incoming hits (combined with Vitality and resistances).",
-    damage:
-      "Approximate physical attack damage after Strength bonus (no crit); skills use the same weapon core with per-skill multipliers, then stat curves resolve in combat."
+    level: "Current level.",
+    hp: "Total hit points.",
+    xp: "Experience to next level.",
+    charPoints: "Unused characteristic points.",
+    str:
+      "Increases physical damage, physical resist and status resist.\n\n10 STR = +1% physical damage\n10 STR = +1% physical resist\n10 STR = +1% status resist (with Vitality)",
+    dex:
+      "Increases critical chance, accuracy and evasion chance.\n\n10 DEX = +1% critical strike chance\n10 DEX = +1% accuracy\n10 DEX = +1% evasion",
+    vit:
+      "Increases status resist, total hit points and healing.\n\n10 VIT = +1% status resist (with Strength)\n1 VIT = +5 max HP (in addition to level-based base HP)\n10 VIT = +1% healing received",
+    int:
+      "Increases magical damage, magical resist and chance to inflict debuffs.\n\n10 INT = +1% magic damage\n10 INT = +1% magic resist\n10 INT = +1% accuracy (with Dexterity)",
+    stamina: "Points required to perform actions during the fights.",
+    physDmgPct: "Bonus physical damage % from equipment, added on top of Strength scaling.",
+    magicDmgPct: "Bonus magic damage % from equipment, added on top of Intelligence scaling.",
+    physResistPct: "Bonus physical resist % from equipment, added on top of Strength scaling.",
+    magicResistPct: "Bonus magic resist % from equipment, added on top of Intelligence scaling.",
+    critPct: "Bonus critical strike chance % from equipment, added on top of Dexterity scaling.",
+    evasionPct: "Bonus evasion % from equipment, added on top of Dexterity scaling.",
+    accuracyPct:
+      "Bonus accuracy % from equipment, added on top of Dexterity and Intelligence scaling (hit chance and debuff land chance).",
+    healingPct: "Bonus healing received % from equipment, added on top of Vitality scaling.",
+    statusResistPct: "Bonus status resist % from equipment, added on top of Strength and Vitality scaling."
   },
 
   skills: [
@@ -4717,9 +4562,7 @@ const GAME_CONFIG = {
               { item: "Abyss Residue", qty: 4, source: "monster_loot" },
               { item: "Residue", qty: 3, source: "gathering_loot" }
             ]
-          },
-
-        ]
+          }]
       },
       {
         id: "mid",
@@ -4954,8 +4797,7 @@ const GAME_CONFIG = {
               { item: "Distorted Core", qty: 3, source: "monster_loot" },
               { item: "Living Fiber", qty: 2, source: "gathering_loot" }
             ]
-          },
-        ]
+          }]
       },
       {
         id: "mid_high",
@@ -5190,9 +5032,7 @@ const GAME_CONFIG = {
               { item: "Distorted Core", qty: 3, source: "monster_loot" },
               { item: "Residue", qty: 2, source: "gathering_loot" }
             ]
-          },
-
-        ]
+          }]
       },
       {
         id: "high_end",
@@ -5501,9 +5341,7 @@ const GAME_CONFIG = {
               { item: "Residue", qty: 2, source: "gathering_loot" },
               { item: "Tough Hide", qty: 2, source: "gathering_loot" }
             ]
-          },
-
-        ]
+          }]
       }
     ]
   },
@@ -5552,31 +5390,143 @@ const GAME_CONFIG = {
     Wraith: 1
   },
 
+  /** Highest equipped tier only (not cumulative). Stats only — no combat procs. */
   mmoEquipmentSetBonuses: {
+    "Ash Titan": {
+      2: { STR: 10, "Phys Damage": 8 },
+      3: { STR: 24, "Phys Damage": 8, "Physical Resist": 6 }
+    },
+    "Basilisk Oracle": {
+      2: { INT: 16 }
+    },
+    Boarbreaker: {
+      2: { STR: 3, VIT: 3, "Physical Resist": 5 },
+      3: { STR: 7, VIT: 3, "Physical Resist": 5 },
+      4: { Stamina: 1, STR: 7, VIT: 3, "Physical Resist": 5, "Phys Damage": 5 },
+      5: { Stamina: 1, STR: 7, VIT: 8, "Physical Resist": 11, "Phys Damage": 5 }
+    },
     "Channeler Set": {
-      2: { "Debuff Duration": 8, "Status Potency": 5 },
-      3: { "Debuff Stamina Tax Chance": 10, "Debuff Stamina Tax": 1 }
+      2: { INT: 2 },
+      3: { INT: 5, "Magic Damage": 4 }
     },
     "Crusher Set": {
-      2: { Stagger: 6, "Physical Resist": 4 },
-      3: { "Heavy Armor Pen": 10, "Stagger Damage Down": 5 }
+      2: { STR: 2, VIT: 2 },
+      3: { STR: 5, VIT: 2, "Physical Resist": 4 }
+    },
+    Dunestrike: {
+      2: { DEX: 2, Crit: 5, Accuracy: 3 },
+      3: { DEX: 6, Crit: 5, Accuracy: 3, "Crit Damage": 5 },
+      4: { Stamina: 1, DEX: 10, Crit: 5, Accuracy: 3, "Crit Damage": 11 }
+    },
+    Earthbinder: {
+      2: { INT: 6 },
+      3: { INT: 15, "Magic Damage": 6, "Magic Resist": 6 }
+    },
+    "Ember Assassin": {
+      2: { DEX: 10, Crit: 8, "Crit Damage": 8 },
+      3: { DEX: 24, Crit: 8, "Crit Damage": 8, "Phys Damage": 10, Accuracy: 8 }
+    },
+    Frostfang: {
+      2: { DEX: 11 },
+      3: { DEX: 26, "Crit Damage": 10 }
+    },
+    "Frozen Bastion": {
+      2: { VIT: 11, "Magic Resist": 8 },
+      3: { VIT: 25, "Magic Resist": 18, HP: 336 }
+    },
+    Greenleaf: {
+      2: { DEX: 8, Evasion: 7, "Healing Received": 7 }
+    },
+    "Greenleaf Assassin": {
+      2: { DEX: 8, Crit: 7, Evasion: 7 },
+      3: { DEX: 19, Crit: 7, Evasion: 7, "Crit Damage": 8, Accuracy: 7 }
+    },
+    "Jungle Titan": {
+      2: { STR: 8, VIT: 8, "Physical Resist": 7 },
+      3: { STR: 19, VIT: 8, "Physical Resist": 7, HP: 266 }
+    },
+    Lynxstrike: {
+      2: { DEX: 6, Crit: 6, Accuracy: 6 }
+    },
+    Mirage: {
+      2: { DEX: 2, INT: 2, Evasion: 5 },
+      3: { DEX: 6, INT: 6, Evasion: 5 }
+    },
+    "Rock Serpent": {
+      2: { VIT: 6, "Magic Resist": 6, "Physical Resist": 6 },
+      3: { VIT: 6, STR: 6, INT: 6, "Magic Resist": 6, "Physical Resist": 6 },
+      4: {
+        Stamina: 1,
+        VIT: 14,
+        STR: 6,
+        INT: 6,
+        "Magic Resist": 6,
+        "Physical Resist": 6,
+        "Status Resist": 6
+      }
+    },
+    Skimmer: {
+      2: { DEX: 1, Crit: 2, Evasion: 2 },
+      3: { DEX: 3, Crit: 2, Evasion: 2, Accuracy: 2 },
+      4: { Stamina: 1, DEX: 5, Crit: 2, Evasion: 2, Accuracy: 6 }
+    },
+    Soulbinder: {
+      2: { INT: 9, "Magic Damage": 7 }
+    },
+    Stoneguard: {
+      2: { VIT: 6, "Physical Resist": 6 },
+      3: { VIT: 14, "Physical Resist": 12, HP: 182 },
+      4: { Stamina: 1, VIT: 22, "Physical Resist": 12, HP: 442 }
     },
     "Stormfang Set": {
-      2: { Crit: 5, Evasion: 4 },
-      3: { "Storm Mark Damage": 12 },
-      4: { "Dodge Crit Damage": 8 }
+      2: { DEX: 2, Crit: 4, Evasion: 3 },
+      3: { DEX: 5, Crit: 4, Evasion: 3, "Crit Damage": 4, Accuracy: 3 },
+      4: { Stamina: 1, DEX: 8, Crit: 4, Evasion: 7, "Crit Damage": 4, Accuracy: 3 }
     },
     "Stormwake Set": {
-      2: { "Status Potency": 6, "Crit Vs Debuffed": 5 },
-      4: { Stamina: 1 }
+      2: { DEX: 2, INT: 2 },
+      3: { DEX: 5, INT: 5, Crit: 5 },
+      4: {
+        Stamina: 1,
+        DEX: 5,
+        INT: 5,
+        Crit: 5,
+        "Magic Damage": 5,
+        "Crit Damage": 5
+      }
     },
     "Tempest Caller Set": {
-      2: { "Debuff Duration": 6, "Status Potency": 4 },
-      3: { "Debuff Stamina Tax Chance": 12, "Debuff Stamina Tax": 1 }
+      2: { INT: 2 },
+      3: { INT: 5, "Magic Damage": 4, "Magic Resist": 3 }
+    },
+    "Thornback Bulwark": {
+      2: { VIT: 3, "Status Resist": 5 },
+      3: { VIT: 7, "Status Resist": 5, HP: 126, "Physical Resist": 5 }
+    },
+    Tidecaster: {
+      2: { INT: 1, "Magic Damage": 4 },
+      3: { INT: 3, "Magic Damage": 4, "Magic Resist": 3 },
+      4: { Stamina: 1, INT: 5, "Magic Damage": 4, "Magic Resist": 3 },
+      5: { Stamina: 1, INT: 8, "Magic Damage": 8, "Magic Resist": 3 }
+    },
+    Tideguard: {
+      2: { VIT: 1, "Physical Resist": 3 },
+      3: { VIT: 3, "Physical Resist": 3, HP: 35, "Magic Resist": 3 },
+      4: { Stamina: 1, VIT: 5, "Physical Resist": 3, HP: 84, "Magic Resist": 3 },
+      5: { Stamina: 1, VIT: 8, "Physical Resist": 8, HP: 84, "Magic Resist": 3, "Status Resist": 4 }
     },
     "Tidemother Set": {
-      2: { "Debuff Duration": 6 },
-      3: { Stamina: 1, "Status Potency": 8 }
+      2: { DEX: 2, INT: 2 },
+      3: { Stamina: 1, DEX: 2, INT: 5, "Crit Damage": 5 }
+    },
+    Venomcaster: {
+      2: { INT: 4, "Magic Damage": 5 }
+    },
+    "Verdant Rite": {
+      2: { INT: 8, VIT: 6, "Healing Received": 7 },
+      3: { INT: 19, VIT: 6, "Healing Received": 7, "Magic Resist": 7 },
+      4: { Stamina: 1, INT: 19, VIT: 17, "Healing Received": 16, "Magic Resist": 7 },
+      5: { Stamina: 1, INT: 30, VIT: 28, "Healing Received": 16, "Magic Resist": 7, HP: 266 }
     }
   },
 

@@ -674,6 +674,22 @@ body.edit-mode-on .bottom-hud-portrait--editing-scale {
   overflow: hidden;
 }
 
+.skills-panel-page .skills-stats-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skills-panel-page .skills-stats-panel .stats-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Gladiatus-style 2×2 — reference proportions: columns ~35% / ~65%, rows ~55% / ~45% */
 .overview-grid {
   display: grid;
@@ -1248,11 +1264,177 @@ body.edit-mode-on .portrait-stack--editing-scale {
   pointer-events: none;
 }
 
+.skills-tab-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.skills-pool-scroll,
 .class-skills-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+.skills-basics-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.skills-grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  align-content: start;
+}
+
+.class-skill-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 5px;
+  padding: 4px 4px 5px;
+  background: rgba(255, 255, 255, 0.04);
+  min-width: 0;
+}
+
+.class-skill-cell-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.class-skill-cell-meta {
+  text-align: center;
+  min-height: 0;
+}
+
+.class-skill-cell-lv {
+  font-size: 0.48rem;
+  color: var(--overview-muted, #666);
+  line-height: 1.2;
+}
+
+.class-skill-cell-title {
+  font-size: 0.5rem;
+  line-height: 1.15;
+  text-align: center;
+  max-height: 2.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.class-skill-cell .class-skill-up-btn {
+  width: 100%;
+  margin-top: auto;
+}
+
+.class-skill-cell .class-skill-row-img {
+  width: 26px;
+  height: 26px;
+}
+
+.class-skill-drag-source.class-skill-row-img {
+  cursor: grab;
+}
+
+.class-skill-drag-source.class-skill-row-img:active {
+  cursor: grabbing;
+}
+
+.skills-bar-subpanel {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  padding-top: 5px;
+  margin-top: 2px;
+}
+
+.skills-bar-subpanel-head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--overview-ink);
+}
+
+.skills-bar-host {
+  user-select: none;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.skill-bar-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+}
+
+.skill-bar-row + .skill-bar-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.skill-bar-slot-drop {
+  aspect-ratio: 1;
+  max-height: 44px;
+  min-height: 26px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  border-right: 1px dashed rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.skill-bar-slot-drop:nth-child(6n) {
+  border-right: none;
+}
+
+.skill-bar-slot-drop--filled {
+  border-right-style: solid;
+  padding: 2px;
+  cursor: grab;
+}
+
+.skill-bar-slot-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skill-bar-slot-img {
+  width: 100%;
+  height: 100%;
+  max-width: 36px;
+  max-height: 36px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
+.skill-bar-slot-empty {
+  font-size: 0.7rem;
+  color: rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  line-height: 1;
 }
 
 .class-skill-row-label {
@@ -1262,8 +1444,8 @@ body.edit-mode-on .portrait-stack--editing-scale {
 }
 
 .class-skill-row-img {
-  width: 14px;
-  height: 14px;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   object-fit: contain;
 }
@@ -1642,6 +1824,21 @@ body.edit-mode-on .portrait-stack--editing-scale {
   text-shadow: 0 0 6px rgba(90, 212, 255, 0.45);
 }
 
+/* Character modal: keep base totals in panel ink; equipment slice reads clearly as blue (avoids muted/inherited color). */
+.character-panel-content .stat-bar-num-base {
+  color: var(--overview-ink);
+}
+
+.character-panel-content .stat-bar-num-from-equip {
+  color: #1565c0;
+  font-weight: 700;
+}
+
+:root[data-theme="scifi"] .character-panel-content .stat-bar-num-from-equip {
+  color: #5ad4ff;
+  text-shadow: 0 0 6px rgba(90, 212, 255, 0.45);
+}
+
 .stat-bar-track {
   grid-column: 1 / -1;
   height: 2px;
@@ -1709,6 +1906,14 @@ body.edit-mode-on .portrait-stack--editing-scale {
   letter-spacing: 0.04em;
   color: var(--overview-muted);
   margin-bottom: 1px;
+}
+
+.class-role-short {
+  font-size: 0.44rem;
+  line-height: 1.35;
+  color: var(--overview-ink);
+  opacity: 0.88;
+  margin: 0 0 4px;
 }
 
 .panel-equipment.equipment-panel {
@@ -2229,6 +2434,59 @@ body.edit-mode-on .portrait-stack--editing-scale {
   transform-origin: top left;
 }
 
+.item-tooltip.item-tooltip--pinned {
+  pointer-events: auto;
+  transform: none;
+  transform-origin: top left;
+  max-width: min(94vw, 440px);
+}
+
+.item-tooltip-pinned-wrap {
+  position: relative;
+  padding-top: 0;
+  padding-right: 22px;
+}
+
+.item-tooltip-drag-strip {
+  cursor: move;
+  user-select: none;
+  margin: 0 0 8px 0;
+  padding: 6px 28px 6px 4px;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a9a9a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.item-tooltip-drag-strip:hover {
+  color: #ccc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.item-tooltip-close {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.item-tooltip-close:hover {
+  background: rgba(255, 80, 80, 0.45);
+  color: #fff;
+}
+
 .item-tooltip.item-tooltip--inventory-item {
   background: rgba(52, 44, 34, 0.96);
 }
@@ -2275,6 +2533,14 @@ body.edit-mode-on .portrait-stack--editing-scale {
   margin-bottom: 6px;
 }
 
+.item-tip-stat-impl {
+  color: #b8c4d8;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  margin-top: 2px;
+  margin-bottom: 0;
+}
+
 .item-tip-item-icon {
   display: block;
   margin: 6px auto;
@@ -2315,12 +2581,187 @@ body.edit-mode-on .portrait-stack--editing-scale {
   font-size: 0.65rem;
 }
 
+.item-tip-set-section .item-tip-set-line {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.item-tip-set-line--active {
+  color: #6eb6ff;
+  font-weight: 600;
+}
+
+.item-tip-set-line--inactive {
+  color: #7a7a7a;
+  font-weight: 400;
+}
+
+:root[data-theme="scifi"] .item-tip-set-line--active {
+  color: #7ec8ff;
+}
+
+:root[data-theme="scifi"] .item-tip-set-line--inactive {
+  color: #5a6578;
+}
+
 .item-tip-skill-icon {
   display: block;
   width: 48px;
   height: 48px;
   margin: 6px auto;
   object-fit: contain;
+}
+
+/* Unified skill catalog tooltip (base stats + per-level table) */
+.item-tip-skill-spec-base {
+  margin: 6px 0 8px;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: #ccc;
+}
+
+.item-tip-skill-spec-base-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 2px;
+}
+
+.item-tip-skill-spec-base-line .item-tip-label {
+  display: inline;
+  margin: 0;
+  font-size: 0.58rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #9a9a9a;
+}
+
+.item-tip-skill-spec-table-wrap {
+  overflow-x: auto;
+  max-width: min(92vw, 420px);
+}
+
+.item-tip-skill-spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #d8d8d8;
+}
+
+.item-tip-skill-spec-table th,
+.item-tip-skill-spec-table td {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 3px 5px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.item-tip-skill-spec-table th {
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8e8e8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.item-tip-skill-spec-table tr.item-tip-skill-spec-row--current td {
+  background: rgba(110, 182, 255, 0.12);
+}
+
+.item-tip-skill-spec-highlight {
+  background: #fff59d;
+  color: #1a1a1a;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Skill catalog tooltip: hover preview + pinned level tabs */
+.item-tip-skill-preview-head {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #b8c4d8;
+  margin: 4px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.item-tip-skill-lv-block {
+  font-size: 0.64rem;
+  line-height: 1.4;
+  color: #d8d8d8;
+}
+
+.item-tip-skill-lv-passive {
+  margin: 0;
+  color: #c8dcc0;
+}
+
+.item-tip-skill-lv-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.item-tip-skill-lv-line .item-tip-label {
+  display: block;
+  flex: 0 0 auto;
+  max-width: 42%;
+  margin-bottom: 0;
+  text-transform: uppercase;
+  font-size: 0.55rem;
+}
+
+.item-tip-skill-lv-val {
+  flex: 1 1 auto;
+  text-align: right;
+  color: #e8e8e8;
+  word-break: break-word;
+}
+
+.item-tip-skill-tabs {
+  margin-top: 6px;
+}
+
+.item-tip-skill-tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.item-tip-skill-tab {
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 0.58rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: #bbb;
+}
+
+.item-tip-skill-tab:hover {
+  color: #eee;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.item-tip-skill-tab.item-tip-skill-tab--active {
+  color: #fff;
+  border-color: var(--accent, #c9a227);
+  background: rgba(110, 182, 255, 0.15);
+  font-weight: 600;
+}
+
+.item-tip-skill-panel {
+  display: none;
+  padding-top: 2px;
+}
+
+.item-tip-skill-panel.item-tip-skill-panel--active {
+  display: block;
 }
 
 .item-tip-hint {
@@ -4252,53 +4693,48 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 .fight-enemy-group {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
+  gap: 6px;
 }
 
+/* Enemy cards: same column stack as .fight-ally-card (portrait → name → meta → HP → HP text) */
 .fight-enemy-card {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  width: 120px;
-  min-width: 120px;
-  padding: 6px;
+  align-items: center;
+  gap: 4px;
+  width: 136px;
+  min-width: 136px;
+  padding: 6px 6px 4px;
   background: var(--overview-parchment);
   border-radius: 8px;
-  border: 2px solid transparent;
+  border: 1px solid var(--overview-stone-border);
   cursor: pointer;
-  transition: border-color 0.15s ease, opacity 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 .fight-enemy-card--summon {
-  width: 96px;
-  min-width: 96px;
-  gap: 4px;
-  padding: 4px;
+  width: 120px;
+  min-width: 120px;
+  padding: 5px 5px 3px;
 }
 
-.fight-enemy-card--summon .fight-enemy-panel {
-  padding: 4px 4px 3px;
-  gap: 3px;
+.fight-enemy-card--summon .fight-portrait-wrap--enemy {
+  width: 104px;
+  height: 104px;
 }
 
-.fight-enemy-card--summon .fight-enemy-panel .fight-portrait-img--enemy {
-  width: 64px;
-  height: 64px;
-  border-radius: 6px;
+.fight-enemy-card--summon .fight-portrait-wrap--enemy .fight-portrait-img--enemy {
+  width: 72px;
+  height: 72px;
 }
 
 .fight-enemy-card--summon .fight-card-name {
   font-size: 0.64rem;
 }
 
-.fight-enemy-card--summon .fight-card-level,
-.fight-enemy-card--summon .fight-card-meta {
-  font-size: 0.54rem;
-}
-
+.fight-enemy-card--summon .fight-card-meta--enemy-sub,
 .fight-enemy-card--summon .fight-card-hp-text {
-  font-size: 0.52rem;
+  font-size: 0.54rem;
 }
 
 /* Stormbreak Hollow boss room only: enlarged Leviathan portrait (game.js adds .fight-enemy-card--leviathan-mega). */
@@ -4314,50 +4750,45 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   padding: 6px;
 }
 
-.fight-enemy-card--leviathan-mega .fight-enemy-panel {
+.fight-enemy-card--leviathan-mega .fight-portrait-wrap--enemy {
+  width: auto;
+  min-height: 198px;
   padding: 6px 6px 5px;
 }
 
-.fight-enemy-card--leviathan-mega .fight-enemy-panel .fight-portrait-img--enemy {
+.fight-enemy-card--leviathan-mega .fight-portrait-wrap--enemy .fight-portrait-img--enemy {
   width: 198px;
   height: 198px;
   max-width: none;
 }
 
-.fight-enemy-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 6px 4px;
+.fight-portrait-wrap--enemy {
+  width: 120px;
+  height: 120px;
+  max-width: 100%;
+  border: 1px solid var(--overview-stone-border);
+  border-radius: 8px;
   background: var(--overview-stone);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.fight-portrait-wrap--enemy .fight-portrait-img--enemy {
+  width: 88px;
+  height: 88px;
+  max-width: 100%;
+  object-fit: contain;
   border-radius: 8px;
   border: 1px solid var(--overview-stone-border);
+  background: var(--overview-stone);
 }
 
-.fight-enemy-caption {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+.fight-card-meta--enemy-sub {
+  display: block;
   text-align: center;
   line-height: 1.2;
-  padding: 0 2px;
-}
-
-.fight-enemy-caption .fight-card-name {
-  font-size: 0.72rem;
-}
-
-.fight-card-level {
-  font-size: 0.65rem;
-  color: var(--overview-muted);
-  font-weight: 600;
-}
-
-.fight-enemy-caption .fight-card-mood {
-  font-size: 0.56rem;
-  margin-top: 1px;
 }
 
 .fight-enemy-card:focus-visible {
@@ -4367,7 +4798,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-enemy-card--selected {
   border-color: var(--nameplate-edge);
-  box-shadow: 0 0 0 1px var(--nameplate-edge);
+  box-shadow: 0 0 0 2px var(--nameplate-edge);
 }
 
 .fight-enemy-card--dead {
@@ -4390,19 +4821,17 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   height: 64px;
 }
 
-.fight-enemy-panel .fight-portrait-img--enemy {
-  width: 88px;
-  height: 88px;
-  max-width: 100%;
-  object-fit: contain;
-  border-radius: 8px;
-}
-
 .fight-card-name {
   font-weight: 600;
   font-size: 0.7rem;
   text-align: center;
   line-height: 1.15;
+}
+
+.fight-card-level {
+  font-size: 0.65rem;
+  color: var(--overview-muted);
+  font-weight: 600;
 }
 
 .fight-card-hp {

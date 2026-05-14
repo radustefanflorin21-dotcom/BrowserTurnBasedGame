@@ -14,7 +14,7 @@ const EQUIP_SLOTS = [
 
 let currentPage = "adventure";
 let inventoryTab = "equipment";
-/** "characteristics" | "skills" | "professions" — overview stats panel */
+/** "characteristics" | "professions" — stats sub-tab inside Character panel (skills moved to Skills panel). */
 let overviewStatsTab = "characteristics";
 let overviewSkillsScrollTop = 0;
 let overviewSkillsScrollAnchor = null;
@@ -103,11 +103,7 @@ function equipStarterGearIfEmpty(actor) {
 }
 
 function createDefaultCompanionSlot(label) {
-  const starter = getClassDef(DEFAULT_CLASS_ID);
   const classSkillLevels = {};
-  starter.starterSkills.forEach((name) => {
-    classSkillLevels[name] = 1;
-  });
   const companion = {
     enabled: false,
     hasBeenEnabled: false,
@@ -116,16 +112,18 @@ function createDefaultCompanionSlot(label) {
     xp: 0,
     hp: 100,
     maxHp: 100,
-    str: 10,
-    dex: 10,
-    vit: 10,
-    int: 10,
+    str: 5,
+    dex: 5,
+    vit: 5,
+    int: 5,
     baseAttack: 10,
     charPoints: 0,
-    skillPoints: 0,
+    skillPoints: 1,
+    allocPoolsBindToLevelV2: true,
+    allocPoolsCharV2: true,
     classId: DEFAULT_CLASS_ID,
     classSkillLevels,
-    skills: starter.starterSkills.slice(),
+    skills: [],
     professions: [],
     equipment: getStarterEquipment(),
     portraitLayout: {},
@@ -133,6 +131,9 @@ function createDefaultCompanionSlot(label) {
   };
   companion.maxHp = computeMaxHp(companion);
   companion.hp = companion.maxHp;
+  syncPlayerClassSkillList(companion);
+  ensureActorSkillBar(companion);
+  recomputeAllocPoolsFromLevel(companion);
   return companion;
 }
 
@@ -160,20 +161,22 @@ function ensurePlayerCompanions(p) {
     if (typeof c.name !== "string" || !c.name.trim()) c.name = defaultName;
     if (typeof c.level !== "number" || c.level < 1) c.level = 1;
     if (typeof c.xp !== "number" || !Number.isFinite(c.xp) || c.xp < 0) c.xp = 0;
-    if (typeof c.str !== "number") c.str = 10;
+    if (typeof c.allocPoolsCharV2 !== "boolean") c.allocPoolsCharV2 = false;
+    if (typeof c.str !== "number") c.str = STAT_CHAR_ALLOC_FLOOR;
     if (typeof c.dex !== "number") {
-      c.dex = typeof c.agi === "number" && Number.isFinite(c.agi) ? c.agi : 10;
+      c.dex = typeof c.agi === "number" && Number.isFinite(c.agi) ? c.agi : STAT_CHAR_ALLOC_FLOOR;
     }
     if (Object.prototype.hasOwnProperty.call(c, "agi")) delete c.agi;
-    if (typeof c.vit !== "number") c.vit = 10;
-    if (typeof c.int !== "number") c.int = 10;
+    if (typeof c.vit !== "number") c.vit = STAT_CHAR_ALLOC_FLOOR;
+    if (typeof c.int !== "number") c.int = STAT_CHAR_ALLOC_FLOOR;
     if (typeof c.baseAttack !== "number") c.baseAttack = 10;
     if (typeof c.charPoints !== "number" || c.charPoints < 0) c.charPoints = 0;
     if (typeof c.skillPoints !== "number" || c.skillPoints < 0) c.skillPoints = 0;
-    if (!CLASS_DEFS[c.classId]) c.classId = DEFAULT_CLASS_ID;
+    if (!c.classId || typeof c.classId !== "string") c.classId = DEFAULT_CLASS_ID;
     if (!c.classSkillLevels || typeof c.classSkillLevels !== "object") c.classSkillLevels = {};
     if (!Array.isArray(c.skills)) c.skills = [];
     syncPlayerClassSkillList(c);
+    ensureActorSkillBar(c);
     normalizeActorProfessions(c);
     if (!c.equipment || typeof c.equipment !== "object") c.equipment = emptyEquipment();
     if (!c.hasBeenEnabled && c.equipment && !c.equipment.weapon && !c.equipment.chest && !c.equipment.legs) {
@@ -183,6 +186,10 @@ function ensurePlayerCompanions(p) {
     if (!c.portraitLayout || typeof c.portraitLayout !== "object") c.portraitLayout = {};
     if (!c.portraitBaseLayout || typeof c.portraitBaseLayout !== "object") {
       c.portraitBaseLayout = getDefaultPortraitBaseLayout();
+    }
+    if (!c.allocPoolsBindToLevelV2) {
+      recomputeAllocPoolsFromLevel(c);
+      c.allocPoolsBindToLevelV2 = true;
     }
     c.maxHp = computeMaxHp(c);
     if (typeof c.hp !== "number" || !Number.isFinite(c.hp)) c.hp = c.maxHp;
@@ -253,7 +260,9 @@ function anyCompanionEnabled() {
 }
 
 function getActorSkillLevel(actor, skillName) {
-  if (!actor || !isClassSkill(skillName)) return 1;
+  if (!actor) return 0;
+  if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return 1;
+  if (!isClassSkill(skillName)) return 0;
   const map = actor.classSkillLevels && typeof actor.classSkillLevels === "object" ? actor.classSkillLevels : {};
   const lv = map[skillName];
   if (typeof lv !== "number" || !Number.isFinite(lv) || lv <= 0) return 0;
@@ -303,17 +312,31 @@ function levelUpActor(actor) {
     if (need <= 0 || actor.xp < need) break;
     actor.xp -= need;
     actor.level++;
-    actor.charPoints += 5;
-    actor.skillPoints = (typeof actor.skillPoints === "number" ? actor.skillPoints : 0) + 1;
     actor.baseAttack += 2;
     actor.maxHp = computeMaxHp(actor);
     actor.hp = actor.maxHp;
   }
+  recomputeAllocPoolsFromLevel(actor);
+}
+
+/** Characteristic pool = level×5 minus stat spend curve; skill pool = level minus upgrades past free rank 1. */
+function recomputeAllocPoolsFromLevel(actor) {
+  if (!actor || typeof actor !== "object") return;
+  const lv = typeof actor.level === "number" && actor.level >= 1 ? Math.floor(actor.level) : 1;
+  const earnedChars = actor.allocPoolsCharV2 === true ? Math.max(0, (lv - 1) * 5) : lv * 5;
+  actor.charPoints = Math.max(0, earnedChars - totalCharPointsAllocatedOnActor(actor));
+  let spentSkill = 0;
+  if (actor.classSkillLevels && typeof actor.classSkillLevels === "object") {
+    Object.values(actor.classSkillLevels).forEach((slv) => {
+      if (typeof slv === "number" && slv > 0) spentSkill += Math.max(0, Math.min(5, Math.floor(slv)) - 1);
+    });
+  }
+  actor.skillPoints = Math.max(0, lv - spentSkill);
 }
 
 /**
  * Recomputes characteristic points, skill points, and base attack after edit-mode level change.
- * Matches retrospective char-point math and per-level rewards from {@link levelUp} / {@link levelUpActor}.
+ * Matches retrospective char-point math and per-level rewards from {@link levelUp} / {@link levelUpActor} (5 characteristic + 1 skill per level, including level 1).
  */
 function syncActorProgressionForEditedLevel(actor) {
   if (!actor || typeof actor !== "object") return;
@@ -322,22 +345,8 @@ function syncActorProgressionForEditedLevel(actor) {
   level = Math.min(maxLv, Math.max(1, level));
   actor.level = level;
 
-  const earnedChar = Math.max(0, (level - 1) * 5);
-  const s = Math.max(0, (typeof actor.str === "number" ? actor.str : 10) - 10);
-  const dexVal = typeof actor.dex === "number" ? actor.dex : 10;
-  const a = Math.max(0, dexVal - 10);
-  const v = Math.max(0, (typeof actor.vit === "number" ? actor.vit : 10) - 10);
-  const inc = Math.max(0, (typeof actor.int === "number" ? actor.int : 10) - 10);
-  actor.charPoints = Math.max(0, earnedChar - (s + a + v + inc));
+  recomputeAllocPoolsFromLevel(actor);
 
-  const earnedSkill = Math.max(0, level - 1);
-  let spentSkill = 0;
-  if (actor.classSkillLevels && typeof actor.classSkillLevels === "object") {
-    Object.values(actor.classSkillLevels).forEach((lv) => {
-      if (typeof lv === "number" && lv > 0) spentSkill += Math.min(5, Math.floor(lv));
-    });
-  }
-  actor.skillPoints = Math.max(0, earnedSkill - spentSkill);
   actor.baseAttack = 10 + Math.max(0, level - 1) * 2;
 }
 
@@ -363,16 +372,8 @@ function getActorDamageRange(actor) {
   return { min: Math.max(1, mid - 2), max: mid + 2 };
 }
 
-function getActorArmorDefense(actor) {
-  const eq = actor && actor.equipment ? actor.equipment : emptyEquipment();
-  let d = 0;
-  EQUIP_SLOTS.forEach((s) => {
-    const n = eq[s.id];
-    if (!n) return;
-    const def = getItemDef(n);
-    if (def) d += getScaledItemDefense(def, n);
-  });
-  return d;
+function getActorArmorDefense() {
+  return 0;
 }
 
 function getActorCombatStaminaBaseMax() {
@@ -443,151 +444,67 @@ function xpToNextLevel(level) {
   return Math.max(1, Math.floor(a + lv * lv * b));
 }
 
-const DEFAULT_CLASS_ID = "vanguard";
+const DEFAULT_CLASS_ID = "adventurer";
 const CLASS_TIER_MIN_LEVEL = { early: 1, mid: 15, late: 30 };
 
-/** @type {Record<string, { id: string, label: string, passive: string, primaryStats: string[], starterSkills: string[], skills: Array<{ name: string, tier: "early"|"mid"|"late", staminaCost: number, combatMultiplier?: number, damageKind?: "physical"|"magic", combatAoe?: "all_enemies", combatTags?: string[], description: string, passiveOnly?: boolean }> }>} */
-const CLASS_DEFS = {
-  vanguard: {
-    id: "vanguard",
-    label: "Vanguard",
-    passive: "Unbreakable Trait: flat mitigation, counter-stagger chance when hit, stronger minimum damage.",
-    primaryStats: ["STR", "VIT"],
-    starterSkills: ["Shield Slam", "Brace", "Heavy Strike"],
-    skills: [
-      { name: "Shield Slam", tier: "early", staminaCost: 2, combatMultiplier: 0.7, combatTags: ["shield", "control"], image: "Assets/Skills/shield_slam.png", description: "Low damage strike with conditional stagger utility." },
-      { name: "Brace", tier: "early", staminaCost: 2, combatMultiplier: 0.25, combatTags: ["defensive"], image: "Assets/Skills/brace.png", description: "Defensive setup with temporary status resistance." },
-      { name: "Heavy Strike", tier: "early", staminaCost: 3, combatMultiplier: 1.1, combatTags: ["heavy"], image: "Assets/Skills/heavy_strike.png", description: "Primary early single-target damage strike." },
-      { name: "Fortress Stance", tier: "mid", staminaCost: 3, combatMultiplier: 0, combatTags: ["defensive", "stance"], image: "Assets/Skills/fortress_stance.png", description: "Strong mitigation stance with offense penalty." },
-      { name: "Crushing Blow", tier: "mid", staminaCost: 3, combatMultiplier: 0.95, combatTags: ["crushing"], image: "Assets/Skills/crushing_blow.png", description: "Moderate damage plus scalable armor break." },
-      { name: "Taunt", tier: "mid", staminaCost: 2, combatMultiplier: 0.2, combatTags: ["control", "tank"], image: "Assets/Skills/taunt.png", description: "Forces target focus onto the Vanguard." },
-      { name: "Last Bastion", tier: "late", staminaCost: 4, combatMultiplier: 0, combatTags: ["defensive", "emergency"], image: "Assets/Skills/last_bastion.png", description: "Emergency defense with stronger low-HP effect." },
-      { name: "Earthshatter", tier: "late", staminaCost: 4, combatMultiplier: 0.65, combatAoe: "all_enemies", combatTags: ["heavy", "aoe", "control"], image: "Assets/Skills/earthshatter.png", description: "AoE control impact with conditional bonus damage." },
-      { name: "Indomitable", tier: "late", staminaCost: 2, passiveOnly: true, image: "Assets/Skills/indominable.png", description: "Limit max HP loss per turn." }
-    ]
-  },
-  duelist: {
-    id: "duelist",
-    label: "Duelist",
-    passive: "Momentum: crits can restore stamina and kills grant one quick follow-up action.",
-    primaryStats: ["DEX", "STR"],
-    starterSkills: ["Piercing Thrust", "Quick Slash", "Riposte"],
-    skills: [
-      { name: "Piercing Thrust", tier: "early", staminaCost: 2, combatMultiplier: 1.22, description: "Armor-piercing strike." },
-      { name: "Quick Slash", tier: "early", staminaCost: 2, combatMultiplier: 1.2, description: "High-crit quick hit." },
-      { name: "Riposte", tier: "early", staminaCost: 2, combatMultiplier: 1.05, description: "Counter-focused attack setup." },
-      { name: "Combo Strike", tier: "mid", staminaCost: 3, combatMultiplier: 1.35, description: "Crit chains into extra hit." },
-      { name: "Expose Weakness", tier: "mid", staminaCost: 2, combatMultiplier: 1.0, description: "Increase target damage taken." },
-      { name: "Flow State", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Raises proc cap efficiency." },
-      { name: "Execution", tier: "late", staminaCost: 4, combatMultiplier: 1.65, description: "Heavy finisher on low targets." },
-      { name: "Perfect Chain", tier: "late", staminaCost: 3, combatMultiplier: 1.15, description: "Crit-driven stamina refund chain." },
-      { name: "Blade Dance", tier: "late", staminaCost: 4, combatMultiplier: 1.45, description: "Multi-hit burst combo." }
-    ]
-  },
-  arcanist: {
-    id: "arcanist",
-    label: "Arcanist",
-    passive: "Arcane Efficiency: skills trend cheaper (floor 2), effects and durations are amplified.",
-    primaryStats: ["INT"],
-    starterSkills: ["Arcane Bolt", "Burning Mark", "Frost Bind"],
-    skills: [
-      { name: "Arcane Bolt", tier: "early", staminaCost: 2, combatMultiplier: 1.22, damageKind: "magic", description: "Efficient magic bolt." },
-      { name: "Burning Mark", tier: "early", staminaCost: 2, combatMultiplier: 1.08, damageKind: "magic", description: "DoT setup strike." },
-      { name: "Frost Bind", tier: "early", staminaCost: 2, combatMultiplier: 1.0, damageKind: "magic", description: "Tempo and effectiveness debuff." },
-      { name: "Chain Pulse", tier: "mid", staminaCost: 3, combatMultiplier: 1.25, damageKind: "magic", combatAoe: "all_enemies", description: "Multi-target pulse." },
-      { name: "Mana Surge", tier: "mid", staminaCost: 2, combatMultiplier: 1.12, damageKind: "magic", description: "Empower next casting window." },
-      { name: "Static Field", tier: "mid", staminaCost: 3, combatMultiplier: 1.18, damageKind: "magic", combatAoe: "all_enemies", description: "AoE ticking pressure." },
-      { name: "Meteor", tier: "late", staminaCost: 5, combatMultiplier: 1.75, damageKind: "magic", combatAoe: "all_enemies", description: "Large AoE burst." },
-      { name: "Time Warp", tier: "late", staminaCost: 3, combatMultiplier: 1.0, damageKind: "magic", description: "Extends active effects." },
-      { name: "Overload", tier: "late", staminaCost: 2, passiveOnly: true, description: "Multi-hit magic gains bonus scaling." }
-    ]
-  },
-  skirmisher: {
-    id: "skirmisher",
-    label: "Skirmisher",
-    passive: "Quick Reflexes: chance for efficiency gain and one quick action per turn cap.",
-    primaryStats: ["DEX"],
-    starterSkills: ["Flurry", "Evasive Roll", "Light Shot"],
-    skills: [
-      { name: "Flurry", tier: "early", staminaCost: 2, combatMultiplier: 1.2, description: "Fast multi-hit opener." },
-      { name: "Evasive Roll", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Defensive tempo reset." },
-      { name: "Light Shot", tier: "early", staminaCost: 2, combatMultiplier: 1.15, description: "Consistent pressure shot." },
-      { name: "Relentless Assault", tier: "mid", staminaCost: 3, combatMultiplier: 1.35, description: "Chain-based strike sequence." },
-      { name: "Focus Fire", tier: "mid", staminaCost: 2, combatMultiplier: 1.1, description: "Crit and accuracy setup." },
-      { name: "Agility", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Raises proc consistency." },
-      { name: "Storm of Blades", tier: "late", staminaCost: 4, combatMultiplier: 1.55, description: "High hit-count burst." },
-      { name: "Perfect Tempo", tier: "late", staminaCost: 2, passiveOnly: true, description: "Stronger chaining rhythm." },
-      { name: "Phantom Chain", tier: "late", staminaCost: 3, combatMultiplier: 1.25, description: "Chance to repeat action." }
-    ]
-  },
-  reaver: {
-    id: "reaver",
-    label: "Reaver",
-    passive: "Bloodlust: kill pressure fuels next turn stamina and low-HP damage scaling.",
-    primaryStats: ["STR", "DEX"],
-    starterSkills: ["Reckless Strike", "Rage", "Frenzy Hit"],
-    skills: [
-      { name: "Reckless Strike", tier: "early", staminaCost: 3, combatMultiplier: 1.55, description: "High damage with self-cost risk." },
-      { name: "Rage", tier: "early", staminaCost: 2, combatMultiplier: 1.08, description: "Short STR-leaning damage buff." },
-      { name: "Frenzy Hit", tier: "early", staminaCost: 2, combatMultiplier: 1.2, description: "Chance for bonus follow-up hit." },
-      { name: "Blood Chain", tier: "mid", staminaCost: 3, combatMultiplier: 1.35, description: "Kill chains into pressure." },
-      { name: "Savage Roar", tier: "mid", staminaCost: 2, combatMultiplier: 1.05, description: "Enemy defense shred setup." },
-      { name: "Unhinged", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Crit damage amplification." },
-      { name: "Massacre", tier: "late", staminaCost: 4, combatMultiplier: 1.55, combatAoe: "all_enemies", description: "AoE payoff after picks." },
-      { name: "Endless Rage", tier: "late", staminaCost: 2, passiveOnly: true, description: "Buff durations extended." },
-      { name: "Execution Rush", tier: "late", staminaCost: 3, combatMultiplier: 1.4, description: "Kill-reset once per turn." }
-    ]
-  },
-  warden: {
-    id: "warden",
-    label: "Warden",
-    passive: "Sanctified Core: stronger healing and longer team buffs.",
-    primaryStats: ["VIT", "INT"],
-    starterSkills: ["Heal", "Guard Ally", "Purify"],
-    skills: [
-      { name: "Heal", tier: "early", staminaCost: 2, combatMultiplier: 0.9, damageKind: "magic", description: "Single-target recovery." },
-      { name: "Guard Ally", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Protective intercept stance." },
-      { name: "Purify", tier: "early", staminaCost: 2, combatMultiplier: 1.0, description: "Cleanse and resistance pulse." },
-      { name: "Sanctuary", tier: "mid", staminaCost: 3, combatMultiplier: 1.0, description: "Team mitigation field." },
-      { name: "Regeneration", tier: "mid", staminaCost: 2, combatMultiplier: 1.0, description: "Heal-over-time aura." },
-      { name: "Resolve", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Status resistance passive." },
-      { name: "Divine Aegis", tier: "late", staminaCost: 4, combatMultiplier: 1.0, description: "Large shield application." },
-      { name: "Revitalize", tier: "late", staminaCost: 3, combatMultiplier: 1.05, description: "Heal + team buff." },
-      { name: "Eternal Light", tier: "late", staminaCost: 2, passiveOnly: true, description: "Buff persistence passive." }
-    ]
-  },
-  alchemist: {
-    id: "alchemist",
-    label: "Alchemist",
-    passive: "Catalysis: status applications can trigger instantly with stronger effect windows.",
-    primaryStats: ["INT", "DEX"],
-    starterSkills: ["Toxic Flask", "Weakening Brew", "Acid Splash"],
-    skills: [
-      { name: "Toxic Flask", tier: "early", staminaCost: 2, combatMultiplier: 1.08, damageKind: "magic", description: "Poison application strike." },
-      { name: "Weakening Brew", tier: "early", staminaCost: 2, combatMultiplier: 1.0, damageKind: "magic", description: "Enemy damage debuff." },
-      { name: "Acid Splash", tier: "early", staminaCost: 2, combatMultiplier: 1.12, damageKind: "magic", combatAoe: "all_enemies", description: "Small corrosive AoE." },
-      { name: "Corrosive Cloud", tier: "mid", staminaCost: 3, combatMultiplier: 1.2, damageKind: "magic", combatAoe: "all_enemies", description: "AoE DoT cloud." },
-      { name: "Catalyst", tier: "mid", staminaCost: 2, combatMultiplier: 1.0, damageKind: "magic", description: "Trigger active effects." },
-      { name: "Volatile Mix", tier: "mid", staminaCost: 2, passiveOnly: true, description: "Improves effect strength." },
-      { name: "Plague Storm", tier: "late", staminaCost: 4, combatMultiplier: 1.45, damageKind: "magic", combatAoe: "all_enemies", description: "Stacking AoE DoT pressure." },
-      { name: "Chain Reaction", tier: "late", staminaCost: 3, combatMultiplier: 1.2, damageKind: "magic", description: "Spread active effects." },
-      { name: "Perfect Formula", tier: "late", staminaCost: 2, passiveOnly: true, description: "Partial resistance bypass." }
-    ]
-  }
+const ADVENTURER_UI_CLASS = {
+  id: "adventurer",
+  label: "Hero",
+  role: "",
+  passive: "",
+  primaryStats: ["STR", "DEX", "VIT", "INT"],
+  starterSkills: [],
+  skills: []
 };
 
-const CLASS_SKILL_MAP = Object.values(CLASS_DEFS).reduce((acc, cls) => {
-  cls.skills.forEach((sk) => {
-    acc[sk.name] = { ...sk, classId: cls.id };
-  });
-  return acc;
-}, {});
+let CLASS_SKILL_MAP = {};
+
+/** PNG in `Assets/Skills/` named from skill title (snake_case), matching shipped art files. */
+function skillCatalogAssetPngPath(skillName) {
+  if (!skillName || typeof skillName !== "string") return "";
+  if (skillName === "Basic Physical Attack") return "Assets/Skills/basic_physical_attack.png";
+  if (skillName === "Basic Magical Attack") return "Assets/Skills/basic_magic_attack.png";
+  const slug = skillName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return slug ? `Assets/Skills/${slug}.png` : "";
+}
+
+function rebuildClassSkillMapFromCatalog() {
+  const m = {};
+  if (typeof SKILL_CATALOG === "object" && SKILL_CATALOG) {
+    Object.keys(SKILL_CATALOG).forEach((name) => {
+      const c = SKILL_CATALOG[name];
+      const stam = typeof c.stamina === "number" ? c.stamina : 2;
+      const passiveOnly = !!c.passiveOnly;
+      const lastLv = c.levels && c.levels[4] ? c.levels[4] : null;
+      const aoeAll = c.pattern === "event_horizon" || (c.pattern === "arcane_collapse" && lastLv && lastLv.aoeAdj >= 99);
+      const dk = passiveOnly ? undefined : c.damageKind === "magic" ? "magic" : "physical";
+      m[name] = {
+        name,
+        classId: "adventurer",
+        tier: "early",
+        staminaCost: stam,
+        combatMultiplier: passiveOnly ? undefined : 1,
+        damageKind: dk,
+        combatAoe: aoeAll ? "all_enemies" : undefined,
+        combatTags: [],
+        passiveOnly,
+        description: ""
+      };
+    });
+  }
+  CLASS_SKILL_MAP = m;
+}
 
 function injectClassSkillsIntoConfig() {
+  rebuildClassSkillMapFromCatalog();
   const skillArr = Array.isArray(GAME_CONFIG.skills) ? GAME_CONFIG.skills : [];
   const existingByName = new Map();
-  skillArr.forEach((s, i) => {
-    const n = s && typeof s.name === "string" ? s.name : "";
+  skillArr.forEach((srow, i) => {
+    const n = srow && typeof srow.name === "string" ? srow.name : "";
     if (n) existingByName.set(n, i);
   });
   Object.values(CLASS_SKILL_MAP).forEach((sk) => {
@@ -599,7 +516,7 @@ function injectClassSkillsIntoConfig() {
       damageKind: sk.damageKind || "physical",
       combatAoe: sk.combatAoe,
       combatTags: Array.isArray(sk.combatTags) ? sk.combatTags : [],
-      image: sk.image || getSkillImage(sk.name),
+      image: skillCatalogAssetPngPath(sk.name),
       description: sk.description
     };
     if (existingByName.has(sk.name)) {
@@ -616,8 +533,7 @@ function injectClassSkillsIntoConfig() {
 injectClassSkillsIntoConfig();
 
 function getClassDef(classId) {
-  const id = typeof classId === "string" ? classId : "";
-  return CLASS_DEFS[id] || CLASS_DEFS[DEFAULT_CLASS_ID];
+  return ADVENTURER_UI_CLASS;
 }
 
 function getClassSkillDefByName(skillName) {
@@ -638,7 +554,8 @@ function getSkillTierMinLevel(tier) {
 }
 
 function getPlayerSkillLevel(skillName) {
-  if (!isClassSkill(skillName)) return 1;
+  if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return 1;
+  if (!isClassSkill(skillName)) return 0;
   const map = player && player.classSkillLevels && typeof player.classSkillLevels === "object" ? player.classSkillLevels : {};
   const lv = map[skillName];
   if (typeof lv !== "number" || !Number.isFinite(lv) || lv <= 0) return 0;
@@ -652,14 +569,114 @@ function getClassSkillPowerMultiplier(skillName) {
 }
 
 function syncPlayerClassSkillList(p) {
-  const cls = getClassDef(p.classId);
   if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
-  const outSkills = [];
-  cls.skills.forEach((sk) => {
-    const lv = p.classSkillLevels[sk.name];
-    if (typeof lv === "number" && lv > 0) outSkills.push(sk.name);
-  });
-  p.skills = outSkills;
+  const basics = ["Basic Physical Attack", "Basic Magical Attack"];
+  const out = basics.slice();
+  if (typeof UNIFIED_SKILL_ORDER !== "undefined" && UNIFIED_SKILL_ORDER) {
+    UNIFIED_SKILL_ORDER.forEach((name) => {
+      if (basics.includes(name)) return;
+      const lv = p.classSkillLevels[name];
+      if (typeof lv === "number" && lv > 0) out.push(name);
+    });
+  }
+  p.skills = out;
+}
+
+const SKILL_BAR_SLOT_COUNT = 12;
+
+function isCombatCatalogSkillName(skillName) {
+  if (!skillName || typeof skillName !== "string") return false;
+  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && SKILL_CATALOG[skillName];
+  if (cat && cat.passiveOnly) return false;
+  const cfg = getSkillDef(skillName);
+  return !!(cfg && typeof cfg.combatMultiplier === "number");
+}
+
+function actorOwnsSkillForBar(actor, skillName) {
+  if (!actor || !skillName) return false;
+  if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return true;
+  return getActorSkillLevel(actor, skillName) > 0;
+}
+
+function defaultSkillBarSlotsFromSyncedSkills(actor) {
+  const out = Array(SKILL_BAR_SLOT_COUNT).fill(null);
+  const names = Array.isArray(actor.skills) ? actor.skills : [];
+  let i = 0;
+  for (let k = 0; k < names.length && i < SKILL_BAR_SLOT_COUNT; k++) {
+    const name = names[k];
+    if (!name || typeof name !== "string") continue;
+    if (!isCombatCatalogSkillName(name)) continue;
+    out[i++] = name;
+  }
+  return out;
+}
+
+function ensureActorSkillBar(actor) {
+  if (!actor || typeof actor !== "object") return;
+  if (!Array.isArray(actor.skillBarSlots) || actor.skillBarSlots.length !== SKILL_BAR_SLOT_COUNT) {
+    syncPlayerClassSkillList(actor);
+    actor.skillBarSlots = defaultSkillBarSlotsFromSyncedSkills(actor);
+    return;
+  }
+  for (let i = 0; i < SKILL_BAR_SLOT_COUNT; i++) {
+    const v = actor.skillBarSlots[i];
+    if (v == null || v === "") {
+      actor.skillBarSlots[i] = null;
+      continue;
+    }
+    const s = String(v).trim();
+    if (!s || !isClassSkill(s) || !isCombatCatalogSkillName(s) || !actorOwnsSkillForBar(actor, s)) {
+      actor.skillBarSlots[i] = null;
+    } else {
+      actor.skillBarSlots[i] = s;
+    }
+  }
+}
+
+function isSkillSlottedForActor(actor, skillName) {
+  if (!actor || !skillName) return false;
+  ensureActorSkillBar(actor);
+  return actor.skillBarSlots.some((s) => s === skillName);
+}
+
+function resolveSkillBarTargetActorFromEl(el) {
+  const page = el && el.closest && el.closest("[data-overview-roster-tab]");
+  const tab =
+    page && page.dataset && page.dataset.overviewRosterTab != null && page.dataset.overviewRosterTab !== ""
+      ? page.dataset.overviewRosterTab
+      : getCharacterRosterTab();
+  return getRosterActorFromTab(tab);
+}
+
+function applySkillBarDropFromCatalog(actor, skillName, targetIdx) {
+  if (!actor || !skillName) return false;
+  const name = String(skillName).trim();
+  if (!name || !isClassSkill(name) || !isCombatCatalogSkillName(name)) return false;
+  if (!actorOwnsSkillForBar(actor, name)) return false;
+  const ti = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(targetIdx)));
+  ensureActorSkillBar(actor);
+  for (let j = 0; j < SKILL_BAR_SLOT_COUNT; j++) {
+    if (actor.skillBarSlots[j] === name) actor.skillBarSlots[j] = null;
+  }
+  actor.skillBarSlots[ti] = name;
+  return true;
+}
+
+function applySkillBarSlotSwap(actor, fromIdx, toIdx) {
+  ensureActorSkillBar(actor);
+  const a = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(fromIdx)));
+  const b = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(toIdx)));
+  const tmp = actor.skillBarSlots[a];
+  actor.skillBarSlots[a] = actor.skillBarSlots[b];
+  actor.skillBarSlots[b] = tmp;
+  return true;
+}
+
+function applySkillBarClearSlot(actor, idx) {
+  ensureActorSkillBar(actor);
+  const i = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(idx)));
+  actor.skillBarSlots[i] = null;
+  return true;
 }
 
 function getDefaultPortraitBaseLayout() {
@@ -693,7 +710,7 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
   const target = actor || player;
   const sk = getClassSkillDefByName(skillName);
   if (!sk) return false;
-  if (overviewStatsTab === "skills") {
+  if (isSkillsPanelOpen()) {
     const near = sourceEl ? findNearestScrollableContainer(sourceEl) : null;
     if (near) {
       overviewSkillsScrollTop = Math.max(0, Math.floor(near.scrollTop || 0));
@@ -713,10 +730,12 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
     }
   }
   if (!target.classSkillLevels || typeof target.classSkillLevels !== "object") target.classSkillLevels = {};
+  if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return false;
   const cur = getActorSkillLevel(target, skillName);
-  const reqLv = getSkillTierMinLevel(sk.tier);
+  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG[skillName];
+  const reqLv = cat && typeof cat.unlock === "number" ? cat.unlock : 1;
   if (target.level < reqLv) {
-    showModal(`Requires level ${reqLv} (${sk.tier} tier).`);
+    showModal(`Requires level ${reqLv}.`);
     return false;
   }
   if (typeof target.skillPoints !== "number" || target.skillPoints < 1) {
@@ -728,7 +747,7 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
   target.skillPoints -= 1;
   syncPlayerClassSkillList(target);
   save();
-  const inPlace = overviewStatsTab === "skills" ? refreshOverviewSkillsSubpanelInPlace() : false;
+  const inPlace = isSkillsPanelOpen() ? refreshSkillsPanelSubpanelInPlace() : false;
   if (!inPlace) render();
   restoreOverviewSkillsScroll();
   return true;
@@ -736,28 +755,24 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
 
 const defaultPlayer = () => {
   const st = GAME_CONFIG.worldMap.defaultStart;
-  const starter = getClassDef(DEFAULT_CLASS_ID);
   const classSkillLevels = {};
-  starter.starterSkills.forEach((name) => {
-    classSkillLevels[name] = 1;
-  });
   const p = {
     name: "Hero",
     level: 1,
     xp: 0,
     hp: 100,
     maxHp: 100,
-    str: 10,
-    dex: 10,
-    vit: 10,
-    int: 10,
+    str: 5,
+    dex: 5,
+    vit: 5,
+    int: 5,
     baseAttack: 10,
     charPoints: 0,
     gold: 0,
     classId: DEFAULT_CLASS_ID,
-    skillPoints: 0,
+    skillPoints: 1,
     classSkillLevels,
-    skills: starter.starterSkills.slice(),
+    skills: [],
     professions: [],
     inventory: buildStartingInventory(),
     equipment: getStarterEquipment(),
@@ -767,6 +782,8 @@ const defaultPlayer = () => {
     portraitLayoutLastExport: "",
     theme: "medieval",
     charPointsRetroDone: true,
+    allocPoolsBindToLevelV2: true,
+    allocPoolsCharV2: true,
     worldMap: {
       x: st.x,
       y: st.y,
@@ -781,6 +798,9 @@ const defaultPlayer = () => {
   };
   p.maxHp = computeMaxHp(p);
   p.hp = p.maxHp;
+  syncPlayerClassSkillList(p);
+  ensureActorSkillBar(p);
+  recomputeAllocPoolsFromLevel(p);
   return p;
 };
 
@@ -929,29 +949,33 @@ function migratePlayer(p) {
   const maxLv = getPlayerMaxLevel();
   if (typeof p.level !== "number" || p.level < 1) p.level = 1;
   else if (p.level > maxLv) p.level = maxLv;
-  if (typeof p.str !== "number") p.str = 10;
+  if (typeof p.allocPoolsCharV2 !== "boolean") p.allocPoolsCharV2 = false;
+  if (typeof p.str !== "number") p.str = STAT_CHAR_ALLOC_FLOOR;
   if (typeof p.dex !== "number") {
-    p.dex = typeof p.agi === "number" && Number.isFinite(p.agi) ? p.agi : 10;
+    p.dex = typeof p.agi === "number" && Number.isFinite(p.agi) ? p.agi : STAT_CHAR_ALLOC_FLOOR;
   }
   if (Object.prototype.hasOwnProperty.call(p, "agi")) delete p.agi;
-  if (typeof p.vit !== "number") p.vit = 10;
-  if (typeof p.int !== "number") p.int = 10;
+  if (typeof p.vit !== "number") p.vit = STAT_CHAR_ALLOC_FLOOR;
+  if (typeof p.int !== "number") p.int = STAT_CHAR_ALLOC_FLOOR;
   if (!p.theme || !GAME_CONFIG.themes[p.theme]) p.theme = "medieval";
   if (!Array.isArray(p.inventory)) p.inventory = [];
-  const legacyHasClass = typeof p.classId === "string" && !!CLASS_DEFS[p.classId];
-  if (!legacyHasClass) {
-    p.classId = DEFAULT_CLASS_ID;
-    p.classSkillLevels = {};
-    const starter = getClassDef(p.classId);
-    starter.starterSkills.forEach((name) => {
-      p.classSkillLevels[name] = 1;
+  if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
+  if (typeof SKILL_CATALOG === "object" && SKILL_CATALOG) {
+    const next = {};
+    Object.keys(p.classSkillLevels).forEach((k) => {
+      if (k === "Basic Physical Attack" || k === "Basic Magical Attack") return;
+      if (!SKILL_CATALOG[k]) return;
+      const lv = p.classSkillLevels[k];
+      if (typeof lv === "number" && lv > 0) next[k] = Math.min(5, Math.floor(lv));
     });
-    p.skillPoints = Math.max(0, (typeof p.level === "number" ? p.level : 1) - 1);
-  } else {
-    if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
-    if (typeof p.skillPoints !== "number" || p.skillPoints < 0) p.skillPoints = 0;
+    p.classSkillLevels = next;
+  }
+  p.classId = DEFAULT_CLASS_ID;
+  if (typeof p.skillPoints !== "number" || p.skillPoints < 0) {
+    p.skillPoints = Math.max(0, typeof p.level === "number" ? p.level : 1);
   }
   syncPlayerClassSkillList(p);
+  ensureActorSkillBar(p);
   normalizeActorProfessions(p);
   const eq = p.equipment || {};
   const base = emptyEquipment();
@@ -1062,18 +1086,14 @@ function migratePlayer(p) {
     p.bottomHudPortraitLayout = getDefaultBottomHudPortraitLayout();
   }
   if (typeof p.portraitLayoutLastExport !== "string") p.portraitLayoutLastExport = "";
-  /** One-time retrospective: earned = (level−1)×5; STR/AGI/VIT above 10 count as already spent (1:1). */
+  /** One-time retrospective: earned characteristic points = level×5; stats above 10 cost by the same curve as live spending. */
   if (!p.charPointsRetroDone) {
-    const level = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
-    const earned = Math.max(0, (level - 1) * 5);
-    const s = Math.max(0, p.str - 10);
-    const dexVal = typeof p.dex === "number" ? p.dex : 10;
-    const a = Math.max(0, dexVal - 10);
-    const v = Math.max(0, p.vit - 10);
-    const inc = Math.max(0, (typeof p.int === "number" ? p.int : 10) - 10);
-    const allocatedToStats = s + a + v + inc;
-    p.charPoints = Math.max(0, earned - allocatedToStats);
+    recomputeAllocPoolsFromLevel(p);
     p.charPointsRetroDone = true;
+  }
+  if (!p.allocPoolsBindToLevelV2) {
+    recomputeAllocPoolsFromLevel(p);
+    p.allocPoolsBindToLevelV2 = true;
   }
   p.maxHp = computeMaxHp(p);
   if (typeof p.hp !== "number" || p.hp <= 0) p.hp = p.maxHp;
@@ -1173,12 +1193,19 @@ function getEquipmentSetBonusStats(equipment) {
   Object.keys(counts).forEach((setName) => {
     const setCfg = bonuses[setName];
     if (!setCfg || typeof setCfg !== "object") return;
+    const c = counts[setName];
+    let best = 0;
     Object.keys(setCfg).forEach((thresholdRaw) => {
       const threshold = parseInt(thresholdRaw, 10);
-      if (!Number.isFinite(threshold) || counts[setName] < threshold) return;
-      const stats = setCfg[thresholdRaw];
-      if (!stats || typeof stats !== "object") return;
-      Object.entries(stats).forEach(([k, v]) => addEquipmentBonusStat(out, k, v));
+      if (!Number.isFinite(threshold) || c < threshold) return;
+      if (threshold > best) best = threshold;
+    });
+    if (best <= 0) return;
+    const stats = setCfg[String(best)];
+    if (!stats || typeof stats !== "object") return;
+    Object.entries(stats).forEach(([k, v]) => {
+      if (String(k).startsWith("_")) return;
+      addEquipmentBonusStat(out, k, v);
     });
   });
   return out;
@@ -1198,10 +1225,6 @@ function countEquippedSetPieces(equipment, setName) {
   return count;
 }
 
-function getPlayerEquippedSetPieceCount(setName) {
-  return countEquippedSetPieces(player && player.equipment ? player.equipment : emptyEquipment(), setName);
-}
-
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -1211,26 +1234,16 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
     stamina: 0,
     hp: 0,
     physDamage: 0,
-    armorPen: 0,
     physicalResist: 0,
     magicResist: 0,
     skillPower: 0,
-    statusPotency: 0,
-    debuffDuration: 0,
-    combo: 0,
-    stagger: 0,
     crit: 0,
     critDamage: 0,
     accuracy: 0,
     evasion: 0,
-    dr: 0,
-    heavyArmorPen: 0,
-    staggerDamageDown: 0,
-    debuffStaminaTaxChance: 0,
-    debuffStaminaTax: 0,
-    stormMarkDamage: 0,
-    dodgeCritDamage: 0,
-    critVsDebuffed: 0
+    healingReceived: 0,
+    statusResist: 0,
+    maxHpPct: 0
   };
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
   EQUIP_SLOTS.forEach((s) => {
@@ -1263,9 +1276,12 @@ function computeMaxHp(p) {
   const sys = getStatSystem();
   const lv = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
   const baseHp = getBaseHpFromLevel(lv);
-  const vitPer = typeof sys.vitHpPerPoint === "number" ? sys.vitHpPerPoint : 12;
-  const gearHp = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment()).hp;
-  return Math.max(1, Math.floor(baseHp + vitPer * totalVitFromPlayerRecord(p) + gearHp));
+  const vitPer = typeof sys.vitHpPerPoint === "number" ? sys.vitHpPerPoint : 5;
+  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
+  const gearHp = gear.hp || 0;
+  const hpPct = Math.max(0, Number(gear.maxHpPct) || 0);
+  const flat = baseHp + vitPer * totalVitFromPlayerRecord(p) + gearHp;
+  return Math.max(1, Math.floor(flat * (1 + hpPct / 100)));
 }
 
 function splitItemInstanceName(name) {
@@ -1534,7 +1550,7 @@ const ITEM_RARITY_RULES = Object.freeze({
     legendaryStaminaChancePct: 18
   })
 });
-const ITEM_RARITY_CORE_STAT_KEYS = new Set(["str", "dex", "vit", "int", "hp", "dr", "attack", "defense"]);
+const ITEM_RARITY_CORE_STAT_KEYS = new Set(["str", "dex", "vit", "int", "hp", "attack"]);
 const MAX_STAMINA_FROM_GEAR = 2;
 
 function normalizeItemRarityId(rawValue) {
@@ -2369,8 +2385,14 @@ function buildBottomHudLayeredPortraitHtml(state) {
 }
 
 function getSkillImage(skillName) {
+  const cat = typeof SKILL_CATALOG === "object" && SKILL_CATALOG && skillName ? SKILL_CATALOG[skillName] : null;
+  if (cat && typeof cat.image === "string" && cat.image.trim()) return cat.image;
   const def = getSkillDef(skillName);
-  if (def && def.image) return def.image;
+  if (def && typeof def.image === "string" && def.image.trim() && !def.image.startsWith("data:")) return def.image;
+  if (cat || getClassSkillDefByName(skillName)) {
+    const p = skillCatalogAssetPngPath(skillName);
+    if (p) return p;
+  }
   const sk = getClassSkillDefByName(skillName);
   const cls = sk ? getClassDef(sk.classId) : null;
   const hueByClass = {
@@ -2394,14 +2416,7 @@ function getSkillImage(skillName) {
 }
 
 function getArmorDefense() {
-  let d = 0;
-  EQUIP_SLOTS.forEach((s) => {
-    const n = player.equipment[s.id];
-    if (!n) return;
-    const def = getItemDef(n);
-    if (def) d += getScaledItemDefense(def, n);
-  });
-  return d;
+  return 0;
 }
 
 function getStatSystem() {
@@ -2417,26 +2432,16 @@ function normalizeEquipmentStatKey(k) {
   if (u === "HP" || u === "HEALTH" || u === "MAX_HP" || u === "MAX HEALTH") return "hp";
   if (u === "STA" || u === "STAMINA" || u === "STAMINA_MAX" || u === "MAX_STAMINA") return "stamina";
   if (u === "PHYS DAMAGE" || u === "PHYSICAL DAMAGE") return "physDamage";
-  if (u === "ARMOR PEN" || u === "ARMOR PENETRATION") return "armorPen";
   if (u === "PHYSICAL RESIST" || u === "PHYS RESIST") return "physicalResist";
   if (u === "MAGIC RESIST") return "magicResist";
-  if (u === "SKILL POWER") return "skillPower";
-  if (u === "STATUS POTENCY") return "statusPotency";
-  if (u === "DEBUFF DURATION") return "debuffDuration";
-  if (u === "COMBO") return "combo";
-  if (u === "STAGGER") return "stagger";
+  if (u === "MAGIC DAMAGE" || u === "SKILL POWER") return "skillPower";
   if (u === "CRIT") return "crit";
   if (u === "CRIT DAMAGE") return "critDamage";
   if (u === "ACCURACY") return "accuracy";
   if (u === "EVASION") return "evasion";
-  if (u === "DR" || u === "DAMAGE REDUCTION") return "dr";
-  if (u === "HEAVY ARMOR PEN" || u === "HEAVY ARMOR PENETRATION") return "heavyArmorPen";
-  if (u === "STAGGER DAMAGE DOWN") return "staggerDamageDown";
-  if (u === "DEBUFF STAMINA TAX CHANCE") return "debuffStaminaTaxChance";
-  if (u === "DEBUFF STAMINA TAX") return "debuffStaminaTax";
-  if (u === "STORM MARK DAMAGE") return "stormMarkDamage";
-  if (u === "DODGE CRIT DAMAGE") return "dodgeCritDamage";
-  if (u === "CRIT VS DEBUFFED" || u === "CRIT CHANCE VS DEBUFFED") return "critVsDebuffed";
+  if (u === "HEALING RECEIVED" || u === "INCOMING HEALING") return "healingReceived";
+  if (u === "STATUS RESIST" || u === "DEBUFF RESIST") return "statusResist";
+  if (u === "MAX HP PCT" || u === "MAX HP %" || u === "MAX HEALTH %") return "maxHpPct";
   return null;
 }
 
@@ -2456,29 +2461,40 @@ function getPlayerCombatMaxStamina() {
 }
 
 function getFoeCombatMaxStamina(source) {
+  const src = source && typeof source === "object" ? source : null;
+  if (src) {
+    if (typeof src.staminaPerTurn === "number" && src.staminaPerTurn > 0) return Math.max(1, Math.floor(src.staminaPerTurn));
+    if (typeof src.maxStamina === "number" && src.maxStamina > 0) return Math.max(1, Math.floor(src.maxStamina));
+    if (typeof src.stamina === "number" && src.stamina > 0) return Math.max(1, Math.floor(src.stamina));
+    const ms = getMonsterScalingConfig();
+    const map = ms.foeStaminaByRarity && typeof ms.foeStaminaByRarity === "object" ? ms.foeStaminaByRarity : null;
+    const tier = typeof src.spawnRarity === "string" ? normalizeEnemySpawnRarity(src.spawnRarity) : null;
+    if (tier && map && typeof map[tier] === "number" && map[tier] > 0) return Math.max(1, Math.floor(map[tier]));
+  }
   const sys = getStatSystem();
   const base =
     typeof sys.staminaPerTurn === "number" && sys.staminaPerTurn > 0 ? Math.floor(sys.staminaPerTurn) : 6;
-  const src = source && typeof source === "object" ? source : null;
-  const fromSource =
-    src && typeof src.staminaPerTurn === "number" && src.staminaPerTurn > 0
-      ? Math.floor(src.staminaPerTurn)
-      : src && typeof src.maxStamina === "number" && src.maxStamina > 0
-        ? Math.floor(src.maxStamina)
-        : src && typeof src.stamina === "number" && src.stamina > 0
-          ? Math.floor(src.stamina)
-          : base;
-  return Math.max(1, fromSource);
+  return Math.max(1, base);
+}
+
+/** Base stat floor; raising a stat uses characteristic points per marginal step (see {@link getNextCharPointCostPerBaseStat}). */
+const STAT_CHAR_ALLOC_FLOOR = 5;
+/** While current base stat is below this, +1 costs 1 characteristic point; at this value and above, +1 costs 2. */
+const STAT_CHAR_PREMIUM_THRESHOLD = 100;
+
+function getActorStatBase(actor, statKey) {
+  if (!actor) return STAT_CHAR_ALLOC_FLOOR;
+  if (statKey === "dex") {
+    if (typeof actor.dex === "number" && Number.isFinite(actor.dex)) return actor.dex;
+    if (typeof actor.agi === "number" && Number.isFinite(actor.agi)) return actor.agi;
+    return STAT_CHAR_ALLOC_FLOOR;
+  }
+  const v = actor[statKey];
+  return typeof v === "number" && Number.isFinite(v) ? v : STAT_CHAR_ALLOC_FLOOR;
 }
 
 function getPlayerStatBase(statKey) {
-  if (statKey === "dex") {
-    if (typeof player.dex === "number" && Number.isFinite(player.dex)) return player.dex;
-    if (typeof player.agi === "number" && Number.isFinite(player.agi)) return player.agi;
-    return 10;
-  }
-  const v = player[statKey];
-  return typeof v === "number" && Number.isFinite(v) ? v : 10;
+  return getActorStatBase(player, statKey);
 }
 
 function getEffectiveStr() {
@@ -2508,37 +2524,46 @@ function totalInt() {
   return Math.max(0, getEffectiveInt());
 }
 
+function totalStrFromActor(actor) {
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  return Math.max(0, getActorStatBase(actor, "str") + (g.str || 0));
+}
+function totalDexFromActor(actor) {
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  return Math.max(0, getActorStatBase(actor, "dex") + (g.dex || 0));
+}
+function totalVitFromActor(actor) {
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  return Math.max(0, getActorStatBase(actor, "vit") + (g.vit || 0));
+}
+function totalIntFromActor(actor) {
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  return Math.max(0, getActorStatBase(actor, "int") + (g.int || 0));
+}
+
 function formulaStrPhysicalDamageBonusPct(str) {
-  str = Math.max(0, str);
-  return (90 * str) / (str + 180);
+  return attribBonusPer10(str);
 }
 function formulaStrArmorPenetrationPct(str) {
   str = Math.max(0, str);
   return (25 * str) / (str + 180);
 }
 function formulaStrPhysicalResistPct(str) {
-  str = Math.max(0, str);
-  return (20 * str) / (str + 220);
+  return attribBonusPer10(str);
 }
 function formulaStrStaggerChancePct(str) {
   str = Math.max(0, str);
   return (20 * str) / (str + 250);
 }
 function formulaDexCritChancePct(dex) {
-  dex = Math.max(0, dex);
-  return 3 + (32 * dex) / (dex + 240);
+  return attribBonusPer10(dex);
 }
 function formulaDexCritDamageBonusPct(dex) {
   dex = Math.max(0, dex);
   return (25 * dex) / (dex + 260);
 }
 function formulaDexEvasionPct(dex) {
-  dex = Math.max(0, dex);
-  return (30 * dex) / (dex + 260);
-}
-function formulaDexAccuracyPct(dex) {
-  dex = Math.max(0, dex);
-  return 85 + (15 * dex) / (dex + 120);
+  return attribBonusPer10(dex);
 }
 function formulaDexComboChancePct(dex) {
   dex = Math.max(0, dex);
@@ -2548,32 +2573,34 @@ function formulaVitFlatDamageReduction(vit) {
   vit = Math.max(0, vit);
   return Math.floor(vit / 40);
 }
-function formulaVitStatusResistPct(vit) {
-  vit = Math.max(0, vit);
-  return (35 * vit) / (vit + 220);
-}
 function formulaVitDotReductionPct(vit) {
   vit = Math.max(0, vit);
   return (30 * vit) / (vit + 200);
 }
+
+/** +1% per full 10 points of a primary stat (used for stacking combat bonuses). */
+function attribBonusPer10(stat) {
+  return Math.floor(Math.max(0, stat) / 10);
+}
+
+/** Status resist % from Strength + Vitality (1% per 10 STR and 1% per 10 VIT). */
+function statusResistPctFromStrAndVit(str, vit) {
+  return attribBonusPer10(str) + attribBonusPer10(vit);
+}
 function formulaVitHealingReceivedBonusPct(vit) {
-  vit = Math.max(0, vit);
-  return (20 * vit) / (vit + 200);
+  return attribBonusPer10(vit);
 }
 function clampNumber(min, max, value) {
   return Math.max(min, Math.min(max, value));
 }
 function formulaIntSkillPowerBonusPct(int_) {
-  int_ = Math.max(0, int_);
-  return (90 * int_) / (int_ + 180);
+  return attribBonusPer10(int_);
 }
 function formulaIntMagicResistPct(int_) {
-  int_ = Math.max(0, int_);
-  return (20 * int_) / (int_ + 220);
+  return attribBonusPer10(int_);
 }
 function formulaIntStatusPotencyPct(int_) {
-  int_ = Math.max(0, int_);
-  return (40 * int_) / (int_ + 240);
+  return attribBonusPer10(int_);
 }
 function formulaIntStaminaCostReductionPct(int_) {
   int_ = Math.max(0, int_);
@@ -2594,6 +2621,9 @@ const MONSTER_EFFECT_CAPS = {
   staggerChance: 40,
   healingReceivedBuff: 40
 };
+
+/** After Terror Pulse / Tidal Surge (+1 turn), each debuff duration field is capped at this value. */
+const PLAYER_DEBUFF_EXTEND_CAP_TURNS = 4;
 
 function getBaseHpFromLevel(level) {
   const sys = getStatSystem();
@@ -2653,7 +2683,7 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
 
   const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
   const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
-  const acc = formulaDexAccuracyPct(dex);
+  const acc = attribBonusPer10(dex) + attribBonusPer10(int) + (gear.accuracy || 0);
   const evF = getFoeEvasionPct(foe);
   const activeMember = combatState ? getPartyMemberByUid(combatState, combatState.activePartyUid) : null;
   const accPenalty = getPlayerOutgoingAccuracyPenaltyPct(combatState, activeMember);
@@ -2667,10 +2697,7 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
     d1 *= 1 + (formulaIntSkillPowerBonusPct(int) + (gear.skillPower || 0)) / 100;
   }
 
-  const critChanceBase = (formulaDexCritChancePct(dex) + (gear.crit || 0)) / 100;
-  const critVsDebuffed = Math.max(0, Number(gear.critVsDebuffed) || 0) / 100;
-  const critChance =
-    critVsDebuffed > 0 && isFoeStormwakeCritDebuffed(foe) ? critChanceBase + critVsDebuffed : critChanceBase;
+  const critChance = (formulaDexCritChancePct(dex) + (gear.crit || 0)) / 100;
   const defFoe = getEnemyDefByName(foe && foe.name);
   const foeScript = defFoe && typeof defFoe.combatScript === "string" ? defFoe.combatScript.trim() : "";
   const critAuraPenalty = foeScript === "coastal_horror" ? 0.05 : 0;
@@ -2678,22 +2705,13 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const baseCrit = typeof sys.baseCritMultiplierPct === "number" ? sys.baseCritMultiplierPct : 150;
   let d2 = d1;
   if (crit) {
-    const stormfangCrit =
-      combatState &&
-      combatState.status &&
-      (combatState.status.playerStormfangCritDamageTurns || 0) > 0 &&
-      (combatState.status.playerStormfangCritDamagePct || 0) > 0
-        ? combatState.status.playerStormfangCritDamagePct
-        : 0;
-    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex) + (gear.critDamage || 0) + stormfangCrit;
+    const critMulPct = baseCrit + formulaDexCritDamageBonusPct(dex) + (gear.critDamage || 0);
     d2 = d1 * (critMulPct / 100);
   }
 
   let d3 = d2;
   if (dmgKind === "physical") {
-    const tags = sk && Array.isArray(sk.combatTags) ? sk.combatTags.map((t) => String(t).toLowerCase()) : [];
-    const heavyPen = kind === "skill" && tags.includes("heavy") ? gear.heavyArmorPen || 0 : 0;
-    const pen = formulaStrArmorPenetrationPct(str) + (gear.armorPen || 0) + heavyPen;
+    const pen = formulaStrArmorPenetrationPct(str);
     const resF = getFoePhysicalResistPct(foe);
     const effRes = Math.max(0, resF - pen);
     d3 = d2 * (1 - effRes / 100);
@@ -2736,14 +2754,6 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   ) {
     takenMult *= foe.combat.mitigationMult;
   }
-  if (
-    foe.combat &&
-    typeof foe.combat.playerStormwakeMarkTurns === "number" &&
-    foe.combat.playerStormwakeMarkTurns > 0
-  ) {
-    takenMult *= 1.06;
-    if (kind === "skill" && getPlayerEquippedSetPieceCount("Stormwake Set") >= 4) takenMult *= 1.04;
-  }
   fin = Math.max(1, Math.floor(fin * takenMult));
 
   return { damage: fin, missed: false, crit };
@@ -2754,7 +2764,7 @@ function tryApplyStaggerFromSkill(foe, skillCfg) {
   if (skillCfg.name === "Shield Slam" || skillCfg.name === "Heavy Strike" || skillCfg.name === "Earthshatter") return;
   const tags = skillCfg.combatTags.map((t) => String(t).toLowerCase());
   if (!tags.includes("heavy") && !tags.includes("crushing")) return;
-  const p = (formulaStrStaggerChancePct(totalStr()) + (sumEquippedBonusStats().stagger || 0)) / 100;
+  const p = formulaStrStaggerChancePct(totalStr()) / 100;
   if (Math.random() >= p) return;
   const sys = getStatSystem();
   const mult =
@@ -2762,32 +2772,17 @@ function tryApplyStaggerFromSkill(foe, skillCfg) {
       ? sys.staggerNextAttackMult
       : 0.85;
   foe.combat.staggerNextAttackMult = mult;
-  applyPlayerStaggerDamageDownBonus(foe);
-  maybeApplyChannelerDebuffStaminaTax(foe);
   appendFightLog(`${foe.name} is staggered — next strike is weaker (disrupted tempo).`);
 }
 
-function applyPlayerStaggerDamageDownBonus(foe) {
-  if (!foe || !foe.combat) return;
-  const pct = sumEquippedBonusStats().staggerDamageDown || 0;
-  if (!(pct > 0)) return;
-  foe.combat.playerStaggerDamageDownTurns = Math.max(foe.combat.playerStaggerDamageDownTurns || 0, 1);
-  foe.combat.playerStaggerDamageDownPct = Math.max(foe.combat.playerStaggerDamageDownPct || 0, pct);
+function setFoeDebuffTurnsWithSetBonuses(foe, key, baseTurns) {
+  if (!foe) return;
+  if (!foe.combat) foe.combat = {};
+  foe.combat[key] = Math.max(foe.combat[key] || 0, baseTurns);
 }
 
-function maybeApplyChannelerDebuffStaminaTax(foe) {
-  if (!foe || !foe.combat) return;
-  const gear = sumEquippedBonusStats();
-  const chance = clampNumber(0, 100, gear.debuffStaminaTaxChance || 0);
-  const amount = Math.max(0, Math.floor(gear.debuffStaminaTax || 0));
-  if (!(chance > 0) || !(amount > 0)) return;
-  if (foe.combat.channelerStaminaTaxCooldownTurns > 0) return;
-  if (Math.random() >= chance / 100) return;
-  foe.combat.channelerStaminaTaxTurns = Math.max(foe.combat.channelerStaminaTaxTurns || 0, 1);
-  foe.combat.channelerStaminaTaxAmount = Math.max(foe.combat.channelerStaminaTaxAmount || 0, amount);
-  foe.combat.channelerStaminaTaxCooldownTurns = 2;
-  const procName = getPlayerEquippedSetPieceCount("Tempest Caller Set") >= 3 ? "Static Drag" : "Abyssal bindings";
-  appendFightLog(`${procName}: ${foe.name}'s next skill costs +${amount} stamina.`);
+function applyVerdantAndTideguardSelfBuffTurns(baseTurns) {
+  return Math.max(1, baseTurns);
 }
 
 function tryDexComboRefundAfterSkill(st) {
@@ -2803,7 +2798,7 @@ function tryDexComboRefundAfterSkill(st) {
     typeof st.status.playerComboChanceDownPct === "number"
       ? Math.max(0, st.status.playerComboChanceDownPct)
       : 0;
-  const p = Math.max(0, formulaDexComboChancePct(totalDex()) + (sumEquippedBonusStats().combo || 0) - down) / 100;
+  const p = Math.max(0, formulaDexComboChancePct(totalDex()) - down) / 100;
   if (Math.random() >= p) return;
   st.comboRefundedThisTurn = true;
   st.stamina = Math.min(st.maxStamina, st.stamina + 1);
@@ -2823,14 +2818,6 @@ function computeHeroIncomingDamage(rawDamage, attackingFoe) {
     typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
       ? sys.enemyBaseHitChancePct
       : 100;
-  if (
-    attackingFoe &&
-    attackingFoe.combat &&
-    typeof attackingFoe.combat.playerStormwakeMarkTurns === "number" &&
-    attackingFoe.combat.playerStormwakeMarkTurns > 0
-  ) {
-    enemyHit -= 4;
-  }
   if (
     combatState &&
     combatState.status &&
@@ -2853,11 +2840,11 @@ function computeHeroIncomingDamage(rawDamage, attackingFoe) {
   const pr = Math.max(0, formulaStrPhysicalResistPct(strE) + (gear.physicalResist || 0)) / 100;
   const mr = Math.max(0, formulaIntMagicResistPct(intE) + (gear.magicResist || 0)) / 100;
   let r = rawDamage * (physW * (1 - pr) + (1 - physW) * (1 - mr));
-  const flatArmor = getArmorDefense();
   const flatVit = formulaVitFlatDamageReduction(vitE);
-  const physFlat = flatArmor + flatVit + (gear.dr || 0);
+  const physFlat = flatVit;
   const magFlat = Math.max(0, Math.floor(physFlat / 2));
   r -= physW * physFlat + (1 - physW) * magFlat;
+
   return { taken: Math.max(1, Math.floor(r)), evaded: false };
 }
 
@@ -2907,7 +2894,9 @@ function resolveAttackStaminaCost() {
       ? Math.max(0, st.status.playerStaminaCostUpPct)
       : 0;
   const scaled = Math.ceil(b * (1 + up / 100));
-  return Math.max(minA, scaled);
+  let out = Math.max(minA, scaled);
+  if (st && st.status && (st.status.playerCrippleTurns || 0) > 0) out += 1;
+  return Math.max(minA, out);
 }
 
 /** Skills: Intelligence reduces cost; minimum skill cost from config. */
@@ -2931,6 +2920,7 @@ function resolveSkillStaminaCost(baseCost, skillName) {
   ) {
     c = Math.ceil(c * (1 + Math.max(0, st.status.playerStaminaCostUpPct) / 100));
   }
+  if (st && st.status && (st.status.playerCrippleTurns || 0) > 0) c += 1;
   c = Math.max(minSkill, c);
   return Math.max(1, c);
 }
@@ -2969,7 +2959,7 @@ function getPlayerDamage() {
 function getCombatDamage(kind, skillName) {
   if (kind !== "skill" || !skillName) return getPlayerDamage();
   const cfg = getSkillDef(skillName);
-  if (!cfg || typeof cfg.combatMultiplier !== "number" || !player.skills.includes(skillName)) {
+  if (!cfg || typeof cfg.combatMultiplier !== "number" || !isSkillSlottedForActor(player, skillName)) {
     return getPlayerDamage();
   }
   const core = getPlayerDamageCore();
@@ -2987,17 +2977,28 @@ function getDamageRange() {
 /** Player outgoing damage mult when `playerAttackDebuffTurns` > 0 (Brittle Breath, etc.). */
 const PLAYER_WEAKENED_STRIKES_OUTGOING_MULT = 0.8;
 
-/** @param {null | { playerBleed?: { dmg: number, turns: number } | null, playerPoison?: { dmg: number, turns: number } | null, playerAttackDebuffTurns?: number, playerHamstringSlowTurns?: number, packHowlTurns?: number }} [status] */
-function getPlayerOutgoingDamageMultFromStatus(status) {
+/**
+ * @param {null | object} [status]
+ * @param {"physical" | "magic"} [dmgKind]
+ */
+function getPlayerOutgoingDamageMultFromStatus(status, dmgKind) {
   if (!status) return 1;
+  const kind = dmgKind === "magic" ? "magic" : "physical";
   let m = 1;
   if (typeof status.playerAttackDebuffTurns === "number" && status.playerAttackDebuffTurns > 0)
     m *= PLAYER_WEAKENED_STRIKES_OUTGOING_MULT;
   if (typeof status.playerHamstringSlowTurns === "number" && status.playerHamstringSlowTurns > 0) m *= 0.9;
   if (typeof status.playerBrineWeakTurns === "number" && status.playerBrineWeakTurns > 0) m *= 0.85;
-  if (typeof status.playerDamageDownTurns === "number" && status.playerDamageDownTurns > 0) {
-    const pct = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, Number(status.playerDamageDownPct) || 0));
-    m *= 1 - pct / 100;
+  if (kind === "magic") {
+    if (typeof status.playerMagicDamageDownTurns === "number" && status.playerMagicDamageDownTurns > 0) {
+      const pct = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, Number(status.playerMagicDamageDownPct) || 0));
+      m *= 1 - pct / 100;
+    }
+  } else {
+    if (typeof status.playerPhysDamageDownTurns === "number" && status.playerPhysDamageDownTurns > 0) {
+      const pct = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, Number(status.playerPhysDamageDownPct) || 0));
+      m *= 1 - pct / 100;
+    }
   }
   return m;
 }
@@ -3016,19 +3017,63 @@ function ensureCombatStatus(st) {
       packHowlTurns: 0,
       playerAccuracyDownPct: 0,
       playerAccuracyDownTurns: 0,
-      playerDamageDownPct: 0,
-      playerDamageDownTurns: 0,
+      playerPhysDamageDownPct: 0,
+      playerPhysDamageDownTurns: 0,
+      playerMagicDamageDownPct: 0,
+      playerMagicDamageDownTurns: 0,
+      playerCrippleTurns: 0,
       playerOutgoingAccuracyDownPct: 0,
       playerOutgoingAccuracyDownTurns: 0,
       playerComboChanceDownPct: 0,
       playerComboChanceDownTurns: 0,
       playerStaminaCostUpPct: 0,
       playerStaminaCostUpTurns: 0,
-      playerStormfangCritDamagePct: 0,
-      playerStormfangCritDamageTurns: 0,
-      playerStormfangCritDamageCooldownTurns: 0
+      playerBoarbreakerPhysTurns: 0,
+      playerBoarbreakerPhysPct: 0,
+      playerJungleTitanPhysTurns: 0,
+      playerJungleTitanPhysPct: 0,
+      playerJungleTitanPhysCd: 0,
+      playerMirageCritDamagePct: 0,
+      playerMirageCritDamageTurns: 0,
+      playerMirageDodgeCritCd: 0,
+      playerGreenleafCritDamagePct: 0,
+      playerGreenleafCritDamageTurns: 0,
+      playerGlAssassinDodgeCritCd: 0,
+      playerFrostfangCritDamagePct: 0,
+      playerFrostfangCritDamageTurns: 0,
+      playerFrostfangSlowCritCd: 0,
+      playerStoneguardPhysResistPct: 0,
+      playerStoneguardPhysResistTurns: 0,
+      playerStoneguardPhysResistCd: 0,
+      playerTideguardMitigationPct: 0,
+      playerTideguardMitigationTurns: 0,
+      playerTideguardMitigationCd: 0,
+      playerFrozenBastionMrPct: 0,
+      playerFrozenBastionMrTurns: 0,
+      playerFrozenBastionMrCd: 0,
+      playerThornbackReflectCd: 0,
+      playerDunestrikeCritRefundCd: 0,
+      playerSkimmerBasicRefundCd: 0
     };
+    return;
   }
+  const s = st.status;
+  if (s.playerPhysDamageDownPct === undefined) s.playerPhysDamageDownPct = 0;
+  if (s.playerPhysDamageDownTurns === undefined) s.playerPhysDamageDownTurns = 0;
+  if (s.playerMagicDamageDownPct === undefined) s.playerMagicDamageDownPct = 0;
+  if (s.playerMagicDamageDownTurns === undefined) s.playerMagicDamageDownTurns = 0;
+  if (s.playerCrippleTurns === undefined) s.playerCrippleTurns = 0;
+  const legacyTurns = typeof s.playerDamageDownTurns === "number" ? s.playerDamageDownTurns : 0;
+  const legacyPct = typeof s.playerDamageDownPct === "number" ? s.playerDamageDownPct : 0;
+  if (legacyTurns > 0 && legacyPct > 0 && (s.playerPhysDamageDownTurns || 0) <= 0 && (s.playerMagicDamageDownTurns || 0) <= 0) {
+    const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, legacyPct));
+    s.playerPhysDamageDownPct = Math.max(s.playerPhysDamageDownPct || 0, p);
+    s.playerPhysDamageDownTurns = Math.max(s.playerPhysDamageDownTurns || 0, legacyTurns);
+    s.playerMagicDamageDownPct = Math.max(s.playerMagicDamageDownPct || 0, p);
+    s.playerMagicDamageDownTurns = Math.max(s.playerMagicDamageDownTurns || 0, legacyTurns);
+  }
+  if (s.playerDamageDownPct !== undefined) delete s.playerDamageDownPct;
+  if (s.playerDamageDownTurns !== undefined) delete s.playerDamageDownTurns;
 }
 
 function getPartyMemberByUid(st, uid) {
@@ -3036,68 +3081,8 @@ function getPartyMemberByUid(st, uid) {
   return st.party.find((m) => m && m.uid === uid) || null;
 }
 
-/** Stable snapshot of foe debuff-relevant fields (for Stormwake Storm Surge debuff detection). */
-function getFoeStormwakeDebuffSignature(combat) {
-  if (!combat || typeof combat !== "object") return "";
-  const pick = (k) => (typeof combat[k] === "number" && combat[k] > 0 ? Math.floor(combat[k]) : 0);
-  return [
-    pick("armorBreakTurns"),
-    pick("poisonTurns"),
-    pick("burnTurns"),
-    pick("weakenTurns"),
-    pick("staggerDamageDownTurns"),
-    pick("staggerLockedTurns"),
-    pick("staggerTurns"),
-    pick("playerStaggerDamageDownTurns"),
-    pick("tauntedByVanguardTurns"),
-    pick("channelerStaminaTaxTurns")
-  ].join("|");
-}
-
-function isFoeStormwakeCritDebuffed(foe) {
-  if (!foe || !foe.combat) return false;
-  const c = foe.combat;
-  if (typeof c.playerStormwakeMarkTurns === "number" && c.playerStormwakeMarkTurns > 0) return true;
-  if ((c.armorBreakTurns || 0) > 0) return true;
-  if ((c.poisonTurns || 0) > 0 && (c.poisonDamage || 0) > 0) return true;
-  if ((c.burnTurns || 0) > 0 && (c.burnDamage || 0) > 0) return true;
-  if ((c.weakenTurns || 0) > 0) return true;
-  if ((c.staggerDamageDownTurns || 0) > 0) return true;
-  if ((c.staggerLockedTurns || 0) > 0) return true;
-  if ((c.staggerTurns || 0) > 0) return true;
-  if ((c.playerStaggerDamageDownTurns || 0) > 0) return true;
-  if ((c.tauntedByVanguardTurns || 0) > 0) return true;
-  if ((c.channelerStaminaTaxTurns || 0) > 0) return true;
-  return false;
-}
-
-/**
- * Stormwake Set (3pc): 15% on debuff application or crit to apply Storm Mark (2t), per-foe cooldown 2 turns.
- * @param {{ crit: boolean, debuffApplied: boolean }} opts
- */
-function tryStormwakeStormSurgeOnStrike(st, foe, opts) {
-  if (getPlayerEquippedSetPieceCount("Stormwake Set") < 3) return;
-  if (!st || !foe || foe.hp <= 0) return;
-  if (!opts || (!opts.crit && !opts.debuffApplied)) return;
-  if (!foe.combat) foe.combat = {};
-  if ((foe.combat.stormwakeSurgeCooldownTurns || 0) > 0) return;
-  if (Math.random() >= 0.15) return;
-  foe.combat.playerStormwakeMarkTurns = Math.max(foe.combat.playerStormwakeMarkTurns || 0, 2);
-  foe.combat.stormwakeSurgeCooldownTurns = Math.max(foe.combat.stormwakeSurgeCooldownTurns || 0, 2);
-  appendFightLog(`Storm Surge: ${foe.name} is Storm Marked (2t: +6% damage taken, −4% accuracy).`);
-}
-
 function isPartyMemberStormMarked(member) {
   return !!(member && typeof member.stormMarkTurns === "number" && member.stormMarkTurns > 0);
-}
-
-function isFoeStormMarked(foe) {
-  return !!(
-    foe &&
-    foe.combat &&
-    ((typeof foe.combat.stormMarkTurns === "number" && foe.combat.stormMarkTurns > 0) ||
-      (typeof foe.combat.stormMarkedTurns === "number" && foe.combat.stormMarkedTurns > 0))
-  );
 }
 
 function getStormMarkAccuracyPenaltyPct(member) {
@@ -3128,34 +3113,35 @@ function applyPlayerStaminaCostUp(st, pct, turns) {
   st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, Math.max(1, Math.floor(turns)));
 }
 
-function getActiveStormfangAttacker(st) {
-  return st ? getPartyMemberByUid(st, st.activePartyUid) : null;
+/** Same suppression % on physical and magical outgoing damage (legacy “Suppressed” behavior). */
+function applyPlayerSuppressedDamageDownBoth(st, pct, turns) {
+  ensureCombatStatus(st);
+  const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  const s = st.status;
+  s.playerPhysDamageDownPct = Math.max(s.playerPhysDamageDownPct || 0, p);
+  s.playerPhysDamageDownTurns = Math.max(s.playerPhysDamageDownTurns || 0, t);
+  s.playerMagicDamageDownPct = Math.max(s.playerMagicDamageDownPct || 0, p);
+  s.playerMagicDamageDownTurns = Math.max(s.playerMagicDamageDownTurns || 0, t);
 }
 
-function maybeApplyStormfangStormMarkDamageBonus(st, foe, rawDamage) {
-  if (!st || !foe) return rawDamage;
-  const gear = sumEquippedBonusStats();
-  const pct = Math.max(0, Number(gear.stormMarkDamage) || 0);
-  if (!(pct > 0) || st.stormfangMarkDamageUsedThisPlayerTurn) return rawDamage;
-  const activeMember = getActiveStormfangAttacker(st);
-  if (!isFoeStormMarked(foe) && !isPartyMemberStormMarked(activeMember)) return rawDamage;
-  st.stormfangMarkDamageUsedThisPlayerTurn = true;
-  appendFightLog(`Stormfang Set: +${roundCombatDisplay(pct)}% damage against storm-marked pressure.`);
-  return Math.max(1, Math.floor(rawDamage * (1 + pct / 100)));
-}
-
-function maybeApplyStormfangDodgeCritDamageBuff(st) {
-  if (!st) return;
+/**
+ * +1 turn on active debuffs (Terror Pulse, Tidal Surge). Each field is capped at {@link PLAYER_DEBUFF_EXTEND_CAP_TURNS} after extension.
+ */
+function extendPlayerDebuffDurationsAfterPulse(st) {
   ensureCombatStatus(st);
   const s = st.status;
-  if ((s.playerStormfangCritDamageCooldownTurns || 0) > 0) return;
-  const gear = sumEquippedBonusStats();
-  const pct = Math.max(0, Number(gear.dodgeCritDamage) || 0);
-  if (!(pct > 0)) return;
-  s.playerStormfangCritDamagePct = Math.max(s.playerStormfangCritDamagePct || 0, pct);
-  s.playerStormfangCritDamageTurns = Math.max(s.playerStormfangCritDamageTurns || 0, 1);
-  s.playerStormfangCritDamageCooldownTurns = 2;
-  appendFightLog(`Stormfang Set: dodging charges your next turn (+${roundCombatDisplay(pct)}% crit damage).`);
+  const bump = (turnKey) => {
+    const cur = typeof s[turnKey] === "number" ? s[turnKey] : 0;
+    if (cur <= 0) return;
+    s[turnKey] = Math.min(PLAYER_DEBUFF_EXTEND_CAP_TURNS, cur + 1);
+  };
+  bump("playerPhysDamageDownTurns");
+  bump("playerMagicDamageDownTurns");
+  bump("playerAccuracyDownTurns");
+  bump("playerOutgoingAccuracyDownTurns");
+  bump("playerComboChanceDownTurns");
+  bump("playerStaminaCostUpTurns");
 }
 
 function getMonsterDifficultyTierForTaunt(def) {
@@ -3232,16 +3218,19 @@ function ensurePlayerClassCombatState(st) {
 }
 
 function getPlayerCombatStatusResistPct(st) {
-  const base = formulaVitStatusResistPct(totalVit());
+  const base = statusResistPctFromStrAndVit(totalStr(), totalVit());
+  const gearSr = sumEquippedBonusStats().statusResist || 0;
   const cs = st ? ensurePlayerClassCombatState(st) : null;
   const bonus = cs && cs.braceTurns > 0 ? cs.braceStatusResistBonusPct || 0 : 0;
-  return clampNumber(0, 90, base + bonus);
+  return clampNumber(0, 90, base + bonus + gearSr);
 }
 
 function getPlayerCombatHealingReceivedMultiplier(st) {
   const cs = st ? ensurePlayerClassCombatState(st) : null;
   const bonusPct = cs && cs.lastBastionTurns > 0 ? cs.lastBastionHealingReceivedBonusPct || 0 : 0;
-  return 1 + Math.max(0, bonusPct) / 100;
+  const gearHeal = sumEquippedBonusStats().healingReceived || 0;
+  const vitHeal = formulaVitHealingReceivedBonusPct(totalVit());
+  return 1 + (Math.max(0, bonusPct) + Math.max(0, gearHeal) + Math.max(0, vitHeal)) / 100;
 }
 
 function getClassSkillDurationBonus(skillName) {
@@ -3284,8 +3273,8 @@ function grantQuickAction(st, reason) {
 }
 
 function getClassSkillCooldownTurns(skillName) {
-  if (skillName === "Last Bastion") return 5;
-  if (skillName === "Earthshatter") return 4;
+  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && skillName ? SKILL_CATALOG[skillName] : null;
+  if (cat && typeof cat.cooldown === "number" && cat.cooldown > 0) return Math.floor(cat.cooldown);
   return 0;
 }
 
@@ -3435,14 +3424,6 @@ function getFoeOutgoingDamageMultiplier(st, foe) {
     m *= 1 - clampNumber(0, 95, foe.combat.tauntedByVanguardDamageDownPct) / 100;
   }
   if (foe.combat && typeof foe.combat.staggerDamageDownTurns === "number" && foe.combat.staggerDamageDownTurns > 0) m *= 0.88;
-  if (
-    foe.combat &&
-    typeof foe.combat.playerStaggerDamageDownTurns === "number" &&
-    foe.combat.playerStaggerDamageDownTurns > 0 &&
-    typeof foe.combat.playerStaggerDamageDownPct === "number"
-  ) {
-    m *= 1 - clampNumber(0, 95, foe.combat.playerStaggerDamageDownPct) / 100;
-  }
   if (cs && cs.tauntTurns > 0) m *= 0.94;
   return m;
 }
@@ -3690,7 +3671,11 @@ function getPartyDebuffScore(st) {
   if (s.playerBleed && s.playerBleed.turns > 0) score += 1;
   if (s.playerBurn && s.playerBurn.turns > 0) score += 1;
   // Newly added outgoing modifiers:
-  if (typeof s.playerDamageDownTurns === "number" && s.playerDamageDownTurns > 0) score += 2;
+  if (
+    (typeof s.playerPhysDamageDownTurns === "number" && s.playerPhysDamageDownTurns > 0) ||
+    (typeof s.playerMagicDamageDownTurns === "number" && s.playerMagicDamageDownTurns > 0)
+  )
+    score += 2;
   if (typeof s.playerAccuracyDownTurns === "number" && s.playerAccuracyDownTurns > 0) score += 2;
   if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) score += 1;
   if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) score += 1;
@@ -3835,7 +3820,6 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     const hit = computeHeroIncomingDamage(raw, st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null);
     if (hit.evaded) {
       appendFightLog(`${foeName} attacks ${m.name} — ${m.name} evades!`);
-      maybeApplyStormfangDodgeCritDamageBuff(st);
       syncCombatPartyHeroMirror(st);
       return;
     }
@@ -3998,14 +3982,39 @@ function tickPlayerTurnEndBuffs(st) {
   if (typeof s.playerBrineWeakTurns === "number" && s.playerBrineWeakTurns > 0) s.playerBrineWeakTurns -= 1;
   if (typeof s.playerFragileTurns === "number" && s.playerFragileTurns > 0) s.playerFragileTurns -= 1;
   if (typeof s.playerAccuracyDownTurns === "number" && s.playerAccuracyDownTurns > 0) s.playerAccuracyDownTurns -= 1;
-  if (typeof s.playerDamageDownTurns === "number" && s.playerDamageDownTurns > 0) s.playerDamageDownTurns -= 1;
   if (typeof s.playerOutgoingAccuracyDownTurns === "number" && s.playerOutgoingAccuracyDownTurns > 0) s.playerOutgoingAccuracyDownTurns -= 1;
   if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) s.playerComboChanceDownTurns -= 1;
   if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) s.playerStaminaCostUpTurns -= 1;
-  if (typeof s.playerStormfangCritDamageTurns === "number" && s.playerStormfangCritDamageTurns > 0) s.playerStormfangCritDamageTurns -= 1;
-  if (typeof s.playerStormfangCritDamageCooldownTurns === "number" && s.playerStormfangCritDamageCooldownTurns > 0) {
-    s.playerStormfangCritDamageCooldownTurns -= 1;
-  }
+  if (typeof s.playerCrippleTurns === "number" && s.playerCrippleTurns > 0) s.playerCrippleTurns -= 1;
+  const decTurn = (turnKey, pctKey) => {
+    if (typeof s[turnKey] === "number" && s[turnKey] > 0) {
+      s[turnKey] -= 1;
+      if (s[turnKey] <= 0 && pctKey) s[pctKey] = 0;
+    }
+  };
+  decTurn("playerPhysDamageDownTurns", "playerPhysDamageDownPct");
+  decTurn("playerMagicDamageDownTurns", "playerMagicDamageDownPct");
+  decTurn("playerMirageCritDamageTurns", "playerMirageCritDamagePct");
+  decTurn("playerGreenleafCritDamageTurns", "playerGreenleafCritDamagePct");
+  decTurn("playerFrostfangCritDamageTurns", "playerFrostfangCritDamagePct");
+  decTurn("playerBoarbreakerPhysTurns", "playerBoarbreakerPhysPct");
+  decTurn("playerJungleTitanPhysTurns", "playerJungleTitanPhysPct");
+  decTurn("playerStoneguardPhysResistTurns", "playerStoneguardPhysResistPct");
+  decTurn("playerTideguardMitigationTurns", "playerTideguardMitigationPct");
+  decTurn("playerFrozenBastionMrTurns", "playerFrozenBastionMrPct");
+  const decCd = (k) => {
+    if (typeof s[k] === "number" && s[k] > 0) s[k] -= 1;
+  };
+  decCd("playerMirageDodgeCritCd");
+  decCd("playerGlAssassinDodgeCritCd");
+  decCd("playerFrostfangSlowCritCd");
+  decCd("playerStoneguardPhysResistCd");
+  decCd("playerTideguardMitigationCd");
+  decCd("playerFrozenBastionMrCd");
+  decCd("playerThornbackReflectCd");
+  decCd("playerDunestrikeCritRefundCd");
+  decCd("playerSkimmerBasicRefundCd");
+  decCd("playerJungleTitanPhysCd");
   st.foes.forEach((f) => {
     if (!f || f.hp <= 0 || !f.combat) return;
     if (typeof f.combat.tauntPlayerTurns === "number" && f.combat.tauntPlayerTurns > 0) f.combat.tauntPlayerTurns -= 1;
@@ -4020,9 +4029,6 @@ function tickPlayerTurnEndBuffs(st) {
     if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
     if (typeof f.combat.tauntedByVanguardTurns === "number" && f.combat.tauntedByVanguardTurns > 0) f.combat.tauntedByVanguardTurns -= 1;
     if (typeof f.combat.staggerDamageDownTurns === "number" && f.combat.staggerDamageDownTurns > 0) f.combat.staggerDamageDownTurns -= 1;
-    if (typeof f.combat.playerStaggerDamageDownTurns === "number" && f.combat.playerStaggerDamageDownTurns > 0) {
-      f.combat.playerStaggerDamageDownTurns -= 1;
-    }
     if (typeof f.combat.weakenTurns === "number" && f.combat.weakenTurns > 0) f.combat.weakenTurns -= 1;
     if (typeof f.combat.staggerLockedTurns === "number" && f.combat.staggerLockedTurns > 0) f.combat.staggerLockedTurns -= 1;
     if (typeof f.combat.poisonTurns === "number" && f.combat.poisonTurns > 0 && (f.combat.poisonDamage || 0) > 0) {
@@ -4037,12 +4043,28 @@ function tickPlayerTurnEndBuffs(st) {
       f.combat.burnTurns -= 1;
       appendFightLog(`${f.name} takes ${d} burn damage.`);
     }
-    if (typeof f.combat.playerStormwakeMarkTurns === "number" && f.combat.playerStormwakeMarkTurns > 0) {
-      f.combat.playerStormwakeMarkTurns -= 1;
+    if (typeof f.combat.bleedTurns === "number" && f.combat.bleedTurns > 0 && (f.combat.bleedDamage || 0) > 0) {
+      const d = Math.max(1, Math.floor(f.combat.bleedDamage));
+      f.hp = Math.max(0, f.hp - d);
+      f.combat.bleedTurns -= 1;
+      appendFightLog(`${f.name} takes ${d} bleed damage.`);
     }
-    if (typeof f.combat.stormwakeSurgeCooldownTurns === "number" && f.combat.stormwakeSurgeCooldownTurns > 0) {
-      f.combat.stormwakeSurgeCooldownTurns -= 1;
-    }
+    const decFoeTurnPct = (tKey, pKey) => {
+      if (typeof f.combat[tKey] === "number" && f.combat[tKey] > 0) {
+        f.combat[tKey] -= 1;
+        if (f.combat[tKey] <= 0 && pKey) f.combat[pKey] = 0;
+      }
+    };
+    decFoeTurnPct("allyPressureTurns", "allyPressurePct");
+    decFoeTurnPct("physDmgDownTurns", "physDmgDownPct");
+    decFoeTurnPct("magDmgDownTurns", "magDmgDownPct");
+    decFoeTurnPct("bothDmgDownTurns", "bothDmgDownPct");
+    decFoeTurnPct("physResDownTurns", "physResDownPct");
+    decFoeTurnPct("magResDownTurns", "magResDownPct");
+    decFoeTurnPct("bothResDownTurns", "bothResDownPct");
+    decFoeTurnPct("evaDownTurns", "evasionDownPct");
+    decFoeTurnPct("blindTurns", "blindAccDownPct");
+    decFoeTurnPct("statusResDownTurns", "statusResDownPct");
   });
   despawnSummonsWithDeadSummoners(st);
 }
@@ -4064,7 +4086,11 @@ function applyPoisonToPlayer(st, dmgPerTurn, turns) {
   const sr = getPlayerCombatStatusResistPct(st) / 100;
   const t = Math.max(1, Math.min(4, Math.round(Math.floor(turns) * (1 - sr))));
   const d = Math.max(1, Math.floor(dmgPerTurn));
-  st.status.playerPoison = { dmg: d, turns: t };
+  const prev = st.status.playerPoison;
+  st.status.playerPoison = {
+    dmg: Math.max(prev && prev.dmg ? prev.dmg : 0, d),
+    turns: Math.max(prev && prev.turns ? prev.turns : 0, t)
+  };
 }
 
 function applyBurnToPlayer(st, dmgPerTurn, turns) {
@@ -4225,13 +4251,12 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
       st.status.playerAccuracyDownPct = Math.min(MONSTER_EFFECT_CAPS.accuracyDown, 12);
       st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
-      st.status.playerDamageDownPct = Math.min(MONSTER_EFFECT_CAPS.damageDown, 10);
-      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
+      applyPlayerSuppressedDamageDownBoth(st, 10, 2);
       const t = st.party && typeof targetUid === "number" ? st.party.find((m) => m && m.uid === targetUid) : null;
       appendFightLogFlavorWithEffects(`${foe.name} uses Foam Feint on ${t && t.name ? t.name : "you"}.`, [
         `Enemies +${roundCombatDisplay(st.status.playerAccuracyDownPct)}% hit vs you`,
-        `You deal −${roundCombatDisplay(st.status.playerDamageDownPct)}% damage`,
-        `${st.status.playerDamageDownTurns}t`
+        `You deal −${roundCombatDisplay(st.status.playerPhysDamageDownPct)}% physical / −${roundCombatDisplay(st.status.playerMagicDamageDownPct)}% magic damage`,
+        `${st.status.playerPhysDamageDownTurns}t`
       ]);
       return true;
     }
@@ -4266,8 +4291,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (playerHpFrac < 0.5 && ready("anchoring_taunt")) {
       setCd("anchoring_taunt", 4);
       applyMonsterTauntOnPlayer(st, foe, 2 + Math.floor((foe.int || 0) / 120));
-      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 10);
-      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
+      applyPlayerSuppressedDamageDownBoth(st, 10, 2);
       appendFightLog(`${foe.name} uses Anchoring Taunt.`);
       return true;
     }
@@ -4390,12 +4414,12 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
 
   if (scriptId === "coastal_horror") {
     ensureCombatStatus(st);
-    const hasMajorDamageDebuff = (st.status.playerDamageDownTurns || 0) > 0;
+    const hasMajorDamageDebuff =
+      (st.status.playerPhysDamageDownTurns || 0) > 0 || (st.status.playerMagicDamageDownTurns || 0) > 0;
     if (!hasMajorDamageDebuff && ready("abyss_grip")) {
       setCd("abyss_grip", 3);
       const dur = Math.max(1, Math.round(2 * (1 + formulaIntDebuffDurationBonusPct(foe.int || 0) / 100)));
-      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 15);
-      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, dur);
+      applyPlayerSuppressedDamageDownBoth(st, 15, dur);
       st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 10);
       st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, dur);
       appendFightLog(`${foe.name} uses Abyss Grip.`);
@@ -4403,17 +4427,14 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     }
 
     const activeDebuffs =
-      ((st.status.playerDamageDownTurns || 0) > 0 ? 1 : 0) +
+      ((st.status.playerPhysDamageDownTurns || 0) > 0 || (st.status.playerMagicDamageDownTurns || 0) > 0 ? 1 : 0) +
       ((st.status.playerAccuracyDownTurns || 0) > 0 ? 1 : 0) +
       ((st.status.playerComboChanceDownTurns || 0) > 0 ? 1 : 0) +
       ((st.status.playerStaminaCostUpTurns || 0) > 0 ? 1 : 0);
 
     if (activeDebuffs >= 2 && ready("terror_pulse")) {
       setCd("terror_pulse", 4);
-      if ((st.status.playerDamageDownTurns || 0) > 0) st.status.playerDamageDownTurns += 1;
-      if ((st.status.playerAccuracyDownTurns || 0) > 0) st.status.playerAccuracyDownTurns += 1;
-      if ((st.status.playerComboChanceDownTurns || 0) > 0) st.status.playerComboChanceDownTurns += 1;
-      if ((st.status.playerStaminaCostUpTurns || 0) > 0) st.status.playerStaminaCostUpTurns += 1;
+      extendPlayerDebuffDurationsAfterPulse(st);
       appendFightLog(`${foe.name} extends your debuffs.`);
       return true;
     }
@@ -4471,10 +4492,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       const targetUid = pickPartyTargetForMonsterTargetRule(st, "lowest_hp");
       const hit = Math.max(1, Math.floor(atk * 0.9 * outMult));
       dealRawDamageToPlayer(st, hit, foe.name, "Tidal Surge crashes over you", { partyUid: typeof targetUid === "number" ? targetUid : null });
-      if ((st.status.playerDamageDownTurns || 0) > 0) st.status.playerDamageDownTurns += 1;
-      if ((st.status.playerAccuracyDownTurns || 0) > 0) st.status.playerAccuracyDownTurns += 1;
-      if ((st.status.playerComboChanceDownTurns || 0) > 0) st.status.playerComboChanceDownTurns += 1;
-      if ((st.status.playerStaminaCostUpTurns || 0) > 0) st.status.playerStaminaCostUpTurns += 1;
+      extendPlayerDebuffDurationsAfterPulse(st);
       appendFightLog(`${foe.name} extends your debuffs by 1 turn.`);
       return true;
     }
@@ -5149,8 +5167,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (ready("debilitating_venom")) {
       setCd("debilitating_venom", 2);
       ensureCombatStatus(st);
-      st.status.playerDamageDownPct = Math.max(st.status.playerDamageDownPct || 0, 10);
-      st.status.playerDamageDownTurns = Math.max(st.status.playerDamageDownTurns || 0, 2);
+      applyPlayerSuppressedDamageDownBoth(st, 10, 2);
       st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 10);
       st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
       return true;
@@ -6674,6 +6691,7 @@ function navigate(p) {
   }
   if (p === "adventure") {
     closeCharacterPanel();
+    closeSkillsPanel();
     closeMenuPanel();
   }
   currentPage = p;
@@ -7602,7 +7620,9 @@ function inferMonsterCombatRole(scriptId) {
 
 function getEnemyCombatRoleKey(def) {
   if (def && typeof def.combatRole === "string" && def.combatRole.trim()) {
-    const k = def.combatRole.trim().toLowerCase();
+    let k = def.combatRole.trim().toLowerCase();
+    if (k === "heart_harasser") k = "harasser";
+    if (k === "heart_buffer") k = "buffer";
     const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : null;
     if (roles && roles[k]) return k;
   }
@@ -7616,37 +7636,43 @@ function getMonsterRarityTier(def) {
   return "common";
 }
 
+function getMonsterStatRarityMultiplier(def) {
+  const ms = getMonsterScalingConfig();
+  const mapPrimary =
+    ms.rarityStatBudgetMultipliers && typeof ms.rarityStatBudgetMultipliers === "object" ? ms.rarityStatBudgetMultipliers : null;
+  const mapFallback =
+    ms.rarityDifficultyModifiers && typeof ms.rarityDifficultyModifiers === "object" ? ms.rarityDifficultyModifiers : null;
+  const map = mapPrimary || mapFallback || {};
+  const tier = def ? getMonsterRarityTier(def) : "common";
+  const v = map[tier];
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
+}
+
 function getMonsterBudgetDifficultyModifier(def) {
-  const ms = getMonsterScalingConfig();
-  const map = ms.rarityDifficultyModifiers && typeof ms.rarityDifficultyModifiers === "object" ? ms.rarityDifficultyModifiers : {};
-  const tier = getMonsterRarityTier(def);
-  const v = map[tier];
-  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
+  return getMonsterStatRarityMultiplier(def);
 }
 
-function computeMonsterBaseStatBudget(level) {
-  const ms = getMonsterScalingConfig();
+function computeMonsterStatBudget(level, def) {
   const lv = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
-  const per = typeof ms.statBudgetPerLevel === "number" && ms.statBudgetPerLevel > 0 ? ms.statBudgetPerLevel : 4.8;
-  const flat = typeof ms.statBudgetFlat === "number" && Number.isFinite(ms.statBudgetFlat) ? ms.statBudgetFlat : 10;
-  const curveDiv =
-    typeof ms.statBudgetCurveDivisor === "number" && Number.isFinite(ms.statBudgetCurveDivisor) && ms.statBudgetCurveDivisor > 0
-      ? ms.statBudgetCurveDivisor
-      : 60;
-  const curveExp =
-    typeof ms.statBudgetCurveExponent === "number" && Number.isFinite(ms.statBudgetCurveExponent) && ms.statBudgetCurveExponent > 0
-      ? ms.statBudgetCurveExponent
-      : 1.6;
-  const gearPressureMultiplier = 1 + Math.pow(lv / curveDiv, curveExp);
-  return Math.max(4, Math.round((lv * per + flat) * gearPressureMultiplier));
+  const customMult =
+    def && typeof def.statBudgetMultiplier === "number" && Number.isFinite(def.statBudgetMultiplier) && def.statBudgetMultiplier > 0
+      ? def.statBudgetMultiplier
+      : 1;
+  const rarityMult = getMonsterStatRarityMultiplier(def || { spawnRarity: "common" });
+  return Math.max(4, Math.round((6 + lv * 4) * rarityMult * customMult));
 }
 
-function getMonsterHpBossMultiplier(def) {
+/** @deprecated Prefer {@link computeMonsterStatBudget}; common-tier budget without per-enemy modifiers. */
+function computeMonsterBaseStatBudget(level) {
+  return computeMonsterStatBudget(level, { spawnRarity: "common" });
+}
+
+function getMonsterRarityHpMultiplier(def) {
   const ms = getMonsterScalingConfig();
-  const map = ms.rarityHpBossMultipliers && typeof ms.rarityHpBossMultipliers === "object" ? ms.rarityHpBossMultipliers : {};
+  const map = ms.rarityHpMultipliers && typeof ms.rarityHpMultipliers === "object" ? ms.rarityHpMultipliers : null;
   const tier = getMonsterRarityTier(def);
-  const v = map[tier];
-  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
+  if (map && typeof map[tier] === "number" && map[tier] > 0) return map[tier];
+  return 1;
 }
 
 function getPrimaryStatForRole(roleKey) {
@@ -7672,7 +7698,7 @@ function getPrimaryStatForRole(roleKey) {
 }
 
 function distributeMonsterStatBudget(level, roleKey) {
-  const budget = computeMonsterBaseStatBudget(level);
+  const budget = computeMonsterStatBudget(level, { spawnRarity: "common" });
   const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
   const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
   const ws = { str: w.STR, dex: w.DEX, vit: w.VIT, int: w.INT };
@@ -7690,13 +7716,7 @@ function distributeMonsterStatBudget(level, roleKey) {
 }
 
 function buildMonsterCharacteristics(level, roleKey, def) {
-  const baseBudget = computeMonsterBaseStatBudget(level);
-  const rarityMult = getMonsterBudgetDifficultyModifier(def);
-  const customMult =
-    def && typeof def.statBudgetMultiplier === "number" && Number.isFinite(def.statBudgetMultiplier) && def.statBudgetMultiplier > 0
-      ? def.statBudgetMultiplier
-      : 1;
-  const budget = Math.max(4, Math.round(baseBudget * rarityMult * customMult));
+  const budget = computeMonsterStatBudget(level, def);
   const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
   const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
   const out = {
@@ -7782,12 +7802,10 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
     if (typeof statOverride.vit === "number" && Number.isFinite(statOverride.vit)) stats.vit = Math.max(1, Math.floor(statOverride.vit));
     if (typeof statOverride.int === "number" && Number.isFinite(statOverride.int)) stats.int = Math.max(1, Math.floor(statOverride.int));
   }
-  const ms = getMonsterScalingConfig();
-  const hpBasePerLv =
-    typeof ms.hpLevelBasePerLevel === "number" && Number.isFinite(ms.hpLevelBasePerLevel) ? ms.hpLevelBasePerLevel : 35;
-  const hpPerVit = typeof ms.hpPerVit === "number" && Number.isFinite(ms.hpPerVit) ? ms.hpPerVit : 12;
-  const bossHpMult = getMonsterHpBossMultiplier(def);
-  const hpFromFormulas = Math.max(1, Math.round((hpBasePerLv * level + stats.vit * hpPerVit) * bossHpMult * scale * hpMult));
+  const lvl = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
+  const rarityMult = getMonsterRarityHpMultiplier(def);
+  const coreHp = Math.round((lvl * 10 + stats.vit * 4) * rarityMult);
+  const hpFromFormulas = Math.max(1, Math.round(coreHp * scale * hpMult));
   const hpOverride = def && typeof def.baseHp === "number" && Number.isFinite(def.baseHp) ? Math.max(1, Math.floor(def.baseHp)) : null;
   const hp = hpOverride != null ? hpOverride : hpFromFormulas;
   const maxStamina = getFoeCombatMaxStamina(def);
@@ -11172,13 +11190,32 @@ function getCombatFoeVisual(foe) {
   return out;
 }
 
-function getActiveCombatSkills() {
+function getActiveCombatSkillDefsForActor(actor) {
+  if (!actor) return [];
+  ensureActorSkillBar(actor);
+  const slots = actor.skillBarSlots;
   const out = [];
-  player.skills.forEach((name) => {
+  const seen = new Set();
+  for (let i = 0; i < SKILL_BAR_SLOT_COUNT; i++) {
+    const name = slots[i];
+    if (!name || typeof name !== "string") continue;
+    if (!actorOwnsSkillForBar(actor, name)) continue;
+    if (!isCombatCatalogSkillName(name)) continue;
     const cfg = getSkillDef(name);
-    if (cfg && typeof cfg.combatMultiplier === "number") out.push(cfg);
-  });
+    if (!cfg || typeof cfg.combatMultiplier !== "number") continue;
+    if (seen.has(cfg.name)) continue;
+    seen.add(cfg.name);
+    out.push(cfg);
+  }
   return out;
+}
+
+function getActiveCombatSkills() {
+  return getActiveCombatSkillDefsForActor(player);
+}
+
+function getActiveCombatSkillsForActor(actor) {
+  return getActiveCombatSkillDefsForActor(actor);
 }
 
 /**
@@ -11809,8 +11846,15 @@ function getHeroCombatStatusEffectLines(st) {
       `Accursed aim (${s.playerAccuracyDownTurns}t): enemies +${roundCombatDisplay(s.playerAccuracyDownPct)}% hit vs you`
     );
   }
-  if ((s.playerDamageDownTurns || 0) > 0 && (s.playerDamageDownPct || 0) > 0) {
-    lines.push(`Suppressed (${s.playerDamageDownTurns}t): −${roundCombatDisplay(s.playerDamageDownPct)}% damage you deal`);
+  if ((s.playerPhysDamageDownTurns || 0) > 0 && (s.playerPhysDamageDownPct || 0) > 0) {
+    lines.push(
+      `Suppressed — phys (${s.playerPhysDamageDownTurns}t): −${roundCombatDisplay(s.playerPhysDamageDownPct)}% physical damage you deal`
+    );
+  }
+  if ((s.playerMagicDamageDownTurns || 0) > 0 && (s.playerMagicDamageDownPct || 0) > 0) {
+    lines.push(
+      `Suppressed — mag (${s.playerMagicDamageDownTurns}t): −${roundCombatDisplay(s.playerMagicDamageDownPct)}% magic damage you deal`
+    );
   }
   if ((s.playerOutgoingAccuracyDownTurns || 0) > 0 && (s.playerOutgoingAccuracyDownPct || 0) > 0) {
     lines.push(
@@ -11825,10 +11869,8 @@ function getHeroCombatStatusEffectLines(st) {
   if ((s.playerStaminaCostUpTurns || 0) > 0 && (s.playerStaminaCostUpPct || 0) > 0) {
     lines.push(`Fatigue (${s.playerStaminaCostUpTurns}t): +${roundCombatDisplay(s.playerStaminaCostUpPct)}% stamina costs`);
   }
-  if ((s.playerStormfangCritDamageTurns || 0) > 0 && (s.playerStormfangCritDamagePct || 0) > 0) {
-    lines.push(
-      `Stormfang charge (${s.playerStormfangCritDamageTurns}t): +${roundCombatDisplay(s.playerStormfangCritDamagePct)}% crit damage`
-    );
+  if ((s.playerCrippleTurns || 0) > 0) {
+    lines.push(`Crippled (${s.playerCrippleTurns}t): +1 stamina per action`);
   }
   return lines;
 }
@@ -11857,11 +11899,6 @@ function getFoeCombatStatusEffectLines(foe) {
     lines.push(`Armor broken (${c.armorBreakTurns}t): +${roundCombatDisplay(c.armorBreakPct)}% damage taken`);
   }
   if ((c.staggerDamageDownTurns || 0) > 0) lines.push(`Staggered (${c.staggerDamageDownTurns}t): deals ~12% less damage`);
-  if ((c.playerStaggerDamageDownTurns || 0) > 0 && (c.playerStaggerDamageDownPct || 0) > 0) {
-    lines.push(
-      `Crusher stagger (${c.playerStaggerDamageDownTurns}t): deals −${roundCombatDisplay(c.playerStaggerDamageDownPct)}% damage`
-    );
-  }
   if ((c.staggerLockedTurns || 0) > 0) lines.push(`Stagger locked (${c.staggerLockedTurns}t): disrupted skill use`);
   if ((c.staggerSkillTaxTurns || 0) > 0) lines.push(`Skill tax (${c.staggerSkillTaxTurns}t)`);
   if ((c.channelerStaminaTaxTurns || 0) > 0) {
@@ -11876,11 +11913,6 @@ function getFoeCombatStatusEffectLines(foe) {
   if ((c.poisonTurns || 0) > 0 && (c.poisonDamage || 0) > 0)
     lines.push(`Poisoned (${c.poisonTurns}t): ${roundCombatDisplay(c.poisonDamage)}/turn`);
   if ((c.weakenTurns || 0) > 0) lines.push(`Weakened (${c.weakenTurns}t): deals ~12% less`);
-  if ((c.playerStormwakeMarkTurns || 0) > 0) {
-    const extra =
-      getPlayerEquippedSetPieceCount("Stormwake Set") >= 4 ? ", +4% skill damage taken" : "";
-    lines.push(`Storm Mark (${c.playerStormwakeMarkTurns}t): +6% damage taken, −4% accuracy${extra}`);
-  }
   if ((c.echoCryBonusTurns || 0) > 0) lines.push(`Echo Cry (${c.echoCryBonusTurns}t): ~+25% damage dealt`);
   if (typeof c.evadeNextChance === "number" && c.evadeNextChance > 0.001) {
     lines.push(`Next dodge chance: ${roundCombatDisplay(c.evadeNextChance * 100)}%`);
@@ -12265,23 +12297,22 @@ function renderTurnBattle() {
     const sel = st.selectedUid === f.uid;
     const label = escapeHtml(f.name);
     const moodLabel = typeof f.moodName === "string" ? f.moodName.trim() : "";
-    const moodHtml = moodLabel ? `<span class="fight-card-meta fight-card-mood">${escapeHtml(moodLabel)}</span>` : "";
     const lvl = typeof f.level === "number" ? f.level : 1;
+    const metaLine = moodLabel
+      ? `<span class="fight-card-meta fight-card-meta--enemy-sub"><span class="fight-card-level">Lv ${lvl}</span> · ${escapeHtml(moodLabel)}</span>`
+      : `<span class="fight-card-meta fight-card-meta--enemy-sub"><span class="fight-card-level">Lv ${lvl}</span></span>`;
     const megaBoss =
       megaLeviathanPortrait && f.name === "The Stormwake Leviathan" && cardClass === "fight-enemy-card--summoner";
     const megaCls = megaBoss ? " fight-enemy-card--leviathan-mega" : "";
     const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
     return `<div class="fight-enemy-card ${cardClass || ""}${megaCls} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
-      <div class="fight-enemy-panel">
+      <div class="fight-portrait-wrap fight-portrait-wrap--enemy">
         ${foeVisualHtml}
-        <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
-        <span class="fight-card-hp-text">${Math.max(0, f.hp)} / ${f.maxHp}</span>
       </div>
-      <div class="fight-enemy-caption">
-        <span class="fight-card-name">${label}</span>
-        <span class="fight-card-level">Lv ${lvl}</span>
-        ${moodHtml}
-      </div>
+      <span class="fight-card-name">${label}</span>
+      ${metaLine}
+      <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
+      <span class="fight-card-hp-text">${Math.max(0, f.hp)} / ${f.maxHp}</span>
     </div>`;
   };
 
@@ -12684,8 +12715,7 @@ function applyReflectDamageToPartyHero(st, dmgDealtToFoe, foe) {
 }
 
 function getClassSkillTurnScaled(skillName, turns) {
-  const gearPct = sumEquippedBonusStats().debuffDuration || 0;
-  return Math.max(1, Math.round((turns + getClassSkillDurationBonus(skillName)) * (1 + Math.max(0, gearPct) / 100)));
+  return Math.max(1, Math.round(turns + getClassSkillDurationBonus(skillName)));
 }
 
 function getPlayerClassOutgoingMult(st, skillName, foe) {
@@ -12722,7 +12752,7 @@ function enforceIndomitableEnemyPhaseCap(st, heroMember) {
   const cs = ensurePlayerClassCombatState(st);
   if (cs.indomitableReadyInEnemyPhases > 0) return;
   const startHp = Math.max(0, Math.floor(cs.indomitablePhaseStartHp || heroMember.maxHp || st.playerMax || 0));
-  const statusRes = formulaVitStatusResistPct(totalVit());
+  const statusRes = statusResistPctFromStrAndVit(totalStr(), totalVit());
   const maxLossPct = clampNumber(30, 45, 45 - Math.min(15, statusRes * 0.3));
   const maxLoss = Math.max(1, Math.floor((heroMember.maxHp || st.playerMax || 1) * maxLossPct / 100));
   const minHpAllowed = Math.max(1, startHp - maxLoss);
@@ -12768,9 +12798,12 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       {
         const lv = Math.max(1, getPlayerSkillLevel(skillName));
         const vit = totalVit();
-        const statusRes = formulaVitStatusResistPct(vit);
+        const statusRes = statusResistPctFromStrAndVit(totalStr(), vit);
         const red = clampNumber(16, 30, 14 + statusRes * 0.25 + Math.floor(vit / 100) + lv * 2);
-        const turns = lv >= 5 ? 3 : lv >= 3 ? 2 : 1;
+        const turns = applyVerdantAndTideguardSelfBuffTurns(lv >= 5 ? 3 : lv >= 3 ? 2 : 1, {
+          verdant: true,
+          tideguardDefensive: true
+        });
         cs.braceTurns = Math.max(cs.braceTurns, turns);
         cs.braceReductionPct = Math.max(cs.braceReductionPct || 0, red);
         cs.braceStatusResistBonusPct = Math.max(cs.braceStatusResistBonusPct || 0, 10);
@@ -12786,9 +12819,9 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       {
         const lv = Math.max(1, getPlayerSkillLevel("Fortress Stance"));
         const vit = totalVit();
-        const statusRes = formulaVitStatusResistPct(vit);
+        const statusRes = statusResistPctFromStrAndVit(totalStr(), vit);
         const red = clampNumber(22, 38, 18 + statusRes * 0.25 + Math.floor(vit / 90) + lv * 2);
-        const turns = lv >= 4 ? 3 : 2;
+        const turns = applyVerdantAndTideguardSelfBuffTurns(lv >= 4 ? 3 : 2, { verdant: true, tideguardDefensive: true });
         cs.fortressTurns = Math.max(cs.fortressTurns, turns);
         cs.fortressReductionPct = Math.max(cs.fortressReductionPct || 0, red);
         cs.fortressDamagePenaltyPct = Math.max(cs.fortressDamagePenaltyPct || 0, 10);
@@ -12823,7 +12856,10 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         const bonus = Math.min(10, Math.floor(totalVit() / 120) + lv);
         const low = clampNumber(35, 50, 35 + bonus);
         const high = clampNumber(18, 28, 18 + bonus);
-        const turns = lv >= 5 ? 3 : lv >= 3 ? 2 : 1;
+        const turns = applyVerdantAndTideguardSelfBuffTurns(lv >= 5 ? 3 : lv >= 3 ? 2 : 1, {
+          verdant: true,
+          tideguardDefensive: true
+        });
         cs.lastBastionTurns = Math.max(cs.lastBastionTurns, turns);
         cs.lastBastionLowHpReductionPct = Math.max(cs.lastBastionLowHpReductionPct || 0, low);
         cs.lastBastionHighHpReductionPct = Math.max(cs.lastBastionHighHpReductionPct || 0, high);
@@ -12839,7 +12875,10 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       ]);
       break;
     case "Riposte": {
-      const rt = getClassSkillTurnScaled(skillName, 1);
+      const rt = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 1), {
+        verdant: true,
+        tideguardDefensive: true
+      });
       cs.riposteTurns = Math.max(cs.riposteTurns, rt);
       appendFightLogFlavorWithEffects("Riposte is primed.", [
         `${rt} turn${rt === 1 ? "" : "s"}`,
@@ -12848,19 +12887,19 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       break;
     }
     case "Flow State": {
-      const ft = getClassSkillTurnScaled(skillName, 2);
+      const ft = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false });
       cs.flowStateTurns = Math.max(cs.flowStateTurns, ft);
       appendFightLogFlavorWithEffects("Flow State boosts precision and tempo.", [`+8% damage dealt`, `${ft}t`]);
       break;
     }
     case "Expose Weakness": {
-      const et = getClassSkillTurnScaled(skillName, 2);
+      const et = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false });
       cs.exposeWeaknessTurns = Math.max(cs.exposeWeaknessTurns, et);
       appendFightLogFlavorWithEffects("Expose Weakness improves finish potential.", [`+18% vs foes under 50% HP`, `${et}t`]);
       break;
     }
     case "Mana Surge": {
-      const mt = getClassSkillTurnScaled(skillName, 2);
+      const mt = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false });
       cs.manaSurgeTurns = Math.max(cs.manaSurgeTurns, mt);
       const msLine =
         getClassDef(player.classId).id === "arcanist" ? "+10% damage dealt (Arcanist)" : "Spell tempo window (see class passives)";
@@ -12868,31 +12907,40 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       break;
     }
     case "Focus Fire": {
-      const fft = getClassSkillTurnScaled(skillName, 2);
+      const fft = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false });
       cs.focusFireTurns = Math.max(cs.focusFireTurns, fft);
       appendFightLogFlavorWithEffects("Focus Fire increases focused damage.", [`+12% damage dealt`, `${fft}t`]);
       break;
     }
     case "Rage": {
-      const rgt = getClassSkillTurnScaled(skillName, 2);
+      const rgt = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false });
       cs.rageTurns = Math.max(cs.rageTurns, rgt);
       appendFightLogFlavorWithEffects("Rage fuels your strikes.", [`+15% damage dealt`, `${rgt}t`]);
       break;
     }
     case "Guard Ally": {
-      const gt = getClassSkillTurnScaled(skillName, 2);
+      const gt = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), {
+        verdant: true,
+        tideguardDefensive: true
+      });
       cs.guardAllyTurns = Math.max(cs.guardAllyTurns, gt);
       appendFightLogFlavorWithEffects("Guard Ally reduces incoming pressure.", [`−12% damage you take`, `${gt}t`]);
       break;
     }
     case "Sanctuary": {
-      const stt = getClassSkillTurnScaled(skillName, 2);
+      const stt = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), {
+        verdant: true,
+        tideguardDefensive: true
+      });
       cs.sanctuaryTurns = Math.max(cs.sanctuaryTurns, stt);
       appendFightLogFlavorWithEffects("Sanctuary grants defensive blessing.", [`−14% damage you take`, `${stt}t`]);
       break;
     }
     case "Regeneration":
-      cs.regenTurns = Math.max(cs.regenTurns, getClassSkillTurnScaled(skillName, 3));
+      cs.regenTurns = Math.max(
+        cs.regenTurns,
+        applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 3), { verdant: true, tideguardDefensive: true })
+      );
       cs.regenAmt = Math.max(cs.regenAmt, Math.max(2, Math.floor((4 + totalVit() * 0.11) * healScale)));
       appendFightLogFlavorWithEffects("Regeneration takes effect.", [
         `+${roundCombatDisplay(cs.regenAmt)} HP at start of your turns`,
@@ -12906,13 +12954,13 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
       ]);
       break;
     case "Revitalize": {
-      const vt = getClassSkillTurnScaled(skillName, 2);
+      const vt = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: true });
       cs.revitalizeTurns = Math.max(cs.revitalizeTurns, vt);
       appendFightLogFlavorWithEffects("Revitalize amplifies your healing.", [`+25% from Heal`, `${vt}t`]);
       break;
     }
     case "Catalyst": {
-      const ct = getClassSkillTurnScaled(skillName, 2);
+      const ct = applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false });
       cs.catalystReadyTurns = Math.max(cs.catalystReadyTurns, ct);
       appendFightLogFlavorWithEffects("Catalyst primes your next affliction.", [
         "Next Chain Reaction adds bonus INT-scaled burst",
@@ -12946,10 +12994,10 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         if (!targetFoe.combat) targetFoe.combat = {};
         if (targetFoe.combat.staggerLockedTurns > 0) break;
         const fbt = getClassSkillTurnScaled(skillName, 1);
-        targetFoe.combat.staggerLockedTurns = fbt;
+        setFoeDebuffTurnsWithSetBonuses(targetFoe, "staggerLockedTurns", fbt, true);
         maybeApplyChannelerDebuffStaminaTax(targetFoe);
         appendFightLogFlavorWithEffects(`Frost Bind disrupts ${targetFoe.name}.`, [
-          `${fbt}t stagger lock (forced basics / disrupted tempo)`
+          `${targetFoe.combat.staggerLockedTurns}t stagger lock (forced basics / disrupted tempo)`
         ]);
       }
       break;
@@ -12970,7 +13018,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const chancePct = clampNumber(20, 55, 18 + strStagger * 0.8 + vitFlatDr * 1.5 + lv * 3);
         if (Math.random() < chancePct / 100) {
           const staggerTurns = lv >= 5 ? 2 : 1;
-          foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, staggerTurns);
+          setFoeDebuffTurnsWithSetBonuses(foe, "staggerDamageDownTurns", staggerTurns, true);
           applyPlayerStaggerDamageDownBonus(foe);
           maybeApplyChannelerDebuffStaminaTax(foe);
           foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, 1);
@@ -12986,7 +13034,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const lv = Math.max(1, getPlayerSkillLevel(skillName));
         const armorPen = formulaStrArmorPenetrationPct(totalStr());
         const armorBreakPct = clampNumber(10, 28, 8 + armorPen * 0.6 + lv * 2);
-        foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, lv >= 5 ? 3 : 2);
+        setFoeDebuffTurnsWithSetBonuses(foe, "armorBreakTurns", lv >= 5 ? 3 : 2, true);
         foe.combat.armorBreakPct = Math.max(foe.combat.armorBreakPct || 0, armorBreakPct);
         maybeApplyChannelerDebuffStaminaTax(foe);
         appendFightLogFlavorWithEffects(`Crushing Blow shatters ${foe.name}'s guard.`, [
@@ -12999,7 +13047,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
       {
         const chancePct = Math.min(18, formulaStrStaggerChancePct(totalStr()) * 0.6);
         if (Math.random() < chancePct / 100) {
-          foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
+          setFoeDebuffTurnsWithSetBonuses(foe, "staggerDamageDownTurns", 1, true);
           applyPlayerStaggerDamageDownBonus(foe);
           maybeApplyChannelerDebuffStaminaTax(foe);
           appendFightLogFlavorWithEffects(`${foe.name} is staggered by Heavy Strike.`, ["1t: deals ~12% less damage"]);
@@ -13011,14 +13059,14 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
         const lv = Math.max(1, getPlayerSkillLevel(skillName));
         const chancePct = clampNumber(15, 40, 12 + formulaStrStaggerChancePct(totalStr()) * 0.5 + lv * 2);
         if (Math.random() < chancePct / 100) {
-          foe.combat.staggerDamageDownTurns = Math.max(foe.combat.staggerDamageDownTurns || 0, 1);
+          setFoeDebuffTurnsWithSetBonuses(foe, "staggerDamageDownTurns", 1, true);
           applyPlayerStaggerDamageDownBonus(foe);
           maybeApplyChannelerDebuffStaminaTax(foe);
         }
       }
       break;
     case "Piercing Thrust":
-      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      setFoeDebuffTurnsWithSetBonuses(foe, "armorBreakTurns", getClassSkillTurnScaled(skillName, 1), true);
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Quick Slash":
@@ -13044,38 +13092,41 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
       break;
     case "Burning Mark": {
       const bt = getClassSkillTurnScaled(skillName, 3);
-      foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, bt);
-      const bd = Math.max(2, Math.floor(totalInt() * 0.1 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)));
+      setFoeDebuffTurnsWithSetBonuses(foe, "burnTurns", bt, false);
+      const bd = Math.max(2, Math.floor(totalInt() * 0.1));
       foe.combat.burnDamage = Math.max(foe.combat.burnDamage || 0, bd);
       maybeApplyChannelerDebuffStaminaTax(foe);
       appendFightLogFlavorWithEffects(`Burning Mark sears ${foe.name}.`, [
         `${roundCombatDisplay(bd)} fire/tick`,
-        `${bt}t`
+        `${foe.combat.burnTurns}t`
       ]);
       break;
     }
     case "Frost Bind":
-      foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      setFoeDebuffTurnsWithSetBonuses(foe, "staggerTurns", getClassSkillTurnScaled(skillName, 1), true, {
+        skipTidecaster5: true
+      });
       break;
     case "Chain Pulse":
     case "Static Field":
-      foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      setFoeDebuffTurnsWithSetBonuses(foe, "weakenTurns", getClassSkillTurnScaled(skillName, 2), true);
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Meteor":
-      foe.combat.burnTurns = Math.max(foe.combat.burnTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      setFoeDebuffTurnsWithSetBonuses(foe, "burnTurns", getClassSkillTurnScaled(skillName, 2), false);
       foe.combat.burnDamage = Math.max(
         foe.combat.burnDamage || 0,
-        Math.max(3, Math.floor(totalInt() * 0.13 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)))
+        Math.max(3, Math.floor(totalInt() * 0.13))
       );
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
-    case "Time Warp":
+    case "Time Warp": {
       ["flowStateTurns", "exposeWeaknessTurns", "manaSurgeTurns", "focusFireTurns", "rageTurns"].forEach((k) => {
         if (typeof cs[k] === "number" && cs[k] > 0) cs[k] += 1;
       });
       appendFightLog("Time Warp extends your active combat effects.");
       break;
+    }
     case "Flurry":
       if (Math.random() < 0.32 + getClassSkillProcBonus(skillName)) grantStaminaRefund(st, 1, "Flurry tempo");
       break;
@@ -13095,7 +13146,7 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
       break;
     case "Storm":
     case "Storm of Blades":
-      foe.combat.staggerTurns = Math.max(foe.combat.staggerTurns || 0, 1);
+      setFoeDebuffTurnsWithSetBonuses(foe, "staggerTurns", 1, true);
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Phantom":
@@ -13126,46 +13177,51 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
       if (killed) grantStaminaRefund(st, 1, "Execution surge");
       break;
     case "Massacre":
-      cs.rageTurns = Math.max(cs.rageTurns, getClassSkillTurnScaled(skillName, 2));
+      cs.rageTurns = Math.max(
+        cs.rageTurns,
+        applyVerdantAndTideguardSelfBuffTurns(getClassSkillTurnScaled(skillName, 2), { verdant: true, tideguardDefensive: false })
+      );
       break;
     case "Savage Roar":
-      foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
-      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 1));
+      setFoeDebuffTurnsWithSetBonuses(foe, "weakenTurns", getClassSkillTurnScaled(skillName, 2), true);
+      setFoeDebuffTurnsWithSetBonuses(foe, "armorBreakTurns", getClassSkillTurnScaled(skillName, 1), true, {
+        skipTidecaster5: true
+      });
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Toxic Flask":
-      foe.combat.poisonTurns = Math.max(foe.combat.poisonTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      setFoeDebuffTurnsWithSetBonuses(foe, "poisonTurns", getClassSkillTurnScaled(skillName, 3), false);
       foe.combat.poisonDamage = Math.max(
         foe.combat.poisonDamage || 0,
-        Math.max(2, Math.floor(totalInt() * 0.14 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)))
+        Math.max(2, Math.floor(totalInt() * 0.14))
       );
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Weakening Bomb":
     case "Weakening Brew":
-      foe.combat.weakenTurns = Math.max(foe.combat.weakenTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      setFoeDebuffTurnsWithSetBonuses(foe, "weakenTurns", getClassSkillTurnScaled(skillName, 2), true);
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Acid Rain":
     case "Acid Splash":
-      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 2));
+      setFoeDebuffTurnsWithSetBonuses(foe, "armorBreakTurns", getClassSkillTurnScaled(skillName, 2), true);
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Corrosive Strike":
     case "Corrosive Cloud":
-      foe.combat.armorBreakTurns = Math.max(foe.combat.armorBreakTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      setFoeDebuffTurnsWithSetBonuses(foe, "armorBreakTurns", getClassSkillTurnScaled(skillName, 3), true);
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Plague":
     case "Plague Storm":
       cs.plagueStacks = Math.min(6, (cs.plagueStacks || 0) + 1);
-      foe.combat.poisonTurns = Math.max(foe.combat.poisonTurns || 0, getClassSkillTurnScaled(skillName, 3));
+      setFoeDebuffTurnsWithSetBonuses(foe, "poisonTurns", getClassSkillTurnScaled(skillName, 3), false);
       foe.combat.poisonDamage = Math.max(foe.combat.poisonDamage || 0, 2 + Math.floor(cs.plagueStacks / 2));
       maybeApplyChannelerDebuffStaminaTax(foe);
       break;
     case "Chain Reaction":
       if (cs.catalystReadyTurns > 0) {
-        const burst = Math.max(2, Math.floor(totalInt() * 0.2 * (1 + (sumEquippedBonusStats().statusPotency || 0) / 100)));
+        const burst = Math.max(2, Math.floor(totalInt() * 0.2));
         foe.hp = Math.max(0, foe.hp - burst);
         cs.catalystReadyTurns = 0;
         appendFightLog(`Catalyst detonates for ${burst} bonus damage.`);
@@ -13184,6 +13240,21 @@ function playerCombatAction(kind, skillName) {
   ensureCombatTarget();
   if (typeof st.stamina !== "number") initCombatStamina(st);
 
+  if (kind === "skill" && skillName && !isSkillSlottedForActor(player, skillName)) {
+    appendFightLog(`${skillName} is not on your skill bar.`);
+    return;
+  }
+
+  if (
+    kind === "skill" &&
+    skillName &&
+    typeof SKILL_CATALOG !== "undefined" &&
+    SKILL_CATALOG[skillName] &&
+    typeof window.unifiedSkillCombatAction === "function"
+  ) {
+    if (window.unifiedSkillCombatAction(st, kind, skillName)) return;
+  }
+
   const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
   const aoeAllEnemies = skCfg && skCfg.combatAoe === "all_enemies";
   if (kind === "skill" && skillName) {
@@ -13201,16 +13272,18 @@ function playerCombatAction(kind, skillName) {
     return;
   }
   st.stamina -= cost;
-  if (getClassDef(player.classId).id === "skirmisher" && kind === "skill" && Math.random() < 0.18) {
-    grantStaminaRefund(st, 1, "Quick Reflexes");
+
+  let outgoingDmgKind = "physical";
+  if (kind === "skill" && skillName) {
+    const sd = getSkillDef(skillName);
+    if (sd && sd.damageKind === "magic") outgoingDmgKind = "magic";
   }
 
   function resolveOutgoingBaseDamage(targetFoe) {
     let raw =
       kind === "skill" && skillName ? getCombatDamage("skill", skillName) : getCombatDamage("attack");
-    raw = Math.max(1, Math.floor(raw * getPlayerOutgoingDamageMultFromStatus(st.status)));
+    raw = Math.max(1, Math.floor(raw * getPlayerOutgoingDamageMultFromStatus(st.status, outgoingDmgKind)));
     raw = Math.max(1, Math.floor(raw * getPlayerClassOutgoingMult(st, kind === "skill" ? skillName : null, targetFoe || null)));
-    raw = maybeApplyStormfangStormMarkDamageBonus(st, targetFoe || null, raw);
     return raw;
   }
 
@@ -13249,27 +13322,18 @@ function playerCombatAction(kind, skillName) {
     queueCombatVisualRefresh(340);
     for (const foe of living) {
       if (!foe.combat) foe.combat = {};
-      const stormwakeSig0 = getFoeStormwakeDebuffSignature(foe.combat);
       const baseDmg = resolveOutgoingBaseDamage(foe);
       if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
         const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
         foe.combat.evadeNextChance = 0;
         if (Math.random() < p) {
           appendFightLog(`${foe.name} evades ${label}!`);
-          tryStormwakeStormSurgeOnStrike(st, foe, {
-            crit: false,
-            debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
-          });
           continue;
         }
       }
       const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
       if (res.missed) {
         appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
-        tryStormwakeStormSurgeOnStrike(st, foe, {
-          crit: false,
-          debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
-        });
         continue;
       }
       const dmg = res.damage;
@@ -13287,10 +13351,6 @@ function playerCombatAction(kind, skillName) {
       if (foe.combat && foe.combat.script === "grass_snake") {
         foe.combat.markedByPlayer = true;
       }
-      tryStormwakeStormSurgeOnStrike(st, foe, {
-        crit: !!res.crit,
-        debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
-      });
     }
     afterHitsCommit();
     return;
@@ -13322,7 +13382,6 @@ function playerCombatAction(kind, skillName) {
 
   const label = kind === "skill" && skillName ? skillName : "Attack";
   if (!foe.combat) foe.combat = {};
-  const stormwakeSig0 = getFoeStormwakeDebuffSignature(foe.combat);
   applyPlayerClassSkillCast(st, skillName, foe);
   if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
     const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
@@ -13336,10 +13395,6 @@ function playerCombatAction(kind, skillName) {
         finishCombatVictory();
         return;
       }
-      tryStormwakeStormSurgeOnStrike(st, foe, {
-        crit: false,
-        debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
-      });
       afterHitsCommit();
       return;
     }
@@ -13352,10 +13407,6 @@ function playerCombatAction(kind, skillName) {
   queueCombatVisualRefresh(340);
   if (res.missed) {
     appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
-    tryStormwakeStormSurgeOnStrike(st, foe, {
-      crit: false,
-      debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
-    });
     afterHitsCommit();
     return;
   }
@@ -13374,11 +13425,6 @@ function playerCombatAction(kind, skillName) {
   if (foe.combat && foe.combat.script === "grass_snake") {
     foe.combat.markedByPlayer = true;
   }
-
-  tryStormwakeStormSurgeOnStrike(st, foe, {
-    crit: !!res.crit,
-    debuffApplied: getFoeStormwakeDebuffSignature(foe.combat) !== stormwakeSig0
-  });
 
   afterHitsCommit();
 }
@@ -13408,7 +13454,6 @@ function ensureActivePartyUid(st) {
 
 function startPlayerPhaseActors(st) {
   if (!st || !Array.isArray(st.party)) return;
-  st.stormfangMarkDamageUsedThisPlayerTurn = false;
   st.party.forEach((m) => {
     if (!m) return;
     m.acted = false;
@@ -13429,16 +13474,6 @@ function startPlayerPhaseActors(st) {
   st.activePartyUid = first ? first.uid : null;
 }
 
-function getActiveCombatSkillsForActor(actor) {
-  if (!actor || !Array.isArray(actor.skills)) return [];
-  const out = [];
-  actor.skills.forEach((name) => {
-    const cfg = getSkillDef(name);
-    if (cfg && typeof cfg.combatMultiplier === "number") out.push(cfg);
-  });
-  return out;
-}
-
 function companionCombatAction(member, kind, skillName) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
@@ -13454,6 +13489,10 @@ function companionCombatAction(member, kind, skillName) {
   const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
   if (kind === "skill" && (!skCfg || typeof skCfg.combatMultiplier !== "number")) {
     appendFightLog(`${member.name} cannot use ${skillName || "that skill"} in combat.`);
+    return;
+  }
+  if (kind === "skill" && skillName && !isSkillSlottedForActor(comp, skillName)) {
+    appendFightLog(`${member.name} does not have ${skillName} on their skill bar.`);
     return;
   }
   const cost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
@@ -14156,34 +14195,87 @@ function levelUp() {
     if (need <= 0 || player.xp < need) break;
     player.xp -= need;
     player.level++;
-    player.charPoints += 5;
-    player.skillPoints = (typeof player.skillPoints === "number" ? player.skillPoints : 0) + 1;
     player.baseAttack += 2;
     player.maxHp = computeMaxHp(player);
     player.hp = player.maxHp;
   }
+  recomputeAllocPoolsFromLevel(player);
+}
+
+function getNextCharPointCostPerBaseStat(currentBaseStat) {
+  const v = Math.floor(Number(currentBaseStat) || STAT_CHAR_ALLOC_FLOOR);
+  return v < STAT_CHAR_PREMIUM_THRESHOLD ? 1 : 2;
 }
 
 /**
- * Spend up to `amount` characteristic points on one base stat (1:1). Caps by the actor’s remaining pool.
- * @returns {number} points actually spent
+ * Total characteristic points spent to raise one base stat from {@link STAT_CHAR_ALLOC_FLOOR} to `targetBase`.
+ * @param {number} targetBase
+ */
+function cumulativeCharPointsForBaseStat(targetBase) {
+  const t = Math.floor(Number(targetBase));
+  if (!Number.isFinite(t) || t <= STAT_CHAR_ALLOC_FLOOR) return 0;
+  let cost = 0;
+  for (let v = STAT_CHAR_ALLOC_FLOOR; v < t; v++) {
+    cost += v < STAT_CHAR_PREMIUM_THRESHOLD ? 1 : 2;
+  }
+  return cost;
+}
+
+function totalCharPointsAllocatedOnActor(actor) {
+  if (!actor || typeof actor !== "object") return 0;
+  const str = getActorStatBase(actor, "str");
+  const dex = getActorStatBase(actor, "dex");
+  const vit = getActorStatBase(actor, "vit");
+  const int = getActorStatBase(actor, "int");
+  return (
+    cumulativeCharPointsForBaseStat(str) +
+    cumulativeCharPointsForBaseStat(dex) +
+    cumulativeCharPointsForBaseStat(vit) +
+    cumulativeCharPointsForBaseStat(int)
+  );
+}
+
+/**
+ * Spend up to `amount` characteristic points on one base stat (marginal cost: 1 per +1 below 100, then 2 per +1).
+ * Caps by the actor’s remaining pool; may spend less than `amount` if the remainder cannot buy the next step.
+ * @returns {number} characteristic points actually spent
  */
 function spendCharPoints(statKey, actor, amount) {
   const target = actor || player;
   if (!["str", "dex", "vit", "int"].includes(statKey)) return 0;
   const pool = typeof target.charPoints === "number" ? Math.max(0, Math.floor(target.charPoints)) : 0;
-  const want = Math.max(0, Math.floor(Number(amount)));
-  const n = Math.min(want, pool);
-  if (n <= 0) return 0;
-  target.charPoints = pool - n;
+  const budget = Math.max(0, Math.floor(Number(amount)));
+  const useBudget = Math.min(budget, pool);
+  if (useBudget <= 0) return 0;
+
+  let cur =
+    typeof target[statKey] === "number" && Number.isFinite(target[statKey])
+      ? Math.floor(target[statKey])
+      : STAT_CHAR_ALLOC_FLOOR;
+  if (statKey === "dex" && (!Number.isFinite(cur) || cur < STAT_CHAR_ALLOC_FLOOR) && typeof target.agi === "number") {
+    cur = Math.floor(target.agi);
+  }
+  if (!Number.isFinite(cur)) cur = STAT_CHAR_ALLOC_FLOOR;
+
+  let spent = 0;
+  let stat = cur;
+  while (spent < useBudget) {
+    const step = getNextCharPointCostPerBaseStat(stat);
+    if (spent + step > useBudget) break;
+    spent += step;
+    stat += 1;
+  }
+  if (spent <= 0) return 0;
+
+  target.charPoints = pool - spent;
+  target[statKey] = stat;
   const prevMax = target.maxHp;
-  target[statKey] += n;
   target.maxHp = computeMaxHp(target);
   const gained = target.maxHp - prevMax;
   if (gained > 0) target.hp = Math.min(target.maxHp, (typeof target.hp === "number" ? target.hp : target.maxHp) + gained);
   save();
   render();
-  return n;
+  return spent;
 }
 
 function spendCharPoint(statKey, actor) {
@@ -14195,7 +14287,14 @@ function openCharPointSpendModal(statKey, rosterTab) {
   const tab = rosterTab != null && String(rosterTab).length ? String(rosterTab) : getCharacterRosterTab();
   const actor = getRosterActorFromTab(tab);
   const pool = typeof actor.charPoints === "number" ? Math.max(0, Math.floor(actor.charPoints)) : 0;
-  if (pool <= 0) return;
+  const curBase =
+    statKey === "dex"
+      ? getActorStatBase(actor, "dex")
+      : typeof actor[statKey] === "number" && Number.isFinite(actor[statKey])
+        ? Math.floor(actor[statKey])
+        : STAT_CHAR_ALLOC_FLOOR;
+  const nextCost = getNextCharPointCostPerBaseStat(curBase);
+  if (pool < nextCost) return;
   pendingCharSpend = { statKey, rosterTab: tab };
   const labels = { str: "Strength", dex: "Dexterity", vit: "Vitality", int: "Intelligence" };
   const label = labels[statKey] || statKey;
@@ -14205,8 +14304,9 @@ function openCharPointSpendModal(statKey, rosterTab) {
     `<form class="char-spend-modal" data-char-spend-form>
       <h3 class="char-spend-modal__title">Spend characteristic points</h3>
       <p class="char-spend-modal__line muted">Increase <strong>${escapeHtml(label)}</strong> · ${who}</p>
+      <p class="char-spend-modal__line muted">Current base ${escapeHtml(label)}: <strong>${curBase}</strong> — next +1 costs <strong>${nextCost}</strong> characteristic point${nextCost === 1 ? "" : "s"} (1 per +1 while below ${STAT_CHAR_PREMIUM_THRESHOLD}; 2 per +1 at ${STAT_CHAR_PREMIUM_THRESHOLD}+).</p>
       <p class="char-spend-modal__line">Available: <strong>${pool}</strong></p>
-      <label class="char-spend-modal__label" for="charSpendAmountInput">How many points to spend?</label>
+      <label class="char-spend-modal__label" for="charSpendAmountInput">How many characteristic points to spend?</label>
       <input id="charSpendAmountInput" class="char-spend-modal__input" type="number" name="amount" min="1" max="${pool}" value="${defaultSpend}" step="1" data-char-spend-input required />
       <div class="char-spend-modal__actions">
         <button type="submit" class="btn-primary" data-char-spend-apply>Apply</button>
@@ -14338,13 +14438,51 @@ function autoItemDescription(def, itemName) {
     return "Weapon: adds attack when equipped.";
   }
   if (getItemEquipCategory(def) === "shield") return "Shield: can only be equipped in Offhand.";
-  if (def.type === "armor") return `Armor: adds armor when equipped in the matching slot.`;
+  if (def.type === "armor") return `Armor piece: equip in the matching slot for stats and set bonuses.`;
   if (def.type === "consumable") return `Usable item. Effects apply when consumed.`;
   if (def.type === "resource") return `Crafting or trade material.`;
   return itemName;
 }
 
-function buildItemTooltipHtml(itemName, imageSizePx) {
+function buildEquippedSetBonusesTooltipHtml(setName, equippedCount) {
+  const name = typeof setName === "string" ? setName.trim() : "";
+  if (!name) return "";
+  const allBonuses = GAME_CONFIG.mmoEquipmentSetBonuses;
+  if (!allBonuses || typeof allBonuses !== "object") return "";
+  const cfg = allBonuses[name];
+  if (!cfg || typeof cfg !== "object") return "";
+  const thresholds = Object.keys(cfg)
+    .map((k) => parseInt(k, 10))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+  if (!thresholds.length) return "";
+  let activeTier = 0;
+  thresholds.forEach((t) => {
+    if (equippedCount >= t && t > activeTier) activeTier = t;
+  });
+  let body = "";
+  thresholds.forEach((th) => {
+    const stats = cfg[String(th)];
+    if (!stats || typeof stats !== "object") return;
+    const statBits = [];
+    Object.entries(stats).forEach(([k, v]) => {
+      if (String(k).startsWith("_")) {
+        if (typeof v === "string" && v.trim()) statBits.push(v.trim());
+        return;
+      }
+      if (typeof v === "number" && Number.isFinite(v)) statBits.push(`${k} +${v}`);
+    });
+    const detail = statBits.join(" · ");
+    const fulfilled = activeTier > 0 && th === activeTier;
+    const cls = fulfilled ? "item-tip-set-line item-tip-set-line--active" : "item-tip-set-line item-tip-set-line--inactive";
+    body += `<div class="${cls}">${escapeHtml(`${th} pieces: ${detail}`)}</div>`;
+  });
+  return `<div class="item-tip-section item-tip-set-section"><span class="item-tip-label">Set bonuses (${escapeHtml(
+    name
+  )})</span>${body}</div>`;
+}
+
+function buildItemTooltipHtml(itemName, imageSizePx, tooltipOpts) {
   const def = getItemDef(itemName);
   const displayName = getItemBaseName(itemName);
   const rarityId = getItemRarityIdForItem(def, itemName);
@@ -14379,14 +14517,22 @@ function buildItemTooltipHtml(itemName, imageSizePx) {
 
   const statParts = [];
   const atk = getScaledItemAttack(def, itemName);
-  const armor = getScaledItemDefense(def, itemName);
   if (atk) statParts.push(`Attack +${atk}`);
-  if (armor) statParts.push(`Armor +${armor}`);
   if (def.type === "consumable" && def.effect === "heal") statParts.push(`Restores ${def.value} HP`);
   const bs = getScaledItemBonusStats(def, itemName);
   Object.keys(bs).forEach((k) => statParts.push(`${k} +${bs[k]}`));
   if (statParts.length) {
     parts.push(`<div class="item-tip-section"><span class="item-tip-label">Bonus stats</span><div class="item-tip-stats">${statParts.map((s) => escapeHtml(s)).join(" · ")}</div></div>`);
+  }
+
+  const eqForSet = tooltipOpts && tooltipOpts.equipmentForSetBonus;
+  if (eqForSet && def && isEquippableItemDef(def)) {
+    const sn = typeof def.set === "string" ? def.set.trim() : "";
+    if (sn) {
+      const nEquipped = countEquippedSetPieces(eqForSet, sn);
+      const setBlock = buildEquippedSetBonusesTooltipHtml(sn, nEquipped);
+      if (setBlock) parts.push(setBlock);
+    }
   }
 
   const bsk = Array.isArray(def.bonusSkills) ? def.bonusSkills : [];
@@ -14401,6 +14547,49 @@ function buildItemTooltipHtml(itemName, imageSizePx) {
   }
 
   return `<div class="item-tip">${parts.join("")}</div>`;
+}
+
+function attachPinnedTooltipDrag(tooltipEl) {
+  const strip = tooltipEl.querySelector(".item-tooltip-drag-strip");
+  if (!strip) return;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+  function onMove(ev) {
+    if (!dragging) return;
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    let nl = startLeft + dx;
+    let nt = startTop + dy;
+    const pad = 6;
+    const tw = tooltipEl.offsetWidth || 200;
+    const th = tooltipEl.offsetHeight || 120;
+    nl = clampNumber(pad, Math.max(pad, window.innerWidth - tw - pad), nl);
+    nt = clampNumber(pad, Math.max(pad, window.innerHeight - th - pad), nt);
+    tooltipEl.style.left = `${nl}px`;
+    tooltipEl.style.top = `${nt}px`;
+  }
+  function onUp() {
+    dragging = false;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  }
+  strip.addEventListener("mousedown", (ev) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    dragging = true;
+    startX = ev.clientX;
+    startY = ev.clientY;
+    const r = tooltipEl.getBoundingClientRect();
+    startLeft = r.left;
+    startTop = r.top;
+    tooltipEl.style.left = `${startLeft}px`;
+    tooltipEl.style.top = `${startTop}px`;
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
 }
 
 function positionItemTooltip(clientX, clientY) {
@@ -14420,8 +14609,10 @@ function positionItemTooltip(clientX, clientY) {
 function showTooltipHtml(html, clientX, clientY, opts) {
   const el = document.getElementById("itemTooltip");
   if (!el) return;
+  if (el.classList.contains("item-tooltip--pinned") && !(opts && opts.pinned)) return;
   el.classList.remove("item-tooltip--inventory-item");
   el.classList.remove("item-tooltip--conditional-loot");
+  el.classList.remove("item-tooltip--pinned");
   if (opts && opts.tooltipClass) {
     String(opts.tooltipClass)
       .split(/\s+/)
@@ -14429,7 +14620,25 @@ function showTooltipHtml(html, clientX, clientY, opts) {
       .filter(Boolean)
       .forEach((c) => el.classList.add(c));
   }
-  el.innerHTML = html;
+  if (opts && opts.pinned) {
+    el.classList.add("item-tooltip--pinned");
+    el.innerHTML = `<div class="item-tooltip-pinned-wrap"><div class="item-tooltip-drag-strip" title="Drag to move">Move</div><button type="button" class="item-tooltip-close" aria-label="Close tooltip">&times;</button>${html}</div>`;
+    const btn = el.querySelector(".item-tooltip-close");
+    if (btn) {
+      btn.addEventListener("mousedown", (ev) => {
+        ev.stopPropagation();
+      });
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        hideItemTooltip();
+      });
+    }
+    attachPinnedTooltipDrag(el);
+    attachSkillCatalogTabHandlers(el);
+  } else {
+    el.innerHTML = html;
+  }
   el.classList.remove("hidden");
   el.setAttribute("aria-hidden", "false");
   requestAnimationFrame(() => positionItemTooltip(clientX, clientY));
@@ -14447,30 +14656,64 @@ function showItemTooltip(itemName, clientX, clientY, sourceEl, opts) {
       if (base > 0) imageSizePx = base * 4;
     }
   }
-  showTooltipHtml(buildItemTooltipHtml(itemName, imageSizePx), clientX, clientY, {
+  const equipForSet =
+    sourceEl instanceof HTMLElement && sourceEl.closest(".slot-drop[data-item-name]")
+      ? (() => {
+          const page = sourceEl.closest("[data-overview-roster-tab]");
+          const tab =
+            page && page.dataset && page.dataset.overviewRosterTab != null && String(page.dataset.overviewRosterTab).length
+              ? page.dataset.overviewRosterTab
+              : getCharacterRosterTab();
+          const actor = getRosterActorFromTab(tab);
+          return actor && actor.equipment ? actor.equipment : emptyEquipment();
+        })()
+      : null;
+  showTooltipHtml(buildItemTooltipHtml(itemName, imageSizePx, equipForSet ? { equipmentForSetBonus: equipForSet } : null), clientX, clientY, {
     tooltipClass: opts && opts.conditionalLoot ? "item-tooltip--inventory-item item-tooltip--conditional-loot" : "item-tooltip--inventory-item"
   });
 }
 
 const STAT_TIP_LABELS = {
   level: "Level",
-  hp: "Hit points",
+  hp: "HP",
   xp: "Experience",
-  charPoints: "Characteristic points",
+  charPoints: "",
   str: "Strength",
   dex: "Dexterity",
   vit: "Vitality",
   int: "Intelligence",
   stamina: "Stamina",
-  armor: "Armor",
-  damage: "Damage"
+  physDmgPct: "Physical damage %",
+  magicDmgPct: "Magic damage %",
+  physResistPct: "Physical resist %",
+  magicResistPct: "Magic resist %",
+  critPct: "Critical %",
+  evasionPct: "Evasion %",
+  accuracyPct: "Accuracy %",
+  healingPct: "Healing %",
+  statusResistPct: "Status resist %"
 };
 
 function buildStatTooltipHtml(statKey) {
-  const label = STAT_TIP_LABELS[statKey] || statKey;
-  const help =
+  const label = Object.prototype.hasOwnProperty.call(STAT_TIP_LABELS, statKey) ? STAT_TIP_LABELS[statKey] : statKey;
+  let help =
     (GAME_CONFIG.statHelp && GAME_CONFIG.statHelp[statKey]) ||
     "No description available.";
+  if (typeof help !== "string" || !help.trim()) help = "No description available.";
+  if (typeof label === "string" && label.trim()) {
+    const parts = help.split(/\n\n+/);
+    if (parts.length >= 2) {
+      const summary = parts[0].trim();
+      const impl = parts.slice(1).join("\n\n").trim();
+      const implHtml = escapeHtml(impl).replace(/\n/g, "<br />");
+      return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(label)}</div><div class="item-tip-desc">${escapeHtml(
+        summary
+      )}</div><div class="item-tip-desc item-tip-stat-impl">${implHtml}</div></div>`;
+    }
+  }
+  if (typeof label !== "string" || !label.trim()) {
+    return `<div class="item-tip"><div class="item-tip-desc">${escapeHtml(help)}</div></div>`;
+  }
   return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(label)}</div><div class="item-tip-desc">${escapeHtml(help)}</div></div>`;
 }
 
@@ -14478,7 +14721,521 @@ function showStatTooltip(statKey, clientX, clientY) {
   showTooltipHtml(buildStatTooltipHtml(statKey), clientX, clientY);
 }
 
+function unifiedCatalogCollectRowDebuffs(row) {
+  const out = [];
+  if (row && row.debuff && row.debuff.type) out.push(row.debuff);
+  if (row && row.debuff2 && row.debuff2.type) out.push(row.debuff2);
+  if (row && row.debuff3 && row.debuff3.type) out.push(row.debuff3);
+  return out;
+}
+
+function unifiedCatalogDebuffLabel(type) {
+  const M = {
+    cripple: "Cripple",
+    physDmgDown: "Physical damage down",
+    magDmgDown: "Magic damage down",
+    bothDmgDown: "Physical & magic damage down",
+    physResDown: "Physical resist down",
+    magResDown: "Magic resist down",
+    bothResDown: "Physical & magic resist down",
+    evaDown: "Evasion down",
+    blind: "Blind",
+    bleed: "Bleed",
+    burn: "Burn",
+    poisonDot: "Poison",
+    stun: "Stun",
+    playerTaunt: "Taunt",
+    allyPressure: "Ally pressure",
+    statusResDown: "Status resist down"
+  };
+  return M[type] || (type ? String(type).replace(/_/g, " ") : "—");
+}
+
+function unifiedCatalogDebuffValueLine(deb) {
+  if (!deb || !deb.type) return "—";
+  switch (deb.type) {
+    case "cripple":
+      return `+${deb.value != null ? deb.value : 1} stamina cost`;
+    case "physDmgDown":
+    case "magDmgDown":
+    case "bothDmgDown":
+      return `−${deb.value || 0}% damage dealt`;
+    case "bleed":
+    case "burn":
+    case "poisonDot":
+      return `DoT ${deb.dotPct || 0}% of hit per tick`;
+    case "blind":
+      return `−${deb.accDown || 0}% accuracy`;
+    case "stun":
+      return "Skips actions";
+    case "playerTaunt":
+      return deb.enemyDmgDownPct != null ? `Enemy damage −${deb.enemyDmgDownPct}%` : "Enemy damage down";
+    case "allyPressure":
+      return `+${deb.value || 0}% damage taken by foe`;
+    case "physResDown":
+    case "magResDown":
+    case "bothResDown":
+      return `−${deb.value || 0}% resist`;
+    case "evaDown":
+      return `−${deb.value || 0}% evasion`;
+    case "statusResDown":
+      return `−${deb.value || 0}% status resist`;
+    default:
+      return deb.value != null ? String(deb.value) : "—";
+  }
+}
+
+function unifiedCatalogJoinLines(lines) {
+  return lines.map((s) => escapeHtml(String(s))).join("<br/>");
+}
+
+function unifiedCatalogFormatStatMult(pct, label) {
+  if (typeof pct !== "number" || !Number.isFinite(pct) || pct <= 0) return null;
+  const n = Math.round(pct * 100);
+  return `${label} × ${n}%`;
+}
+
+function getUnifiedCatalogTargetLabel(cat) {
+  const p = cat && cat.pattern;
+  if (!p) return "—";
+  const singleStrike = new Set([
+    "basic",
+    "strike",
+    "strike_debuff",
+    "spark",
+    "toxin_dart",
+    "steady_shot",
+    "piercing_shot",
+    "deep_lunge",
+    "final_measure",
+    "execute_skill",
+    "vanishing_shot",
+    "rupture"
+  ]);
+  if (singleStrike.has(p)) return "Single enemy";
+  if (p === "twin_jab") return "Single enemy (2 hits)";
+  if (p === "reflex_volley") return "Single enemy (volley)";
+  if (p === "aoe_phys_adj" || p === "aoe_mag_adj" || p === "bleeding_flourish" || p === "burning_field")
+    return "Primary + adjacent foes";
+  if (p === "earthbreaker" || p === "arcane_collapse") return "Center + adjacent foes";
+  if (p === "event_horizon" || p === "all_foes_debuff" || p === "taunt_all") return "All enemies";
+  if (p === "bloodstorm") return "Primary + adjacent (self damage)";
+  if (p === "brutal_rush") return "Single enemy (self damage)";
+  if (p === "heal_ally" || p === "ward_shield" || p === "regrowth") return "Single ally (active)";
+  if (p === "cleanse") return "Single ally (active)";
+  if (p === "encourage") return "Single ally (active)";
+  if (p === "heal_all") return "All allies";
+  if (p === "guard_ally") return "Guarded ally";
+  if (p === "sanctuary_party" || p === "rev_pulse") return "Party";
+  if (
+    p === "brace" ||
+    p === "flow_step" ||
+    p === "smoke_step" ||
+    p === "overload" ||
+    p === "spell_preparation" ||
+    p === "blood_price"
+  )
+    return "Self";
+  if (p === "crippling_mixture") return "All enemies (debuffs)";
+  if (p === "spread_contagion") return "Single enemy (spread)";
+  if (String(p).indexOf("passive_") === 0) return "Passive (always)";
+  return "See combat";
+}
+
+function unifiedCatalogFormatPassiveLevelRow(row) {
+  const bits = [];
+  if (typeof row.passiveVit === "number" && row.passiveVit > 0) bits.push(`+${row.passiveVit} VIT`);
+  if (typeof row.passivePhysRes === "number" && row.passivePhysRes > 0) bits.push(`+${row.passivePhysRes}% phys resist`);
+  if (typeof row.passiveHp === "number" && row.passiveHp > 0) bits.push(`+${row.passiveHp} max HP`);
+  const pr = row.passive && typeof row.passive === "object" ? row.passive : null;
+  if (pr) {
+    if (typeof pr.evasion === "number" && pr.evasion > 0) bits.push(`+${pr.evasion}% evasion`);
+    if (typeof pr.accuracy === "number" && pr.accuracy > 0) bits.push(`+${pr.accuracy}% accuracy`);
+    if (typeof pr.magicDamage === "number" && pr.magicDamage > 0) bits.push(`+${pr.magicDamage}% magic damage`);
+    if (typeof pr.crit === "number" && pr.crit > 0) bits.push(`+${pr.crit}% crit chance`);
+    if (typeof pr.physDamage === "number" && pr.physDamage > 0) bits.push(`+${pr.physDamage}% phys damage`);
+    if (typeof pr.healing === "number" && pr.healing > 0) bits.push(`+${pr.healing}% healing`);
+    if (typeof pr.statusResist === "number" && pr.statusResist > 0) bits.push(`+${pr.statusResist}% status resist`);
+    if (typeof pr.critStaminaChancePct === "number" && pr.critStaminaChancePct > 0)
+      bits.push(`+${pr.critStaminaChancePct}% stamina on crit`);
+    if (typeof pr.staminaOnKill === "number" && pr.staminaOnKill > 0) bits.push(`+${pr.staminaOnKill} stamina on kill`);
+    if (typeof pr.physDamageNextTurn === "number" && pr.physDamageNextTurn > 0)
+      bits.push(`+${pr.physDamageNextTurn}% phys next turn after kill`);
+    if (typeof pr.physResPerStack === "number" && pr.physResPerStack > 0)
+      bits.push(`+${pr.physResPerStack}% phys res / stack`);
+    if (typeof pr.magResPerStack === "number" && pr.magResPerStack > 0)
+      bits.push(`+${pr.magResPerStack}% mag res / stack`);
+    if (typeof pr.statusResPerStack === "number" && pr.statusResPerStack > 0)
+      bits.push(`+${pr.statusResPerStack}% status res / stack`);
+    if (typeof pr.maxStacks === "number" && pr.maxStacks > 0) bits.push(`Stacks ≤${pr.maxStacks}`);
+    if (typeof pr.duration === "number" && pr.duration > 0) bits.push(`Duration ${pr.duration}t`);
+    if (typeof pr.healVitPct === "number" && pr.healVitPct > 0) bits.push(`Heal ${pr.healVitPct}% max HP`);
+    if (typeof pr.cleanse === "number" && pr.cleanse > 0) bits.push(`Cleanse ${pr.cleanse}`);
+    if (typeof pr.dotDamage === "number" && pr.dotDamage > 0) bits.push(`DoT +${pr.dotDamage}%`);
+    if (typeof pr.debuffAccuracy === "number" && pr.debuffAccuracy > 0) bits.push(`Debuff acc +${pr.debuffAccuracy}%`);
+    if (pr.poisonStacks2) bits.push("2× poison stacks");
+    if (typeof pr.allyDrAtStacks2 === "number" && pr.allyDrAtStacks2 > 0)
+      bits.push(`Ally DR +${pr.allyDrAtStacks2}% @2 stacks`);
+  }
+  return bits.length ? bits.join(", ") : "—";
+}
+
+function unifiedCatalogFormatDamageOrEffectCell(row, cat) {
+  const p = cat.pattern;
+  const bits = [];
+  if (typeof row.strPct === "number" && row.strPct > 0) {
+    const m = unifiedCatalogFormatStatMult(row.strPct, "STR");
+    if (m) bits.push(cat.twinHits === 2 ? `${m} (×2 hits)` : m);
+  }
+  if (typeof row.intPct === "number" && row.intPct > 0) {
+    const m = unifiedCatalogFormatStatMult(row.intPct, "INT");
+    if (m) bits.push(m);
+  }
+  if (typeof row.hits === "number" && row.hits > 1 && p === "reflex_volley") {
+    const si = bits.findIndex((b) => b.indexOf("STR ×") === 0);
+    if (si >= 0) bits[si] = `${bits[si]} (×${row.hits} shots)`;
+  }
+  if (typeof row.vitHealPct === "number" && row.vitHealPct > 0)
+    bits.push(`VIT × ${Math.round(row.vitHealPct * 100)}% (heal)`);
+  if (typeof row.shieldVitPct === "number" && row.shieldVitPct > 0)
+    bits.push(`Shield VIT × ${Math.round(row.shieldVitPct * 100)}%`);
+  if (typeof row.regenVitPct === "number" && row.regenVitPct > 0)
+    bits.push(`HoT VIT × ${Math.round(row.regenVitPct * 100)}%/turn`);
+  if (
+    typeof row.aoeAdj === "number" &&
+    row.aoeAdj > 0 &&
+    (p === "aoe_phys_adj" ||
+      p === "aoe_mag_adj" ||
+      p === "bleeding_flourish" ||
+      p === "burning_field" ||
+      p === "bloodstorm" ||
+      p === "earthbreaker" ||
+      p === "arcane_collapse")
+  )
+    bits.push(`Splash range ${row.aoeAdj}`);
+  if (typeof row.hitBonus === "number" && row.hitBonus > 0) bits.push(`Hit +${row.hitBonus}%`);
+  if (typeof row.ignorePhysResPct === "number" && row.ignorePhysResPct > 0)
+    bits.push(`Ignore ${row.ignorePhysResPct}% phys res`);
+  if (typeof row.vsPhysResDownBonusPct === "number" && row.vsPhysResDownBonusPct > 0)
+    bits.push(`Bonus vs phys-res debuffed +${row.vsPhysResDownBonusPct}%`);
+  if (typeof row.strPctLow === "number" && row.strPctLow > 0 && row.strPct)
+    bits.push(`Low HP: STR × ${Math.round(row.strPctLow * 100)}%`);
+  if (typeof row.vsBurnBonusPct === "number" && row.vsBurnBonusPct > 0) bits.push(`Bonus vs burning +${row.vsBurnBonusPct}%`);
+  if (typeof row.selfDamageMaxHpPct === "number" && row.selfDamageMaxHpPct > 0)
+    bits.push(`Self HP cost up to ${row.selfDamageMaxHpPct}% max`);
+  if (p === "spread_contagion" && typeof row.chance === "number") {
+    bits.push(`Spread ${row.chance}%`);
+    if (typeof row.durationFracPct === "number") bits.push(`Copy ${row.durationFracPct}% poison duration`);
+    if (typeof row.adj === "number") bits.push(`Jump ${row.adj}`);
+  }
+  if (row.self && p !== "vanishing_shot") {
+    const se = row.self;
+    if (typeof se.dr === "number") bits.push(`Self: −${se.dr}% damage taken`);
+    if (typeof se.sr === "number" && se.sr > 0) bits.push(`Self: +${se.sr}% status resist`);
+    if (typeof se.eva === "number") bits.push(`Self: +${se.eva}% evasion`);
+    if (typeof se.acc === "number" && se.acc > 0) bits.push(`Self: +${se.acc}% accuracy`);
+    if (typeof se.magDmg === "number") bits.push(`Self: +${se.magDmg}% magic damage`);
+    if (typeof se.nextMagical === "number")
+      bits.push(`Self: next ${se.nextMagical} magical attack(s) −1 stamina, +${se.magDmg || 0}% magic`);
+    if (typeof se.hpCostPct === "number") bits.push(`Self: pay ${se.hpCostPct}% max HP`);
+    if (typeof se.physDmg === "number") bits.push(`Self: +${se.physDmg}% physical damage`);
+    if (typeof se.stamPenalty === "number") bits.push(`Self: skills +${se.stamPenalty} stamina`);
+  } else if (row.self && p === "vanishing_shot") {
+    bits.push(`After hit: +${row.self.eva || 0}% eva, +${row.self.acc || 0}% acc`);
+  }
+  if (row.ally) {
+    const a = row.ally;
+    const sub = [];
+    if (typeof a.redirect === "number") sub.push(`redirect ${a.redirect}%`);
+    if (typeof a.acc === "number") sub.push(`+${a.acc}% ally accuracy`);
+    if (typeof a.healPct === "number" && a.healPct > 0) sub.push(`+${a.healPct}% healing`);
+    if (sub.length) bits.push(`Ally: ${sub.join(", ")}`);
+  }
+  if (row.party) {
+    const py = row.party;
+    if (typeof py.dr === "number") bits.push(`Party: −${py.dr}% damage taken`);
+    if (typeof py.sr === "number" && py.sr > 0) bits.push(`Party: +${py.sr}% status resist`);
+    if (typeof py.nextStamina === "number") bits.push(`Party: +${py.nextStamina} stamina next turn`);
+    if (typeof py.healPct === "number" && py.healPct > 0) bits.push(`Party: +${py.healPct}% heal`);
+  }
+  const out = bits.filter(Boolean).join("; ");
+  return out || "—";
+}
+
+function unifiedCatalogDamageCellHtml(row, cat) {
+  const raw = unifiedCatalogFormatDamageOrEffectCell(row, cat);
+  const mainPct = typeof row.strPct === "number" ? row.strPct : typeof row.intPct === "number" ? row.intPct : null;
+  if (mainPct != null && Math.round(mainPct * 100) === 100 && raw.indexOf("100%") >= 0) {
+    const bits = raw.split("100%");
+    if (bits.length === 2) {
+      return `${escapeHtml(bits[0])}<span class="item-tip-skill-spec-highlight">100%</span>${escapeHtml(bits[1])}`;
+    }
+  }
+  return escapeHtml(raw);
+}
+
+function unifiedCatalogFormatDebuffColumns(row, cat) {
+  const debuffs = unifiedCatalogCollectRowDebuffs(row);
+  if (debuffs.length) {
+    return {
+      debuff: unifiedCatalogJoinLines(debuffs.map((d) => unifiedCatalogDebuffLabel(d.type))),
+      chance: unifiedCatalogJoinLines(debuffs.map((d) => (typeof d.chance === "number" ? `${d.chance}%` : "—"))),
+      value: unifiedCatalogJoinLines(debuffs.map(unifiedCatalogDebuffValueLine)),
+      duration: unifiedCatalogJoinLines(
+        debuffs.map((d) => (typeof d.turns === "number" ? formatCombatTurnsLabel(d.turns) : "—"))
+      )
+    };
+  }
+  if (cat.pattern === "cleanse") {
+    const v = [];
+    if (typeof row.cleanse === "number") v.push(`Remove ${row.cleanse} debuff(s)`);
+    if (typeof row.vitHealPct === "number" && row.vitHealPct > 0) v.push(`Heal VIT × ${Math.round(row.vitHealPct * 100)}%`);
+    return {
+      debuff: "—",
+      chance: "100%",
+      value: v.length ? escapeHtml(v.join("; ")) : "—",
+      duration: "—"
+    };
+  }
+  if (row.self) {
+    const se = row.self;
+    const val = [];
+    if (typeof se.dr === "number") val.push(`−${se.dr}% incoming damage`);
+    if (typeof se.sr === "number" && se.sr > 0) val.push(`+${se.sr}% status resist`);
+    if (typeof se.eva === "number") val.push(`+${se.eva}% evasion`);
+    if (typeof se.acc === "number" && se.acc > 0) val.push(`+${se.acc}% accuracy`);
+    if (typeof se.magDmg === "number") val.push(`+${se.magDmg}% magic damage`);
+    if (typeof se.nextMagical === "number")
+      val.push(`Next ${se.nextMagical} magical skill(s) −1 stamina (min 2); +${se.magDmg || 0}% magic`);
+    if (typeof se.hpCostPct === "number") val.push(`Pay ${se.hpCostPct}% max HP`);
+    if (typeof se.physDmg === "number") val.push(`+${se.physDmg}% physical damage`);
+    if (typeof se.stamPenalty === "number") val.push(`Skills cost +${se.stamPenalty} stamina`);
+    let dur = "—";
+    if (typeof se.turns === "number" && se.turns > 0) dur = formatCombatTurnsLabel(se.turns);
+    else if (typeof se.maxTurns === "number" && se.maxTurns > 0) dur = `${se.maxTurns} turns (window)`;
+    return {
+      debuff: cat.pattern === "vanishing_shot" ? "Self (after hit)" : "Self",
+      chance: "100%",
+      value: escapeHtml(val.join("; ") || "—"),
+      duration: escapeHtml(dur)
+    };
+  }
+  if (row.ally) {
+    const a = row.ally;
+    const bits = [];
+    if (typeof a.acc === "number") bits.push(`+${a.acc}% accuracy`);
+    if (typeof a.healPct === "number" && a.healPct > 0) bits.push(`+${a.healPct}% healing received`);
+    if (typeof a.redirect === "number") bits.push(`Redirect ${a.redirect}%`);
+    return {
+      debuff: "Ally support",
+      chance: "100%",
+      value: escapeHtml(bits.join("; ") || "—"),
+      duration: typeof a.turns === "number" ? escapeHtml(formatCombatTurnsLabel(a.turns)) : "—"
+    };
+  }
+  if (row.party) {
+    const v = [];
+    if (typeof row.party.dr === "number") v.push(`−${row.party.dr}% damage taken`);
+    if (typeof row.party.sr === "number" && row.party.sr > 0) v.push(`+${row.party.sr}% status resist`);
+    if (typeof row.party.nextStamina === "number") v.push(`+${row.party.nextStamina} stamina next`);
+    if (typeof row.party.healPct === "number" && row.party.healPct > 0) v.push(`+${row.party.healPct}% heal`);
+    return {
+      debuff: "Party",
+      chance: "100%",
+      value: escapeHtml(v.join("; ") || "—"),
+      duration:
+        typeof row.party.turns === "number" && row.party.turns > 0
+          ? escapeHtml(formatCombatTurnsLabel(row.party.turns))
+          : "—"
+    };
+  }
+  if (cat.pattern === "spread_contagion") {
+    return {
+      debuff: "Spread DoT",
+      chance: escapeHtml(row.chance != null ? `${row.chance}%` : "—"),
+      value: escapeHtml(
+        row.durationFracPct != null ? `Copy ${row.durationFracPct}% of poison duration` : "—"
+      ),
+      duration: escapeHtml(row.adj != null ? `Jump ${row.adj}` : "—")
+    };
+  }
+  return {
+    debuff: "—",
+    chance: "—",
+    value: "—",
+    duration: "—"
+  };
+}
+
+function attachSkillCatalogTabHandlers(tooltipRoot) {
+  const host = tooltipRoot.querySelector("[data-skill-cat-tabs]");
+  if (!host) return;
+  const tabs = Array.from(host.querySelectorAll(".item-tip-skill-tab[data-skill-tab]"));
+  const panels = Array.from(host.querySelectorAll(".item-tip-skill-panel[data-skill-tab-panel]"));
+  if (!tabs.length || tabs.length !== panels.length) return;
+  tabs.forEach((tab, idx) => {
+    tab.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      tabs.forEach((t, i) => {
+        const on = i === idx;
+        t.classList.toggle("item-tip-skill-tab--active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      panels.forEach((p, i) => {
+        p.classList.toggle("item-tip-skill-panel--active", i === idx);
+      });
+    });
+  });
+}
+
+function buildUnifiedCatalogTooltipBaseHtml(cat, passive) {
+  const dmgKindLabel =
+    cat.damageKind === "magic" ? "Magic" : cat.damageKind === "physical" ? "Physical" : passive ? "Passive" : "—";
+  const baseLines = [];
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Unlock level:</span> <span>${
+      cat.unlock != null ? cat.unlock : "—"
+    }</span></div>`
+  );
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Stamina:</span> <span>${
+      passive ? "—" : cat.stamina != null ? cat.stamina : "—"
+    }</span></div>`
+  );
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Cooldown:</span> <span>${
+      passive ? "—" : !cat.cooldown ? "None" : `${cat.cooldown} turns`
+    }</span></div>`
+  );
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Damage type:</span> <span>${escapeHtml(
+      dmgKindLabel
+    )}</span></div>`
+  );
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Base accuracy:</span> <span>${
+      cat.baseHit == null ? "—" : `${cat.baseHit}%`
+    }</span></div>`
+  );
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Base crit:</span> <span>${
+      cat.baseCrit != null ? `${cat.baseCrit}%` : "—"
+    }</span></div>`
+  );
+  baseLines.push(
+    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Target:</span> <span>${escapeHtml(
+      getUnifiedCatalogTargetLabel(cat)
+    )}</span></div>`
+  );
+  return `<div class="item-tip-skill-spec-base">${baseLines.join("")}</div>`;
+}
+
+function unifiedCatalogDcPlain(dc) {
+  return String(dc || "")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildUnifiedCatalogLevelEffectDetailsHtml(row, cat, passive) {
+  if (!row) return `<div class="item-tip-desc item-tip-muted">—</div>`;
+  if (passive) {
+    const t = unifiedCatalogFormatPassiveLevelRow(row);
+    return `<div class="item-tip-skill-lv-block"><p class="item-tip-skill-lv-passive">${escapeHtml(t)}</p></div>`;
+  }
+  const dmg = unifiedCatalogDamageCellHtml(row, cat);
+  const dc = unifiedCatalogFormatDebuffColumns(row, cat);
+  const rows = [];
+  rows.push(
+    `<div class="item-tip-skill-lv-line"><span class="item-tip-label">Damage / effect</span><span class="item-tip-skill-lv-val">${dmg}</span></div>`
+  );
+  const emptyDebuff =
+    unifiedCatalogDcPlain(dc.debuff) === "—" &&
+    unifiedCatalogDcPlain(dc.chance) === "—" &&
+    unifiedCatalogDcPlain(dc.value) === "—" &&
+    unifiedCatalogDcPlain(dc.duration) === "—";
+  if (!emptyDebuff) {
+    rows.push(
+      `<div class="item-tip-skill-lv-line"><span class="item-tip-label">Debuff</span><span class="item-tip-skill-lv-val">${dc.debuff}</span></div>`
+    );
+    rows.push(
+      `<div class="item-tip-skill-lv-line"><span class="item-tip-label">Base chance</span><span class="item-tip-skill-lv-val">${dc.chance}</span></div>`
+    );
+    rows.push(
+      `<div class="item-tip-skill-lv-line"><span class="item-tip-label">Value</span><span class="item-tip-skill-lv-val">${dc.value}</span></div>`
+    );
+    rows.push(
+      `<div class="item-tip-skill-lv-line"><span class="item-tip-label">Duration</span><span class="item-tip-skill-lv-val">${dc.duration}</span></div>`
+    );
+  }
+  return `<div class="item-tip-skill-lv-block">${rows.join("")}</div>`;
+}
+
+function buildUnifiedSkillCatalogTooltipHtml(skillName, cat, opts) {
+  const pinned = !!(opts && opts.pinned);
+  const parts = [`<div class="item-tip-name">${escapeHtml(skillName)}</div>`];
+  const def = getSkillDef(skillName);
+  if (def && def.image) {
+    parts.push(`<img class="item-tip-skill-icon" src="${escapeAttr(def.image)}" alt="" />`);
+  }
+  const actor = opts && opts.actor ? opts.actor : typeof player !== "undefined" && player ? player : null;
+  const curLv = actor ? getActorSkillLevel(actor, skillName) : 0;
+  const passive = !!cat.passiveOnly;
+  parts.push(buildUnifiedCatalogTooltipBaseHtml(cat, passive));
+
+  const levels = Array.isArray(cat.levels) ? cat.levels : [];
+  const isBasicAtk = skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack";
+  if (isBasicAtk) {
+    const row0 = levels[0];
+    const dmg = row0 ? unifiedCatalogDamageCellHtml(row0, cat) : "—";
+    parts.push(`<div class="item-tip-desc item-tip-muted">Fixed attack — no ranks.</div>`);
+    parts.push(
+      `<div class="item-tip-skill-lv-block"><div class="item-tip-skill-lv-line"><span class="item-tip-label">Damage</span><span class="item-tip-skill-lv-val">${dmg}</span></div></div>`
+    );
+    return `<div class="item-tip">${parts.join("")}</div>`;
+  }
+
+  if (!levels.length) {
+    parts.push(`<div class="item-tip-desc item-tip-muted">No rank data.</div>`);
+    return `<div class="item-tip">${parts.join("")}</div>`;
+  }
+
+  if (pinned) {
+    const defaultTab = curLv > 0 ? Math.min(levels.length - 1, Math.max(0, curLv - 1)) : 0;
+    const tabButtons = levels
+      .map((_, i) => {
+        const on = i === defaultTab;
+        return `<button type="button" class="item-tip-skill-tab${on ? " item-tip-skill-tab--active" : ""}" role="tab" aria-selected="${
+          on ? "true" : "false"
+        }" data-skill-tab="${i}">Lv ${i + 1}</button>`;
+      })
+      .join("");
+    const panels = levels
+      .map((row, i) => {
+        const on = i === defaultTab;
+        const body = buildUnifiedCatalogLevelEffectDetailsHtml(row, cat, passive);
+        return `<div class="item-tip-skill-panel${on ? " item-tip-skill-panel--active" : ""}" role="tabpanel" data-skill-tab-panel="${i}">${body}</div>`;
+      })
+      .join("");
+    parts.push(
+      `<div class="item-tip-skill-tabs" data-skill-cat-tabs="1"><div class="item-tip-skill-tablist" role="tablist">${tabButtons}</div><div class="item-tip-skill-panels">${panels}</div></div>`
+    );
+    return `<div class="item-tip">${parts.join("")}</div>`;
+  }
+
+  const previewIdx = curLv > 0 ? Math.min(levels.length - 1, Math.max(0, curLv - 1)) : 0;
+  const previewRow = levels[previewIdx];
+  const rankLabel = curLv > 0 ? `Rank ${curLv} (current)` : `Rank 1 (not unlocked — preview)`;
+  parts.push(`<div class="item-tip-skill-preview-head">${escapeHtml(rankLabel)}</div>`);
+  parts.push(buildUnifiedCatalogLevelEffectDetailsHtml(previewRow, cat, passive));
+  return `<div class="item-tip">${parts.join("")}</div>`;
+}
+
 function buildSkillTooltipHtml(skillName, opts) {
+  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && skillName ? SKILL_CATALOG[skillName] : null;
+  if (cat) return buildUnifiedSkillCatalogTooltipHtml(skillName, cat, opts);
+
   const showUpgradeBonuses = !opts || opts.showUpgradeBonuses !== false;
   const def = getSkillDef(skillName);
   const classDef = getClassSkillDefByName(skillName);
@@ -14522,7 +15279,7 @@ function buildSkillTooltipHtml(skillName, opts) {
       const proc = Math.max(0, (l - 1) * 3);
       const baseCombat = typeof classDef.combatMultiplier === "number" ? classDef.combatMultiplier : null;
       const combatText =
-        baseCombat != null ? `skill power ×${(baseCombat * pwr).toFixed(2)} total` : "passive potency increased";
+        baseCombat != null ? `damage ×${(baseCombat * pwr).toFixed(2)} total` : "passive potency increased";
       rows.push(
         `<div>Lv ${l}: ${escapeHtml(combatText)} · duration +${dur} turn${dur === 1 ? "" : "s"} · proc bonus +${proc}%${
           lv === l ? " (current)" : ""
@@ -14550,7 +15307,29 @@ function buildSkillTooltipHtml(skillName, opts) {
 }
 
 function showSkillTooltip(skillName, clientX, clientY, opts) {
-  showTooltipHtml(buildSkillTooltipHtml(skillName, opts), clientX, clientY);
+  const o = opts || {};
+  showTooltipHtml(buildSkillTooltipHtml(skillName, o), clientX, clientY, {
+    tooltipClass: o.tooltipClass,
+    pinned: !!o.pinned
+  });
+}
+
+function onSkillsPanelSkillRowClick(e) {
+  const sp = e.currentTarget;
+  if (!sp || sp.id !== "skillsPanelContent") return;
+  if (e.target.closest(".class-skill-up-btn")) return;
+  const row =
+    e.target.closest(".class-skill-row[data-skill-name]") || e.target.closest(".skill-bar-slot-drop[data-skill-name]");
+  if (!row || !sp.contains(row)) return;
+  const name = row.getAttribute("data-skill-name");
+  if (!name) return;
+  const tipHost = row.closest("[data-skills-tooltip-roster]");
+  let actorForTip = typeof player !== "undefined" && player ? player : null;
+  if (tipHost && tipHost.getAttribute("data-skills-tooltip-roster") === "companion" && player && player.companions) {
+    const si = parseInt(tipHost.getAttribute("data-skills-companion-slot") || "", 10);
+    if (Number.isFinite(si) && si >= 0 && si < COMPANION_SLOT_COUNT && player.companions[si]) actorForTip = player.companions[si];
+  }
+  showSkillTooltip(name, e.clientX, e.clientY, { actor: actorForTip, pinned: true });
 }
 
 function formatCombatTurnsLabel(turns) {
@@ -14569,7 +15348,7 @@ function formatCombatStaminaLabel(current, max) {
 function categorizeHeroStatusTooltipLine(line) {
   const l = String(line || "").toLowerCase();
   if (
-    /^(bleed|poison|burn):|weakened strikes|hamstring|brine weak|fragile|stunned|accursed aim|suppressed|accuracy down|combo down|fatigue|pack howl|storm mark|stormfang charge/.test(
+    /^(bleed|poison|burn):|weakened strikes|hamstring|brine weak|fragile|stunned|accursed aim|suppressed|accuracy down|combo down|fatigue|pack howl|storm mark/.test(
       l
     )
   ) {
@@ -14724,15 +15503,27 @@ function buildMinimapCellTooltipHtml(mx, my) {
 function hideItemTooltip() {
   const el = document.getElementById("itemTooltip");
   if (!el) return;
+  el.classList.remove("item-tooltip--pinned");
   el.classList.add("hidden");
   el.innerHTML = "";
   el.setAttribute("aria-hidden", "true");
 }
 
 const TOOLTIP_HOST_SEL =
-  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
+  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], .skill-bar-slot-drop[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
 
 function onContentTooltipOver(e) {
+  const tipPinnedEl = document.getElementById("itemTooltip");
+  const skillsPanelHost = document.getElementById("skillsPanelContent");
+  if (
+    tipPinnedEl &&
+    tipPinnedEl.classList.contains("item-tooltip--pinned") &&
+    skillsPanelHost &&
+    skillsPanelHost.contains(e.target) &&
+    (e.target.closest(".class-skill-row[data-skill-name]") || e.target.closest(".skill-bar-slot-drop[data-skill-name]"))
+  ) {
+    return;
+  }
   const fightAlly = e.target.closest(".fight-ally-card[data-party-member]");
   if (fightAlly && combatState) {
     const uid = parseInt(fightAlly.getAttribute("data-party-member"), 10);
@@ -14830,7 +15621,24 @@ function onContentTooltipOver(e) {
   }
   const classSkillRow = e.target.closest(".class-skill-row[data-skill-name]");
   if (classSkillRow && classSkillRow.dataset.skillName) {
-    showSkillTooltip(classSkillRow.dataset.skillName, e.clientX, e.clientY);
+    const tipHost = classSkillRow.closest("[data-skills-tooltip-roster]");
+    let actorForTip = typeof player !== "undefined" && player ? player : null;
+    if (tipHost && tipHost.getAttribute("data-skills-tooltip-roster") === "companion" && player && player.companions) {
+      const si = parseInt(tipHost.getAttribute("data-skills-companion-slot") || "", 10);
+      if (Number.isFinite(si) && si >= 0 && si < COMPANION_SLOT_COUNT && player.companions[si]) actorForTip = player.companions[si];
+    }
+    showSkillTooltip(classSkillRow.dataset.skillName, e.clientX, e.clientY, { actor: actorForTip });
+    return;
+  }
+  const skillBarSlotTip = e.target.closest(".skill-bar-slot-drop[data-skill-name]");
+  if (skillBarSlotTip && skillBarSlotTip.dataset.skillName) {
+    const tipHost = skillBarSlotTip.closest("[data-skills-tooltip-roster]");
+    let actorForTip = typeof player !== "undefined" && player ? player : null;
+    if (tipHost && tipHost.getAttribute("data-skills-tooltip-roster") === "companion" && player && player.companions) {
+      const si = parseInt(tipHost.getAttribute("data-skills-companion-slot") || "", 10);
+      if (Number.isFinite(si) && si >= 0 && si < COMPANION_SLOT_COUNT && player.companions[si]) actorForTip = player.companions[si];
+    }
+    showSkillTooltip(skillBarSlotTip.dataset.skillName, e.clientX, e.clientY, { actor: actorForTip });
     return;
   }
   const statRow = e.target.closest("[data-stat-tip]");
@@ -14841,9 +15649,13 @@ function onContentTooltipOver(e) {
 }
 
 function onContentTooltipOut(e) {
+  const rt = e.relatedTarget;
+  if (rt && (rt.id === "itemTooltip" || (typeof rt.closest === "function" && rt.closest("#itemTooltip")))) return;
   const host = e.target.closest(TOOLTIP_HOST_SEL);
   if (!host) return;
-  const rt = e.relatedTarget;
+  const tipEl = document.getElementById("itemTooltip");
+  if (tipEl && tipEl.classList.contains("item-tooltip--pinned") && (host.classList.contains("class-skill-row") || host.classList.contains("skill-bar-slot-drop")))
+    return;
   if (rt && host.contains(rt)) return;
   const nextHost = rt && rt.closest ? rt.closest(TOOLTIP_HOST_SEL) : null;
   if (nextHost && (nextHost === host || host.contains(nextHost) || nextHost.contains(host))) return;
@@ -14853,6 +15665,7 @@ function onContentTooltipOut(e) {
 function onContentTooltipMove(e) {
   const el = document.getElementById("itemTooltip");
   if (!el || el.classList.contains("hidden")) return;
+  if (el.classList.contains("item-tooltip--pinned")) return;
   if (e.target.closest(TOOLTIP_HOST_SEL)) positionItemTooltip(e.clientX, e.clientY);
 }
 
@@ -14902,7 +15715,8 @@ function statBarRowLevelEditable(value, max, statTipKey) {
 function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, gearBonus, charPointsPool) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const pts = typeof charPointsPool === "number" ? charPointsPool : player.charPoints;
-  const can = pts > 0;
+  const nextCost = getNextCharPointCostPerBaseStat(value);
+  const can = pts >= nextCost;
   const btn = can
     ? `<button type="button" class="stat-alloc-btn" data-char-up="${escapeAttr(statKey)}">+</button>`
     : `<span class="stat-alloc-empty" aria-hidden="true"></span>`;
@@ -14915,6 +15729,35 @@ function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, ge
     </div>
     ${btn}
   </div>`;
+}
+
+function statOverviewBonusPctRow(label, bonusPoints, statTipKey) {
+  const n = Math.round(Math.max(0, Number(bonusPoints) || 0));
+  const v = `${n}%`;
+  return `<div class="stat-plain-row stat-tip-row" data-stat-tip="${escapeAttr(statTipKey)}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(
+    v
+  )}</strong></div>`;
+}
+
+/** Character sheet: % from primary stats (formulas + per-10 steps) vs equipment-only %, same split style as stat bars. */
+function statOverviewPctRowSplit(label, fromStatsPct, fromGearPct, statTipKey) {
+  const s = roundCombatDisplay(fromStatsPct);
+  const g = roundCombatDisplay(fromGearPct);
+  const numHtml =
+    g === 0
+      ? `<strong>${s}%</strong>`
+      : `<strong class="stat-overview-pct-split stat-bar-num--split"><span class="stat-bar-num-base">${s}%</span><span class="stat-bar-num-from-equip" title="From equipment (including set pieces)">+${
+          g
+        }%</span></strong>`;
+  return `<div class="stat-plain-row stat-tip-row" data-stat-tip="${escapeAttr(statTipKey)}"><span>${escapeHtml(label)}</span>${numHtml}</div>`;
+}
+
+function statOverviewEffectivePctRow(label, effectivePct, statTipKey, extraTitle) {
+  const n = roundCombatDisplay(effectivePct);
+  const title = extraTitle ? ` title="${escapeAttr(extraTitle)}"` : "";
+  return `<div class="stat-plain-row stat-tip-row"${title} data-stat-tip="${escapeAttr(statTipKey)}"><span>${escapeHtml(
+    label
+  )}</span><strong>${n}%</strong></div>`;
 }
 
 function buildEditInventoryOptionsHtml(names) {
@@ -14936,30 +15779,162 @@ function applyPortraitAddItemFilter(host) {
   if (filteredNames.includes(previous)) sel.value = previous;
 }
 
-function buildClassSkillsRowsHtml(activeClass, actor) {
+function buildSkillBarSlotsInnerHtml(actor) {
   const a = actor || player;
-  return activeClass.skills
-    .map((sk) => {
-      const lv = getActorSkillLevel(a, sk.name);
-      const reqLv = getSkillTierMinLevel(sk.tier);
-      const unlocked = lv > 0;
-      const canTier = a.level >= reqLv;
-      const maxed = lv >= 5;
-      const hasPts = (a.skillPoints || 0) > 0;
-      const canSpend = canTier && hasPts && !maxed;
-      const btnLabel = unlocked ? (maxed ? "Max" : "Upgrade") : "Unlock";
-      const disabled = canSpend ? "" : " disabled";
-      const reqTxt = canTier ? "" : ` (req Lv ${reqLv})`;
-      return `<div class="stat-plain-row class-skill-row" data-class-skill-row="${escapeAttr(sk.name)}" data-skill-name="${escapeAttr(sk.name)}">
-        <span class="class-skill-row-label"><img class="class-skill-row-img" src="${escapeAttr(getSkillImage(sk.name))}" alt="" draggable="false" />${escapeHtml(sk.name)} <small>Lv ${lv}/5${escapeHtml(reqTxt)}</small></span>
-        <button type="button" class="btn-secondary class-skill-up-btn" data-class-skill-up="${escapeAttr(sk.name)}"${disabled}>${btnLabel}</button>
-      </div>`;
-    })
-    .join("");
+  ensureActorSkillBar(a);
+  const rows = [0, 6].map((start) => {
+    const cells = [];
+    for (let i = 0; i < 6; i++) {
+      const idx = start + i;
+      const name = a.skillBarSlots[idx];
+      const filled = !!(name && typeof name === "string");
+      const img = filled ? getSkillImage(name) : "";
+      const inner = filled
+        ? `<div class="skill-bar-slot-inner" draggable="true" data-skill-bar-drag="${escapeAttr(name)}"><img class="skill-bar-slot-img" src="${escapeAttr(
+            img
+          )}" alt="" draggable="false" /></div>`
+        : `<span class="skill-bar-slot-empty" aria-hidden="true">+</span>`;
+      const tipAttr = filled ? ` data-skill-name="${escapeAttr(name)}"` : "";
+      const filledCls = filled ? " skill-bar-slot-drop--filled" : "";
+      cells.push(`<div class="skill-bar-slot-drop${filledCls}" data-skill-bar-slot="${idx}"${tipAttr}>${inner}</div>`);
+    }
+    return `<div class="skill-bar-row">${cells.join("")}</div>`;
+  });
+  return rows.join("");
+}
+
+function buildClassSkillsRowsHtml(_activeClass, actor) {
+  const a = actor || player;
+  const baseOrder =
+    typeof UNIFIED_SKILL_ORDER !== "undefined" && UNIFIED_SKILL_ORDER && UNIFIED_SKILL_ORDER.length
+      ? UNIFIED_SKILL_ORDER.slice()
+      : Object.keys(typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG ? SKILL_CATALOG : {});
+  const origIdx = new Map(baseOrder.map((n, i) => [n, i]));
+  const catRef = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG ? SKILL_CATALOG : null;
+  const unlockOf = (name) => {
+    const c = catRef && catRef[name];
+    return c && typeof c.unlock === "number" ? c.unlock : 9999;
+  };
+  baseOrder.sort((x, y) => {
+    const ux = unlockOf(x);
+    const uy = unlockOf(y);
+    if (ux !== uy) return ux - uy;
+    return (origIdx.get(x) || 0) - (origIdx.get(y) || 0);
+  });
+  const basics = [];
+  const rest = [];
+  baseOrder.forEach((skName) => {
+    if (skName === "Basic Physical Attack" || skName === "Basic Magical Attack") basics.push(skName);
+    else rest.push(skName);
+  });
+  const cellHtml = (skName) => {
+    const isBasic = skName === "Basic Physical Attack" || skName === "Basic Magical Attack";
+    const lv = getActorSkillLevel(a, skName);
+    const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && SKILL_CATALOG[skName];
+    const reqLv = cat && typeof cat.unlock === "number" ? cat.unlock : 1;
+    const unlocked = lv > 0 || isBasic;
+    const canTier = a.level >= reqLv;
+    const maxed = isBasic || lv >= 5;
+    const hasPts = (a.skillPoints || 0) > 0;
+    const canSpend = !isBasic && canTier && hasPts && !maxed;
+    const btnLabel = isBasic ? "—" : unlocked ? (maxed ? "Max" : "Upgrade") : "Unlock";
+    const disabled = isBasic || !canSpend ? " disabled" : "";
+    const reqTxt = isBasic ? "" : canTier ? "" : ` (req Lv ${reqLv})`;
+    const lvLine = isBasic ? "" : `<span class="class-skill-cell-lv">Lv ${lv}/5${escapeHtml(reqTxt)}</span>`;
+    const imgDr = unlocked && isCombatCatalogSkillName(skName);
+    const dragCls = imgDr ? " class-skill-drag-source" : "";
+    return `<div class="class-skill-cell class-skill-row" data-class-skill-row="${escapeAttr(skName)}" data-skill-name="${escapeAttr(skName)}">
+      <div class="class-skill-cell-top">
+        <img class="class-skill-row-img${dragCls}" src="${escapeAttr(getSkillImage(skName))}" alt="" data-skill-bar-drag="${escapeAttr(skName)}" draggable="${
+      imgDr ? "true" : "false"
+    }" />
+        <span class="class-skill-cell-title" title="${escapeAttr(skName)}">${escapeHtml(skName)}</span>
+      </div>
+      ${lvLine ? `<div class="class-skill-cell-meta">${lvLine}</div>` : ""}
+      <button type="button" class="btn-secondary class-skill-up-btn" data-class-skill-up="${escapeAttr(skName)}"${disabled}>${btnLabel}</button>
+    </div>`;
+  };
+  const basicsRow =
+    basics.length > 0 ? `<div class="skills-basics-row">${basics.map((n) => cellHtml(n)).join("")}</div>` : "";
+  const grid = `<div class="skills-grid-3col">${rest.map((n) => cellHtml(n)).join("")}</div>`;
+  return `${basicsRow}${grid}`;
+}
+
+function buildSkillsTabInnerHtml(actor, rosterTab) {
+  const rt = rosterTab != null ? String(rosterTab) : "hero";
+  const a = actor || player;
+  const activeClass = getClassDef(a.classId);
+  const classSkillsRows = buildClassSkillsRowsHtml(activeClass, a);
+  const classRoleShort =
+    typeof activeClass.role === "string" && activeClass.role.trim()
+      ? `<div class="class-role-short">${escapeHtml(activeClass.role.trim())}</div>`
+      : "";
+  const tipHost =
+    rt === "hero"
+      ? `data-skills-tooltip-roster="hero"`
+      : `data-skills-tooltip-roster="companion" data-skills-companion-slot="${escapeAttr(rt)}"`;
+  return `<div class="skills-tab-inner" ${tipHost}>
+    <div class="skills-label">Skills pool</div>
+    ${classRoleShort}
+    <div class="stat-plain-row"><span>Skill points</span><strong data-skill-points-value="1">${Math.max(0, Math.floor(a.skillPoints || 0))}</strong></div>
+    <div class="skills-pool-scroll" data-skills-scroll-host="1" data-class-skills-list="1">${classSkillsRows}</div>
+    <div class="skills-bar-subpanel" aria-label="Skill bar">
+      <div class="skills-bar-subpanel-head">Skill bar</div>
+      <div class="skills-bar-host" data-skill-bar-host="1">${buildSkillBarSlotsInnerHtml(a)}</div>
+    </div>
+  </div>`;
+}
+
+function buildSkillsPanelHtml() {
+  ensurePlayerCompanions(player);
+  player.maxHp = computeMaxHp(player);
+  let rosterTab = getCharacterRosterTab();
+  if (rosterTab !== "hero") {
+    const idx = parseInt(rosterTab, 10);
+    if (
+      !Number.isFinite(idx) ||
+      idx < 0 ||
+      idx >= COMPANION_SLOT_COUNT ||
+      !player.companions[idx] ||
+      !player.companions[idx].enabled
+    ) {
+      rosterTab = "hero";
+      characterPanelRosterTab = "hero";
+    }
+  }
+  const actor = rosterTab === "hero" ? player : player.companions[parseInt(rosterTab, 10)];
+  actor.maxHp = computeMaxHp(actor);
+
+  const closePanelBtnHtml = `<button type="button" class="char-panel-close-x" data-close-skills-panel aria-label="Close skills panel">&times;</button>`;
+  const rosterTabsHtml = anyCompanionEnabled()
+    ? `<div class="character-roster-tabs" role="tablist">
+    <button type="button" role="tab" class="char-roster-tab${rosterTab === "hero" ? " active" : ""}" data-roster-tab="hero">Hero</button>${[0, 1, 2]
+        .map((si) => {
+          const c = player.companions[si];
+          if (!c || !c.enabled) return "";
+          const tabId = String(si);
+          return `<button type="button" role="tab" class="char-roster-tab${
+            rosterTab === tabId ? " active" : ""
+          }" data-roster-tab="${si}">${escapeHtml(c.name || `Companion ${si + 1}`)}</button>`;
+        })
+        .join("")}
+    ${closePanelBtnHtml}
+  </div>`
+    : `<div class="character-roster-tabs character-roster-tabs--empty">${closePanelBtnHtml}</div>`;
+
+  const skillsBody = buildSkillsTabInnerHtml(actor, rosterTab);
+  return `<div class="overview-page skills-panel-page" data-overview-roster-tab="${escapeAttr(rosterTab)}">
+    ${rosterTabsHtml}
+    <section class="stats-panel skills-stats-panel" aria-label="Skills">
+      <div class="stats-panel-head">Skills</div>
+      <div class="stats-panel-body">${skillsBody}</div>
+    </section>
+  </div>`;
 }
 
 function buildOverviewHtml() {
   ensurePlayerCompanions(player);
+  if (overviewStatsTab === "skills") overviewStatsTab = "characteristics";
   player.maxHp = computeMaxHp(player);
   let rosterTab = getCharacterRosterTab();
   if (rosterTab !== "hero") {
@@ -15058,7 +16033,6 @@ function buildOverviewHtml() {
     rosterTab
   );
 
-  const dmg = getActorDamageRange(actor);
   const maxLv = getPlayerMaxLevel();
   const xpNeed = actor.level >= maxLv ? 0 : xpToNextLevel(actor.level);
   const xpPct =
@@ -15068,7 +16042,7 @@ function buildOverviewHtml() {
   const hpPct = actor.maxHp > 0 ? (actor.hp / actor.maxHp) * 100 : 0;
 
   const hpRow = `<div class="stat-bar-row stat-tip-row" data-stat-tip="hp">
-    <span class="stat-bar-label">Hit points</span>
+    <span class="stat-bar-label">HP</span>
     <span class="stat-bar-num">${actor.hp} / ${actor.maxHp}</span>
     <div class="stat-bar-track stat-bar-hp"><div class="stat-bar-fill" style="width:${hpPct}%"></div></div>
   </div>`;
@@ -15084,6 +16058,23 @@ function buildOverviewHtml() {
   </div>`;
 
   const equipStatBonuses = sumEquippedBonusStatsFromEquipment(actor.equipment || emptyEquipment());
+  const aStr = totalStrFromActor(actor);
+  const aDex = totalDexFromActor(actor);
+  const aVit = totalVitFromActor(actor);
+  const aInt = totalIntFromActor(actor);
+  const critPctFromStats = formulaDexCritChancePct(aDex);
+  const evaPctFromStats = formulaDexEvasionPct(aDex);
+  const physDmgPctFromStats = formulaStrPhysicalDamageBonusPct(aStr);
+  const magicDmgPctFromStats = formulaIntSkillPowerBonusPct(aInt);
+  const physResPctFromStats = formulaStrPhysicalResistPct(aStr);
+  const magicResPctFromStats = formulaIntMagicResistPct(aInt);
+  const healingPctFromStats = formulaVitHealingReceivedBonusPct(aVit);
+  const accuracyPctFromStats = attribBonusPer10(aDex) + attribBonusPer10(aInt);
+  const srPctRaw =
+    statusResistPctFromStrAndVit(aStr, aVit) + (equipStatBonuses.statusResist || 0);
+  const srPctEffective = clampNumber(0, 90, srPctRaw);
+  const srPctTitle =
+    srPctRaw > 90 ? "Uncapped total would exceed 90%; combat applies a maximum of 90% status resist." : "";
   const staminaPoolMax = getActorCombatMaxStamina(actor);
 
   const characteristicsTabHtml = `
@@ -15093,8 +16084,8 @@ function buildOverviewHtml() {
     ${charPointsRow}
     ${statBarRowWithSpend("Strength", actor.str, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.str), "str", "str", "str", equipStatBonuses.str, actor.charPoints)}
     ${statBarRowWithSpend("Dexterity", actor.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.dex), "dex", "dex", "dex", equipStatBonuses.dex, actor.charPoints)}
-    ${statBarRowWithSpend("Vitality", actor.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.vit), "vit", "vit", "vit", equipStatBonuses.vit, actor.charPoints)}
     ${statBarRowWithSpend("Intelligence", actor.int, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.int), "int", "int", "int", equipStatBonuses.int, actor.charPoints)}
+    ${statBarRowWithSpend("Vitality", actor.vit, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.vit), "vit", "vit", "vit", equipStatBonuses.vit, actor.charPoints)}
     ${statBarRow(
       "Stamina",
       getPlayerCombatStaminaBaseMax(),
@@ -15103,21 +16094,15 @@ function buildOverviewHtml() {
       "stamina",
       equipStatBonuses.stamina
     )}
-    <div class="stat-plain-row stat-tip-row" data-stat-tip="armor">
-      <span>Armor</span><strong>${getActorArmorDefense(actor)}</strong>
-    </div>
-    <div class="stat-plain-row stat-tip-row" data-stat-tip="damage">
-      <span>Damage</span><strong>${dmg.min} – ${dmg.max}</strong>
-    </div>`;
-
-  const activeClass = getClassDef(actor.classId);
-  const classSkillsRows = buildClassSkillsRowsHtml(activeClass, actor);
-  const skillsTabHtml = `<div class="skills-tab-inner">
-    <div class="skills-label">${escapeHtml(activeClass.label)} class</div>
-    <div class="stat-plain-row"><span>Skill points</span><strong data-skill-points-value="1">${Math.max(0, Math.floor(actor.skillPoints || 0))}</strong></div>
-    <div class="item-tip-desc">${escapeHtml(activeClass.passive)}</div>
-    <div class="class-skills-list" data-skills-scroll-host="1" data-class-skills-list="1">${classSkillsRows}</div>
-  </div>`;
+    ${statOverviewPctRowSplit("Phys dmg %", physDmgPctFromStats, equipStatBonuses.physDamage, "physDmgPct")}
+    ${statOverviewPctRowSplit("Magic dmg %", magicDmgPctFromStats, equipStatBonuses.skillPower, "magicDmgPct")}
+    ${statOverviewPctRowSplit("Phys resist %", physResPctFromStats, equipStatBonuses.physicalResist, "physResistPct")}
+    ${statOverviewPctRowSplit("Magic resist %", magicResPctFromStats, equipStatBonuses.magicResist, "magicResistPct")}
+    ${statOverviewPctRowSplit("Critical %", critPctFromStats, equipStatBonuses.crit, "critPct")}
+    ${statOverviewPctRowSplit("Evasion %", evaPctFromStats, equipStatBonuses.evasion, "evasionPct")}
+    ${statOverviewPctRowSplit("Accuracy %", accuracyPctFromStats, equipStatBonuses.accuracy, "accuracyPct")}
+    ${statOverviewPctRowSplit("Healing %", healingPctFromStats, equipStatBonuses.healingReceived, "healingPct")}
+    ${statOverviewEffectivePctRow("Status Resist %", srPctEffective, "statusResistPct", srPctTitle)}`;
 
   const profDefs = getProfessionDefs();
   const selectedProfIds = normalizeActorProfessions(actor);
@@ -15144,7 +16129,6 @@ function buildOverviewHtml() {
 
   let statsBodyHtml = "";
   if (overviewStatsTab === "characteristics") statsBodyHtml = characteristicsTabHtml;
-  else if (overviewStatsTab === "skills") statsBodyHtml = skillsTabHtml;
   else statsBodyHtml = professionsTabHtml;
 
   return `
@@ -15172,12 +16156,11 @@ function buildOverviewHtml() {
             </div>
           </div>
         </section>
-        <section class="panel-cell panel-stats" aria-label="Characteristics and skills">
+        <section class="panel-cell panel-stats" aria-label="Characteristics and professions">
           <div class="stats-panel">
             <div class="stats-panel-head">Character</div>
             <div class="stats-tabs">
               <button type="button" class="stats-tab ${overviewStatsTab === "characteristics" ? "active" : ""}" data-stats-tab="characteristics">Characteristics</button>
-              <button type="button" class="stats-tab ${overviewStatsTab === "skills" ? "active" : ""}" data-stats-tab="skills">Skills</button>
               <button type="button" class="stats-tab ${overviewStatsTab === "professions" ? "active" : ""}" data-stats-tab="professions">Professions</button>
             </div>
             <div class="stats-panel-body">${statsBodyHtml}</div>
@@ -15222,6 +16205,10 @@ function renderCharacterPanelContent() {
 }
 
 function getActiveOverviewRoot() {
+  if (isSkillsPanelOpen()) {
+    const host = document.getElementById("skillsPanelContent");
+    if (host) return host;
+  }
   if (isCharacterPanelOpen()) {
     const host = document.getElementById("characterPanelContent");
     if (host) return host;
@@ -15230,22 +16217,31 @@ function getActiveOverviewRoot() {
 }
 
 function getOverviewSkillsScrollHost() {
+  if (isSkillsPanelOpen()) {
+    const sk = document.getElementById("skillsPanelContent");
+    if (sk) {
+      const inner = sk.querySelector("[data-skills-scroll-host]");
+      if (inner) return inner;
+    }
+  }
   const root = getActiveOverviewRoot();
   if (!root) return null;
   return root.querySelector("[data-skills-scroll-host]") || root.querySelector(".panel-stats .stats-panel-body");
 }
 
-function refreshOverviewSkillsSubpanelInPlace() {
-  if (overviewStatsTab !== "skills") return false;
-  const root = getActiveOverviewRoot();
+function refreshSkillsPanelSubpanelInPlace() {
+  if (!isSkillsPanelOpen()) return false;
+  const root = document.getElementById("skillsPanelContent");
   if (!root) return false;
   const list = root.querySelector("[data-class-skills-list]");
+  const barHost = root.querySelector("[data-skill-bar-host]");
   const pts = root.querySelector("[data-skill-points-value]");
   if (!list || !pts) return false;
   const actor = getActiveRosterActor();
   const activeClass = getClassDef(actor.classId);
   pts.textContent = String(Math.max(0, Math.floor(actor.skillPoints || 0)));
   list.innerHTML = buildClassSkillsRowsHtml(activeClass, actor);
+  if (barHost) barHost.innerHTML = buildSkillBarSlotsInnerHtml(actor);
   return true;
 }
 
@@ -15256,7 +16252,7 @@ function captureOverviewSkillsScroll() {
 }
 
 function restoreOverviewSkillsScroll() {
-  if (overviewStatsTab !== "skills") return;
+  if (!isSkillsPanelOpen()) return;
   if (overviewSkillsScrollTop <= 0 && !overviewSkillsScrollAnchor) return;
   const top = overviewSkillsScrollTop;
   requestAnimationFrame(() => {
@@ -15280,6 +16276,7 @@ function restoreOverviewSkillsScroll() {
 
 function openCharacterPanel() {
   closeMenuPanel();
+  closeSkillsPanel();
   const modal = document.getElementById("characterPanelModal");
   if (!modal) return;
   modal.classList.remove("hidden");
@@ -15295,6 +16292,41 @@ function closeCharacterPanel() {
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   const host = document.getElementById("characterPanelContent");
+  if (host) host.innerHTML = "";
+  renderBottomHud();
+}
+
+function isSkillsPanelOpen() {
+  const modal = document.getElementById("skillsPanelModal");
+  return !!(modal && !modal.classList.contains("hidden"));
+}
+
+function renderSkillsPanelContent() {
+  const host = document.getElementById("skillsPanelContent");
+  if (!host || !isSkillsPanelOpen()) return;
+  captureOverviewSkillsScroll();
+  host.innerHTML = buildSkillsPanelHtml();
+  restoreOverviewSkillsScroll();
+}
+
+function openSkillsPanel() {
+  closeMenuPanel();
+  closeCharacterPanel();
+  const modal = document.getElementById("skillsPanelModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  renderSkillsPanelContent();
+  renderBottomHud();
+}
+
+function closeSkillsPanel() {
+  hideItemTooltip();
+  const modal = document.getElementById("skillsPanelModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  const host = document.getElementById("skillsPanelContent");
   if (host) host.innerHTML = "";
   renderBottomHud();
 }
@@ -15773,6 +16805,7 @@ function openMenuPanel(kind) {
   const meta = getMenuPanelMeta(kind);
   if (!meta) return;
   closeCharacterPanel();
+  closeSkillsPanel();
   const modal = document.getElementById("menuPanelModal");
   const title = document.getElementById("menuPanelTitle");
   if (!modal) return;
@@ -16077,6 +17110,7 @@ function tickOutOfCombatHpRegen() {
   save();
   renderBottomHud();
   if (isCharacterPanelOpen()) renderCharacterPanelContent();
+  if (isSkillsPanelOpen()) renderSkillsPanelContent();
   if (currentPage === "overview") renderOverview();
 }
 
@@ -16512,6 +17546,11 @@ function initWorldMapModal() {
 }
 
 function onDocumentKeydown(e) {
+  if (e.key === "Escape" && isSkillsPanelOpen()) {
+    e.preventDefault();
+    closeSkillsPanel();
+    return;
+  }
   if (e.key === "Escape" && isCharacterPanelOpen()) {
     e.preventDefault();
     closeCharacterPanel();
@@ -16580,6 +17619,13 @@ function onDocumentKeydown(e) {
     toggleMenuPanel("atlas");
     return;
   }
+  if (k === "s" && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    if (isWorldMapModalOpen()) return;
+    if (isSkillsPanelOpen()) closeSkillsPanel();
+    else openSkillsPanel();
+    return;
+  }
   if (k === "r" && e.shiftKey) {
     e.preventDefault();
     reloadMonsters({ resetDefeated: false });
@@ -16593,7 +17639,7 @@ function onDocumentKeydown(e) {
     return;
   }
   if (k !== "m") return;
-  if (isCharacterPanelOpen() || isMenuPanelOpen()) return;
+  if (isCharacterPanelOpen() || isSkillsPanelOpen() || isMenuPanelOpen()) return;
   e.preventDefault();
   if (isWorldMapModalOpen()) closeWorldMapModal();
   else openWorldMapModal();
@@ -16904,6 +17950,8 @@ function renderBottomHud() {
 
   const characterBtn = document.getElementById("characterPanelBtn");
   if (characterBtn) characterBtn.classList.toggle("is-active", isCharacterPanelOpen());
+  const skillsBtn = document.getElementById("skillsPanelBtn");
+  if (skillsBtn) skillsBtn.classList.toggle("is-active", isSkillsPanelOpen());
   const arenaBtn = document.getElementById("arenaPanelBtn");
   if (arenaBtn) arenaBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "arena");
   const allianceBtn = document.getElementById("alliancePanelBtn");
@@ -16947,6 +17995,7 @@ function render() {
   }
   renderBottomHud();
   if (isCharacterPanelOpen()) renderCharacterPanelContent();
+  if (isSkillsPanelOpen()) renderSkillsPanelContent();
   if (isMenuPanelOpen()) renderMenuPanelContent();
 }
 
@@ -16968,7 +18017,26 @@ function onDragStart(e) {
       e.dataTransfer.effectAllowed = "move";
     }
   } else {
-    dragPayload = null;
+    const barDrag = e.target.closest("[data-skill-bar-drag]");
+    if (barDrag) {
+      const skName = barDrag.getAttribute("data-skill-bar-drag");
+      const slotHost = barDrag.closest(".skill-bar-slot-drop[data-skill-bar-slot]");
+      if (slotHost && slotHost.dataset.skillBarSlot != null && skName) {
+        dragPayload = {
+          kind: "skillBarSlot",
+          slotIndex: parseInt(slotHost.dataset.skillBarSlot, 10),
+          skillName: skName
+        };
+        e.dataTransfer.effectAllowed = "move";
+      } else if (barDrag.classList.contains("class-skill-drag-source") && skName) {
+        dragPayload = { kind: "skillBarCatalog", skillName: skName };
+        e.dataTransfer.effectAllowed = "copy";
+      } else {
+        dragPayload = null;
+      }
+    } else {
+      dragPayload = null;
+    }
   }
 }
 
@@ -16986,12 +18054,50 @@ function promptDiscardDraggedInventoryItem(itemName) {
 function onDragOver(e) {
   const drop = e.target.closest(".slot-drop");
   const inv = e.target.closest(".inv-grid") || e.target.closest(".inv-grid-scroll");
-  if (drop || inv) e.preventDefault();
+  const skBarSlot = e.target.closest(".skill-bar-slot-drop");
+  const skPool =
+    dragPayload && (dragPayload.kind === "skillBarSlot" || dragPayload.kind === "skillBarCatalog")
+      ? e.target.closest(".skills-pool-scroll")
+      : null;
+  if (drop || inv || skBarSlot || skPool) e.preventDefault();
 }
 
 function onDrop(e) {
   e.preventDefault();
   if (!dragPayload) return;
+
+  const skSlot = e.target.closest(".skill-bar-slot-drop");
+  if (skSlot && (dragPayload.kind === "skillBarCatalog" || dragPayload.kind === "skillBarSlot")) {
+    const actor = resolveSkillBarTargetActorFromEl(skSlot);
+    const ti = parseInt(skSlot.getAttribute("data-skill-bar-slot") || "", 10);
+    if (actor && Number.isFinite(ti)) {
+      if (dragPayload.kind === "skillBarCatalog") {
+        applySkillBarDropFromCatalog(actor, dragPayload.skillName, ti);
+      } else if (dragPayload.kind === "skillBarSlot") {
+        const fi = dragPayload.slotIndex;
+        if (Number.isFinite(fi) && fi !== ti) applySkillBarSlotSwap(actor, fi, ti);
+      }
+      save();
+      if (isSkillsPanelOpen()) refreshSkillsPanelSubpanelInPlace();
+      else render();
+    }
+    dragPayload = null;
+    return;
+  }
+
+  const skPoolDrop = e.target.closest(".skills-pool-scroll");
+  if (skPoolDrop && dragPayload.kind === "skillBarSlot") {
+    const actor = resolveSkillBarTargetActorFromEl(skPoolDrop);
+    const fi = dragPayload.slotIndex;
+    if (actor && Number.isFinite(fi)) {
+      applySkillBarClearSlot(actor, fi);
+      save();
+      if (isSkillsPanelOpen()) refreshSkillsPanelSubpanelInPlace();
+      else render();
+    }
+    dragPayload = null;
+    return;
+  }
 
   const slotEl = e.target.closest(".slot-drop");
   if (slotEl && dragPayload.kind === "inventory") {
@@ -17060,6 +18166,11 @@ function onContentClick(e) {
   if (e.target.closest("[data-close-character-panel]")) {
     e.preventDefault();
     closeCharacterPanel();
+    return;
+  }
+  if (e.target.closest("[data-close-skills-panel]")) {
+    e.preventDefault();
+    closeSkillsPanel();
     return;
   }
   const rosterTabBtn = e.target.closest("[data-roster-tab]");
@@ -17171,7 +18282,9 @@ function onContentClick(e) {
   }
   const stTab = e.target.closest("[data-stats-tab]");
   if (stTab && stTab.dataset.statsTab) {
-    overviewStatsTab = stTab.dataset.statsTab;
+    const next = stTab.dataset.statsTab;
+    if (next !== "characteristics" && next !== "professions") return;
+    overviewStatsTab = next;
     render();
     return;
   }
@@ -17717,6 +18830,12 @@ function initUi() {
       if (e.target === characterPanelModal) closeCharacterPanel();
     });
   }
+  const skillsPanelModal = document.getElementById("skillsPanelModal");
+  if (skillsPanelModal) {
+    skillsPanelModal.addEventListener("click", (e) => {
+      if (e.target === skillsPanelModal) closeSkillsPanel();
+    });
+  }
   if (menuPanelModal) {
     menuPanelModal.addEventListener("click", (e) => {
       if (e.target === menuPanelModal) closeMenuPanel();
@@ -17754,6 +18873,19 @@ function initUi() {
     characterPanelContent.addEventListener("mouseout", onContentTooltipOut);
     characterPanelContent.addEventListener("mousemove", onContentTooltipMove);
     characterPanelContent.addEventListener("input", onContentInput);
+  }
+  const skillsPanelContent = document.getElementById("skillsPanelContent");
+  if (skillsPanelContent) {
+    skillsPanelContent.addEventListener("click", onSkillsPanelSkillRowClick);
+    skillsPanelContent.addEventListener("click", onContentClick);
+    skillsPanelContent.addEventListener("dragstart", onDragStart);
+    skillsPanelContent.addEventListener("dragend", onDragEnd);
+    skillsPanelContent.addEventListener("dragover", onDragOver);
+    skillsPanelContent.addEventListener("drop", onDrop);
+    skillsPanelContent.addEventListener("mouseover", onContentTooltipOver);
+    skillsPanelContent.addEventListener("mouseout", onContentTooltipOut);
+    skillsPanelContent.addEventListener("mousemove", onContentTooltipMove);
+    skillsPanelContent.addEventListener("input", onContentInput);
   }
   const menuPanelContent = document.getElementById("menuPanelContent");
   if (menuPanelContent) {
