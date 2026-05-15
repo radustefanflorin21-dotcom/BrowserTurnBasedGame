@@ -18,7 +18,8 @@ let inventoryTab = "equipment";
 let overviewStatsTab = "characteristics";
 let overviewSkillsScrollTop = 0;
 let overviewSkillsScrollAnchor = null;
-let activeCraftingProfessionId = null;
+/** Active crafting tab: `hero|weapon_smith` or `c0|armor_smith` (companion slot + profession). */
+let activeCraftingTabKey = null;
 let atlasSearchQuery = "";
 let atlasSelectedRegionName = null;
 let atlasSelectedMonsterName = null;
@@ -203,9 +204,9 @@ function ensurePlayerCompanions(p) {
       c.portraitBaseLayout = getDefaultPortraitBaseLayout();
     }
     if (!c.allocPoolsBindToLevelV2) {
-      recomputeAllocPoolsFromLevel(c);
       c.allocPoolsBindToLevelV2 = true;
     }
+    recomputeAllocPoolsFromLevel(c);
     c.maxHp = computeMaxHp(c);
     if (typeof c.hp !== "number" || !Number.isFinite(c.hp)) c.hp = c.maxHp;
     c.hp = Math.min(c.maxHp, Math.max(1, c.hp));
@@ -320,9 +321,22 @@ function toggleActorProfession(actor, id) {
   return true;
 }
 
+/** Total skill points spent on class skills (rank L costs L points: unlock + each upgrade). */
+function totalSkillPointsSpentOnActor(actor) {
+  if (!actor || !actor.classSkillLevels || typeof actor.classSkillLevels !== "object") return 0;
+  let spent = 0;
+  Object.values(actor.classSkillLevels).forEach((slv) => {
+    if (typeof slv === "number" && slv > 0) {
+      spent += Math.max(0, Math.min(5, Math.floor(slv)));
+    }
+  });
+  return spent;
+}
+
 function levelUpActor(actor) {
-  if (!actor) return;
+  if (!actor) return 0;
   const maxLv = getPlayerMaxLevel();
+  const startLevel = typeof actor.level === "number" && actor.level >= 1 ? Math.floor(actor.level) : 1;
   while (actor.level < maxLv) {
     const need = xpToNextLevel(actor.level);
     if (need <= 0 || actor.xp < need) break;
@@ -333,21 +347,16 @@ function levelUpActor(actor) {
     actor.hp = actor.maxHp;
   }
   recomputeAllocPoolsFromLevel(actor);
+  return Math.max(0, (typeof actor.level === "number" ? Math.floor(actor.level) : startLevel) - startLevel);
 }
 
-/** Characteristic pool = level×5 minus stat spend curve; skill pool = level minus upgrades past free rank 1. */
+/** Characteristic pool = level×5 minus stat spend curve; skill pool = level minus points invested in class skills. */
 function recomputeAllocPoolsFromLevel(actor) {
   if (!actor || typeof actor !== "object") return;
   const lv = typeof actor.level === "number" && actor.level >= 1 ? Math.floor(actor.level) : 1;
   const earnedChars = actor.allocPoolsCharV2 === true ? Math.max(0, (lv - 1) * 5) : lv * 5;
   actor.charPoints = Math.max(0, earnedChars - totalCharPointsAllocatedOnActor(actor));
-  let spentSkill = 0;
-  if (actor.classSkillLevels && typeof actor.classSkillLevels === "object") {
-    Object.values(actor.classSkillLevels).forEach((slv) => {
-      if (typeof slv === "number" && slv > 0) spentSkill += Math.max(0, Math.min(5, Math.floor(slv)) - 1);
-    });
-  }
-  actor.skillPoints = Math.max(0, lv - spentSkill);
+  actor.skillPoints = Math.max(0, lv - totalSkillPointsSpentOnActor(actor));
 }
 
 /**
@@ -405,20 +414,63 @@ function getActorCombatMaxStamina(actor) {
 /** Award per-member victory XP (hero + in-fight companions). */
 function awardVictoryXpToParty(memberRewards) {
   if (!Array.isArray(memberRewards) || !memberRewards.length) return;
+  /** @type {Array<{ name: string, newLevel: number, levelsGained: number }>} */
+  const leveledUp = [];
   memberRewards.forEach((m) => {
     if (!m || !(m.xp > 0)) return;
     if (m.kind === "hero") {
       player.xp += m.xp;
-      levelUp();
+      const gained = levelUp();
+      if (gained > 0) {
+        leveledUp.push({
+          name: typeof player.name === "string" && player.name.trim() ? player.name.trim() : "Hero",
+          newLevel: player.level,
+          levelsGained: gained
+        });
+      }
       return;
     }
     if (m.kind === "companion" && typeof m.companionSlotIndex === "number") {
       const c = player.companions && player.companions[m.companionSlotIndex];
       if (!c || c === player || !c.enabled) return;
       c.xp += m.xp;
-      levelUpActor(c);
+      const gained = levelUpActor(c);
+      if (gained > 0) {
+        leveledUp.push({
+          name: typeof c.name === "string" && c.name.trim() ? c.name.trim() : `Companion ${m.companionSlotIndex + 1}`,
+          newLevel: c.level,
+          levelsGained: gained
+        });
+      }
     }
   });
+  if (leveledUp.length) showLevelUpCelebrationModal(leveledUp);
+}
+
+function showLevelUpCelebrationModal(entries) {
+  if (!Array.isArray(entries) || !entries.length) return;
+  const rows = entries
+    .map((e) => {
+      const name = escapeHtml(e.name || "Fighter");
+      const lv = typeof e.newLevel === "number" ? Math.floor(e.newLevel) : 1;
+      const n = typeof e.levelsGained === "number" && e.levelsGained > 1 ? e.levelsGained : 1;
+      const jump =
+        n > 1
+          ? ` gained ${n} levels and is now level ${lv}!`
+          : ` reached level ${lv}!`;
+      return `<p class="level-up-row"><strong>${name}</strong>${escapeHtml(jump)}</p>`;
+    })
+    .join("");
+  showModalHtml(
+    `<div class="level-up-modal">
+      <h3 class="level-up-modal-title">Level up!</h3>
+      <div class="level-up-modal-body">${rows}</div>
+      <div class="npc-dialog-actions level-up-modal-actions">
+        <button type="button" class="btn-primary" onclick="closeModal()">Close</button>
+      </div>
+    </div>`,
+    { npcBubble: true }
+  );
 }
 
 function syncCompanionHpFromCombatParty(st) {
@@ -457,17 +509,17 @@ function getPlayerMaxLevel() {
 
 /**
  * XP required to advance from `level` to `level + 1`. Returns 0 at or above max level.
- * Default curve: round(120 + 28L + 5.2L² + 0.13L³).
+ * Default curve: max(1, round(250 + 55L + 10L² + 0.35L³)).
  */
 function xpToNextLevel(level) {
   const lv = Math.floor(typeof level === "number" && level > 0 ? level : 1);
   const maxLv = getPlayerMaxLevel();
   if (lv >= maxLv) return 0;
   const c = getLevelingConfig();
-  const a = typeof c.xpConst === "number" && Number.isFinite(c.xpConst) ? c.xpConst : 120;
-  const lin = typeof c.xpLinear === "number" && Number.isFinite(c.xpLinear) ? c.xpLinear : 28;
-  const sq = typeof c.xpSquare === "number" && Number.isFinite(c.xpSquare) ? c.xpSquare : 5.2;
-  const cub = typeof c.xpCubic === "number" && Number.isFinite(c.xpCubic) ? c.xpCubic : 0.13;
+  const a = typeof c.xpConst === "number" && Number.isFinite(c.xpConst) ? c.xpConst : 250;
+  const lin = typeof c.xpLinear === "number" && Number.isFinite(c.xpLinear) ? c.xpLinear : 55;
+  const sq = typeof c.xpSquare === "number" && Number.isFinite(c.xpSquare) ? c.xpSquare : 10;
+  const cub = typeof c.xpCubic === "number" && Number.isFinite(c.xpCubic) ? c.xpCubic : 0.35;
   return Math.max(1, Math.round(a + lv * lin + lv * lv * sq + lv * lv * lv * cub));
 }
 
@@ -860,7 +912,7 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
   }
   if (cur >= 5) return false;
   target.classSkillLevels[skillName] = cur + 1;
-  target.skillPoints -= 1;
+  recomputeAllocPoolsFromLevel(target);
   syncPlayerClassSkillList(target);
   save();
   const inPlace = isSkillsPanelOpen() ? refreshSkillsPanelSubpanelInPlace() : false;
@@ -1208,9 +1260,9 @@ function migratePlayer(p) {
     p.charPointsRetroDone = true;
   }
   if (!p.allocPoolsBindToLevelV2) {
-    recomputeAllocPoolsFromLevel(p);
     p.allocPoolsBindToLevelV2 = true;
   }
+  recomputeAllocPoolsFromLevel(p);
   p.maxHp = computeMaxHp(p);
   if (typeof p.hp !== "number" || p.hp <= 0) p.hp = p.maxHp;
   p.hp = Math.min(p.hp, p.maxHp);
@@ -4119,6 +4171,7 @@ function tickEffectsAtStartOfPlayerTurn(st) {
     const d = Math.max(1, Math.floor(s.playerBurn.dmg * (1 - dotRed)));
     st.playerHp -= d;
     appendFightLog(`Burn deals ${d} damage to you.`);
+    if (heroMember) playCombatCardStatusEffect({ targetSide: "ally", targetUid: heroMember.uid, effectType: "burn", damage: d });
     s.playerBurn.turns -= 1;
     if (s.playerBurn.turns <= 0) s.playerBurn = null;
   }
@@ -4196,6 +4249,7 @@ function tickPlayerTurnEndBuffs(st) {
       f.hp = Math.max(0, f.hp - d);
       f.combat.burnTurns -= 1;
       appendFightLog(`${f.name} takes ${d} burn damage.`);
+      playCombatCardStatusEffect({ targetSide: "foe", targetUid: f.uid, effectType: "burn", damage: d });
     }
     if (typeof f.combat.bleedTurns === "number" && f.combat.bleedTurns > 0 && (f.combat.bleedDamage || 0) > 0) {
       const d = Math.max(1, Math.floor(f.combat.bleedDamage));
@@ -11922,11 +11976,15 @@ function getVictoryXpParticipantLevelsFromParty(party) {
   return levels;
 }
 
-/** Individual penalty from participant level vs average defeated enemy level. */
+/**
+ * XP multiplier from how far the fighter's level is from average enemy level (either direction).
+ * Uses avgEnemyLevel / playerLevel; when enemies are higher-level, inverts so the same tier table applies.
+ */
 function getPlayerLevelPenalty(playerLevel, averageEnemyLevel) {
   const pl = Math.max(1, Math.floor(Number(playerLevel) || 1));
   const avg = Math.max(1, Number(averageEnemyLevel) || 1);
-  const ratio = pl / avg;
+  let ratio = avg / pl;
+  if (ratio > 1) ratio = 1 / ratio;
   if (ratio >= 0.85) return 1;
   if (ratio >= 0.7) return 0.9;
   if (ratio >= 0.5) return 0.75;
@@ -11956,7 +12014,7 @@ function sumVictoryMonsterXpFromFoes(foes) {
 }
 
 /**
- * Per-participant victory XP (personal level penalty). See `GAME_CONFIG.victoryXp`.
+ * Per-participant victory XP: each member earns the full kill total, scaled only by their level vs average enemy level.
  * @returns {Array<{ key: string, kind: string, name: string, level: number, xp: number, companionSlotIndex?: number }>}
  */
 function computeVictoryXpByMember(foes, party) {
@@ -11964,16 +12022,11 @@ function computeVictoryXpByMember(foes, party) {
   if (!memberRows.length) return [];
 
   const { totalMonsterXP, totalMonsterLevels, defeatedCount } = sumVictoryMonsterXpFromFoes(foes);
-  const partySize = memberRows.length;
-  const totalPlayerLevels = memberRows.reduce((s, row) => s + (row.level || 1), 0) || 1;
   const averageEnemyLevel = defeatedCount > 0 ? totalMonsterLevels / defeatedCount : 1;
-  const baseShare = totalMonsterXP / partySize;
-  const partyMult = getPartyXpMultiplier(partySize);
-  const partyBalance = getLevelBalanceMultiplier(totalMonsterLevels, totalPlayerLevels);
 
   return memberRows.map((row) => {
     const penalty = getPlayerLevelPenalty(row.level, averageEnemyLevel);
-    const xp = Math.max(1, Math.round(baseShare * partyMult * partyBalance * penalty));
+    const xp = Math.max(1, Math.round(totalMonsterXP * penalty));
     return { ...row, xp };
   });
 }
@@ -12353,6 +12406,65 @@ function ensureCombatTarget() {
   }
 }
 
+/** @returns {'enemy'|'ally'|'party'|'self'} */
+function getFightSkillTargetMode(skillName) {
+  if (!skillName || typeof SKILL_CATALOG === "undefined") return "enemy";
+  const def = SKILL_CATALOG[skillName];
+  if (!def || typeof def.pattern !== "string") return "enemy";
+  const p = def.pattern;
+  if (p === "heal_ally" || p === "ward_shield" || p === "encourage" || p === "regrowth" || p === "cleanse" || p === "guard_ally") {
+    return "ally";
+  }
+  if (p === "heal_all" || p === "sanctuary_party" || p === "rev_pulse") return "party";
+  if (
+    p === "brace" ||
+    p === "flow_step" ||
+    p === "smoke_step" ||
+    p === "overload" ||
+    p === "spell_preparation" ||
+    p === "blood_price"
+  ) {
+    return "self";
+  }
+  return "enemy";
+}
+
+function ensureCombatAllyTarget(st) {
+  if (!st || !Array.isArray(st.party)) return;
+  const living = st.party.filter((m) => m && m.hp > 0);
+  if (!living.length) {
+    st.selectedAllyUid = null;
+    return;
+  }
+  const sel = st.selectedAllyUid;
+  if (sel == null || !living.some((m) => m.uid === sel)) {
+    const active = living.find((m) => m.uid === st.activePartyUid);
+    st.selectedAllyUid = active ? active.uid : living[0].uid;
+  }
+}
+
+function getSelectedAllyMember(st) {
+  if (!st) return null;
+  ensureCombatAllyTarget(st);
+  return getPartyMemberByUid(st, st.selectedAllyUid);
+}
+
+function updateFightAllySelection() {
+  const st = combatState;
+  if (!st) return;
+  const hud = document.getElementById("fightHud");
+  if (!hud) return;
+  ensureCombatAllyTarget(st);
+  hud.querySelectorAll("[data-party-member]").forEach((card) => {
+    const uid = parseInt(card.getAttribute("data-party-member"), 10);
+    const m = (st.party || []).find((x) => x && x.uid === uid);
+    const dead = !m || m.hp <= 0;
+    const targeted = !dead && st.selectedAllyUid === uid;
+    card.classList.toggle("fight-ally-card--targeted", targeted);
+    card.setAttribute("aria-selected", targeted ? "true" : "false");
+  });
+}
+
 function clearPlayerTurnTimer() {
   if (playerTurnTimerTick) {
     clearInterval(playerTurnTimerTick);
@@ -12460,6 +12572,7 @@ function updateFightTargetSelection() {
   const hud = document.getElementById("fightHud");
   if (!hud) return;
   ensureCombatTarget();
+  updateFightAllySelection();
   hud.querySelectorAll("[data-fight-target]").forEach((card) => {
     const uid = parseInt(card.getAttribute("data-fight-target"), 10);
     const foe = st.foes.find((f) => f.uid === uid);
@@ -12508,8 +12621,44 @@ const COMBAT_HIT_UI_DELAY_MS = 1150;
 
 function normalizeFightEffectType(t) {
   const v = String(t || "physical").toLowerCase();
-  if (v === "magic" || v === "heal" || v === "bleed" || v === "poison") return v;
+  if (v === "magic" || v === "heal" || v === "bleed" || v === "poison" || v === "burn" || v === "stun") return v;
   return "physical";
+}
+
+/** Persistent combat-card auras while poison / burn / stun is active. */
+function getCombatStatusAuraTypesForAlly(member, st) {
+  if (!member || member.kind !== "hero" || !st || !st.status) return [];
+  const s = st.status;
+  const auras = [];
+  if (s.playerPoison && s.playerPoison.turns > 0) auras.push("poison");
+  if (s.playerBurn && s.playerBurn.turns > 0) auras.push("burn");
+  if ((s.playerStunTurns || 0) > 0) auras.push("stun");
+  return auras;
+}
+
+function getCombatStatusAuraTypesForFoe(foe) {
+  if (!foe || !foe.combat) return [];
+  const c = foe.combat;
+  const auras = [];
+  if ((c.poisonTurns || 0) > 0) auras.push("poison");
+  if ((c.burnTurns || 0) > 0) auras.push("burn");
+  if ((c.staggerLockedTurns || 0) > 0) auras.push("stun");
+  return auras;
+}
+
+function buildFightCardStatusAuraHtml(auraTypes) {
+  if (!Array.isArray(auraTypes) || !auraTypes.length) return "";
+  const imgs = auraTypes
+    .map((t) => {
+      const type = normalizeFightEffectType(t);
+      if (type !== "poison" && type !== "burn" && type !== "stun") return "";
+      const src = escapeAttr(getCombatFxImagePath(type));
+      return `<img class="fight-card-status-aura fight-card-status-aura--${type}" src="${src}" alt="" draggable="false" />`;
+    })
+    .filter(Boolean)
+    .join("");
+  if (!imgs) return "";
+  return `<div class="fight-card-status-auras" aria-hidden="true">${imgs}</div>`;
 }
 
 function getCombatFxImagePath(effectType) {
@@ -12815,14 +12964,17 @@ function renderTurnBattle() {
     .forEach((m) => {
       const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
       const isActive = st.phase === "player" && st.activePartyUid === m.uid && !m.acted;
-      const hasActed = st.phase === "player" && m.acted;
+      const hasActed = st.phase === "player" && !!m.acted;
+      const isTargeted = st.phase === "player" && st.selectedAllyUid === m.uid && m.hp > 0;
+      const auraTypes = getCombatStatusAuraTypesForAlly(m, st);
+      const statusAuras = buildFightCardStatusAuraHtml(auraTypes);
       let portraitHtml;
       if (m.kind === "hero") {
         portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
           getHeroImageForState(getCombatHeroVisualState()),
           getPortraitBaseLayout(),
           ""
-        )}</div>`;
+        )}${statusAuras}</div>`;
       } else if (
         m.kind === "companion" &&
         typeof m.companionSlotIndex === "number" &&
@@ -12837,18 +12989,20 @@ function renderTurnBattle() {
           comp.equipment || emptyEquipment(),
           comp,
           String(m.companionSlotIndex)
-        )}</div>`;
+        )}${statusAuras}</div>`;
       } else {
-        portraitHtml = `<img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />`;
+        portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally"><img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />${statusAuras}</div>`;
       }
       const cardCls = [
         "fight-ally-card",
         isActive ? "fight-ally-card--active" : "",
-        hasActed ? "fight-ally-card--acted" : ""
+        hasActed ? "fight-ally-card--acted" : "",
+        isTargeted ? "fight-ally-card--targeted" : "",
+        ...auraTypes.map((t) => `fight-card--status-${t}`)
       ]
         .filter(Boolean)
         .join(" ");
-      const clickable = st.phase === "player" && !m.acted && m.hp > 0;
+      const clickable = st.phase === "player" && m.hp > 0;
       const roleAttrs = clickable ? ' role="button" tabindex="0"' : "";
       partyHtml += `<div class="${cardCls}" data-party-member="${m.uid}"${roleAttrs}>
       ${portraitHtml}
@@ -12884,9 +13038,13 @@ function renderTurnBattle() {
       megaLeviathanPortrait && f.name === "The Stormwake Leviathan" && cardClass === "fight-enemy-card--summoner";
     const megaCls = megaBoss ? " fight-enemy-card--leviathan-mega" : "";
     const foeVisualHtml = buildVisualHtml(getCombatFoeVisual(f), "fight-portrait-img fight-portrait-img--enemy", f.name, false);
-    return `<div class="fight-enemy-card ${cardClass || ""}${megaCls} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
+    const auraTypes = getCombatStatusAuraTypesForFoe(f);
+    const statusAuras = buildFightCardStatusAuraHtml(auraTypes);
+    const statusCls = auraTypes.map((t) => `fight-card--status-${t}`).join(" ");
+    return `<div class="fight-enemy-card ${cardClass || ""}${megaCls}${statusCls ? ` ${statusCls}` : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
       <div class="fight-portrait-wrap fight-portrait-wrap--enemy">
         ${foeVisualHtml}
+        ${statusAuras}
       </div>
       <span class="fight-card-name">${label}</span>
       ${metaLine}
@@ -13202,13 +13360,9 @@ function showFightResults(victory, result) {
             }
           ];
     const membersHtml = members.map((m) => buildFightVictoryMemberHtml(m)).join("");
-    const totalGold = members.reduce((sum, m) => sum + (m.gold || 0), 0);
-    const totalXp = members.reduce((sum, m) => sum + (m.xp || 0), 0) || result.xp || 0;
     el.innerHTML = `<div class="fight-results-head fight-results-head--win" id="${titleId}">Victory</div>
       <div class="fight-results-body">
-        <p class="fight-results-summary">Party totals: <strong>+${totalXp} XP</strong> · <strong>+${totalGold} gold</strong></p>
         <div class="fight-results-members">${membersHtml}</div>
-        <p class="fight-results-note">Items are added to your inventory.</p>
       </div>
       ${closeFooter}`;
   } else {
@@ -13886,20 +14040,30 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
     return;
   }
 
-  if (
-    kind === "skill" &&
-    skillName &&
-    typeof SKILL_CATALOG !== "undefined" &&
-    SKILL_CATALOG[skillName] &&
-    typeof window.unifiedSkillCombatAction === "function"
-  ) {
-    st.__combatActor = actor;
-    st.__combatActorMember = member;
-    try {
-      if (window.unifiedSkillCombatAction(st, kind, skillName)) return;
-    } finally {
-      delete st.__combatActor;
-      delete st.__combatActorMember;
+  if (kind === "skill" && skillName) {
+    const targetMode = getFightSkillTargetMode(skillName);
+    if (targetMode === "ally") {
+      ensureCombatAllyTarget(st);
+      const allyTarget = getSelectedAllyMember(st);
+      if (!allyTarget || allyTarget.hp <= 0) {
+        appendFightLog("Select a living ally.");
+        return;
+      }
+    }
+    if (
+      typeof SKILL_CATALOG !== "undefined" &&
+      SKILL_CATALOG[skillName] &&
+      typeof window.unifiedSkillCombatAction === "function"
+    ) {
+      st.__combatActor = actor;
+      st.__combatActorMember = member;
+      try {
+        if (window.unifiedSkillCombatAction(st, kind, skillName)) return;
+      } finally {
+        delete st.__combatActor;
+        delete st.__combatActorMember;
+      }
+      if (targetMode === "ally" || targetMode === "party" || targetMode === "self") return;
     }
   }
 
@@ -14135,6 +14299,7 @@ function startPlayerPhaseActors(st) {
   });
   const first = st.party.find((m) => m && m.hp > 0);
   st.activePartyUid = first ? first.uid : null;
+  st.selectedAllyUid = first ? first.uid : null;
 }
 
 function companionCombatAction(member, kind, skillName) {
@@ -14178,6 +14343,7 @@ function endActiveActorTurn(auto) {
   const next = (st.party || []).find((m) => m && m.hp > 0 && !m.acted);
   if (next) {
     st.activePartyUid = next.uid;
+    st.selectedAllyUid = next.uid;
     renderTurnBattle();
     startPlayerTurnTimer();
     return;
@@ -14236,12 +14402,15 @@ function onFightOverlayClick(ev) {
   if (allyCard) {
     const uid = parseInt(allyCard.getAttribute("data-party-member"), 10);
     const m = (st.party || []).find((x) => x && x.uid === uid);
-    if (m && m.hp > 0 && !m.acted) {
-      if (st.activePartyUid !== uid) {
+    if (m && m.hp > 0) {
+      st.selectedAllyUid = uid;
+      if (!m.acted && st.activePartyUid !== uid) {
         st.activePartyUid = uid;
         renderTurnBattle();
         startPlayerTurnTimer();
+        return;
       }
+      updateFightAllySelection();
     }
     return;
   }
@@ -14680,6 +14849,7 @@ function beginTurnCombat(region, mob, worldMapContext) {
     playerMax: party[0] ? party[0].maxHp : player.maxHp,
     phase: "player",
     selectedUid: null,
+    selectedAllyUid: party[0] ? party[0].uid : null,
     activePartyUid: party[0] ? party[0].uid : null,
     fightLog: [],
     worldMapContext: worldMapContext || null,
@@ -14691,6 +14861,7 @@ function beginTurnCombat(region, mob, worldMapContext) {
   ensureActivePartyUid(combatState);
   clearCombatVisualTimer();
   ensureCombatTarget();
+  ensureCombatAllyTarget(combatState);
 
   const overlay = document.getElementById("fightOverlay");
   const logEl = document.getElementById("fightLog");
@@ -14785,7 +14956,7 @@ function startFight(region, mob) {
 }
 
 function levelUp() {
-  levelUpActor(player);
+  return levelUpActor(player);
 }
 
 function getNextCharPointCostPerBaseStat(currentBaseStat) {
@@ -16259,7 +16430,7 @@ function onContentInput(e) {
   const atlasSearch = e.target.closest("[data-atlas-search]");
   if (atlasSearch) {
     atlasSearchQuery = String(atlasSearch.value || "");
-    if (isMenuPanelOpen() && activeMenuPanel === "atlas") renderMenuPanelContent();
+    if (isMenuPanelOpen() && activeMenuPanel === "atlas") renderAtlasSearchFindingsInPlace();
     return;
   }
   const filter = e.target.closest("[data-portrait-add-item-filter]");
@@ -16429,10 +16600,24 @@ function buildClassSkillsRowsHtml(_activeClass, actor) {
     const lvLine = isBasic ? "" : `<span class="class-skill-cell-lv">Lv ${lv}/5${escapeHtml(reqTxt)}</span>`;
     const imgDr = unlocked && isCombatCatalogSkillName(skName);
     const dragCls = imgDr ? " class-skill-drag-source" : "";
-    const lockedCls = !unlocked && !isBasic ? " class-skill-cell--locked" : "";
-    const imgLockedCls = !unlocked && !isBasic ? " class-skill-row-img--locked" : "";
-    return `<div class="class-skill-cell class-skill-row${lockedCls}" data-class-skill-row="${escapeAttr(skName)}" data-skill-name="${escapeAttr(skName)}">
+    const levelLocked = !isBasic && !unlocked && !canTier;
+    const awaitingUnlock = !isBasic && !unlocked && canTier;
+    const cellCls = levelLocked
+      ? " class-skill-cell--level-locked"
+      : awaitingUnlock
+        ? " class-skill-cell--awaiting-unlock"
+        : "";
+    const imgLockedCls = levelLocked
+      ? " class-skill-row-img--level-locked"
+      : awaitingUnlock
+        ? " class-skill-row-img--awaiting-unlock"
+        : "";
+    const lockBadge = levelLocked
+      ? `<span class="class-skill-lock-badge" title="Requires level ${reqLv}" aria-hidden="true"></span>`
+      : "";
+    return `<div class="class-skill-cell class-skill-row${cellCls}" data-class-skill-row="${escapeAttr(skName)}" data-skill-name="${escapeAttr(skName)}">
       <div class="class-skill-cell-top">
+        ${lockBadge}
         <img class="class-skill-row-img${dragCls}${imgLockedCls}" src="${escapeAttr(getSkillImage(skName))}" alt="" data-skill-bar-drag="${escapeAttr(skName)}" draggable="${
       imgDr ? "true" : "false"
     }" />
@@ -16928,7 +17113,14 @@ function getMenuPanelMeta(kind) {
   if (kind === "arena") return { title: "Arena", lead: "To be defined later." };
   if (kind === "alliance") return { title: "Alliance", lead: "Coming soon." };
   if (kind === "market") return { title: "Market", lead: "Coming soon." };
-  if (kind === "crafting") return { title: "Crafting", lead: "Recipes from your selected crafting professions." };
+  if (kind === "crafting") {
+    return {
+      title: "Crafting",
+      lead: anyCompanionEnabled()
+        ? "Recipes from your hero and enabled companions' crafting professions."
+        : "Recipes from your selected crafting professions."
+    };
+  }
   if (kind === "atlas") return { title: "Atlas", lead: "Browse regions, monsters, and their possible loot." };
   return null;
 }
@@ -16937,23 +17129,70 @@ function getCraftingConfig() {
   return GAME_CONFIG.crafting && typeof GAME_CONFIG.crafting === "object" ? GAME_CONFIG.crafting : {};
 }
 
-function getSelectedCraftingProfessionIds() {
-  return getPlayerSelectedProfessions().filter((id) => {
+function getActorCraftingProfessionIds(actor) {
+  return getActorSelectedProfessions(actor).filter((id) => {
     const d = getProfessionDefById(id);
     return !!(d && d.kind === "crafting");
   });
 }
 
-function ensureActiveCraftingProfessionId(profIds) {
-  const ids = Array.isArray(profIds) ? profIds : getSelectedCraftingProfessionIds();
-  if (!ids.length) {
-    activeCraftingProfessionId = null;
+function getSelectedCraftingProfessionIds() {
+  return getActorCraftingProfessionIds(player);
+}
+
+/**
+ * Crafting tabs for hero + enabled companions that have a crafting profession selected.
+ * @returns {Array<{ tabKey: string, ownerKey: string, ownerLabel: string, actor: object, professionId: string, companionSlotIndex?: number }>}
+ */
+function getCraftingTabEntries() {
+  const entries = [];
+  const heroLabel = typeof player.name === "string" && player.name.trim() ? player.name.trim() : "Hero";
+  getActorCraftingProfessionIds(player).forEach((profId) => {
+    entries.push({
+      tabKey: `hero|${profId}`,
+      ownerKey: "hero",
+      ownerLabel: heroLabel,
+      actor: player,
+      professionId: profId
+    });
+  });
+  if (anyCompanionEnabled() && Array.isArray(player.companions)) {
+    player.companions.forEach((c, slotIndex) => {
+      if (!c || !c.enabled) return;
+      const ownerLabel =
+        (typeof c.name === "string" && c.name.trim()) || `Companion ${slotIndex + 1}`;
+      getActorCraftingProfessionIds(c).forEach((profId) => {
+        entries.push({
+          tabKey: `c${slotIndex}|${profId}`,
+          ownerKey: `c${slotIndex}`,
+          ownerLabel,
+          actor: c,
+          professionId: profId,
+          companionSlotIndex: slotIndex
+        });
+      });
+    });
+  }
+  return entries;
+}
+
+function getActiveCraftingTabEntry() {
+  const entries = getCraftingTabEntries();
+  const key = ensureActiveCraftingTabKey(entries);
+  if (!key) return null;
+  return entries.find((e) => e.tabKey === key) || null;
+}
+
+function ensureActiveCraftingTabKey(entries) {
+  const list = Array.isArray(entries) ? entries : getCraftingTabEntries();
+  if (!list.length) {
+    activeCraftingTabKey = null;
     return null;
   }
-  if (!activeCraftingProfessionId || !ids.includes(activeCraftingProfessionId)) {
-    activeCraftingProfessionId = ids[0];
+  if (!activeCraftingTabKey || !list.some((e) => e.tabKey === activeCraftingTabKey)) {
+    activeCraftingTabKey = list[0].tabKey;
   }
-  return activeCraftingProfessionId;
+  return activeCraftingTabKey;
 }
 
 function getAllCraftingRecipes() {
@@ -16998,14 +17237,17 @@ function getInventoryBaseItemCounts() {
   return out;
 }
 
-function evaluateCraftRecipeAvailability(recipe, invCounts) {
+function evaluateCraftRecipeAvailability(recipe, invCounts, actor) {
   const requiredLevel =
     recipe && typeof recipe.resultLevel === "number" && Number.isFinite(recipe.resultLevel)
       ? Math.max(1, Math.floor(recipe.resultLevel))
       : 1;
-  const playerLevel =
-    typeof player.level === "number" && Number.isFinite(player.level) ? Math.max(1, Math.floor(player.level)) : 1;
-  const levelOk = playerLevel >= requiredLevel;
+  const crafter = actor && typeof actor === "object" ? actor : player;
+  const crafterLevel =
+    typeof crafter.level === "number" && Number.isFinite(crafter.level)
+      ? Math.max(1, Math.floor(crafter.level))
+      : 1;
+  const levelOk = crafterLevel >= requiredLevel;
   const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const missing = [];
   ingredients.forEach((ing) => {
@@ -17037,10 +17279,12 @@ function removeIngredientsForRecipe(recipe) {
 function craftRecipeById(recipeId) {
   const recipe = getCraftRecipeById(recipeId);
   if (!recipe) return false;
-  const selectedCraftingProfIds = getSelectedCraftingProfessionIds();
+  const tab = getActiveCraftingTabEntry();
+  if (!tab) return false;
+  const selectedCraftingProfIds = getActorCraftingProfessionIds(tab.actor);
   const requiredProfId = getCraftingProfessionIdForRecipe(recipe);
   if (!selectedCraftingProfIds.includes(requiredProfId)) return false;
-  const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts());
+  const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts(), tab.actor);
   if (!avail.craftable) return false;
   removeIngredientsForRecipe(recipe);
   const resultBaseName = recipe.resultItem;
@@ -17057,25 +17301,33 @@ function craftRecipeById(recipeId) {
 function buildCraftingPanelHtml() {
   const cfg = getCraftingConfig();
   const intro = typeof cfg.intro === "string" ? cfg.intro.trim() : "";
-  const selectedCraftingProfIds = getSelectedCraftingProfessionIds();
-  if (!selectedCraftingProfIds.length) {
+  const tabEntries = getCraftingTabEntries();
+  if (!tabEntries.length) {
+    const emptyHint = anyCompanionEnabled()
+      ? "No crafting profession selected. Choose crafting professions for your hero and enabled companions in Character → Professions."
+      : "No crafting profession selected. Select Weapon smith, Armor smith, Jeweller, or Provisioner in Character → Professions.";
     return `<div class="game-page">${
       intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
-    }<p class="crafting-empty">No crafting profession selected. Select Weapon smith, Armor smith, Jeweller, or Provisioner in Character -> Professions.</p></div>`;
+    }<p class="crafting-empty">${escapeHtml(emptyHint)}</p></div>`;
   }
-  const activeProfId = ensureActiveCraftingProfessionId(selectedCraftingProfIds);
-  const tabsHtml = selectedCraftingProfIds
-    .map((id) => {
-      const d = getProfessionDefById(id);
-      const label = d && d.label ? d.label : id;
-      const cls = id === activeProfId ? "stats-tab active" : "stats-tab";
-      return `<button type="button" class="${cls}" data-crafting-profession-tab="${escapeAttr(id)}">${escapeHtml(label)}</button>`;
+  const activeTabKey = ensureActiveCraftingTabKey(tabEntries);
+  const activeTab = tabEntries.find((e) => e.tabKey === activeTabKey) || tabEntries[0];
+  const activeProfId = activeTab.professionId;
+  const crafterActor = activeTab.actor;
+  const showOwnerOnTabs = anyCompanionEnabled() && tabEntries.some((e) => e.ownerKey !== "hero");
+  const tabsHtml = tabEntries
+    .map((entry) => {
+      const d = getProfessionDefById(entry.professionId);
+      const profLabel = d && d.label ? d.label : entry.professionId;
+      const label = showOwnerOnTabs ? `${profLabel} · ${entry.ownerLabel}` : profLabel;
+      const cls = entry.tabKey === activeTabKey ? "stats-tab active" : "stats-tab";
+      return `<button type="button" class="${cls}" data-crafting-tab="${escapeAttr(entry.tabKey)}">${escapeHtml(label)}</button>`;
     })
     .join("");
   const invCounts = getInventoryBaseItemCounts();
   const recipes = getAllCraftingRecipes().filter((r) => getCraftingProfessionIdForRecipe(r) === activeProfId);
   const evaluated = recipes
-    .map((r) => ({ recipe: r, avail: evaluateCraftRecipeAvailability(r, invCounts) }))
+    .map((r) => ({ recipe: r, avail: evaluateCraftRecipeAvailability(r, invCounts, crafterActor) }))
     .sort((a, b) => {
       if (a.avail.craftable !== b.avail.craftable) return a.avail.craftable ? -1 : 1;
       const aLvl = typeof a.recipe.resultLevel === "number" ? a.recipe.resultLevel : 1;
@@ -17103,9 +17355,11 @@ function buildCraftingPanelHtml() {
         })
         .filter(Boolean)
         .join("");
-      const statusText = !avail.levelOk
-        ? `Level: ${Math.max(1, Math.floor(player.level || 1))}/${avail.requiredLevel}`
-        : "";
+      const crafterLv =
+        typeof crafterActor.level === "number" && Number.isFinite(crafterActor.level)
+          ? Math.max(1, Math.floor(crafterActor.level))
+          : 1;
+      const statusText = !avail.levelOk ? `Level: ${crafterLv}/${avail.requiredLevel}` : "";
       const tierBadge =
         r.tierLabel && String(r.tierLabel).trim()
           ? ` <span class="crafting-recipe-tier">${escapeHtml(String(r.tierLabel).trim())}</span>`
@@ -17254,6 +17508,51 @@ function buildAtlasSearchFindings(regions, q) {
   return findings;
 }
 
+function buildAtlasFindingsHtml(regions, q) {
+  const findings = buildAtlasSearchFindings(regions, q);
+  if (!findings.length) {
+    return q && String(q).trim()
+      ? `<p class="crafting-empty">No atlas findings for "${escapeHtml(String(q).trim())}".</p>`
+      : "";
+  }
+  return `<div class="atlas-findings">${findings
+    .map((f) => {
+      const def = getEnemyDefByName(f.monsterName);
+      const monsterImg = escapeAttr(getAtlasMonsterImage(def));
+      const matchesHtml = f.resourceMatches.length
+        ? `<div class="atlas-finding-resources">${f.resourceMatches
+            .map((res) => {
+              return `<span class="atlas-finding-resource" data-item-name="${escapeAttr(res.name)}" data-atlas-loot-conditional="${
+                res.conditional ? "1" : "0"
+              }"><img class="atlas-loot-img" data-item-name="${escapeAttr(res.name)}" data-atlas-loot-conditional="${
+                res.conditional ? "1" : "0"
+              }" src="${escapeAttr(getItemImage(res.name))}" alt="" draggable="false" />${escapeHtml(
+                res.name
+              )}</span>`;
+            })
+            .join("")}</div>`
+        : `<div class="atlas-finding-resources muted">Monster name match</div>`;
+      return `<button type="button" class="atlas-finding" data-atlas-jump-region="${escapeAttr(f.regionName)}" data-atlas-jump-monster="${escapeAttr(
+        f.monsterName
+      )}">
+        <img class="atlas-finding-monster-img" src="${monsterImg}" alt="" draggable="false" />
+        <span class="atlas-finding-main"><strong>${escapeHtml(f.monsterName)}</strong><small>${escapeHtml(f.regionName)}</small>${matchesHtml}</span>
+      </button>`;
+    })
+    .join("")}</div>`;
+}
+
+function renderAtlasSearchFindingsInPlace() {
+  if (!isMenuPanelOpen() || activeMenuPanel !== "atlas") return;
+  const host = document.getElementById("atlasFindingsHost");
+  if (!host) {
+    renderMenuPanelContent();
+    return;
+  }
+  const regions = getAtlasRegions();
+  host.innerHTML = buildAtlasFindingsHtml(regions, atlasSearchQuery);
+}
+
 function buildAtlasPanelHtml() {
   const regions = getAtlasRegions();
   if (!regions.length) {
@@ -17265,37 +17564,7 @@ function buildAtlasPanelHtml() {
   if (!atlasSelectedMonsterName || !selectedRegion.monsters.includes(atlasSelectedMonsterName)) {
     atlasSelectedMonsterName = selectedRegion.monsters[0] || null;
   }
-  const findings = buildAtlasSearchFindings(regions, atlasSearchQuery);
-  const findingsHtml = findings.length
-    ? `<div class="atlas-findings">${findings
-        .map((f) => {
-          const def = getEnemyDefByName(f.monsterName);
-          const monsterImg = escapeAttr(getAtlasMonsterImage(def));
-          const matchesHtml = f.resourceMatches.length
-            ? `<div class="atlas-finding-resources">${f.resourceMatches
-                .map((res) => {
-                  return `<span class="atlas-finding-resource" data-item-name="${escapeAttr(res.name)}" data-atlas-loot-conditional="${
-                    res.conditional ? "1" : "0"
-                  }"><img class="atlas-loot-img" data-item-name="${escapeAttr(res.name)}" data-atlas-loot-conditional="${
-                    res.conditional ? "1" : "0"
-                  }" src="${escapeAttr(getItemImage(res.name))}" alt="" draggable="false" />${escapeHtml(
-                    res.name
-                  )}</span>`;
-                })
-                .join("")}</div>`
-            : `<div class="atlas-finding-resources muted">Monster name match</div>`;
-          return `<button type="button" class="atlas-finding" data-atlas-jump-region="${escapeAttr(f.regionName)}" data-atlas-jump-monster="${escapeAttr(
-            f.monsterName
-          )}">
-            <img class="atlas-finding-monster-img" src="${monsterImg}" alt="" draggable="false" />
-            <span class="atlas-finding-main"><strong>${escapeHtml(f.monsterName)}</strong><small>${escapeHtml(f.regionName)}</small>${matchesHtml}</span>
-          </button>`;
-        })
-        .join("")}</div>`
-    : atlasSearchQuery.trim()
-      ? `<p class="crafting-empty">No atlas findings for "${escapeHtml(atlasSearchQuery.trim())}".</p>`
-      : "";
-
+  const findingsHtml = buildAtlasFindingsHtml(regions, atlasSearchQuery);
   const treeHtml = regions
     .map((region) => {
       const isOpen = atlasExpandedRegions.has(region.name);
@@ -17365,7 +17634,7 @@ function buildAtlasPanelHtml() {
         atlasSearchQuery
       )}" autocomplete="off" />
     </div>
-    ${findingsHtml}
+    <div id="atlasFindingsHost" class="atlas-findings-host">${findingsHtml}</div>
     <div class="atlas-layout">
       <div class="atlas-tree">${treeHtml}</div>
       <div class="atlas-detail">${rightHtml}</div>
@@ -17398,7 +17667,7 @@ function openMenuPanel(kind) {
   const title = document.getElementById("menuPanelTitle");
   if (!modal) return;
   activeMenuPanel = kind;
-  if (kind === "crafting") ensureActiveCraftingProfessionId();
+  if (kind === "crafting") ensureActiveCraftingTabKey();
   if (kind === "atlas") {
     const regions = getAtlasRegions();
     if (regions.length) {
@@ -17673,6 +17942,25 @@ function isFightOverlayOpen() {
 
 const OUT_OF_COMBAT_HP_REGEN_PER_SEC = 1;
 
+/** Update HP bar/numbers in the open character panel without rebuilding the whole panel. */
+function refreshCharacterPanelHpInPlace() {
+  if (!isCharacterPanelOpen()) return;
+  const host = document.getElementById("characterPanelContent");
+  if (!host) return;
+  const page = host.querySelector("[data-overview-roster-tab]");
+  if (!page || page.dataset.overviewRosterTab == null) return;
+  const actor = getRosterActorFromTab(page.dataset.overviewRosterTab);
+  if (!actor) return;
+  actor.maxHp = computeMaxHp(actor);
+  const hpRow = host.querySelector('[data-stat-tip="hp"]');
+  if (!hpRow) return;
+  const num = hpRow.querySelector(".stat-bar-num");
+  const fill = hpRow.querySelector(".stat-bar-hp .stat-bar-fill");
+  const hpPct = actor.maxHp > 0 ? Math.max(0, Math.min(100, (actor.hp / actor.maxHp) * 100)) : 0;
+  if (num) num.textContent = `${actor.hp} / ${actor.maxHp}`;
+  if (fill) fill.style.width = `${hpPct}%`;
+}
+
 function tickOutOfCombatHpRegen() {
   if (typeof player === "undefined" || !player) return;
   if (combatState || isFightOverlayOpen()) return;
@@ -17697,9 +17985,7 @@ function tickOutOfCombatHpRegen() {
   if (!changed) return;
   save();
   renderBottomHud();
-  if (isCharacterPanelOpen()) renderCharacterPanelContent();
-  if (isSkillsPanelOpen()) renderSkillsPanelContent();
-  if (currentPage === "overview") renderOverview();
+  refreshCharacterPanelHpInPlace();
 }
 
 function worldMapModalMinMaxCellPx() {
@@ -18894,9 +19180,9 @@ function onContentClick(e) {
     render();
     return;
   }
-  const craftingProfTab = e.target.closest("[data-crafting-profession-tab]");
-  if (craftingProfTab && craftingProfTab.dataset.craftingProfessionTab) {
-    activeCraftingProfessionId = craftingProfTab.dataset.craftingProfessionTab;
+  const craftingProfTab = e.target.closest("[data-crafting-tab]");
+  if (craftingProfTab && craftingProfTab.dataset.craftingTab) {
+    activeCraftingTabKey = craftingProfTab.dataset.craftingTab;
     renderMenuPanelContent();
     return;
   }

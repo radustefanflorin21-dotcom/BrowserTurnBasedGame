@@ -1310,6 +1310,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
 }
 
 .class-skill-cell-top {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1358,15 +1359,60 @@ body.edit-mode-on .portrait-stack--editing-scale {
   cursor: grabbing;
 }
 
-.class-skill-cell--locked .class-skill-row-img,
-.class-skill-row-img--locked {
-  filter: brightness(0.3) grayscale(0.6) contrast(0.95);
-  opacity: 0.7;
+.class-skill-cell--level-locked .class-skill-row-img,
+.class-skill-row-img--level-locked {
+  filter: brightness(0.28) grayscale(0.72) contrast(0.9);
+  opacity: 0.62;
 }
 
-.class-skill-cell--locked .class-skill-cell-title {
+.class-skill-cell--awaiting-unlock .class-skill-row-img,
+.class-skill-row-img--awaiting-unlock {
+  filter: brightness(0.42) saturate(0.75);
+  opacity: 0.82;
+}
+
+.class-skill-cell--level-locked .class-skill-cell-title,
+.class-skill-cell--awaiting-unlock .class-skill-cell-title {
   color: var(--overview-muted, #666);
-  opacity: 0.85;
+  opacity: 0.88;
+}
+
+.class-skill-lock-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 2;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.class-skill-lock-badge::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 5px;
+  height: 4px;
+  margin-left: -2.5px;
+  margin-top: -3px;
+  border: 1.5px solid #e8dcc8;
+  border-radius: 2px 2px 0 0;
+  box-sizing: border-box;
+}
+
+.class-skill-lock-badge::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 6px;
+  height: 4px;
+  margin-left: -3px;
+  background: #e8dcc8;
+  border-radius: 1px;
 }
 
 .skills-bar-subpanel {
@@ -4506,6 +4552,95 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   position: relative;
 }
 
+/* Persistent status auras (poison gas, burn fire, stun spiral) */
+.fight-card-status-auras {
+  position: absolute;
+  inset: -20% -16%;
+  pointer-events: none;
+  z-index: 22;
+  overflow: visible;
+}
+
+.fight-card-status-aura {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+}
+
+.fight-card-status-aura--poison {
+  opacity: 0.88;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 12px rgba(90, 230, 70, 0.55));
+  animation: fightStatusAuraPoison 2.6s ease-in-out infinite;
+}
+
+.fight-card-status-aura--burn {
+  opacity: 0.92;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 14px rgba(255, 110, 40, 0.7));
+  animation: fightStatusAuraBurn 1.15s ease-in-out infinite alternate;
+}
+
+.fight-card-status-aura--stun {
+  inset: 4%;
+  z-index: 28;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 10px rgba(220, 200, 255, 0.65));
+  animation: fightStatusAuraStunSpin 1.75s linear infinite;
+}
+
+.fight-ally-card.fight-card--status-poison,
+.fight-enemy-card.fight-card--status-poison {
+  box-shadow: 0 0 18px rgba(70, 200, 50, 0.35);
+}
+
+.fight-ally-card.fight-card--status-burn,
+.fight-enemy-card.fight-card--status-burn {
+  box-shadow: 0 0 20px rgba(255, 90, 30, 0.4);
+}
+
+.fight-ally-card.fight-card--status-stun .fight-portrait-wrap,
+.fight-enemy-card.fight-card--status-stun .fight-portrait-wrap {
+  filter: saturate(0.82) brightness(0.95);
+}
+
+@keyframes fightStatusAuraPoison {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.96) translateY(2px);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04) translateY(-3px);
+  }
+}
+
+@keyframes fightStatusAuraBurn {
+  0% {
+    opacity: 0.78;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes fightStatusAuraStunSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
 .fight-card-fx-overlay {
   position: absolute;
   inset: 0;
@@ -4553,6 +4688,11 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 .fight-damage-float--poison {
   color: #b8ff9a;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(80, 200, 60, 0.55);
+}
+
+.fight-damage-float--burn {
+  color: #ffc090;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 120, 40, 0.6);
 }
 
 @keyframes fightCombatSlash {
@@ -4693,9 +4833,14 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   .fight-enemy-card.fight-card--attacking .fight-portrait-wrap,
   .fight-ally-card.fight-card--shaking,
   .fight-enemy-card.fight-card--shaking,
-  .fight-fx-sprite {
+  .fight-fx-sprite,
+  .fight-card-status-aura {
     animation: none !important;
     opacity: 0.92 !important;
+  }
+
+  .fight-card-status-aura--stun {
+    transform: none !important;
   }
 
   .fight-ally-card.fight-card--hit,
@@ -4957,14 +5102,34 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 }
 
 .fight-ally-card--active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent);
+  border-color: #e8c84a;
+  box-shadow:
+    0 0 0 3px rgba(232, 200, 74, 0.9),
+    0 0 20px rgba(232, 200, 74, 0.45);
+  z-index: 4;
+  transform: scale(1.02);
+}
+
+.fight-ally-card--targeted:not(.fight-ally-card--active) {
+  border-color: #6ecf9a;
+  box-shadow: 0 0 0 2px rgba(100, 210, 150, 0.85);
+}
+
+.fight-ally-card--active.fight-ally-card--targeted {
+  border-color: #e8c84a;
+  box-shadow:
+    0 0 0 3px rgba(232, 200, 74, 0.9),
+    0 0 0 6px rgba(100, 210, 150, 0.35),
+    0 0 20px rgba(232, 200, 74, 0.45);
 }
 
 .fight-ally-card--acted {
-  opacity: 0.55;
-  filter: grayscale(35%);
   cursor: default;
+}
+
+.fight-ally-card--acted.fight-ally-card--targeted {
+  border-color: #6ecf9a;
+  box-shadow: 0 0 0 2px rgba(100, 210, 150, 0.85);
 }
 
 .fight-portrait-img--ally {
@@ -4976,6 +5141,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-portrait-wrap {
   position: relative;
+  overflow: visible;
   width: 120px;
   height: 120px;
   max-width: 100%;
@@ -6055,6 +6221,31 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 4px;
+}
+
+.level-up-modal-title {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.level-up-modal-body {
+  margin: 0 0 14px;
+}
+
+.level-up-row {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.level-up-row:last-child {
+  margin-bottom: 0;
+}
+
+.level-up-modal-actions {
+  justify-content: center;
 }
 
 .portal-network-title {

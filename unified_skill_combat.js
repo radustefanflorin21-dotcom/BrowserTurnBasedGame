@@ -338,10 +338,43 @@
     return out;
   }
 
+  function applyUnifiedSkillHitToFoe(st, foe, hitRes, label, dmgKind, row, opts) {
+    const o = opts && typeof opts === "object" ? opts : {};
+    if (hitRes.missed) {
+      if (typeof appendFightLog === "function") appendFightLog(`${label} misses ${foe.name}.`);
+      allyStrikeVfx(st, foe, hitRes, dmgKind);
+      return false;
+    }
+    st.__lastSkillDamage = hitRes.damage;
+    foe.hp = Math.max(0, foe.hp - hitRes.damage);
+    allyStrikeVfx(st, foe, hitRes, dmgKind);
+    const critTxt = hitRes.crit ? " (crit!)" : "";
+    if (typeof appendFightLog === "function") {
+      appendFightLog(`${label} hits ${foe.name} for ${hitRes.damage}${critTxt}.`);
+    }
+    if (row && row.debuff) rollDebuff(st, foe, row.debuff);
+    if (row && row.debuff2) rollDebuff(st, foe, row.debuff2);
+    if (row && row.debuff3) rollDebuff(st, foe, row.debuff3);
+    if (o.reflect !== false && typeof applyReflectDamageToPartyHero === "function") {
+      applyReflectDamageToPartyHero(st, hitRes.damage, foe);
+    }
+    return true;
+  }
+
   function spendAndCooldown(st, skillName, def, cost) {
     spendActingStamina(st, cost);
     const cdt = typeof def.cooldown === "number" ? def.cooldown : 0;
     if (cdt > 0 && typeof setClassSkillCooldown === "function") setClassSkillCooldown(st, skillName, cdt);
+  }
+
+  function resolveAllySkillTarget(st) {
+    if (!st || !Array.isArray(st.party)) return null;
+    const uid =
+      typeof st.selectedAllyUid === "number" && Number.isFinite(st.selectedAllyUid)
+        ? st.selectedAllyUid
+        : st.activePartyUid;
+    const m = st.party.find((x) => x && x.uid === uid && x.hp > 0);
+    return m || st.party.find((x) => x && x.hp > 0) || null;
   }
 
   function healPartyMember(st, uid, amt) {
@@ -477,8 +510,11 @@
         return true;
       }
       spendAndCooldown(st, skillName, def, cost);
-      const target = st.party.find((m) => m && m.uid === st.activePartyUid) || st.party.find((m) => m && m.kind === "hero");
-      if (!target) return true;
+      const target = resolveAllySkillTarget(st);
+      if (!target) {
+        if (typeof appendFightLog === "function") appendFightLog("Select a living ally.");
+        return true;
+      }
       const vit = typeof totalVitFromActor === "function" ? totalVitFromActor(combatActor()) : 50;
       if (pattern === "heal_ally" && row.vitHealPct) {
         const base = vit * row.vitHealPct;
@@ -621,7 +657,10 @@
       for (let h = 0; h < 2; h++) {
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) {
+        if (hitRes.missed) {
+          if (typeof appendFightLog === "function") appendFightLog(`${label} misses ${foe.name}.`);
+          allyStrikeVfx(st, foe, hitRes, dmgKind);
+        } else {
           foe.hp = Math.max(0, foe.hp - hitRes.damage);
           allyStrikeVfx(st, foe, hitRes, dmgKind);
           total += hitRes.damage;
@@ -642,13 +681,7 @@
       targets.forEach((foe) => {
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) {
-          st.__lastSkillDamage = hitRes.damage;
-          foe.hp = Math.max(0, foe.hp - hitRes.damage);
-          allyStrikeVfx(st, foe, hitRes, dmgKind);
-          appendFightLog(`${label} hits ${foe.name} for ${hitRes.damage}.`);
-          if (row.debuff) rollDebuff(st, foe, row.debuff);
-        }
+        applyUnifiedSkillHitToFoe(st, foe, hitRes, label, dmgKind, row);
       });
       afterCommit();
       return true;
@@ -663,12 +696,7 @@
       targets.forEach((foe) => {
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) {
-          foe.hp = Math.max(0, foe.hp - hitRes.damage);
-          allyStrikeVfx(st, foe, hitRes, dmgKind);
-          if (row.debuff2) rollDebuff(st, foe, row.debuff2);
-          if (row.debuff3) rollDebuff(st, foe, row.debuff3);
-        }
+        applyUnifiedSkillHitToFoe(st, foe, hitRes, label, dmgKind, row, { reflect: false });
       });
       afterCommit();
       return true;
@@ -680,10 +708,7 @@
       living.forEach((foe) => {
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) {
-          foe.hp = Math.max(0, foe.hp - hitRes.damage);
-          allyStrikeVfx(st, foe, hitRes, dmgKind);
-        }
+        applyUnifiedSkillHitToFoe(st, foe, hitRes, label, dmgKind, row, { reflect: false });
       });
       afterCommit();
       return true;
@@ -698,10 +723,7 @@
         const foe = living[Math.floor(Math.random() * living.length)];
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) {
-          foe.hp = Math.max(0, foe.hp - hitRes.damage);
-          allyStrikeVfx(st, foe, hitRes, dmgKind);
-        }
+        applyUnifiedSkillHitToFoe(st, foe, hitRes, label, dmgKind, row, { reflect: false });
       }
       afterCommit();
       return true;

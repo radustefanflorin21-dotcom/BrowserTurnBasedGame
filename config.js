@@ -521,21 +521,21 @@ const GAME_CONFIG = {
   },
 
   /**
-   * Character leveling: `xpToNextLevel(L) = round(xpConst + L*xpLinear + L²*xpSquare + L³*xpCubic)` (default 120 + 28L + 5.2L² + 0.13L³).
-   * At `maxLevel`, further XP is banked but does not increase level.
+   * Character leveling: `xpToNextLevel(L) = max(1, round(xpConst + L*xpLinear + L²*xpSquare + L³*xpCubic))`.
+   * Default: 250 + 55L + 10L² + 0.35L³. At `maxLevel`, further XP is banked but does not increase level.
    */
   leveling: {
     maxLevel: 60,
-    xpConst: 120,
-    xpLinear: 28,
-    xpSquare: 5.2,
-    xpCubic: 0.13
+    xpConst: 250,
+    xpLinear: 55,
+    xpSquare: 10,
+    xpCubic: 0.35
   },
 
   /**
    * Kill XP (Dofus-style): per-foe `round((8 + L*2.2 + L²*0.045) * rarityOrBossMult * moodMult)` summed;
-   * each participant gets `round((totalMonsterXP / partySize) * levelBalance * partyMult * playerLevelPenalty)`.
-   * `playerLevelPenalty` uses participant level vs average enemy level (low-level members earn less).
+   * each participant gets `round(totalMonsterXP * playerLevelPenalty)` (full kill total, not split).
+   * `playerLevelPenalty` uses avgEnemyLevel / participantLevel (symmetric: over- or under-leveled fighters earn less).
    * Boss foes use `isBoss: true` on dungeon room entries or enemy defs — boss mult only (no spawnRarity mult).
    */
   /** Combat card overlay sprites (transparent PNGs under Assets/UI/effects/). */
@@ -545,7 +545,9 @@ const GAME_CONFIG = {
     magic: "magic.png",
     heal: "heal.png",
     bleed: "bleed.png",
-    poison: "poison.png"
+    poison: "poison.png",
+    burn: "burn.png",
+    stun: "stun.png"
   },
 
   victoryXp: {
