@@ -9,9 +9,72 @@
     return typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && SKILL_CATALOG[name] ? SKILL_CATALOG[name] : null;
   }
 
+  function combatActor() {
+    const st = typeof combatState !== "undefined" ? combatState : null;
+    if (st && st.__combatActor) return st.__combatActor;
+    return typeof player !== "undefined" ? player : null;
+  }
+
+  function combatActorMember() {
+    const st = typeof combatState !== "undefined" ? combatState : null;
+    if (st && st.__combatActorMember) return st.__combatActorMember;
+    return st && Array.isArray(st.party) ? st.party.find((m) => m && m.kind === "hero") : null;
+  }
+
+  function combatActorGear(actor) {
+    const act = actor || combatActor();
+    const eq = act && act.equipment ? act.equipment : typeof emptyEquipment === "function" ? emptyEquipment() : {};
+    return typeof sumEquippedBonusStatsFromEquipment === "function" ? sumEquippedBonusStatsFromEquipment(eq) : {};
+  }
+
+  function combatActorStr(actor) {
+    return typeof totalStrFromActor === "function" ? totalStrFromActor(actor || combatActor()) : 0;
+  }
+
+  function combatActorDex(actor) {
+    return typeof totalDexFromActor === "function" ? totalDexFromActor(actor || combatActor()) : 0;
+  }
+
+  function combatActorInt(actor) {
+    return typeof totalIntFromActor === "function" ? totalIntFromActor(actor || combatActor()) : 0;
+  }
+
+  function allyStrikeVfx(st, foe, hitRes, dmgKind) {
+    if (typeof window.playCombatStrikeEffect !== "function" || !st || !foe) return;
+    const member =
+      st.__combatActorMember ||
+      (Array.isArray(st.party) ? st.party.find((m) => m && m.kind === "hero") : null);
+    if (!member) return;
+    window.playCombatStrikeEffect({
+      attackerSide: "ally",
+      attackerUid: member.uid,
+      targetSide: "foe",
+      targetUid: foe.uid,
+      dmgKind: dmgKind === "magic" ? "magic" : "physical",
+      damage: hitRes && typeof hitRes.damage === "number" ? hitRes.damage : 0,
+      crit: !!(hitRes && hitRes.crit),
+      missed: !!(hitRes && hitRes.missed)
+    });
+  }
+
+  function getActingStamina(st) {
+    const m = combatActorMember();
+    if (m && m.kind === "companion") return typeof m.stamina === "number" ? m.stamina : 0;
+    return typeof st.stamina === "number" ? st.stamina : 0;
+  }
+
+  function spendActingStamina(st, cost) {
+    const m = combatActorMember();
+    if (m && m.kind === "companion") {
+      m.stamina = Math.max(0, (typeof m.stamina === "number" ? m.stamina : 0) - cost);
+      return;
+    }
+    st.stamina = Math.max(0, (typeof st.stamina === "number" ? st.stamina : 0) - cost);
+  }
+
   function skillLevelForCombat(name) {
     if (BASIC[name]) return 1;
-    const lv = typeof getPlayerSkillLevel === "function" ? getPlayerSkillLevel(name) : 0;
+    const lv = typeof getActorSkillLevel === "function" ? getActorSkillLevel(combatActor(), name) : 0;
     return Math.max(1, Math.min(5, lv || 1));
   }
 
@@ -20,20 +83,25 @@
     return def.levels[lv - 1] || def.levels[0];
   }
 
-  function playerAccuracyPct() {
-    const dex = typeof totalDex === "function" ? totalDex() : 0;
-    const intv = typeof totalInt === "function" ? totalInt() : 0;
-    const gear = typeof sumEquippedBonusStats === "function" ? sumEquippedBonusStats() : {};
+  function actorAccuracyPct() {
+    const actor = combatActor();
+    const dex = combatActorDex(actor);
+    const intv = combatActorInt(actor);
+    const gear = combatActorGear(actor);
     const acc = attribBonusPer10(dex) + attribBonusPer10(intv) + (gear.accuracy || 0);
     const st = typeof combatState !== "undefined" ? combatState : null;
-    const activeMember = st && typeof getPartyMemberByUid === "function" ? getPartyMemberByUid(st, st.activePartyUid) : null;
-    const pen = typeof getPlayerOutgoingAccuracyPenaltyPct === "function" ? getPlayerOutgoingAccuracyPenaltyPct(st, activeMember) : 0;
+    const member = combatActorMember();
+    const pen =
+      typeof getPlayerOutgoingAccuracyPenaltyPct === "function"
+        ? getPlayerOutgoingAccuracyPenaltyPct(st, member)
+        : 0;
     return Math.max(0, acc - pen);
   }
 
-  function playerCritStatPct() {
-    const dex = typeof totalDex === "function" ? totalDex() : 0;
-    const gear = typeof sumEquippedBonusStats === "function" ? sumEquippedBonusStats() : {};
+  function actorCritStatPct() {
+    const actor = combatActor();
+    const dex = combatActorDex(actor);
+    const gear = combatActorGear(actor);
     return (typeof formulaDexCritChancePct === "function" ? formulaDexCritChancePct(dex) : 0) + (gear.crit || 0);
   }
 
@@ -47,7 +115,7 @@
     const sys = typeof getStatSystem === "function" ? getStatSystem() : {};
     const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
     const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
-    const acc = playerAccuracyPct();
+    const acc = actorAccuracyPct();
     const ev =
       typeof getFoeEvasionPct === "function" && foe
         ? getFoeEvasionPct(foe) + (foe.combat && typeof foe.combat.evasionDownPct === "number" ? foe.combat.evasionDownPct : 0)
@@ -60,19 +128,19 @@
   }
 
   function debuffLandPct(baseChance, foe) {
-    const acc = playerAccuracyPct();
+    const acc = actorAccuracyPct();
     const sr = foeStatusResistPct(foe);
     return Math.min(100, Math.max(0, baseChance + acc - sr));
   }
 
   function buffLandPct(baseChance) {
-    const acc = playerAccuracyPct();
+    const acc = actorAccuracyPct();
     return Math.min(100, Math.max(0, baseChance + acc));
   }
 
   function critChanceFromSkill(baseCrit, foe) {
     const sr = foeStatusResistPct(foe);
-    const p = (typeof baseCrit === "number" ? baseCrit : 3) + playerCritStatPct() - sr;
+    const p = (typeof baseCrit === "number" ? baseCrit : 3) + actorCritStatPct() - sr;
     return Math.min(0.95, Math.max(0, p / 100));
   }
 
@@ -142,7 +210,7 @@
         const ref =
           typeof combatState !== "undefined" && combatState && typeof combatState.__lastSkillDamage === "number"
             ? combatState.__lastSkillDamage
-            : Math.max(1, typeof totalStr === "function" ? totalStr() : 10);
+            : Math.max(1, combatActorStr(combatActor()));
         const tick = Math.max(1, Math.floor((ref * (deb.dotPct || 10)) / 100));
         foe.combat[dmgKey] = Math.max(foe.combat[dmgKey] || 0, tick);
         break;
@@ -166,9 +234,10 @@
   }
 
   function computeStatDamage(row, dmgKind, foe, skillName) {
-    const str = typeof totalStr === "function" ? totalStr() : 0;
-    const intv = typeof totalInt === "function" ? totalInt() : 0;
-    const gear = typeof sumEquippedBonusStats === "function" ? sumEquippedBonusStats() : {};
+    const actor = combatActor();
+    const str = combatActorStr(actor);
+    const intv = combatActorInt(actor);
+    const gear = combatActorGear(actor);
     let base = 0;
     if (typeof row.strPct === "number") base += str * row.strPct;
     if (typeof row.intPct === "number") base += intv * row.intPct;
@@ -204,9 +273,10 @@
     const hitPct = hitChanceFromSkill(baseHit, extraHit, foe);
     if (Math.random() * 100 >= hitPct) return { damage: 0, missed: true, crit: false };
     let d1 = Math.max(1, rawBase);
-    const str = typeof totalStr === "function" ? totalStr() : 0;
-    const intv = typeof totalInt === "function" ? totalInt() : 0;
-    const gear = typeof sumEquippedBonusStats === "function" ? sumEquippedBonusStats() : {};
+    const actor = combatActor();
+    const str = combatActorStr(actor);
+    const intv = combatActorInt(actor);
+    const gear = combatActorGear(actor);
     if (dmgKind === "physical") {
       d1 *= 1 + (typeof formulaStrPhysicalDamageBonusPct === "function" ? formulaStrPhysicalDamageBonusPct(str) : 0) / 100 + (gear.physDamage || 0) / 100;
     } else {
@@ -216,7 +286,7 @@
     const baseCritMul = typeof sys.baseCritMultiplierPct === "number" ? sys.baseCritMultiplierPct : 150;
     let d2 = d1;
     if (crit) {
-      const dex = typeof totalDex === "function" ? totalDex() : 0;
+      const dex = combatActorDex(actor);
       const cm =
         baseCritMul +
         (typeof formulaDexCritDamageBonusPct === "function" ? formulaDexCritDamageBonusPct(dex) : 0) +
@@ -239,7 +309,14 @@
     let flatSub = foeFlat;
     if (dmgKind === "magic") flatSub = Math.max(0, Math.floor(foeFlat / 2));
     let fin = Math.max(1, Math.floor(d3 - flatSub));
-    if (typeof getPlayerClassOutgoingMult === "function") {
+    if (typeof getActorClassOutgoingMult === "function") {
+      fin = Math.max(
+        1,
+        Math.floor(
+          fin * getActorClassOutgoingMult(st, skillNameForMult || null, foe, combatActor(), combatActorMember())
+        )
+      );
+    } else if (typeof getPlayerClassOutgoingMult === "function") {
       fin = Math.max(1, Math.floor(fin * getPlayerClassOutgoingMult(st, skillNameForMult || null, foe)));
     }
     if (foe.combat && (foe.combat.allyPressureTurns || 0) > 0 && typeof foe.combat.allyPressurePct === "number" && foe.combat.allyPressurePct > 0) {
@@ -262,7 +339,7 @@
   }
 
   function spendAndCooldown(st, skillName, def, cost) {
-    st.stamina -= cost;
+    spendActingStamina(st, cost);
     const cdt = typeof def.cooldown === "number" ? def.cooldown : 0;
     if (cdt > 0 && typeof setClassSkillCooldown === "function") setClassSkillCooldown(st, skillName, cdt);
   }
@@ -277,6 +354,9 @@
       if (typeof syncHeroHpFromPlayerMirror === "function") syncHeroHpFromPlayerMirror(st);
     }
     if (typeof appendFightLog === "function") appendFightLog(`${m.name} heals for ${healed}.`);
+    if (typeof playCombatCardStatusEffect === "function") {
+      playCombatCardStatusEffect({ targetSide: "ally", targetUid: m.uid, effectType: "heal", damage: healed, heal: true });
+    }
   }
 
   window.unifiedSkillCombatAction = function unifiedSkillCombatAction(st, kind, skillName) {
@@ -303,7 +383,7 @@
       if (typeof appendFightLog === "function") appendFightLog(`${skillName} is on cooldown (${cd}).`);
       return true;
     }
-    if ((st.stamina || 0) < cost) {
+    if (getActingStamina(st) < cost) {
       if (typeof appendFightLog === "function") appendFightLog(`Not enough stamina (need ${cost}).`);
       return true;
     }
@@ -316,8 +396,13 @@
         if (typeof finishCombatVictory === "function") finishCombatVictory();
         return;
       }
-      if (typeof renderTurnBattle === "function") renderTurnBattle();
-      if (typeof startPlayerTurnTimer === "function") startPlayerTurnTimer();
+      const uiDelay =
+        typeof window.COMBAT_HIT_UI_DELAY_MS === "number" ? window.COMBAT_HIT_UI_DELAY_MS : 1150;
+      if (typeof queueCombatVisualRefresh === "function") queueCombatVisualRefresh(uiDelay);
+      else if (typeof renderTurnBattle === "function") renderTurnBattle();
+      setTimeout(() => {
+        if (typeof startPlayerTurnTimer === "function") startPlayerTurnTimer();
+      }, uiDelay);
     }
 
     /** Self buffs (Brace, etc.) */
@@ -394,7 +479,7 @@
       spendAndCooldown(st, skillName, def, cost);
       const target = st.party.find((m) => m && m.uid === st.activePartyUid) || st.party.find((m) => m && m.kind === "hero");
       if (!target) return true;
-      const vit = typeof totalVitFromActor === "function" ? totalVitFromActor(typeof player !== "undefined" ? player : {}) : 50;
+      const vit = typeof totalVitFromActor === "function" ? totalVitFromActor(combatActor()) : 50;
       if (pattern === "heal_ally" && row.vitHealPct) {
         const base = vit * row.vitHealPct;
         const bonus = typeof getPlayerCombatHealingReceivedMultiplier === "function" ? getPlayerCombatHealingReceivedMultiplier(st) : 1;
@@ -435,7 +520,7 @@
         return true;
       }
       spendAndCooldown(st, skillName, def, cost);
-      const vit = typeof totalVit === "function" ? totalVit() : 50;
+      const vit = typeof totalVitFromActor === "function" ? totalVitFromActor(combatActor()) : 50;
       if (pattern === "heal_all" && row.vitHealPct) {
         const amt = vit * row.vitHealPct * (typeof getPlayerCombatHealingReceivedMultiplier === "function" ? getPlayerCombatHealingReceivedMultiplier(st) : 1);
         st.party.forEach((m) => {
@@ -512,12 +597,14 @@
       const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, extraHit, ign, skillName);
       if (hitRes.missed) {
         appendFightLog(`${label} misses ${foe.name}.`);
+        allyStrikeVfx(st, foe, hitRes, dmgKind);
         spendAndCooldown(st, skillName, def, cost);
         afterCommit();
         return true;
       }
       st.__lastSkillDamage = hitRes.damage;
       foe.hp = Math.max(0, foe.hp - hitRes.damage);
+      allyStrikeVfx(st, foe, hitRes, dmgKind);
       appendFightLog(`${label} hits ${foe.name} for ${hitRes.damage}${hitRes.crit ? " (crit!)" : ""}.`);
       if (row.debuff) rollDebuff(st, foe, row.debuff);
       if (typeof applyReflectDamageToPartyHero === "function") applyReflectDamageToPartyHero(st, hitRes.damage, foe);
@@ -536,6 +623,7 @@
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
         if (!hitRes.missed) {
           foe.hp = Math.max(0, foe.hp - hitRes.damage);
+          allyStrikeVfx(st, foe, hitRes, dmgKind);
           total += hitRes.damage;
         }
       }
@@ -557,6 +645,7 @@
         if (!hitRes.missed) {
           st.__lastSkillDamage = hitRes.damage;
           foe.hp = Math.max(0, foe.hp - hitRes.damage);
+          allyStrikeVfx(st, foe, hitRes, dmgKind);
           appendFightLog(`${label} hits ${foe.name} for ${hitRes.damage}.`);
           if (row.debuff) rollDebuff(st, foe, row.debuff);
         }
@@ -576,6 +665,7 @@
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
         if (!hitRes.missed) {
           foe.hp = Math.max(0, foe.hp - hitRes.damage);
+          allyStrikeVfx(st, foe, hitRes, dmgKind);
           if (row.debuff2) rollDebuff(st, foe, row.debuff2);
           if (row.debuff3) rollDebuff(st, foe, row.debuff3);
         }
@@ -590,7 +680,10 @@
       living.forEach((foe) => {
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) foe.hp = Math.max(0, foe.hp - hitRes.damage);
+        if (!hitRes.missed) {
+          foe.hp = Math.max(0, foe.hp - hitRes.damage);
+          allyStrikeVfx(st, foe, hitRes, dmgKind);
+        }
       });
       afterCommit();
       return true;
@@ -605,7 +698,10 @@
         const foe = living[Math.floor(Math.random() * living.length)];
         const raw = computeStatDamage(row, dmgKind, foe, skillName);
         const hitRes = resolveOneHit(st, foe, raw, dmgKind, baseHit, baseCrit, 0, 0, skillName);
-        if (!hitRes.missed) foe.hp = Math.max(0, foe.hp - hitRes.damage);
+        if (!hitRes.missed) {
+          foe.hp = Math.max(0, foe.hp - hitRes.damage);
+          allyStrikeVfx(st, foe, hitRes, dmgKind);
+        }
       }
       afterCommit();
       return true;

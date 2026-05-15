@@ -521,37 +521,51 @@ const GAME_CONFIG = {
   },
 
   /**
-   * Character leveling: XP per level rises with level² so early levels stay fast and later ones slower.
-   * `xpToNextLevel(L) = xpToNextConst + (L² * xpToNextLevelSquare)` is the XP needed to go from level L to L+1 (default 150 + L²×4).
+   * Character leveling: `xpToNextLevel(L) = round(xpConst + L*xpLinear + L²*xpSquare + L³*xpCubic)` (default 120 + 28L + 5.2L² + 0.13L³).
    * At `maxLevel`, further XP is banked but does not increase level.
    */
   leveling: {
     maxLevel: 60,
-    xpToNextConst: 150,
-    xpToNextLevelSquare: 4
+    xpConst: 120,
+    xpLinear: 28,
+    xpSquare: 5.2,
+    xpCubic: 0.13
   },
 
   /**
-   * Kill XP per defeated foe (gold/items still use each enemy’s `drops`).
-   * Let M = monster level, P = player level, `baseXP = baseXpByRarity[spawnRarity]`.
-   * `xp = floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiffPerPlayerLevel))`.
-   * Optional: set `minLevelDiffMultiplier` / `maxLevelDiffMultiplier` to clamp only the `(1 + …)` factor.
+   * Kill XP (Dofus-style): per-foe `round((8 + L*2.2 + L²*0.045) * rarityOrBossMult * moodMult)` summed;
+   * each participant gets `round((totalMonsterXP / partySize) * levelBalance * partyMult * playerLevelPenalty)`.
+   * `playerLevelPenalty` uses participant level vs average enemy level (low-level members earn less).
+   * Boss foes use `isBoss: true` on dungeon room entries or enemy defs — boss mult only (no spawnRarity mult).
    */
+  /** Combat card overlay sprites (transparent PNGs under Assets/UI/effects/). */
+  combatFx: {
+    basePath: "Assets/UI/effects",
+    physical: "physical.png",
+    magic: "magic.png",
+    heal: "heal.png",
+    bleed: "bleed.png",
+    poison: "poison.png"
+  },
+
   victoryXp: {
-    /** `xp = floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiffPerPlayerLevel)))` — level ratio factor removed. */
-    levelDiffPerPlayerLevel: 0.025,
-    minXpMult: 0.75,
-    maxXpMult: 1.6,
-    levelRatioMin: 0.5,
-    levelRatioMax: 1.5,
-    minLevelDiffMultiplier: null,
-    maxLevelDiffMultiplier: null,
-    baseXpByRarity: {
-      common: 25,
-      rare: 50,
-      epic: 100,
-      myth: 180,
-      ancient: 240
+    bossMultiplier: 4,
+    rarityMultipliers: {
+      common: 1,
+      rare: 1.5,
+      epic: 2.4,
+      myth: 3,
+      ancient: 5
+    },
+    partyMultipliers: {
+      1: 1,
+      2: 1.12,
+      3: 1.25,
+      4: 1.38,
+      5: 1.48,
+      6: 1.56,
+      7: 1.63,
+      8: 1.7
     }
   },
 
@@ -5807,7 +5821,7 @@ const GAME_CONFIG = {
           {
             bg: "6",
             enemies: [
-              { name: "Tidemother Aberration", level: 15, moodId: "berserk" },
+              { name: "Tidemother Aberration", level: 15, moodId: "berserk", isBoss: true },
               { name: "Drowned Channeler", level: 13, moodId: "berserk" },
               { name: "Tidebound Crusher", level: 14, moodId: "berserk" },
               { name: "Tide Hopper", level: 6, moodId: "berserk" },
@@ -5890,7 +5904,7 @@ const GAME_CONFIG = {
             bg: "6",
             bgPhaseStems: ["5_0", "5_1", "5_2", "5_3"],
             enemies: [
-              { name: "The Stormwake Leviathan", level: 15, moodId: "berserk" }
+              { name: "The Stormwake Leviathan", level: 15, moodId: "berserk", isBoss: true }
             ]
           }
         ]

@@ -137,6 +137,14 @@ function createDefaultCompanionSlot(label) {
   return companion;
 }
 
+/** Keep companion progression data separate from the hero (guards bad saves / mistaken references). */
+function isolateCompanionProgressFromHero(p, c, slotIndex) {
+  if (!p || !c || c !== p) return c;
+  const replacement = createDefaultCompanionSlot(`Companion ${slotIndex + 1}`);
+  p.companions[slotIndex] = replacement;
+  return replacement;
+}
+
 function ensurePlayerCompanions(p) {
   if (!p || typeof p !== "object") return;
   if (!Array.isArray(p.companions) || p.companions.length !== COMPANION_SLOT_COUNT) {
@@ -151,6 +159,13 @@ function ensurePlayerCompanions(p) {
     if (!c || typeof c !== "object") {
       c = createDefaultCompanionSlot(`Companion ${i + 1}`);
       p.companions[i] = c;
+    }
+    c = isolateCompanionProgressFromHero(p, c, i);
+    if (c.classSkillLevels === p.classSkillLevels) {
+      c.classSkillLevels = { ...p.classSkillLevels };
+    }
+    if (Array.isArray(c.skillBarSlots) && c.skillBarSlots === p.skillBarSlots) {
+      c.skillBarSlots = p.skillBarSlots.slice();
     }
     const defaultName = `Companion ${i + 1}`;
     if (typeof c.enabled !== "boolean") c.enabled = false;
@@ -206,7 +221,8 @@ function getRosterActorFromTab(tab) {
   if (t === "hero") return player;
   const idx = parseInt(t, 10);
   if (Number.isFinite(idx) && idx >= 0 && idx < COMPANION_SLOT_COUNT && player && Array.isArray(player.companions)) {
-    return player.companions[idx] || player;
+    const c = player.companions[idx];
+    if (c && typeof c === "object" && c !== player) return c;
   }
   return player;
 }
@@ -386,12 +402,22 @@ function getActorCombatMaxStamina(actor) {
   return Math.max(1, base + fromGear);
 }
 
-function applyVictoryXpToEnabledCompanions(xpAmt) {
-  if (!player || !Array.isArray(player.companions) || !(xpAmt > 0)) return;
-  player.companions.forEach((c) => {
-    if (!c || !c.enabled) return;
-    c.xp += xpAmt;
-    levelUpActor(c);
+/** Award per-member victory XP (hero + in-fight companions). */
+function awardVictoryXpToParty(memberRewards) {
+  if (!Array.isArray(memberRewards) || !memberRewards.length) return;
+  memberRewards.forEach((m) => {
+    if (!m || !(m.xp > 0)) return;
+    if (m.kind === "hero") {
+      player.xp += m.xp;
+      levelUp();
+      return;
+    }
+    if (m.kind === "companion" && typeof m.companionSlotIndex === "number") {
+      const c = player.companions && player.companions[m.companionSlotIndex];
+      if (!c || c === player || !c.enabled) return;
+      c.xp += m.xp;
+      levelUpActor(c);
+    }
   });
 }
 
@@ -431,17 +457,18 @@ function getPlayerMaxLevel() {
 
 /**
  * XP required to advance from `level` to `level + 1`. Returns 0 at or above max level.
- * Default curve from config: 150 + level²×4 (e.g. L1→154, L10→550).
+ * Default curve: round(120 + 28L + 5.2L² + 0.13L³).
  */
 function xpToNextLevel(level) {
   const lv = Math.floor(typeof level === "number" && level > 0 ? level : 1);
   const maxLv = getPlayerMaxLevel();
   if (lv >= maxLv) return 0;
   const c = getLevelingConfig();
-  const a = typeof c.xpToNextConst === "number" && Number.isFinite(c.xpToNextConst) ? c.xpToNextConst : 150;
-  const b =
-    typeof c.xpToNextLevelSquare === "number" && Number.isFinite(c.xpToNextLevelSquare) ? c.xpToNextLevelSquare : 4;
-  return Math.max(1, Math.floor(a + lv * lv * b));
+  const a = typeof c.xpConst === "number" && Number.isFinite(c.xpConst) ? c.xpConst : 120;
+  const lin = typeof c.xpLinear === "number" && Number.isFinite(c.xpLinear) ? c.xpLinear : 28;
+  const sq = typeof c.xpSquare === "number" && Number.isFinite(c.xpSquare) ? c.xpSquare : 5.2;
+  const cub = typeof c.xpCubic === "number" && Number.isFinite(c.xpCubic) ? c.xpCubic : 0.13;
+  return Math.max(1, Math.round(a + lv * lin + lv * lv * sq + lv * lv * lv * cub));
 }
 
 const DEFAULT_CLASS_ID = "adventurer";
@@ -563,7 +590,11 @@ function getPlayerSkillLevel(skillName) {
 }
 
 function getClassSkillPowerMultiplier(skillName) {
-  const lv = getPlayerSkillLevel(skillName);
+  return getClassSkillPowerMultiplierForActor(player, skillName);
+}
+
+function getClassSkillPowerMultiplierForActor(actor, skillName) {
+  const lv = getActorSkillLevel(actor, skillName);
   if (!lv) return 1;
   return 1 + 0.2 * (lv - 1);
 }
@@ -670,6 +701,91 @@ function applySkillBarSlotSwap(actor, fromIdx, toIdx) {
   actor.skillBarSlots[a] = actor.skillBarSlots[b];
   actor.skillBarSlots[b] = tmp;
   return true;
+}
+
+/** Move a slotted skill to another bar index; clears the source slot (swap if target is occupied). */
+function applySkillBarMoveFromSlot(actor, fromIdx, toIdx) {
+  ensureActorSkillBar(actor);
+  const a = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(fromIdx)));
+  const b = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(toIdx)));
+  if (a === b) return false;
+  const name = actor.skillBarSlots[a];
+  if (!name) return false;
+  if (!actor.skillBarSlots[b]) {
+    actor.skillBarSlots[b] = name;
+    actor.skillBarSlots[a] = null;
+    return true;
+  }
+  return applySkillBarSlotSwap(actor, a, b);
+}
+
+function getSkillBarRemoveDropZone(el) {
+  if (!el || !el.closest) return null;
+  return el.closest(
+    ".skills-pool-scroll, .skills-tab-inner, .class-skills-list, .class-skill-row, .skills-bar-host"
+  );
+}
+
+function getCombatSkillNameForBarSlot(actor, slotIndex) {
+  if (!actor) return null;
+  ensureActorSkillBar(actor);
+  const i = Math.max(0, Math.min(SKILL_BAR_SLOT_COUNT - 1, Math.floor(slotIndex)));
+  const name = actor.skillBarSlots[i];
+  if (!name || typeof name !== "string") return null;
+  if (!actorOwnsSkillForBar(actor, name) || !isCombatCatalogSkillName(name)) return null;
+  return name;
+}
+
+function getFightSkillBarHotkeySlotIndex(key) {
+  if (key >= "1" && key <= "9") return key.charCodeAt(0) - "1".charCodeAt(0);
+  if (key === "0") return 9;
+  return -1;
+}
+
+function getFightActiveSkillBarActor() {
+  const st = combatState;
+  if (!st || st.phase !== "player") return null;
+  const active = getActivePartyMember(st);
+  if (!active) return null;
+  if (active.kind === "hero") return player;
+  if (typeof active.companionSlotIndex === "number") {
+    return player.companions && player.companions[active.companionSlotIndex];
+  }
+  return null;
+}
+
+function tryFightSkillBarHotkey(e) {
+  if (!isFightOverlayOpen()) return false;
+  const st = combatState;
+  if (!st || st.phase !== "player") return false;
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  const slotIdx = getFightSkillBarHotkeySlotIndex(e.key);
+  if (slotIdx < 0) return false;
+  const actor = getFightActiveSkillBarActor();
+  const skillName = getCombatSkillNameForBarSlot(actor, slotIdx);
+  if (!skillName) return false;
+  e.preventDefault();
+  activeActorAction("skill", skillName);
+  return true;
+}
+
+function tryFightEndTurnHotkey(e) {
+  if (!isFightOverlayOpen()) return false;
+  const st = combatState;
+  if (!st || st.phase !== "player") return false;
+  if (!getActivePartyMember(st)) return false;
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  const key = e.key;
+  if (key !== " " && key !== "F1") return false;
+  e.preventDefault();
+  endActiveActorTurn(false);
+  return true;
+}
+
+function refreshSkillBarUiAfterChange() {
+  save();
+  if (isSkillsPanelOpen()) refreshSkillsPanelSubpanelInPlace();
+  else render();
 }
 
 function applySkillBarClearSlot(actor, idx) {
@@ -2670,12 +2786,13 @@ function getFoeFlatDamageReduction(foe) {
  * Full outgoing damage resolution vs one foe (hit, crit, resists, flat, then thick hide / mitigation).
  * @returns {{ damage: number, missed: boolean, crit: boolean }}
  */
-function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName) {
+function resolveActorOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName, actor, activeMember) {
+  const act = actor || player;
   const sys = getStatSystem();
-  const str = totalStr();
-  const dex = totalDex();
-  const int = totalInt();
-  const gear = sumEquippedBonusStats();
+  const str = totalStrFromActor(act);
+  const dex = totalDexFromActor(act);
+  const int = totalIntFromActor(act);
+  const gear = sumEquippedBonusStatsFromEquipment(act.equipment || emptyEquipment());
   const sk = skillName ? getSkillDef(skillName) : null;
   let dmgKind = "physical";
   if (sk && sk.damageKind === "magic") dmgKind = "magic";
@@ -2685,7 +2802,6 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
   const acc = attribBonusPer10(dex) + attribBonusPer10(int) + (gear.accuracy || 0);
   const evF = getFoeEvasionPct(foe);
-  const activeMember = combatState ? getPartyMemberByUid(combatState, combatState.activePartyUid) : null;
   const accPenalty = getPlayerOutgoingAccuracyPenaltyPct(combatState, activeMember);
   const hitPct = Math.min(maxH, Math.max(minH, acc - evF - accPenalty));
   if (Math.random() * 100 >= hitPct) return { damage: 0, missed: true, crit: false };
@@ -2759,12 +2875,17 @@ function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName)
   return { damage: fin, missed: false, crit };
 }
 
-function tryApplyStaggerFromSkill(foe, skillCfg) {
+function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName) {
+  const activeMember = combatState ? getPartyMemberByUid(combatState, combatState.activePartyUid) : null;
+  return resolveActorOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName, player, activeMember);
+}
+
+function tryApplyStaggerFromSkill(foe, skillCfg, actor) {
   if (!foe || !foe.combat || !skillCfg || !Array.isArray(skillCfg.combatTags)) return;
   if (skillCfg.name === "Shield Slam" || skillCfg.name === "Heavy Strike" || skillCfg.name === "Earthshatter") return;
   const tags = skillCfg.combatTags.map((t) => String(t).toLowerCase());
   if (!tags.includes("heavy") && !tags.includes("crushing")) return;
-  const p = formulaStrStaggerChancePct(totalStr()) / 100;
+  const p = formulaStrStaggerChancePct(totalStrFromActor(actor || player)) / 100;
   if (Math.random() >= p) return;
   const sys = getStatSystem();
   const mult =
@@ -2935,36 +3056,57 @@ function endPlayerTurn() {
 }
 
 /** Core attack before bonuses from skills that define combatMultiplier (those are applied in combat only). */
-function getPlayerDamageCore() {
-  let atk = player.baseAttack + Math.floor(getEffectiveStr() / 2);
-  const w = player.equipment.weapon;
+function getActorDamageCore(actor) {
+  const p = actor || player;
+  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
+  const effStr = Math.max(0, getActorStatBase(p, "str") + (gear.str || 0));
+  let atk = (typeof p.baseAttack === "number" ? p.baseAttack : 10) + Math.floor(effStr / 2);
+  const w = p.equipment && p.equipment.weapon;
   if (w) atk += getScaledItemAttack(getItemDef(w), w);
-  player.skills.forEach((s) => {
+  const skillsArr = Array.isArray(p.skills) ? p.skills : [];
+  skillsArr.forEach((s) => {
     const sk = getSkillDef(s);
     if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier !== "number") atk += sk.bonus;
   });
   return Math.max(1, atk);
 }
 
-function getPlayerDamage() {
-  let atk = getPlayerDamageCore();
-  player.skills.forEach((s) => {
+function getPlayerDamageCore() {
+  return getActorDamageCore(player);
+}
+
+function getActorDamage(actor) {
+  const p = actor || player;
+  let atk = getActorDamageCore(p);
+  const skillsArr = Array.isArray(p.skills) ? p.skills : [];
+  skillsArr.forEach((s) => {
     const sk = getSkillDef(s);
     if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier === "number") atk += sk.bonus;
   });
   return Math.max(1, Math.floor(atk));
 }
 
+function getPlayerDamage() {
+  return getActorDamage(player);
+}
+
 /** Basic attack uses full listed damage; active combat skills use core + that skill’s bonus × multiplier. */
-function getCombatDamage(kind, skillName) {
-  if (kind !== "skill" || !skillName) return getPlayerDamage();
+function getCombatDamageForActor(actor, kind, skillName) {
+  if (kind !== "skill" || !skillName) return getActorDamage(actor);
   const cfg = getSkillDef(skillName);
-  if (!cfg || typeof cfg.combatMultiplier !== "number" || !isSkillSlottedForActor(player, skillName)) {
-    return getPlayerDamage();
+  if (!cfg || typeof cfg.combatMultiplier !== "number" || !isSkillSlottedForActor(actor, skillName)) {
+    return getActorDamage(actor);
   }
-  const core = getPlayerDamageCore();
+  const core = getActorDamageCore(actor);
   const base = core + (typeof cfg.bonus === "number" ? cfg.bonus : 0);
-  return Math.max(1, Math.floor(base * cfg.combatMultiplier * getClassSkillPowerMultiplier(skillName)));
+  return Math.max(
+    1,
+    Math.floor(base * cfg.combatMultiplier * getClassSkillPowerMultiplierForActor(actor, skillName))
+  );
+}
+
+function getCombatDamage(kind, skillName) {
+  return getCombatDamageForActor(player, kind, skillName);
 }
 
 function getDamageRange() {
@@ -3308,6 +3450,8 @@ function tickPlayerClassStartOfTurn(st) {
     syncHeroHpFromPlayerMirror(st);
     cs.regenTurns -= 1;
     appendFightLog(`Regeneration restores ${healed} HP.`);
+    const heroMember = st.party && st.party.find((m) => m && m.kind === "hero");
+    if (heroMember) playCombatCardStatusEffect({ targetSide: "ally", targetUid: heroMember.uid, effectType: "heal", damage: healed, heal: true });
   }
 }
 
@@ -3820,6 +3964,8 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     const hit = computeHeroIncomingDamage(raw, st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null);
     if (hit.evaded) {
       appendFightLog(`${foeName} attacks ${m.name} — ${m.name} evades!`);
+      const srcFoeEv = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+      if (srcFoeEv) playFoeStrikeOnAlly(srcFoeEv, m.uid, 0, true);
       syncCombatPartyHeroMirror(st);
       return;
     }
@@ -3837,6 +3983,8 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     if (st && st.phase === "enemy") enforceIndomitableEnemyPhaseCap(st, m);
     const effectiveTaken = Math.max(0, hpBefore - m.hp);
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, effectiveTaken));
+    const srcFoeHit = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+    if (srcFoeHit && effectiveTaken > 0) playFoeStrikeOnAlly(srcFoeHit, m.uid, effectiveTaken, false);
     if (cls.id === "vanguard") {
       const csVg = ensurePlayerClassCombatState(st);
       const p = Math.min(0.2, 0.06 + totalVit() * 0.0005 + getClassSkillProcBonus("Shield Slam"));
@@ -3862,6 +4010,8 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     m.hp -= taken;
     if (m.hp < 0) m.hp = 0;
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
+    const srcFoeComp = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+    if (srcFoeComp && taken > 0) playFoeStrikeOnAlly(srcFoeComp, m.uid, taken, false);
   }
   syncCombatPartyHeroMirror(st);
 }
@@ -3945,11 +4095,13 @@ function tickEnemySkillCooldownsEndOfTurn(foe) {
 function tickEffectsAtStartOfPlayerTurn(st) {
   ensureCombatStatus(st);
   const s = st.status;
+  const heroMember = st.party && st.party.find((m) => m && m.kind === "hero");
   if (s.playerPoison && s.playerPoison.turns > 0 && s.playerPoison.dmg > 0) {
     const dotRed = formulaVitDotReductionPct(totalVit()) / 100;
     const d = Math.max(1, Math.floor(s.playerPoison.dmg * (1 - dotRed)));
     st.playerHp -= d;
     appendFightLog(`Poison deals ${d} damage to you.`);
+    if (heroMember) playCombatCardStatusEffect({ targetSide: "ally", targetUid: heroMember.uid, effectType: "poison", damage: d });
     s.playerPoison.turns -= 1;
     if (s.playerPoison.turns <= 0) s.playerPoison = null;
   }
@@ -3958,6 +4110,7 @@ function tickEffectsAtStartOfPlayerTurn(st) {
     const d = Math.max(1, Math.floor(s.playerBleed.dmg * (1 - dotRed)));
     st.playerHp -= d;
     appendFightLog(`Bleeding deals ${d} damage to you.`);
+    if (heroMember) playCombatCardStatusEffect({ targetSide: "ally", targetUid: heroMember.uid, effectType: "bleed", damage: d });
     s.playerBleed.turns -= 1;
     if (s.playerBleed.turns <= 0) s.playerBleed = null;
   }
@@ -4036,6 +4189,7 @@ function tickPlayerTurnEndBuffs(st) {
       f.hp = Math.max(0, f.hp - d);
       f.combat.poisonTurns -= 1;
       appendFightLog(`${f.name} takes ${d} poison damage.`);
+      playCombatCardStatusEffect({ targetSide: "foe", targetUid: f.uid, effectType: "poison", damage: d });
     }
     if (typeof f.combat.burnTurns === "number" && f.combat.burnTurns > 0 && (f.combat.burnDamage || 0) > 0) {
       const d = Math.max(1, Math.floor(f.combat.burnDamage));
@@ -4048,6 +4202,7 @@ function tickPlayerTurnEndBuffs(st) {
       f.hp = Math.max(0, f.hp - d);
       f.combat.bleedTurns -= 1;
       appendFightLog(`${f.name} takes ${d} bleed damage.`);
+      playCombatCardStatusEffect({ targetSide: "foe", targetUid: f.uid, effectType: "bleed", damage: d });
     }
     const decFoeTurnPct = (tKey, pKey) => {
       if (typeof f.combat[tKey] === "number" && f.combat[tKey] > 0) {
@@ -7848,6 +8003,8 @@ function spawnEnemiesFromPreview(region, units) {
       if (foe) {
         const pi = u && typeof u.portraitImage === "string" ? u.portraitImage.trim() : "";
         if (pi) foe.image = pi;
+        if (u && u.isBoss === true) foe.isBoss = true;
+        else if (def && def.isBoss === true) foe.isBoss = true;
       }
       return foe;
     })
@@ -11485,34 +11642,44 @@ function collectProfessionGatheringLootForFoe(foe, def, moodLootMult, actor, cha
 }
 
 function getCompanionLootActorsFromParty(party) {
+  return getCompanionLootEntriesFromParty(party).map((e) => e.comp);
+}
+
+/** In-fight companions eligible for bonus loot rolls (`{ comp, slotIndex }`). */
+function getCompanionLootEntriesFromParty(party) {
   const out = [];
   const seen = new Set();
-  const addCompanion = (comp, slotIdx) => {
-    if (!comp || !comp.enabled || seen.has(slotIdx)) return;
-    seen.add(slotIdx);
-    out.push(comp);
-  };
-  if (Array.isArray(party)) {
-    party.forEach((m) => {
-      if (!m || m.kind !== "companion" || typeof m.companionSlotIndex !== "number") return;
-      const idx = m.companionSlotIndex;
-      const comp = player.companions && player.companions[idx];
-      addCompanion(comp, idx);
-    });
-    return out;
-  }
-  if (player && Array.isArray(player.companions)) {
-    player.companions.forEach((comp, idx) => addCompanion(comp, idx));
-  }
+  if (!Array.isArray(party)) return out;
+  party.forEach((m) => {
+    if (!m || m.kind !== "companion" || typeof m.companionSlotIndex !== "number") return;
+    const slotIndex = m.companionSlotIndex;
+    if (seen.has(slotIndex)) return;
+    const comp = player.companions && player.companions[slotIndex];
+    if (!comp || !comp.enabled) return;
+    seen.add(slotIndex);
+    out.push({ comp, slotIndex });
+  });
   return out;
 }
 
 function collectCompanionProfessionLootForFoe(foe, def, moodLootMult, perKillMaterials, companions) {
-  if (!def || !Array.isArray(companions) || !companions.length) return [];
-  const out = [];
+  const flat = [];
+  const entries = (companions || []).map((comp, i) => ({
+    comp,
+    slotIndex: typeof comp.companionSlotIndex === "number" ? comp.companionSlotIndex : i
+  }));
+  const bySlot = collectCompanionProfessionLootForFoeAttributed(foe, def, moodLootMult, perKillMaterials, entries);
+  Object.keys(bySlot).forEach((slot) => flat.push(...(bySlot[slot] || [])));
+  return flat;
+}
+
+function collectCompanionProfessionLootForFoeAttributed(foe, def, moodLootMult, perKillMaterials, companionEntries) {
+  const bySlot = {};
+  if (!def || !Array.isArray(companionEntries) || !companionEntries.length) return bySlot;
   const baseMult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
-  companions.forEach((comp) => {
+  companionEntries.forEach(({ comp, slotIndex }) => {
     if (!comp || !comp.enabled) return;
+    const bucket = bySlot[slotIndex] || (bySlot[slotIndex] = []);
     const selectedGathering = getActorGatheringProfessionIds(comp);
     if (!selectedGathering.length) return;
     if (Array.isArray(perKillMaterials) && perKillMaterials.length) {
@@ -11522,12 +11689,12 @@ function collectCompanionProfessionLootForFoe(foe, def, moodLootMult, perKillMat
         if (!cond || cond === "none" || cond === "any") return;
         if (!canRollConditionedMonsterMaterialForActor(mat, comp)) return;
         const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, baseMult * COMPANION_LOOT_CHANCE_MULT);
-        if (rolled) out.push(rolled);
+        if (rolled) bucket.push(rolled);
       });
     }
-    collectProfessionGatheringLootForFoe(foe, def, baseMult, comp, COMPANION_LOOT_CHANCE_MULT).forEach((n) => out.push(n));
+    collectProfessionGatheringLootForFoe(foe, def, baseMult, comp, COMPANION_LOOT_CHANCE_MULT).forEach((n) => bucket.push(n));
   });
-  return out;
+  return bySlot;
 }
 
 function getMonsterMaterialCondition(mat) {
@@ -11558,17 +11725,36 @@ function canRollConditionedMonsterMaterial(mat) {
  * @returns {string[]}
  */
 function collectMonsterTableLootForFoe(foe, def, moodLootMult, companionLootActors) {
+  const entries = (companionLootActors || []).map((comp, i) => ({
+    comp,
+    slotIndex: typeof comp.companionSlotIndex === "number" ? comp.companionSlotIndex : i
+  }));
+  const { hero, companionBySlot } = collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, entries);
+  const flat = hero.slice();
+  Object.keys(companionBySlot).forEach((slot) => flat.push(...(companionBySlot[slot] || [])));
+  return flat;
+}
+
+/** @returns {{ hero: string[], companionBySlot: Record<number, string[]> }} */
+function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, companionEntries) {
   const table = getMonsterLootDropTable(def);
-  if (!table) return [];
-  const out = [];
+  const hero = [];
+  const companionBySlot = {};
+  if (!table) return { hero, companionBySlot };
+
   const mlRaw =
     typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
   const ml = Math.max(1, Math.floor(mlRaw));
   const mult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
+  const entries = Array.isArray(companionEntries) ? companionEntries : [];
+  entries.forEach(({ slotIndex }) => {
+    if (typeof slotIndex === "number") companionBySlot[slotIndex] = [];
+  });
+
   const pGear = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * mult);
   if (Math.random() < pGear) {
     const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
-    if (pickedBase) out.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
+    if (pickedBase) hero.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
   }
   const allMats = Array.isArray(table.materials) ? table.materials : [];
   const passMaterials = [];
@@ -11586,43 +11772,47 @@ function collectMonsterTableLootForFoe(foe, def, moodLootMult, companionLootActo
     passMaterials.forEach((mat) => {
       if (!mat || typeof mat.name !== "string") return;
       const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, mult);
-      if (rolled) out.push(rolled);
+      if (rolled) hero.push(rolled);
     });
   }
   perKillMaterials.forEach((mat) => {
     if (!canRollConditionedMonsterMaterial(mat)) return;
     const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, mult);
-    if (rolled) out.push(rolled);
+    if (rolled) hero.push(rolled);
   });
-  if (Array.isArray(companionLootActors) && companionLootActors.length) {
-    companionLootActors.forEach((comp) => {
-      if (!comp || !comp.enabled) return;
-      const companionMult = mult * COMPANION_LOOT_CHANCE_MULT;
-      const companionGearChance = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * companionMult);
-      if (Math.random() < companionGearChance) {
-        const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
-        if (pickedBase) out.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
-      }
-      const companionPasses = rollMaterialPassCount();
-      for (let p = 0; p < companionPasses; p++) {
-        passMaterials.forEach((mat) => {
-          if (!mat || typeof mat.name !== "string") return;
-          const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, companionMult);
-          if (rolled) out.push(rolled);
-        });
-      }
-      perKillMaterials.forEach((mat) => {
+  entries.forEach(({ comp, slotIndex }) => {
+    if (!comp || !comp.enabled || typeof slotIndex !== "number") return;
+    const bucket = companionBySlot[slotIndex] || (companionBySlot[slotIndex] = []);
+    const companionMult = mult * COMPANION_LOOT_CHANCE_MULT;
+    const companionGearChance = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * companionMult);
+    if (Math.random() < companionGearChance) {
+      const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
+      if (pickedBase) bucket.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
+    }
+    const companionPasses = rollMaterialPassCount();
+    for (let p = 0; p < companionPasses; p++) {
+      passMaterials.forEach((mat) => {
         if (!mat || typeof mat.name !== "string") return;
-        const cond = getMonsterMaterialCondition(mat);
-        if (cond && cond !== "none" && cond !== "any") return;
         const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, companionMult);
-        if (rolled) out.push(rolled);
+        if (rolled) bucket.push(rolled);
       });
+    }
+    perKillMaterials.forEach((mat) => {
+      if (!mat || typeof mat.name !== "string") return;
+      const cond = getMonsterMaterialCondition(mat);
+      if (cond && cond !== "none" && cond !== "any") return;
+      const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, companionMult);
+      if (rolled) bucket.push(rolled);
     });
-  }
-  collectProfessionGatheringLootForFoe(foe, def, mult, player, 1).forEach((n) => out.push(n));
-  collectCompanionProfessionLootForFoe(foe, def, mult, perKillMaterials, companionLootActors).forEach((n) => out.push(n));
-  return out;
+  });
+  collectProfessionGatheringLootForFoe(foe, def, mult, player, 1).forEach((n) => hero.push(n));
+  const profBySlot = collectCompanionProfessionLootForFoeAttributed(foe, def, mult, perKillMaterials, entries);
+  Object.keys(profBySlot).forEach((slot) => {
+    const idx = Number(slot);
+    const bucket = companionBySlot[idx] || (companionBySlot[idx] = []);
+    bucket.push(...(profBySlot[slot] || []));
+  });
+  return { hero, companionBySlot };
 }
 
 /**
@@ -11646,46 +11836,151 @@ function rollGoldDrop(spec) {
   return 0;
 }
 
-/**
- * Kill XP: `baseXP` from rarity, then `floor(baseXP * clamp(minXpMult, maxXpMult, 1 + (M - P) * levelDiff)))` — see `GAME_CONFIG.victoryXp`.
- * @param {{ name: string, level?: number }} foe
- * @param {number} playerLevel
- */
-function computeVictoryXpForFoe(foe, playerLevel) {
-  const def = getEnemyDefByName(foe.name);
-  const mlRaw =
-    typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
-  const ml = Math.max(1, Math.floor(mlRaw));
-  const pl = Math.max(1, Math.floor(typeof playerLevel === "number" && playerLevel > 0 ? playerLevel : 1));
-  const cfg = GAME_CONFIG.victoryXp;
-  if (!cfg || typeof cfg !== "object") {
-    return 20;
-  }
+function getVictoryXpConfig() {
+  return GAME_CONFIG.victoryXp && typeof GAME_CONFIG.victoryXp === "object" ? GAME_CONFIG.victoryXp : {};
+}
+
+function foeIsBossForXp(foe, def) {
+  if (foe && foe.isBoss === true) return true;
+  return !!(def && def.isBoss === true);
+}
+
+function getMonsterRarityXpMultiplier(def, cfg) {
   const rarityId =
     def && typeof def.spawnRarity === "string" && def.spawnRarity.trim()
       ? def.spawnRarity.trim().toLowerCase()
       : "common";
-  const byRarity = cfg.baseXpByRarity && typeof cfg.baseXpByRarity === "object" ? cfg.baseXpByRarity : {};
-  let baseXp =
-    typeof byRarity[rarityId] === "number" && byRarity[rarityId] > 0 ? byRarity[rarityId] : byRarity.common || 20;
-  if (!(baseXp > 0)) baseXp = 20;
-  const diffCo =
-    typeof cfg.levelDiffPerPlayerLevel === "number" && Number.isFinite(cfg.levelDiffPerPlayerLevel)
-      ? cfg.levelDiffPerPlayerLevel
-      : 0.025;
-  const minM = typeof cfg.minXpMult === "number" && Number.isFinite(cfg.minXpMult) ? cfg.minXpMult : 0.2;
-  const maxM = typeof cfg.maxXpMult === "number" && Number.isFinite(cfg.maxXpMult) ? cfg.maxXpMult : 3;
-  let addMult = 1 + (ml - pl) * diffCo;
-  if (cfg.minLevelDiffMultiplier != null && Number.isFinite(cfg.minLevelDiffMultiplier)) {
-    addMult = Math.max(cfg.minLevelDiffMultiplier, addMult);
+  const byRarity = cfg.rarityMultipliers && typeof cfg.rarityMultipliers === "object" ? cfg.rarityMultipliers : {};
+  const mult = byRarity[rarityId];
+  return typeof mult === "number" && Number.isFinite(mult) && mult > 0 ? mult : byRarity.common ?? 1;
+}
+
+/**
+ * XP from one defeated foe (summons excluded by caller). Boss uses boss mult only; mood mult per mooded foe.
+ * @param {{ name: string, level?: number, isBoss?: boolean }} foe
+ * @param {object | null} def
+ */
+function getMonsterXpForFoe(foe, def) {
+  const mlRaw =
+    typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
+  const level = Math.max(1, Math.floor(mlRaw));
+  const cfg = getVictoryXpConfig();
+  const baseXP = 8 + level * 2.2 + level * level * 0.045;
+  let mult;
+  if (foeIsBossForXp(foe, def)) {
+    mult = typeof cfg.bossMultiplier === "number" && cfg.bossMultiplier > 0 ? cfg.bossMultiplier : 4;
+  } else {
+    mult = getMonsterRarityXpMultiplier(def, cfg);
   }
-  if (cfg.maxLevelDiffMultiplier != null && Number.isFinite(cfg.maxLevelDiffMultiplier)) {
-    addMult = Math.min(cfg.maxLevelDiffMultiplier, addMult);
-  }
-  addMult = Math.max(minM, Math.min(maxM, addMult));
-  let out = Math.max(1, Math.floor(baseXp * addMult));
-  if (hasActiveMood(foe)) out = Math.max(1, Math.floor(out * MOOD_XP_BONUS_MULT));
-  return out;
+  let xp = Math.round(baseXP * mult);
+  if (hasActiveMood(foe)) xp = Math.round(xp * MOOD_XP_BONUS_MULT);
+  return Math.max(0, xp);
+}
+
+function getLevelBalanceMultiplier(totalMonsterLevels, totalPlayerLevels) {
+  const monsterLv = Math.max(0, Number(totalMonsterLevels) || 0);
+  const playerLv = Math.max(1, Number(totalPlayerLevels) || 1);
+  const ratio = monsterLv / playerLv;
+  if (ratio < 0.4) return 0.1;
+  if (ratio < 0.6) return 0.35;
+  if (ratio < 0.75) return 0.65;
+  if (ratio < 0.9) return 0.85;
+  if (ratio <= 1.15) return 1;
+  if (ratio <= 1.35) return 1.1;
+  if (ratio <= 1.6) return 0.95;
+  return 0.7;
+}
+
+function getPartyXpMultiplier(partySize) {
+  const size = Math.max(1, Math.min(8, Math.floor(Number(partySize) || 1)));
+  const cfg = getVictoryXpConfig();
+  const table = cfg.partyMultipliers && typeof cfg.partyMultipliers === "object" ? cfg.partyMultipliers : {};
+  const mult = table[size];
+  if (typeof mult === "number" && Number.isFinite(mult) && mult > 0) return mult;
+  const maxMult = table[8];
+  return typeof maxMult === "number" && maxMult > 0 ? maxMult : 1.7;
+}
+
+/** Levels of hero + in-fight companions for victory XP balance. */
+function getVictoryXpParticipantLevelsFromParty(party) {
+  const levels = [];
+  if (!Array.isArray(party)) return levels;
+  party.forEach((m) => {
+    if (!m) return;
+    if (m.kind === "hero") {
+      const lv = typeof player.level === "number" && player.level > 0 ? Math.floor(player.level) : 1;
+      levels.push(lv);
+      return;
+    }
+    if (m.kind === "companion" && typeof m.companionSlotIndex === "number") {
+      const c = player.companions && player.companions[m.companionSlotIndex];
+      if (!c || !c.enabled) return;
+      const lv = typeof c.level === "number" && c.level > 0 ? Math.floor(c.level) : 1;
+      levels.push(lv);
+    }
+  });
+  return levels;
+}
+
+/** Individual penalty from participant level vs average defeated enemy level. */
+function getPlayerLevelPenalty(playerLevel, averageEnemyLevel) {
+  const pl = Math.max(1, Math.floor(Number(playerLevel) || 1));
+  const avg = Math.max(1, Number(averageEnemyLevel) || 1);
+  const ratio = pl / avg;
+  if (ratio >= 0.85) return 1;
+  if (ratio >= 0.7) return 0.9;
+  if (ratio >= 0.5) return 0.75;
+  if (ratio >= 0.35) return 0.6;
+  if (ratio >= 0.2) return 0.45;
+  if (ratio >= 0.1) return 0.3;
+  return 0.2;
+}
+
+function sumVictoryMonsterXpFromFoes(foes) {
+  let totalMonsterXP = 0;
+  let totalMonsterLevels = 0;
+  let defeatedCount = 0;
+  (foes || []).forEach((foe) => {
+    if (!foe || typeof foe.name !== "string") return;
+    const isSummon = !!(foe.combat && typeof foe.combat.summonerUid === "number");
+    if (isSummon) return;
+    const def = getEnemyDefByName(foe.name);
+    if (!def) return;
+    const mlRaw =
+      typeof foe.level === "number" && foe.level > 0 ? foe.level : pickLevelFromEnemyDef(def);
+    totalMonsterLevels += Math.max(1, Math.floor(mlRaw));
+    totalMonsterXP += getMonsterXpForFoe(foe, def);
+    defeatedCount += 1;
+  });
+  return { totalMonsterXP, totalMonsterLevels, defeatedCount };
+}
+
+/**
+ * Per-participant victory XP (personal level penalty). See `GAME_CONFIG.victoryXp`.
+ * @returns {Array<{ key: string, kind: string, name: string, level: number, xp: number, companionSlotIndex?: number }>}
+ */
+function computeVictoryXpByMember(foes, party) {
+  const memberRows = buildVictoryMemberRewardRows(party);
+  if (!memberRows.length) return [];
+
+  const { totalMonsterXP, totalMonsterLevels, defeatedCount } = sumVictoryMonsterXpFromFoes(foes);
+  const partySize = memberRows.length;
+  const totalPlayerLevels = memberRows.reduce((s, row) => s + (row.level || 1), 0) || 1;
+  const averageEnemyLevel = defeatedCount > 0 ? totalMonsterLevels / defeatedCount : 1;
+  const baseShare = totalMonsterXP / partySize;
+  const partyMult = getPartyXpMultiplier(partySize);
+  const partyBalance = getLevelBalanceMultiplier(totalMonsterLevels, totalPlayerLevels);
+
+  return memberRows.map((row) => {
+    const penalty = getPlayerLevelPenalty(row.level, averageEnemyLevel);
+    const xp = Math.max(1, Math.round(baseShare * partyMult * partyBalance * penalty));
+    return { ...row, xp };
+  });
+}
+
+/** Total XP awarded across the party (sum of per-member amounts). */
+function computeVictoryXpAward(foes, party) {
+  return computeVictoryXpByMember(foes, party).reduce((sum, m) => sum + (m.xp || 0), 0);
 }
 
 function getDefaultGoldSpecForEnemy(def) {
@@ -11698,33 +11993,80 @@ function getDefaultGoldSpecForEnemy(def) {
   return { min: 10, max: 20 };
 }
 
+/** Fight party rows for victory summary (hero + enabled in-fight companions). */
+function buildVictoryMemberRewardRows(party) {
+  const rows = [];
+  (party || []).forEach((m) => {
+    if (!m) return;
+    if (m.kind === "hero") {
+      const name = typeof m.name === "string" && m.name.trim() ? m.name.trim() : player.name || "Hero";
+      const level = typeof player.level === "number" && player.level > 0 ? Math.floor(player.level) : 1;
+      rows.push({ key: "hero", kind: "hero", name, level });
+      return;
+    }
+    if (m.kind === "companion" && typeof m.companionSlotIndex === "number") {
+      const slotIndex = m.companionSlotIndex;
+      const comp = player.companions && player.companions[slotIndex];
+      if (!comp || !comp.enabled) return;
+      const name =
+        (typeof m.name === "string" && m.name.trim()) ||
+        (typeof comp.name === "string" && comp.name.trim()) ||
+        "Companion";
+      const level = typeof comp.level === "number" && comp.level > 0 ? Math.floor(comp.level) : 1;
+      rows.push({ key: `c${slotIndex}`, kind: "companion", companionSlotIndex: slotIndex, name, level });
+    }
+  });
+  return rows;
+}
+
 /**
  * @param {Array<{ name: string, level?: number }>} foes Defeated encounter units (use `combatState.foes`).
+ * @returns {{ gold: number, xp: number, items: string[], memberRewards: Array<{ key: string, kind: string, name: string, xp: number, gold: number, items: string[], companionSlotIndex?: number }> }}
  */
 function computeVictoryLoot(foes, party) {
-  let gold = 0;
-  let xp = 0;
-  const items = [];
-  const pl = typeof player.level === "number" && player.level > 0 ? player.level : 1;
-  const companionLootActors = getCompanionLootActorsFromParty(party);
+  const xpByMember = computeVictoryXpByMember(foes, party);
+  /** @type {Record<string, { key: string, kind: string, name: string, level?: number, xp: number, gold: number, items: string[], companionSlotIndex?: number }>} */
+  const byKey = {};
+  xpByMember.forEach((row) => {
+    byKey[row.key] = { ...row, gold: 0, items: [] };
+  });
+
+  const companionEntries = getCompanionLootEntriesFromParty(party);
   (foes || []).forEach((foe) => {
     if (!foe || typeof foe.name !== "string") return;
     const isSummon = !!(foe.combat && typeof foe.combat.summonerUid === "number");
     if (isSummon) return;
     const def = getEnemyDefByName(foe.name);
     if (!def) return;
-    xp += computeVictoryXpForFoe(foe, pl);
     const moodLootMult = hasActiveMood(foe) ? MOOD_LOOT_DROP_RATE_MULT : 1;
     const table = getMonsterLootDropTable(def);
     const goldSpec = table && table.gold != null ? table.gold : getDefaultGoldSpecForEnemy(def);
-    gold += rollGoldDrop(goldSpec);
-    companionLootActors.forEach((comp) => {
-      if (!comp || !comp.enabled) return;
-      if (Math.random() < COMPANION_LOOT_CHANCE_MULT) gold += rollGoldDrop(goldSpec);
+    if (byKey.hero) byKey.hero.gold += rollGoldDrop(goldSpec);
+    companionEntries.forEach(({ slotIndex }) => {
+      const key = `c${slotIndex}`;
+      if (!byKey[key]) return;
+      if (Math.random() < COMPANION_LOOT_CHANCE_MULT) byKey[key].gold += rollGoldDrop(goldSpec);
     });
-    if (table) collectMonsterTableLootForFoe(foe, def, moodLootMult, companionLootActors).forEach((n) => items.push(n));
+    if (table) {
+      const { hero, companionBySlot } = collectMonsterTableLootForFoeAttributed(
+        foe,
+        def,
+        moodLootMult,
+        companionEntries
+      );
+      if (byKey.hero) byKey.hero.items.push(...hero);
+      Object.keys(companionBySlot).forEach((slot) => {
+        const key = `c${slot}`;
+        if (byKey[key]) byKey[key].items.push(...(companionBySlot[slot] || []));
+      });
+    }
   });
-  return { gold, xp, items };
+
+  const memberRewards = xpByMember.map((row) => byKey[row.key] || row).filter(Boolean);
+  const gold = memberRewards.reduce((sum, m) => sum + (m.gold || 0), 0);
+  const items = memberRewards.flatMap((m) => m.items || []);
+  const totalXp = memberRewards.reduce((sum, m) => sum + (m.xp || 0), 0);
+  return { gold, xp: totalXp, items, memberRewards };
 }
 
 function roundCombatDisplay(v) {
@@ -12137,21 +12479,256 @@ function shakeFightOverlay() {
   overlay.classList.add("shake");
 }
 
+function ensureFightCombatFxLayer() {
+  const field = document.querySelector(".fight-field-area");
+  if (!field) return null;
+  let layer = document.getElementById("fightCombatFxLayer");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.id = "fightCombatFxLayer";
+    layer.className = "fight-combat-fx-layer";
+    layer.setAttribute("aria-hidden", "true");
+    const hud = document.getElementById("fightHud");
+    if (hud && hud.parentElement === field) field.insertBefore(layer, hud);
+    else field.appendChild(layer);
+  }
+  return layer;
+}
+
+function findFightCombatCard(side, uid) {
+  const hud = document.getElementById("fightHud");
+  if (!hud || uid == null || !Number.isFinite(Number(uid))) return null;
+  const id = String(Math.floor(Number(uid)));
+  if (side === "ally") return hud.querySelector(`[data-party-member="${id}"]`);
+  return hud.querySelector(`[data-fight-target="${id}"]`);
+}
+
+const FIGHT_CARD_FX_MS = 1100;
+const COMBAT_HIT_UI_DELAY_MS = 1150;
+
+function normalizeFightEffectType(t) {
+  const v = String(t || "physical").toLowerCase();
+  if (v === "magic" || v === "heal" || v === "bleed" || v === "poison") return v;
+  return "physical";
+}
+
+function getCombatFxImagePath(effectType) {
+  const t = normalizeFightEffectType(effectType);
+  const cfg = typeof GAME_CONFIG !== "undefined" && GAME_CONFIG.combatFx ? GAME_CONFIG.combatFx : null;
+  const base = cfg && cfg.basePath ? String(cfg.basePath).replace(/\/$/, "") : "Assets/UI/effects";
+  const file = cfg && cfg[t] ? String(cfg[t]) : `${t}.png`;
+  return `${base}/${file}`;
+}
+
+function buildFightCardFxOverlayHtml(effectType) {
+  const t = normalizeFightEffectType(effectType);
+  const src = escapeAttr(getCombatFxImagePath(t));
+  return `<img class="fight-fx-sprite fight-fx-sprite--${t}" src="${src}" alt="" draggable="false" />`;
+}
+
+function mountFightCardEffectOverlay(card, effectType) {
+  if (!card) return null;
+  const type = normalizeFightEffectType(effectType);
+  const cardKey =
+    card.getAttribute("data-party-member") || card.getAttribute("data-fight-target") || "";
+  const field = document.querySelector(".fight-field-area");
+  const layer = ensureFightCombatFxLayer();
+  const prevOnCard = card.querySelector(".fight-card-fx-overlay");
+  if (prevOnCard) prevOnCard.remove();
+  if (layer && cardKey) {
+    layer.querySelectorAll(`.fight-card-fx-overlay[data-fx-card="${cardKey}"]`).forEach((el) => el.remove());
+  }
+  const overlay = document.createElement("div");
+  overlay.className = `fight-card-fx-overlay fight-card-fx-overlay--${type}`;
+  overlay.setAttribute("aria-hidden", "true");
+  if (cardKey) overlay.setAttribute("data-fx-card", cardKey);
+  overlay.innerHTML = buildFightCardFxOverlayHtml(type);
+  if (field && layer) {
+    const fieldRect = field.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    overlay.classList.add("fight-card-fx-overlay--detached");
+    overlay.style.left = `${cardRect.left - fieldRect.left}px`;
+    overlay.style.top = `${cardRect.top - fieldRect.top}px`;
+    overlay.style.width = `${cardRect.width}px`;
+    overlay.style.height = `${cardRect.height}px`;
+    layer.appendChild(overlay);
+  } else {
+    card.appendChild(overlay);
+  }
+  card.classList.remove("fight-card--shaking", "fight-card--hit", "fight-card--healed");
+  void card.offsetWidth;
+  card.classList.add("fight-card--shaking");
+  if (type === "heal") card.classList.add("fight-card--healed");
+  else card.classList.add("fight-card--hit");
+  return { card, overlay, type };
+}
+
+function clearFightCardEffectOverlay(state) {
+  if (!state || !state.card) return;
+  state.card.classList.remove("fight-card--shaking", "fight-card--hit", "fight-card--healed");
+  if (state.overlay && state.overlay.parentNode) state.overlay.remove();
+}
+
+function spawnFightCardFloat(layer, field, card, effectType, text, positive, crit) {
+  if (!layer || !field || !card || !text) return null;
+  const fieldRect = field.getBoundingClientRect();
+  const tRect = card.getBoundingClientRect();
+  const tx = tRect.left + tRect.width / 2 - fieldRect.left;
+  const ty = tRect.top + tRect.height * 0.32 - fieldRect.top;
+  const floater = document.createElement("div");
+  const t = normalizeFightEffectType(effectType);
+  floater.className = `fight-damage-float fight-damage-float--${t}${positive ? " fight-damage-float--heal" : ""}${crit ? " fight-damage-float--crit" : ""}`;
+  floater.style.left = `${tx}px`;
+  floater.style.top = `${ty}px`;
+  floater.textContent = text;
+  layer.appendChild(floater);
+  setTimeout(() => floater.remove(), 1220);
+  return floater;
+}
+
+/**
+ * Status / heal / DoT VFX on a single combat card (shake + themed overlay).
+ * @param {{ targetSide?: 'ally'|'foe', targetUid?: number, effectType?: string, damage?: number, heal?: boolean }} opts
+ */
+function playCombatCardStatusEffect(opts) {
+  const o = opts && typeof opts === "object" ? opts : {};
+  const card = findFightCombatCard(o.targetSide === "ally" ? "ally" : "foe", o.targetUid);
+  if (!card) return;
+  const effectType = normalizeFightEffectType(o.effectType);
+  const state = mountFightCardEffectOverlay(card, effectType);
+  const field = document.querySelector(".fight-field-area");
+  const layer = ensureFightCombatFxLayer();
+  const amt = typeof o.damage === "number" && o.damage > 0 ? Math.floor(o.damage) : 0;
+  if (layer && field && amt > 0) {
+    spawnFightCardFloat(layer, field, card, effectType, o.heal ? `+${amt}` : String(amt), !!o.heal);
+  }
+  setTimeout(() => clearFightCardEffectOverlay(state), FIGHT_CARD_FX_MS);
+}
+
+/**
+ * Brief strike VFX between two combat cards (attacker → target).
+ * @param {{ attackerSide?: 'ally'|'foe', attackerUid?: number, targetSide?: 'ally'|'foe', targetUid?: number, dmgKind?: 'physical'|'magic', damage?: number, crit?: boolean, missed?: boolean }} opts
+ */
+function playCombatStrikeEffect(opts) {
+  const o = opts && typeof opts === "object" ? opts : {};
+  const field = document.querySelector(".fight-field-area");
+  const layer = ensureFightCombatFxLayer();
+  if (!field || !layer) return;
+  const atkCard = findFightCombatCard(o.attackerSide === "foe" ? "foe" : "ally", o.attackerUid);
+  const tgtCard = findFightCombatCard(o.targetSide === "ally" ? "ally" : "foe", o.targetUid);
+  if (!atkCard || !tgtCard) return;
+
+  const effectType = normalizeFightEffectType(o.effectType || o.dmgKind);
+  const missed = !!o.missed;
+  const dmg = typeof o.damage === "number" && o.damage > 0 ? Math.floor(o.damage) : 0;
+  const crit = !!o.crit && !missed;
+
+  atkCard.classList.remove("fight-card--attacking");
+  void atkCard.offsetWidth;
+  atkCard.classList.add("fight-card--attacking");
+
+  let tgtFxState = null;
+  if (!missed) tgtFxState = mountFightCardEffectOverlay(tgtCard, effectType);
+
+  const fieldRect = field.getBoundingClientRect();
+  const aRect = atkCard.getBoundingClientRect();
+  const tRect = tgtCard.getBoundingClientRect();
+  const ax = aRect.left + aRect.width / 2 - fieldRect.left;
+  const ay = aRect.top + aRect.height * 0.42 - fieldRect.top;
+  const tx = tRect.left + tRect.width / 2 - fieldRect.left;
+  const ty = tRect.top + tRect.height * 0.42 - fieldRect.top;
+  const dx = tx - ax;
+  const dy = ty - ay;
+  const len = Math.max(28, Math.hypot(dx, dy));
+  const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  if (!missed) {
+    const slash = document.createElement("div");
+    slash.className = `fight-combat-fx-slash fight-combat-fx-slash--${effectType === "magic" ? "magic" : "physical"}`;
+    slash.style.left = `${ax}px`;
+    slash.style.top = `${ay}px`;
+    slash.style.width = `${len}px`;
+    slash.style.setProperty("--fight-slash-angle", `${ang}deg`);
+    layer.appendChild(slash);
+
+    const burst = document.createElement("div");
+    burst.className = `fight-combat-fx-burst fight-combat-fx-burst--${effectType === "magic" ? "magic" : "physical"}`;
+    burst.style.left = `${tx}px`;
+    burst.style.top = `${ty}px`;
+    layer.appendChild(burst);
+
+    if (dmg > 0) {
+      spawnFightCardFloat(layer, field, tgtCard, effectType, crit ? `${dmg}!` : String(dmg), false, crit);
+    }
+    setTimeout(() => {
+      slash.remove();
+      burst.remove();
+    }, 420);
+  } else {
+    const missFloat = spawnFightCardFloat(layer, field, tgtCard, "physical", "Miss", false, false);
+    if (missFloat) missFloat.classList.add("fight-damage-float--miss");
+  }
+
+  setTimeout(() => {
+    atkCard.classList.remove("fight-card--attacking");
+    clearFightCardEffectOverlay(tgtFxState);
+  }, FIGHT_CARD_FX_MS);
+}
+
+window.playCombatStrikeEffect = playCombatStrikeEffect;
+window.playCombatCardStatusEffect = playCombatCardStatusEffect;
+window.FIGHT_CARD_FX_MS = FIGHT_CARD_FX_MS;
+window.COMBAT_HIT_UI_DELAY_MS = COMBAT_HIT_UI_DELAY_MS;
+
+function playAllyStrikeOnFoe(member, foe, res, damage, dmgKind) {
+  if (!member || !foe) return;
+  playCombatStrikeEffect({
+    attackerSide: "ally",
+    attackerUid: member.uid,
+    targetSide: "foe",
+    targetUid: foe.uid,
+    dmgKind: dmgKind === "magic" ? "magic" : "physical",
+    damage: damage,
+    crit: !!(res && res.crit),
+    missed: !!(res && res.missed)
+  });
+}
+
+function playFoeStrikeOnAlly(foe, partyUid, damage, missed) {
+  if (!foe || partyUid == null) return;
+  playCombatStrikeEffect({
+    attackerSide: "foe",
+    attackerUid: foe.uid,
+    targetSide: "ally",
+    targetUid: partyUid,
+    dmgKind: "physical",
+    damage: damage,
+    missed: !!missed
+  });
+}
+
 /**
  * Skill icon buttons for the combat action row; dims icons for cooldown or insufficient stamina; overlays CD turns when applicable.
  * @param {{ stamina?: number }} [_active] Party member when `isHero` is false (companion stamina).
  */
-function buildCombatSkillButtonsHtml(st, skills, isHero, _active) {
+function buildCombatSkillButtonsHtml(st, actor, isHero, activeMember) {
+  if (!actor) return "";
+  ensureActorSkillBar(actor);
   const readonly = st.phase === "ended";
   const stam = isHero
     ? typeof st.stamina === "number"
       ? st.stamina
       : 0
-    : _active && typeof _active.stamina === "number"
-      ? _active.stamina
+    : activeMember && typeof activeMember.stamina === "number"
+      ? activeMember.stamina
       : 0;
   let html = "";
-  skills.forEach((sk) => {
+  for (let slotIdx = 0; slotIdx < SKILL_BAR_SLOT_COUNT; slotIdx++) {
+    const skName = actor.skillBarSlots[slotIdx];
+    if (!skName || typeof skName !== "string") continue;
+    if (!actorOwnsSkillForBar(actor, skName) || !isCombatCatalogSkillName(skName)) continue;
+    const sk = getSkillDef(skName);
+    if (!sk || typeof sk.combatMultiplier !== "number") continue;
     const sImg = escapeAttr(getSkillImage(sk.name));
     const sc = isHero
       ? resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name)
@@ -12163,18 +12740,20 @@ function buildCombatSkillButtonsHtml(st, skills, isHero, _active) {
     const canUse = !readonly && stam >= sc && !onCd;
     const dis = canUse ? "" : " disabled";
     const cdClass = dimmed ? " fight-skill-btn--cooldown" : "";
+    const hotkey = slotIdx < 9 ? String(slotIdx + 1) : slotIdx === 9 ? "0" : "";
+    const hotkeyBadge = hotkey ? `<span class="fight-skill-hotkey" aria-hidden="true">${hotkey}</span>` : "";
     const titleBase = `${sk.name} (${sc} stamina)`;
-    let title = titleBase;
+    let title = hotkey ? `[${hotkey}] ${titleBase}` : titleBase;
     if (onCd && cdLeft > 0) {
-      title = `${titleBase} — Cooldown: ${cdLeft} turn${cdLeft === 1 ? "" : "s"}`;
+      title += ` — Cooldown: ${cdLeft} turn${cdLeft === 1 ? "" : "s"}`;
     } else if (staminaBlocked) {
-      title = `${titleBase} — Need ${sc} stamina (have ${stam})`;
+      title += ` — Need ${sc} stamina (have ${stam})`;
     }
     const badge = onCd ? `<span class="fight-skill-cd-badge">${cdLeft}</span>` : "";
     html += `<button type="button" class="btn-secondary fight-skill-btn${cdClass}"${dis} data-fight-skill="${escapeAttr(
       sk.name
-    )}" title="${escapeAttr(title)}"><span class="fight-skill-btn-stack"><img class="fight-skill-img" src="${sImg}" alt="" draggable="false" />${badge}</span></button>`;
-  });
+    )}" data-fight-skill-slot="${slotIdx}" title="${escapeAttr(title)}"><span class="fight-skill-btn-stack">${hotkeyBadge}<img class="fight-skill-img" src="${sImg}" alt="" draggable="false" />${badge}</span></button>`;
+  }
   return html;
 }
 
@@ -12343,20 +12922,17 @@ function renderTurnBattle() {
   if (actionsEl) {
     if (st.phase === "ended") {
       actionsEl.classList.remove("hidden");
-      const atkBasePreview = resolveAttackStaminaCost();
       const stamEnd = typeof st.stamina === "number" ? st.stamina : 0;
       const maxSEnd = typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina();
-      const skillsPreview = getActiveCombatSkills();
-      const skillBtnsPreview = buildCombatSkillButtonsHtml(st, skillsPreview, true, null);
+      const skillBtnsPreview = buildCombatSkillButtonsHtml(st, player, true, null);
       const won = st.endOutcome !== "defeat";
       const hintEnd = won
-        ? "Victory — XP, gold, and loot are listed beside the combat log."
+        ? "Victory — each party member's XP, gold, and loot are listed in the results panel."
         : "Defeat — no rewards. Close when ready.";
       actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span class="fight-turn-timer fight-turn-timer--inactive">—</span></div>
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stamEnd} / ${maxSEnd}</span></div>
           <p class="fight-hint">${hintEnd}</p>
           <div class="fight-action-row fight-action-row--ended">
-            <button type="button" class="btn-primary" disabled data-fight-action="attack">Attack (${atkBasePreview})</button>
             <button type="button" class="btn-secondary fight-pass-btn" disabled data-fight-action="pass">End turn</button>
             <button type="button" class="btn-secondary" disabled data-fight-action="leave">Leave (forfeit)</button>
             ${skillBtnsPreview}
@@ -12374,22 +12950,17 @@ function renderTurnBattle() {
         const actor = isHero
           ? player
           : (typeof active.companionSlotIndex === "number" ? player.companions[active.companionSlotIndex] : null);
-        const skills = isHero ? getActiveCombatSkills() : getActiveCombatSkillsForActor(actor);
         const stam = isHero
           ? (typeof st.stamina === "number" ? st.stamina : 0)
           : (typeof active.stamina === "number" ? active.stamina : 0);
         const maxS = isHero
           ? (typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina())
           : (typeof active.maxStamina === "number" ? active.maxStamina : (actor ? getActorCombatMaxStamina(actor) : 0));
-        const atkBase = isHero ? resolveAttackStaminaCost() : getAttackStaminaCost();
-        const canAtk = stam >= atkBase;
-        const skillBtns = buildCombatSkillButtonsHtml(st, skills, isHero, active);
-        const atkDis = canAtk ? "" : " disabled";
+        const skillBtns = buildCombatSkillButtonsHtml(st, actor, isHero, active);
         actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
           <div class="fight-action-row">
-            <button type="button" class="btn-primary"${atkDis} data-fight-action="attack">Attack (${atkBase})</button>
-            <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass">End turn</button>
+            <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass" title="End turn (Space or F1)">End turn</button>
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
             ${skillBtns}
           </div>`;
@@ -12566,6 +13137,28 @@ function hideFightResults() {
   }
 }
 
+function buildFightVictoryMemberHtml(member) {
+  if (!member) return "";
+  const lootBlock = buildFightLootHtml(member.items || []);
+  const kindLabel = member.kind === "hero" ? "Hero" : "Companion";
+  const lv = typeof member.level === "number" && member.level > 0 ? Math.floor(member.level) : null;
+  const roleLabel = lv != null ? `${kindLabel} · Lv ${lv}` : kindLabel;
+  return `<section class="fight-results-member" data-victory-member="${escapeAttr(member.key || "")}">
+      <div class="fight-results-member-head">
+        <span class="fight-results-member-name">${escapeHtml(member.name || kindLabel)}</span>
+        <span class="fight-results-member-role">${escapeHtml(roleLabel)}</span>
+      </div>
+      <div class="fight-results-member-stats">
+        <div class="fight-results-row"><span class="fight-results-k">XP</span><span class="fight-results-v fight-results-v--xp">+${member.xp || 0}</span></div>
+        <div class="fight-results-row"><span class="fight-results-k">Gold</span><span class="fight-results-v fight-results-v--gold">+${member.gold || 0}</span></div>
+      </div>
+      <div class="fight-results-loot fight-results-loot--member">
+        <span class="fight-results-loot-label">Loot</span>
+        ${lootBlock}
+      </div>
+    </section>`;
+}
+
 function buildFightLootHtml(items) {
   if (!items.length) {
     return '<p class="fight-results-muted fight-results-no-loot">No items dropped.</p>';
@@ -12595,15 +13188,27 @@ function showFightResults(victory, result) {
       <button type="button" id="fightResultsCloseBtn" class="btn-primary fight-results-close">Close</button>
     </div>`;
   if (victory) {
-    const lootBlock = buildFightLootHtml(result.items);
+    const members =
+      Array.isArray(result.memberRewards) && result.memberRewards.length
+        ? result.memberRewards
+        : [
+            {
+              key: "hero",
+              kind: "hero",
+              name: player.name || "Hero",
+              xp: result.xp || 0,
+              gold: result.gold || 0,
+              items: result.items || []
+            }
+          ];
+    const membersHtml = members.map((m) => buildFightVictoryMemberHtml(m)).join("");
+    const totalGold = members.reduce((sum, m) => sum + (m.gold || 0), 0);
+    const totalXp = members.reduce((sum, m) => sum + (m.xp || 0), 0) || result.xp || 0;
     el.innerHTML = `<div class="fight-results-head fight-results-head--win" id="${titleId}">Victory</div>
       <div class="fight-results-body">
-        <div class="fight-results-row"><span class="fight-results-k">XP gained</span><span class="fight-results-v">+${result.xp}</span></div>
-        <div class="fight-results-row"><span class="fight-results-k">Gold</span><span class="fight-results-v">+${result.gold}</span></div>
-        <div class="fight-results-loot">
-          <span class="fight-results-loot-label">Loot</span>
-          ${lootBlock}
-        </div>
+        <p class="fight-results-summary">Party totals: <strong>+${totalXp} XP</strong> · <strong>+${totalGold} gold</strong></p>
+        <div class="fight-results-members">${membersHtml}</div>
+        <p class="fight-results-note">Items are added to your inventory.</p>
       </div>
       ${closeFooter}`;
   } else {
@@ -12624,13 +13229,15 @@ function finishCombatVictory() {
   st.endOutcome = "victory";
   syncCombatPartyHeroMirror(st);
   syncCompanionHpFromCombatParty(st);
-  const { gold, xp, items } = computeVictoryLoot(st.foes, st.party);
+  const { gold, xp, items, memberRewards } = computeVictoryLoot(st.foes, st.party);
   const result = {
     victory: true,
     finalPlayerHp: Math.max(0, st.playerHp),
     gold,
     xp,
-    items
+    items,
+    memberRewards,
+    party: st.party
   };
   applyFightResult(result);
   const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
@@ -12718,8 +13325,9 @@ function getClassSkillTurnScaled(skillName, turns) {
   return Math.max(1, Math.round(turns + getClassSkillDurationBonus(skillName)));
 }
 
-function getPlayerClassOutgoingMult(st, skillName, foe) {
-  const cls = getClassDef(player.classId);
+function getActorClassOutgoingMult(st, skillName, foe, actor, member) {
+  const act = actor || player;
+  const cls = getClassDef(act.classId);
   const cs = ensurePlayerClassCombatState(st);
   let mult = 1;
   if (cs.flowStateTurns > 0) mult *= 1.08;
@@ -12729,13 +13337,20 @@ function getPlayerClassOutgoingMult(st, skillName, foe) {
   if (cs.fortressTurns > 0 && cs.fortressDamagePenaltyPct > 0) mult *= 1 - cs.fortressDamagePenaltyPct / 100;
   if (cs.lastBastionTurns > 0 && cs.lastBastionDamagePenaltyPct > 0) mult *= 1 - cs.lastBastionDamagePenaltyPct / 100;
   if (cs.exposeWeaknessTurns > 0 && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.5) mult *= 1.18;
-  if (cls.id === "reaver" && st.playerMax > 0 && st.playerHp / st.playerMax <= 0.5) mult *= 1.12;
+  const memberMax = member && typeof member.maxHp === "number" ? member.maxHp : st.playerMax;
+  const memberHp = member && typeof member.hp === "number" ? member.hp : st.playerHp;
+  if (cls.id === "reaver" && memberMax > 0 && memberHp / memberMax <= 0.5) mult *= 1.12;
   if (cls.id === "arcanist" && cs.manaSurgeTurns > 0) mult *= 1.1;
   if (skillName === "Execution" && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.35) mult *= 1.38;
   if (skillName === "Execution Rush" && foe && foe.maxHp > 0 && foe.hp / foe.maxHp <= 0.4) mult *= 1.3;
   if (skillName === "Heavy Strike" && foe && foe.combat && (foe.combat.staggerDamageDownTurns > 0 || foe.combat.staggerLockedTurns > 0)) mult *= 1.15;
   if (skillName === "Earthshatter" && foe && foe.combat && typeof foe.combat.armorBreakTurns === "number" && foe.combat.armorBreakTurns > 0) mult *= 1.15;
   return mult * (skillName ? getClassSkillDamageScale(skillName) : 1);
+}
+
+function getPlayerClassOutgoingMult(st, skillName, foe) {
+  const heroMember = st && Array.isArray(st.party) ? st.party.find((m) => m && m.kind === "hero") : null;
+  return getActorClassOutgoingMult(st, skillName, foe, player, heroMember);
 }
 
 function getIndomitableEnemyPhaseCooldownTurns() {
@@ -13233,15 +13848,41 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
   maybeTriggerClassPassivesOnHit(st, foe, crit, foe.hp <= 0);
 }
 
-function playerCombatAction(kind, skillName) {
+function getPartyMemberStamina(member, st) {
+  if (!member || !st) return 0;
+  if (member.kind === "hero") return typeof st.stamina === "number" ? st.stamina : 0;
+  return typeof member.stamina === "number" ? member.stamina : 0;
+}
+
+function setPartyMemberStamina(member, st, value) {
+  if (!member || !st) return;
+  const v = Math.max(0, Math.floor(value));
+  if (member.kind === "hero") st.stamina = v;
+  else member.stamina = v;
+}
+
+function adjustPartyMemberStamina(member, st, delta) {
+  setPartyMemberStamina(member, st, getPartyMemberStamina(member, st) + delta);
+}
+
+function partyMemberDisplayName(member, actor) {
+  if (member && typeof member.name === "string" && member.name.trim()) return member.name.trim();
+  if (actor === player) return player.name;
+  return "Companion";
+}
+
+/** Hero and companions share the same combat damage / hit resolution pipeline. */
+function partyMemberCombatAction(member, actor, kind, skillName) {
   const st = combatState;
-  if (!st || st.phase !== "player") return;
+  if (!st || st.phase !== "player" || !member || !actor) return;
   ensurePlayerClassCombatState(st);
   ensureCombatTarget();
-  if (typeof st.stamina !== "number") initCombatStamina(st);
+  if (member.kind === "hero" && typeof st.stamina !== "number") initCombatStamina(st);
 
-  if (kind === "skill" && skillName && !isSkillSlottedForActor(player, skillName)) {
-    appendFightLog(`${skillName} is not on your skill bar.`);
+  const actorName = partyMemberDisplayName(member, actor);
+
+  if (kind === "skill" && skillName && !isSkillSlottedForActor(actor, skillName)) {
+    appendFightLog(`${actorName} does not have ${skillName} on their skill bar.`);
     return;
   }
 
@@ -13252,7 +13893,14 @@ function playerCombatAction(kind, skillName) {
     SKILL_CATALOG[skillName] &&
     typeof window.unifiedSkillCombatAction === "function"
   ) {
-    if (window.unifiedSkillCombatAction(st, kind, skillName)) return;
+    st.__combatActor = actor;
+    st.__combatActorMember = member;
+    try {
+      if (window.unifiedSkillCombatAction(st, kind, skillName)) return;
+    } finally {
+      delete st.__combatActor;
+      delete st.__combatActorMember;
+    }
   }
 
   const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
@@ -13267,11 +13915,12 @@ function playerCombatAction(kind, skillName) {
   const baseStaminaCost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
   const cost =
     kind === "skill" && skillName ? resolveSkillStaminaCost(baseStaminaCost, skillName) : resolveAttackStaminaCost();
-  if (st.stamina < cost) {
-    appendFightLog(`Not enough stamina (need ${cost}, have ${st.stamina}).`);
+  const stamBefore = getPartyMemberStamina(member, st);
+  if (stamBefore < cost) {
+    appendFightLog(`${actorName} doesn't have enough stamina (need ${cost}, have ${stamBefore}).`);
     return;
   }
-  st.stamina -= cost;
+  setPartyMemberStamina(member, st, stamBefore - cost);
 
   let outgoingDmgKind = "physical";
   if (kind === "skill" && skillName) {
@@ -13281,9 +13930,14 @@ function playerCombatAction(kind, skillName) {
 
   function resolveOutgoingBaseDamage(targetFoe) {
     let raw =
-      kind === "skill" && skillName ? getCombatDamage("skill", skillName) : getCombatDamage("attack");
+      kind === "skill" && skillName
+        ? getCombatDamageForActor(actor, "skill", skillName)
+        : getCombatDamageForActor(actor, "attack");
     raw = Math.max(1, Math.floor(raw * getPlayerOutgoingDamageMultFromStatus(st.status, outgoingDmgKind)));
-    raw = Math.max(1, Math.floor(raw * getPlayerClassOutgoingMult(st, kind === "skill" ? skillName : null, targetFoe || null)));
+    raw = Math.max(
+      1,
+      Math.floor(raw * getActorClassOutgoingMult(st, kind === "skill" ? skillName : null, targetFoe || null, actor, member))
+    );
     return raw;
   }
 
@@ -13292,34 +13946,35 @@ function playerCombatAction(kind, skillName) {
       const cdt = getClassSkillCooldownTurns(skillName);
       if (cdt > 0) setClassSkillCooldown(st, skillName, cdt);
     }
-    if (kind === "skill") tryDexComboRefundAfterSkill(st);
+    if (kind === "skill" && member.kind === "hero") tryDexComboRefundAfterSkill(st);
     if (!isPartyAlive(st)) {
       syncCombatPartyHeroMirror(st);
       finishCombatDefeat();
       return;
     }
-    // Collapse dependent summons first, then evaluate victory on the resulting board.
     despawnSummonsWithDeadSummoners(st);
     if (!st.foes.some((f) => f.hp > 0)) {
       finishCombatVictory();
       return;
     }
-    renderTurnBattle();
-    startPlayerTurnTimer();
+    queueCombatVisualRefresh(COMBAT_HIT_UI_DELAY_MS);
+    setTimeout(() => {
+      if (!combatState || combatState.phase === "ended") return;
+      startPlayerTurnTimer();
+    }, COMBAT_HIT_UI_DELAY_MS);
   }
 
   if (aoeAllEnemies) {
     const living = st.foes.filter((f) => f.hp > 0);
     if (!living.length) {
-      st.stamina += cost;
+      adjustPartyMemberStamina(member, st, cost);
       appendFightLog("No enemies to hit.");
       return;
     }
     const label = skillName || "Attack";
-    applyPlayerClassSkillCast(st, skillName, living[0] || null);
+    if (member.kind === "hero") applyPlayerClassSkillCast(st, skillName, living[0] || null);
     clearPlayerTurnTimer();
-    st.heroAttackUntil = Date.now() + 320;
-    queueCombatVisualRefresh(340);
+    st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
     for (const foe of living) {
       if (!foe.combat) foe.combat = {};
       const baseDmg = resolveOutgoingBaseDamage(foe);
@@ -13331,19 +13986,21 @@ function playerCombatAction(kind, skillName) {
           continue;
         }
       }
-      const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
+      const res = resolveActorOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null, actor, member);
       if (res.missed) {
-        appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+        appendFightLog(`${actorName} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+        playAllyStrikeOnFoe(member, foe, res, 0, outgoingDmgKind);
         continue;
       }
       const dmg = res.damage;
       foe.hp -= dmg;
       if (foe.hp < 0) foe.hp = 0;
+      playAllyStrikeOnFoe(member, foe, res, dmg, outgoingDmgKind);
       appendFightLog(
-        `${player.name} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
+        `${actorName} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
       );
-      if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg);
-      applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
+      if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg, actor);
+      if (member.kind === "hero") applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
       applyReflectDamageToPartyHero(st, dmg, foe);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
@@ -13362,35 +14019,34 @@ function playerCombatAction(kind, skillName) {
     appendFightLog(`${taunter.name} taunts you - your target is forced.`);
   }
   if (
+    member.kind === "hero" &&
     kind === "skill" &&
     (skillName === "Brace" || skillName === "Fortress Stance" || skillName === "Last Bastion")
   ) {
     applyPlayerClassSkillCast(st, skillName, null);
     clearPlayerTurnTimer();
-    st.heroAttackUntil = Date.now() + 220;
-    queueCombatVisualRefresh(240);
+    st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
     afterHitsCommit();
     return;
   }
   const uid = st.selectedUid;
   const foe = st.foes.find((f) => f.uid === uid && f.hp > 0);
   if (!foe) {
-    st.stamina += cost;
+    adjustPartyMemberStamina(member, st, cost);
     appendFightLog("Select a living enemy.");
     return;
   }
 
   const label = kind === "skill" && skillName ? skillName : "Attack";
   if (!foe.combat) foe.combat = {};
-  applyPlayerClassSkillCast(st, skillName, foe);
+  if (member.kind === "hero") applyPlayerClassSkillCast(st, skillName, foe);
   if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
     const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
     foe.combat.evadeNextChance = 0;
     if (Math.random() < p) {
       clearPlayerTurnTimer();
-      st.heroAttackUntil = Date.now() + 320;
-      queueCombatVisualRefresh(340);
-      appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades!`);
+      st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
+      appendFightLog(`${actorName} uses ${label} on ${foe.name}, but ${foe.name} evades!`);
       if (!st.foes.some((f) => f.hp > 0)) {
         finishCombatVictory();
         return;
@@ -13401,23 +14057,22 @@ function playerCombatAction(kind, skillName) {
   }
 
   const baseDmg = resolveOutgoingBaseDamage(foe);
-  const res = resolvePlayerOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null);
+  const res = resolveActorOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null, actor, member);
   clearPlayerTurnTimer();
-  st.heroAttackUntil = Date.now() + 320;
-  queueCombatVisualRefresh(340);
+  st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
   if (res.missed) {
-    appendFightLog(`${player.name} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+    appendFightLog(`${actorName} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
+    playAllyStrikeOnFoe(member, foe, res, 0, outgoingDmgKind);
     afterHitsCommit();
     return;
   }
   const dmg = res.damage;
   foe.hp -= dmg;
   if (foe.hp < 0) foe.hp = 0;
-  appendFightLog(
-    `${player.name} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
-  );
-  if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg);
-  applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
+  playAllyStrikeOnFoe(member, foe, res, dmg, outgoingDmgKind);
+  appendFightLog(`${actorName} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`);
+  if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg, actor);
+  if (member.kind === "hero") applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
   applyReflectDamageToPartyHero(st, dmg, foe);
   if (foe.combat && foe.combat.script === "tusk_boar") {
     foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
@@ -13427,6 +14082,14 @@ function playerCombatAction(kind, skillName) {
   }
 
   afterHitsCommit();
+}
+
+function playerCombatAction(kind, skillName) {
+  const st = combatState;
+  if (!st || st.phase !== "player") return;
+  const member = getActivePartyMember(st);
+  if (!member || member.kind !== "hero") return;
+  partyMemberCombatAction(member, player, kind, skillName);
 }
 
 function playerCombatPass(auto) {
@@ -13479,79 +14142,13 @@ function companionCombatAction(member, kind, skillName) {
   if (!st || st.phase !== "player") return;
   if (!member || member.hp <= 0 || member.acted) return;
   if (member.kind !== "companion") return;
-  ensureCombatTarget();
   const comp =
     typeof member.companionSlotIndex === "number" ? player.companions[member.companionSlotIndex] : null;
   if (!comp) {
     appendFightLog(`${member.name} cannot act.`);
     return;
   }
-  const skCfg = kind === "skill" && skillName ? getSkillDef(skillName) : null;
-  if (kind === "skill" && (!skCfg || typeof skCfg.combatMultiplier !== "number")) {
-    appendFightLog(`${member.name} cannot use ${skillName || "that skill"} in combat.`);
-    return;
-  }
-  if (kind === "skill" && skillName && !isSkillSlottedForActor(comp, skillName)) {
-    appendFightLog(`${member.name} does not have ${skillName} on their skill bar.`);
-    return;
-  }
-  const cost = kind === "skill" && skillName ? getSkillStaminaCost(skillName) : getAttackStaminaCost();
-  const stam = typeof member.stamina === "number" ? member.stamina : 0;
-  if (stam < cost) {
-    appendFightLog(`${member.name} doesn't have enough stamina (need ${cost}, has ${stam}).`);
-    return;
-  }
-  member.stamina = stam - cost;
-
-  const rng = getActorDamageRange(comp);
-  const lo = Math.max(1, Math.floor(rng.min));
-  const hi = Math.max(lo, Math.floor(rng.max));
-  const baseDmg = lo + Math.floor(Math.random() * (hi - lo + 1));
-  const mult = skCfg && typeof skCfg.combatMultiplier === "number" ? skCfg.combatMultiplier : 1;
-  const aoeAllEnemies = !!(skCfg && skCfg.combatAoe === "all_enemies");
-  const label = kind === "skill" && skillName ? skillName : "Attack";
-
-  const dealToFoe = (foe) => {
-    if (!foe || foe.hp <= 0) return;
-    const accPenalty = getPlayerOutgoingAccuracyPenaltyPct(st, member);
-    if (accPenalty > 0 && Math.random() * 100 < accPenalty) {
-      appendFightLog(`${member.name} uses ${label} on ${foe.name}, but misses.`);
-      return;
-    }
-    const dmg = Math.max(1, Math.floor(baseDmg * mult));
-    foe.hp = Math.max(0, foe.hp - dmg);
-    appendFightLog(`${member.name} uses ${label} on ${foe.name} for ${dmg} damage.`);
-    if (foe.combat && foe.combat.script === "tusk_boar") {
-      foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
-    }
-  };
-
-  clearPlayerTurnTimer();
-  if (aoeAllEnemies) {
-    const living = st.foes.filter((f) => f.hp > 0);
-    if (!living.length) {
-      member.stamina = stam;
-      appendFightLog("No enemies to hit.");
-      return;
-    }
-    living.forEach(dealToFoe);
-  } else {
-    const foe = st.foes.find((f) => f.uid === st.selectedUid && f.hp > 0);
-    if (!foe) {
-      member.stamina = stam;
-      appendFightLog("Select a living enemy.");
-      return;
-    }
-    dealToFoe(foe);
-  }
-
-  despawnSummonsWithDeadSummoners(st);
-  if (!st.foes.some((f) => f.hp > 0)) {
-    finishCombatVictory();
-    return;
-  }
-  renderTurnBattle();
-  startPlayerTurnTimer();
+  partyMemberCombatAction(member, comp, kind, skillName);
 }
 
 function activeActorAction(kind, skillName) {
@@ -13697,6 +14294,7 @@ function enrichDungeonPreviewUnitForMob(u) {
     moodName: mood.name
   };
   if (typeof u.portraitImage === "string" && u.portraitImage.trim()) out.portraitImage = u.portraitImage.trim();
+  if (u.isBoss === true) out.isBoss = true;
   return out;
 }
 
@@ -14110,11 +14708,9 @@ function beginTurnCombat(region, mob, worldMapContext) {
 function applyFightResult(result) {
   if (result.victory) {
     player.hp = Math.min(player.maxHp, result.finalPlayerHp);
-    player.xp += result.xp;
     player.gold += result.gold;
     result.items.forEach((it) => player.inventory.push(it));
-    levelUp();
-    applyVictoryXpToEnabledCompanions(result.xp);
+    awardVictoryXpToParty(result.memberRewards);
   } else {
     player.hp = Math.max(1, result.finalPlayerHp);
   }
@@ -14189,17 +14785,7 @@ function startFight(region, mob) {
 }
 
 function levelUp() {
-  const maxLv = getPlayerMaxLevel();
-  while (player.level < maxLv) {
-    const need = xpToNextLevel(player.level);
-    if (need <= 0 || player.xp < need) break;
-    player.xp -= need;
-    player.level++;
-    player.baseAttack += 2;
-    player.maxHp = computeMaxHp(player);
-    player.hp = player.maxHp;
-  }
-  recomputeAllocPoolsFromLevel(player);
+  levelUpActor(player);
 }
 
 function getNextCharPointCostPerBaseStat(currentBaseStat) {
@@ -15843,9 +16429,11 @@ function buildClassSkillsRowsHtml(_activeClass, actor) {
     const lvLine = isBasic ? "" : `<span class="class-skill-cell-lv">Lv ${lv}/5${escapeHtml(reqTxt)}</span>`;
     const imgDr = unlocked && isCombatCatalogSkillName(skName);
     const dragCls = imgDr ? " class-skill-drag-source" : "";
-    return `<div class="class-skill-cell class-skill-row" data-class-skill-row="${escapeAttr(skName)}" data-skill-name="${escapeAttr(skName)}">
+    const lockedCls = !unlocked && !isBasic ? " class-skill-cell--locked" : "";
+    const imgLockedCls = !unlocked && !isBasic ? " class-skill-row-img--locked" : "";
+    return `<div class="class-skill-cell class-skill-row${lockedCls}" data-class-skill-row="${escapeAttr(skName)}" data-skill-name="${escapeAttr(skName)}">
       <div class="class-skill-cell-top">
-        <img class="class-skill-row-img${dragCls}" src="${escapeAttr(getSkillImage(skName))}" alt="" data-skill-bar-drag="${escapeAttr(skName)}" draggable="${
+        <img class="class-skill-row-img${dragCls}${imgLockedCls}" src="${escapeAttr(getSkillImage(skName))}" alt="" data-skill-bar-drag="${escapeAttr(skName)}" draggable="${
       imgDr ? "true" : "false"
     }" />
         <span class="class-skill-cell-title" title="${escapeAttr(skName)}">${escapeHtml(skName)}</span>
@@ -17567,6 +18155,8 @@ function onDocumentKeydown(e) {
     return;
   }
   if (e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
+  if (tryFightSkillBarHotkey(e)) return;
+  if (tryFightEndTurnHotkey(e)) return;
   const k = String(e.key || "").toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === "s") {
     if (player.editMode) {
@@ -18022,10 +18612,16 @@ function onDragStart(e) {
       const skName = barDrag.getAttribute("data-skill-bar-drag");
       const slotHost = barDrag.closest(".skill-bar-slot-drop[data-skill-bar-slot]");
       if (slotHost && slotHost.dataset.skillBarSlot != null && skName) {
+        const overview = barDrag.closest("[data-overview-roster-tab]");
+        const rosterTab =
+          overview && overview.dataset && overview.dataset.overviewRosterTab != null
+            ? overview.dataset.overviewRosterTab
+            : getCharacterRosterTab();
         dragPayload = {
           kind: "skillBarSlot",
           slotIndex: parseInt(slotHost.dataset.skillBarSlot, 10),
-          skillName: skName
+          skillName: skName,
+          rosterTab
         };
         e.dataTransfer.effectAllowed = "move";
       } else if (barDrag.classList.contains("class-skill-drag-source") && skName) {
@@ -18055,11 +18651,13 @@ function onDragOver(e) {
   const drop = e.target.closest(".slot-drop");
   const inv = e.target.closest(".inv-grid") || e.target.closest(".inv-grid-scroll");
   const skBarSlot = e.target.closest(".skill-bar-slot-drop");
+  const skRemoveZone =
+    dragPayload && dragPayload.kind === "skillBarSlot" ? getSkillBarRemoveDropZone(e.target) : null;
   const skPool =
     dragPayload && (dragPayload.kind === "skillBarSlot" || dragPayload.kind === "skillBarCatalog")
-      ? e.target.closest(".skills-pool-scroll")
+      ? e.target.closest(".skills-pool-scroll") || skRemoveZone
       : null;
-  if (drop || inv || skBarSlot || skPool) e.preventDefault();
+  if (drop || inv || skBarSlot || skPool || skRemoveZone) e.preventDefault();
 }
 
 function onDrop(e) {
@@ -18075,25 +18673,24 @@ function onDrop(e) {
         applySkillBarDropFromCatalog(actor, dragPayload.skillName, ti);
       } else if (dragPayload.kind === "skillBarSlot") {
         const fi = dragPayload.slotIndex;
-        if (Number.isFinite(fi) && fi !== ti) applySkillBarSlotSwap(actor, fi, ti);
+        if (Number.isFinite(fi) && fi !== ti) applySkillBarMoveFromSlot(actor, fi, ti);
       }
-      save();
-      if (isSkillsPanelOpen()) refreshSkillsPanelSubpanelInPlace();
-      else render();
+      refreshSkillBarUiAfterChange();
     }
     dragPayload = null;
     return;
   }
 
-  const skPoolDrop = e.target.closest(".skills-pool-scroll");
+  const skPoolDrop =
+    dragPayload.kind === "skillBarSlot"
+      ? getSkillBarRemoveDropZone(e.target)
+      : e.target.closest(".skills-pool-scroll");
   if (skPoolDrop && dragPayload.kind === "skillBarSlot") {
     const actor = resolveSkillBarTargetActorFromEl(skPoolDrop);
     const fi = dragPayload.slotIndex;
     if (actor && Number.isFinite(fi)) {
       applySkillBarClearSlot(actor, fi);
-      save();
-      if (isSkillsPanelOpen()) refreshSkillsPanelSubpanelInPlace();
-      else render();
+      refreshSkillBarUiAfterChange();
     }
     dragPayload = null;
     return;
@@ -18122,8 +18719,17 @@ function onDrop(e) {
 }
 
 function onDragEnd(e) {
-  if (!dragPayload) return;
-  if (dragPayload.kind === "inventory" && dragPayload.item) {
+  if (!dragPayload) {
+    return;
+  }
+  if (dragPayload.kind === "skillBarSlot" && e.dataTransfer && e.dataTransfer.dropEffect === "none") {
+    const actor = getRosterActorFromTab(dragPayload.rosterTab || getCharacterRosterTab());
+    const fi = dragPayload.slotIndex;
+    if (actor && Number.isFinite(fi)) {
+      applySkillBarClearSlot(actor, fi);
+      refreshSkillBarUiAfterChange();
+    }
+  } else if (dragPayload.kind === "inventory" && dragPayload.item) {
     promptDiscardDraggedInventoryItem(dragPayload.item);
   }
   dragPayload = null;
