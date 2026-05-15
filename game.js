@@ -283,7 +283,8 @@ function getActorSkillLevel(actor, skillName) {
   const map = actor.classSkillLevels && typeof actor.classSkillLevels === "object" ? actor.classSkillLevels : {};
   const lv = map[skillName];
   if (typeof lv !== "number" || !Number.isFinite(lv) || lv <= 0) return 0;
-  return Math.max(0, Math.min(5, Math.floor(lv)));
+  const cap = getClassSkillMaxRank(skillName);
+  return Math.max(0, Math.min(cap, Math.floor(lv)));
 }
 
 function getActorSelectedProfessions(actor) {
@@ -325,9 +326,10 @@ function toggleActorProfession(actor, id) {
 function totalSkillPointsSpentOnActor(actor) {
   if (!actor || !actor.classSkillLevels || typeof actor.classSkillLevels !== "object") return 0;
   let spent = 0;
-  Object.values(actor.classSkillLevels).forEach((slv) => {
+  Object.entries(actor.classSkillLevels).forEach(([name, slv]) => {
     if (typeof slv === "number" && slv > 0) {
-      spent += Math.max(0, Math.min(5, Math.floor(slv)));
+      const cap = getClassSkillMaxRank(name);
+      spent += Math.max(0, Math.min(cap, Math.floor(slv)));
     }
   });
   return spent;
@@ -523,6 +525,90 @@ function xpToNextLevel(level) {
   return Math.max(1, Math.round(a + lv * lin + lv * lv * sq + lv * lv * lv * cub));
 }
 
+const DEFAULT_SKILL_RANK_STEP_BY_UNLOCK_LEVEL = [
+  { maxUnlockLevel: 10, step: 5 },
+  { maxUnlockLevel: 20, step: 4 },
+  { maxUnlockLevel: 30, step: 3 },
+  { maxUnlockLevel: 40, step: 2 },
+  { maxUnlockLevel: 55, step: 1 },
+  { maxUnlockLevel: 60, step: 0 }
+];
+
+function getSkillRankStepByUnlockLevelBands() {
+  const c = getLevelingConfig();
+  const bands = c.skillRankStepByUnlockLevel || c.skillUnlockSlotCharLevelBands;
+  return Array.isArray(bands) && bands.length ? bands : DEFAULT_SKILL_RANK_STEP_BY_UNLOCK_LEVEL;
+}
+
+function getSkillCatalogUnlockLevel(skillName) {
+  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && skillName ? SKILL_CATALOG[skillName] : null;
+  return cat && typeof cat.unlock === "number" && cat.unlock > 0 ? Math.floor(cat.unlock) : 1;
+}
+
+/**
+ * Rank upgrade step from catalog unlock level: unlock 1–10 → +5, 11–20 → +4, 21–30 → +3,
+ * 31–40 → +2, 41–55 → +1, 56–60 → +0.
+ */
+function getRankStepForSkillUnlockLevel(unlockLevel) {
+  const lv = Math.max(1, Math.floor(typeof unlockLevel === "number" && unlockLevel > 0 ? unlockLevel : 1));
+  const bands = getSkillRankStepByUnlockLevelBands();
+  for (let i = 0; i < bands.length; i++) {
+    const band = bands[i];
+    const maxLv =
+      typeof band.maxUnlockLevel === "number" && band.maxUnlockLevel > 0
+        ? Math.floor(band.maxUnlockLevel)
+        : typeof band.maxSlot === "number" && band.maxSlot > 0
+          ? Math.floor(band.maxSlot)
+          : typeof band.maxRank === "number" && band.maxRank > 0
+            ? Math.floor(band.maxRank)
+            : 60;
+    if (lv <= maxLv) {
+      return typeof band.step === "number" && Number.isFinite(band.step) ? Math.max(0, band.step) : 5;
+    }
+  }
+  return 0;
+}
+
+function getClassSkillMaxRank(skillName) {
+  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && skillName ? SKILL_CATALOG[skillName] : null;
+  if (cat && Array.isArray(cat.levels) && cat.levels.length > 0) return cat.levels.length;
+  return 5;
+}
+
+/** First unlock level from `SKILL_CATALOG` (`unlock` field). */
+function getMinCharacterLevelToUnlockSkill(skillName) {
+  return getSkillCatalogUnlockLevel(skillName);
+}
+
+function getRankStepForSkill(skillName) {
+  return getRankStepForSkillUnlockLevel(getSkillCatalogUnlockLevel(skillName));
+}
+
+/**
+ * Character level to train `skillName` to `targetRank`.
+ * Rank 1 = unlock level; each further rank adds this skill's band step (e.g. unlock 5 → ranks at 5, 10, 15…).
+ */
+function getMinCharacterLevelForSkillAtRank(skillName, targetRank) {
+  const r = Math.max(1, Math.floor(typeof targetRank === "number" && targetRank > 0 ? targetRank : 1));
+  const unlockLv = getMinCharacterLevelToUnlockSkill(skillName);
+  const step = getRankStepForSkill(skillName);
+  if (r <= 1) return unlockLv;
+  return unlockLv + (r - 1) * step;
+}
+
+function actorMeetsSkillUnlockLevel(actor, skillName) {
+  if (!actor) return false;
+  const actorLv = typeof actor.level === "number" && actor.level > 0 ? Math.floor(actor.level) : 1;
+  return actorLv >= getMinCharacterLevelToUnlockSkill(skillName);
+}
+
+function actorMeetsSkillRankLevel(actor, skillName, targetRank) {
+  if (!actor) return false;
+  const actorLv = typeof actor.level === "number" && actor.level > 0 ? Math.floor(actor.level) : 1;
+  const r = Math.max(1, Math.floor(typeof targetRank === "number" && targetRank > 0 ? targetRank : 1));
+  return actorLv >= getMinCharacterLevelForSkillAtRank(skillName, r);
+}
+
 const DEFAULT_CLASS_ID = "adventurer";
 const CLASS_TIER_MIN_LEVEL = { early: 1, mid: 15, late: 30 };
 
@@ -638,7 +724,8 @@ function getPlayerSkillLevel(skillName) {
   const map = player && player.classSkillLevels && typeof player.classSkillLevels === "object" ? player.classSkillLevels : {};
   const lv = map[skillName];
   if (typeof lv !== "number" || !Number.isFinite(lv) || lv <= 0) return 0;
-  return Math.max(0, Math.min(5, Math.floor(lv)));
+  const cap = getClassSkillMaxRank(skillName);
+  return Math.max(0, Math.min(cap, Math.floor(lv)));
 }
 
 function getClassSkillPowerMultiplier(skillName) {
@@ -900,17 +987,23 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
   if (!target.classSkillLevels || typeof target.classSkillLevels !== "object") target.classSkillLevels = {};
   if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return false;
   const cur = getActorSkillLevel(target, skillName);
-  const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG[skillName];
-  const reqLv = cat && typeof cat.unlock === "number" ? cat.unlock : 1;
-  if (target.level < reqLv) {
-    showModal(`Requires level ${reqLv}.`);
+  const maxRank = getClassSkillMaxRank(skillName);
+  const nextRank = cur + 1;
+  if (nextRank > maxRank) return false;
+  const actorLv = typeof target.level === "number" && target.level > 0 ? Math.floor(target.level) : 1;
+  const rankReq = getMinCharacterLevelForSkillAtRank(skillName, nextRank);
+  if (actorLv < rankReq) {
+    const msg =
+      cur <= 0
+        ? `Requires character level ${rankReq} to unlock this skill.`
+        : `Requires character level ${rankReq} for skill rank ${nextRank}.`;
+    showModal(msg);
     return false;
   }
   if (typeof target.skillPoints !== "number" || target.skillPoints < 1) {
     showModal("Not enough skill points.");
     return false;
   }
-  if (cur >= 5) return false;
   target.classSkillLevels[skillName] = cur + 1;
   recomputeAllocPoolsFromLevel(target);
   syncPlayerClassSkillList(target);
@@ -1134,7 +1227,7 @@ function migratePlayer(p) {
       if (k === "Basic Physical Attack" || k === "Basic Magical Attack") return;
       if (!SKILL_CATALOG[k]) return;
       const lv = p.classSkillLevels[k];
-      if (typeof lv === "number" && lv > 0) next[k] = Math.min(5, Math.floor(lv));
+      if (typeof lv === "number" && lv > 0) next[k] = Math.min(getClassSkillMaxRank(k), Math.floor(lv));
     });
     p.classSkillLevels = next;
   }
@@ -15845,15 +15938,19 @@ function attachSkillCatalogTabHandlers(tooltipRoot) {
   });
 }
 
+function buildUnifiedCatalogRequiredLevelLine(skillName, rank) {
+  const r = Math.max(1, Math.floor(typeof rank === "number" && rank > 0 ? rank : 1));
+  const req =
+    skillName && typeof getMinCharacterLevelForSkillAtRank === "function"
+      ? getMinCharacterLevelForSkillAtRank(skillName, r)
+      : "—";
+  return `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Required Level:</span> <span>${req}</span></div>`;
+}
+
 function buildUnifiedCatalogTooltipBaseHtml(cat, passive) {
   const dmgKindLabel =
     cat.damageKind === "magic" ? "Magic" : cat.damageKind === "physical" ? "Physical" : passive ? "Passive" : "—";
   const baseLines = [];
-  baseLines.push(
-    `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Unlock level:</span> <span>${
-      cat.unlock != null ? cat.unlock : "—"
-    }</span></div>`
-  );
   baseLines.push(
     `<div class="item-tip-skill-spec-base-line"><span class="item-tip-label">Stamina:</span> <span>${
       passive ? "—" : cat.stamina != null ? cat.stamina : "—"
@@ -15895,15 +15992,18 @@ function unifiedCatalogDcPlain(dc) {
     .trim();
 }
 
-function buildUnifiedCatalogLevelEffectDetailsHtml(row, cat, passive) {
+function buildUnifiedCatalogLevelEffectDetailsHtml(row, cat, passive, skillName, rank) {
   if (!row) return `<div class="item-tip-desc item-tip-muted">—</div>`;
+  const reqLine =
+    skillName && rank != null ? buildUnifiedCatalogRequiredLevelLine(skillName, rank) : "";
   if (passive) {
     const t = unifiedCatalogFormatPassiveLevelRow(row);
-    return `<div class="item-tip-skill-lv-block"><p class="item-tip-skill-lv-passive">${escapeHtml(t)}</p></div>`;
+    return `<div class="item-tip-skill-lv-block">${reqLine}<p class="item-tip-skill-lv-passive">${escapeHtml(t)}</p></div>`;
   }
   const dmg = unifiedCatalogDamageCellHtml(row, cat);
   const dc = unifiedCatalogFormatDebuffColumns(row, cat);
   const rows = [];
+  if (reqLine) rows.push(reqLine);
   rows.push(
     `<div class="item-tip-skill-lv-line"><span class="item-tip-label">Damage / effect</span><span class="item-tip-skill-lv-val">${dmg}</span></div>`
   );
@@ -15971,7 +16071,7 @@ function buildUnifiedSkillCatalogTooltipHtml(skillName, cat, opts) {
     const panels = levels
       .map((row, i) => {
         const on = i === defaultTab;
-        const body = buildUnifiedCatalogLevelEffectDetailsHtml(row, cat, passive);
+        const body = buildUnifiedCatalogLevelEffectDetailsHtml(row, cat, passive, skillName, i + 1);
         return `<div class="item-tip-skill-panel${on ? " item-tip-skill-panel--active" : ""}" role="tabpanel" data-skill-tab-panel="${i}">${body}</div>`;
       })
       .join("");
@@ -15985,7 +16085,7 @@ function buildUnifiedSkillCatalogTooltipHtml(skillName, cat, opts) {
   const previewRow = levels[previewIdx];
   const rankLabel = curLv > 0 ? `Rank ${curLv} (current)` : `Rank 1 (not unlocked — preview)`;
   parts.push(`<div class="item-tip-skill-preview-head">${escapeHtml(rankLabel)}</div>`);
-  parts.push(buildUnifiedCatalogLevelEffectDetailsHtml(previewRow, cat, passive));
+  parts.push(buildUnifiedCatalogLevelEffectDetailsHtml(previewRow, cat, passive, skillName, previewIdx + 1));
   return `<div class="item-tip">${parts.join("")}</div>`;
 }
 
@@ -16587,21 +16687,22 @@ function buildClassSkillsRowsHtml(_activeClass, actor) {
   const cellHtml = (skName) => {
     const isBasic = skName === "Basic Physical Attack" || skName === "Basic Magical Attack";
     const lv = getActorSkillLevel(a, skName);
-    const cat = typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG && SKILL_CATALOG[skName];
-    const reqLv = cat && typeof cat.unlock === "number" ? cat.unlock : 1;
+    const maxRank = getClassSkillMaxRank(skName);
+    const nextRank = isBasic ? 0 : lv > 0 ? lv + 1 : 1;
+    const reqLv = isBasic ? 1 : getMinCharacterLevelForSkillAtRank(skName, nextRank);
     const unlocked = lv > 0 || isBasic;
-    const canTier = a.level >= reqLv;
-    const maxed = isBasic || lv >= 5;
+    const meetsRankGate = isBasic || actorMeetsSkillRankLevel(a, skName, nextRank);
+    const maxed = isBasic || lv >= maxRank;
     const hasPts = (a.skillPoints || 0) > 0;
-    const canSpend = !isBasic && canTier && hasPts && !maxed;
+    const canSpend = !isBasic && meetsRankGate && hasPts && !maxed;
     const btnLabel = isBasic ? "—" : unlocked ? (maxed ? "Max" : "Upgrade") : "Unlock";
     const disabled = isBasic || !canSpend ? " disabled" : "";
-    const reqTxt = isBasic ? "" : canTier ? "" : ` (req Lv ${reqLv})`;
-    const lvLine = isBasic ? "" : `<span class="class-skill-cell-lv">Lv ${lv}/5${escapeHtml(reqTxt)}</span>`;
+    const reqTxt = isBasic ? "" : meetsRankGate ? "" : ` (req Lv ${reqLv})`;
+    const lvLine = isBasic ? "" : `<span class="class-skill-cell-lv">Lv ${lv}/${maxRank}${escapeHtml(reqTxt)}</span>`;
     const imgDr = unlocked && isCombatCatalogSkillName(skName);
     const dragCls = imgDr ? " class-skill-drag-source" : "";
-    const levelLocked = !isBasic && !unlocked && !canTier;
-    const awaitingUnlock = !isBasic && !unlocked && canTier;
+    const levelLocked = !isBasic && !unlocked && !meetsRankGate;
+    const awaitingUnlock = !isBasic && !unlocked && meetsRankGate;
     const cellCls = levelLocked
       ? " class-skill-cell--level-locked"
       : awaitingUnlock

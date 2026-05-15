@@ -529,7 +529,19 @@ const GAME_CONFIG = {
     xpConst: 250,
     xpLinear: 55,
     xpSquare: 10,
-    xpCubic: 0.35
+    xpCubic: 0.35,
+    /**
+     * Rank upgrade step from each skill's catalog `unlock` level (unlock levels unchanged in catalog).
+     * Unlock 1–10 → +5/ rank, 11–20 → +4, 21–30 → +3, 31–40 → +2, 41–55 → +1, 56–60 → +0.
+     */
+    skillRankStepByUnlockLevel: [
+      { maxUnlockLevel: 10, step: 5 },
+      { maxUnlockLevel: 20, step: 4 },
+      { maxUnlockLevel: 30, step: 3 },
+      { maxUnlockLevel: 40, step: 2 },
+      { maxUnlockLevel: 55, step: 1 },
+      { maxUnlockLevel: 60, step: 0 }
+    ]
   },
 
   /**
