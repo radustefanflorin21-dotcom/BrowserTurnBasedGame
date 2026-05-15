@@ -382,8 +382,6 @@ function getActorDamageRange(actor) {
   const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
   const effStr = Math.max(0, (typeof p.str === "number" ? p.str : 10) + (gear.str || 0));
   let atk = (typeof p.baseAttack === "number" ? p.baseAttack : 10) + Math.floor(effStr / 2);
-  const w = p.equipment && p.equipment.weapon;
-  if (w) atk += getScaledItemAttack(getItemDef(w), w);
   const skillsArr = Array.isArray(p.skills) ? p.skills : [];
   skillsArr.forEach((s) => {
     const sk = getSkillDef(s);
@@ -1811,7 +1809,44 @@ const ITEM_RARITY_RULES = Object.freeze({
     legendaryStaminaChancePct: 18
   })
 });
-const ITEM_RARITY_CORE_STAT_KEYS = new Set(["str", "dex", "vit", "int", "hp", "attack"]);
+const ITEM_RARITY_CORE_STAT_KEYS = new Set(["str", "dex", "vit", "int", "hp"]);
+
+/** Canonical display labels for equipment bonus stats (single name per stat). */
+const EQUIP_STAT_CANONICAL_LABELS = {
+  str: "STR",
+  dex: "DEX",
+  vit: "VIT",
+  int: "INT",
+  hp: "HP",
+  stamina: "STA",
+  physDamage: "Phys Damage",
+  physicalResist: "Phys Resist",
+  skillPower: "Magic Damage",
+  magicResist: "Magic Resist",
+  crit: "Crit",
+  critDamage: "Crit Damage",
+  accuracy: "ACC",
+  evasion: "EVA",
+  healingReceived: "HEAL",
+  statusResist: "Status Resist",
+  maxHpPct: "Max HP%"
+};
+
+/** Equipment stats stored as percentage bonuses (display value with % suffix). */
+const EQUIP_STAT_PERCENT_KEYS = new Set([
+  "physDamage",
+  "physicalResist",
+  "skillPower",
+  "magicResist",
+  "crit",
+  "critDamage",
+  "accuracy",
+  "evasion",
+  "healingReceived",
+  "statusResist",
+  "maxHpPct"
+]);
+
 const MAX_STAMINA_FROM_GEAR = 2;
 
 function normalizeItemRarityId(rawValue) {
@@ -1857,14 +1892,6 @@ function scaleItemNumericStatByRarity(def, itemName, statKey, baseValue) {
   const rule = getItemRarityRule(def, itemName);
   const mult = isRarityCoreStatKey(statKey) ? rule.coreMultiplier : rule.secondaryMultiplier;
   return Math.round(baseValue * mult);
-}
-
-function getScaledItemAttack(def, itemName) {
-  return scaleItemNumericStatByRarity(def, itemName, "attack", def && def.attack);
-}
-
-function getScaledItemDefense(def, itemName) {
-  return scaleItemNumericStatByRarity(def, itemName, "defense", def && def.defense);
 }
 
 function getScaledItemBonusStats(def, itemName) {
@@ -2685,7 +2712,9 @@ function getStatSystem() {
 }
 
 function normalizeEquipmentStatKey(k) {
-  const u = String(k).toUpperCase();
+  const raw = String(k || "").trim();
+  if (!raw) return null;
+  const u = raw.toUpperCase();
   if (u === "STR" || u === "STRENGTH") return "str";
   if (u === "DEX" || u === "AGI" || u === "AGILITY" || u === "DEXTERITY") return "dex";
   if (u === "VIT" || u === "VITALITY") return "vit";
@@ -2693,17 +2722,36 @@ function normalizeEquipmentStatKey(k) {
   if (u === "HP" || u === "HEALTH" || u === "MAX_HP" || u === "MAX HEALTH") return "hp";
   if (u === "STA" || u === "STAMINA" || u === "STAMINA_MAX" || u === "MAX_STAMINA") return "stamina";
   if (u === "PHYS DAMAGE" || u === "PHYSICAL DAMAGE") return "physDamage";
-  if (u === "PHYSICAL RESIST" || u === "PHYS RESIST") return "physicalResist";
+  if (u === "PHYS RESIST" || u === "PHYSICAL RESIST" || u === "PHYS RES") return "physicalResist";
   if (u === "MAGIC RESIST") return "magicResist";
   if (u === "MAGIC DAMAGE" || u === "SKILL POWER") return "skillPower";
-  if (u === "CRIT") return "crit";
+  if (u === "CRIT" || u === "CRITICAL") return "crit";
   if (u === "CRIT DAMAGE") return "critDamage";
-  if (u === "ACCURACY") return "accuracy";
-  if (u === "EVASION") return "evasion";
-  if (u === "HEALING RECEIVED" || u === "INCOMING HEALING") return "healingReceived";
+  if (u === "ACC" || u === "ACCURACY") return "accuracy";
+  if (u === "EVA" || u === "EVASION") return "evasion";
+  if (u === "HEAL" || u === "HEALING RECEIVED" || u === "INCOMING HEALING") return "healingReceived";
   if (u === "STATUS RESIST" || u === "DEBUFF RESIST") return "statusResist";
-  if (u === "MAX HP PCT" || u === "MAX HP %" || u === "MAX HEALTH %") return "maxHpPct";
+  if (u === "MAX HP%" || u === "MAX HP PCT" || u === "MAX HP %" || u === "MAX HEALTH %") return "maxHpPct";
   return null;
+}
+
+function getEquipmentStatDisplayLabel(statKey) {
+  const nk = normalizeEquipmentStatKey(statKey);
+  if (nk && EQUIP_STAT_CANONICAL_LABELS[nk]) return EQUIP_STAT_CANONICAL_LABELS[nk];
+  return typeof statKey === "string" && statKey.trim() ? statKey.trim() : "";
+}
+
+function isEquipmentStatPercent(statKey) {
+  const nk = normalizeEquipmentStatKey(statKey);
+  return !!(nk && EQUIP_STAT_PERCENT_KEYS.has(nk));
+}
+
+function formatEquipmentBonusStatLine(statKey, value) {
+  const label = getEquipmentStatDisplayLabel(statKey);
+  if (!label) return "";
+  const v = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  const suffix = isEquipmentStatPercent(statKey) ? "%" : "";
+  return `${label} +${v}${suffix}`;
 }
 
 function sumEquippedBonusStats() {
@@ -3206,8 +3254,6 @@ function getActorDamageCore(actor) {
   const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
   const effStr = Math.max(0, getActorStatBase(p, "str") + (gear.str || 0));
   let atk = (typeof p.baseAttack === "number" ? p.baseAttack : 10) + Math.floor(effStr / 2);
-  const w = p.equipment && p.equipment.weapon;
-  if (w) atk += getScaledItemAttack(getItemDef(w), w);
   const skillsArr = Array.isArray(p.skills) ? p.skills : [];
   skillsArr.forEach((s) => {
     const sk = getSkillDef(s);
@@ -15320,7 +15366,10 @@ function buildEquippedSetBonusesTooltipHtml(setName, equippedCount) {
         if (typeof v === "string" && v.trim()) statBits.push(v.trim());
         return;
       }
-      if (typeof v === "number" && Number.isFinite(v)) statBits.push(`${k} +${v}`);
+      if (typeof v === "number" && Number.isFinite(v)) {
+        const line = formatEquipmentBonusStatLine(k, v);
+        if (line) statBits.push(line);
+      }
     });
     const detail = statBits.join(" · ");
     const fulfilled = activeTier > 0 && th === activeTier;
@@ -15366,11 +15415,12 @@ function buildItemTooltipHtml(itemName, imageSizePx, tooltipOpts) {
   }
 
   const statParts = [];
-  const atk = getScaledItemAttack(def, itemName);
-  if (atk) statParts.push(`Attack +${atk}`);
   if (def.type === "consumable" && def.effect === "heal") statParts.push(`Restores ${def.value} HP`);
   const bs = getScaledItemBonusStats(def, itemName);
-  Object.keys(bs).forEach((k) => statParts.push(`${k} +${bs[k]}`));
+  Object.keys(bs).forEach((k) => {
+    const line = formatEquipmentBonusStatLine(k, bs[k]);
+    if (line) statParts.push(line);
+  });
   if (statParts.length) {
     parts.push(`<div class="item-tip-section"><span class="item-tip-label">Bonus stats</span><div class="item-tip-stats">${statParts.map((s) => escapeHtml(s)).join(" · ")}</div></div>`);
   }

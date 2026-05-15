@@ -943,7 +943,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 1,
-      attack: 2,
       image: "Assets/Equips/rusty_sword.png",
       description: "An old corroded blade barely sharp enough to cut flesh. Better than bare hands... probably.",
       set: "",
@@ -962,7 +961,7 @@ const GAME_CONFIG = {
       set: "",
       build: "VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 2, HP: 18, "Physical Resist": 1 }
+      bonusStats: { VIT: 2, HP: 18, "Phys Resist": 1 }
     },
     "Raggs Pants": {
       type: "armor",
@@ -989,7 +988,7 @@ const GAME_CONFIG = {
       set: "",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 9, VIT: 5, Evasion: 6 }
+      bonusStats: { DEX: 9, VIT: 5, EVA: 6 }
     },
     "Boarhide Leggings": {
       type: "armor",
@@ -1010,7 +1009,6 @@ const GAME_CONFIG = {
       equipCategory: "warhammer",
       rarity: "common",
       itemLevel: 18,
-      attack: 11,
       image: "Assets/Equips/devourer_axe.png",
       description: "A brutal axe crafted from devourer remains.",
       set: "",
@@ -1024,7 +1022,6 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 17,
-      attack: 10,
       image: "Assets/Equips/fang_dagger.png",
       description: "Predator set dagger for fast critical openings.",
       set: "Predator",
@@ -1043,7 +1040,7 @@ const GAME_CONFIG = {
       set: "",
       build: "DEX_INT",
       bonusSkills: [],
-      bonusStats: { DEX: 8, INT: 6, Accuracy: 6 }
+      bonusStats: { DEX: 8, INT: 6, ACC: 6 }
     },
     "Stonescale Armor": {
       type: "armor",
@@ -1095,7 +1092,7 @@ const GAME_CONFIG = {
       set: "Greenleaf",
       build: "DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 22, VIT: 12, Evasion: 10 }
+      bonusStats: { DEX: 22, VIT: 12, EVA: 10 }
     },
     "Greenleaf Vest": {
       type: "armor",
@@ -1108,7 +1105,7 @@ const GAME_CONFIG = {
       set: "Greenleaf",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 20, VIT: 13, "Healing Received": 8 }
+      bonusStats: { DEX: 20, VIT: 13, "HEAL": 8 }
     },
     "Soul Echo Amulet": {
       type: "armor",
@@ -1182,13 +1179,12 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 5,
-      attack: 4,
       image: "Assets/Equips/skimmer_blade.png",
       description: "A light coastal dagger made for quick openings and precise cuts.",
       set: "Skimmer",
       build: "DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 5, STR: 3, Crit: 4, Accuracy: 3 }
+      bonusStats: { DEX: 5, STR: 3, Crit: 4, ACC: 3 }
     },
     "Tidecall Amulet": {
       type: "armor",
@@ -1209,7 +1205,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 7,
-      attack: 5,
       image: "Assets/Equips/Shellsplitter.png",
       description: "A short sword edged with shell shards for brutal close strikes.",
       set: "Tideguard",
@@ -1223,7 +1218,6 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 9,
-      attack: 6,
       image: "Assets/Equips/ripple_staff.png",
       description: "A tide-carved staff that amplifies flowing magic and control effects.",
       set: "Tidecaster",
@@ -1281,7 +1275,7 @@ const GAME_CONFIG = {
       set: "Tideguard",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 6, STR: 7, "Physical Resist": 4, HP: 64 }
+      bonusStats: { VIT: 6, STR: 7, "Phys Resist": 4, HP: 64 }
     },
     "Driftcloak Vest": {
       type: "armor",
@@ -1294,7 +1288,7 @@ const GAME_CONFIG = {
       set: "Skimmer",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 4, VIT: 4, HP: 64, Evasion: 4 }
+      bonusStats: { DEX: 4, VIT: 4, HP: 64, EVA: 4 }
     },
     "Wave Leggings": {
       type: "armor",
@@ -1393,7 +1387,6 @@ const GAME_CONFIG = {
       equipCategory: "two_handed",
       rarity: "common",
       itemLevel: 14,
-      attack: 9,
       image: "Assets/Equips/crusher_anchor_cleaver.png",
       description: "A crushing two-handed cleaver forged from anchor shards and pressure cores.",
       set: "Crusher Set",
@@ -1412,7 +1405,7 @@ const GAME_CONFIG = {
       set: "Crusher Set",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 14, STR: 6, "Physical Resist": 5, HP: 140 }
+      bonusStats: { VIT: 14, STR: 6, "Phys Resist": 5, HP: 140 }
     },
     "Pressure Loop": {
       type: "armor",
@@ -1433,7 +1426,6 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 13,
-      attack: 8,
       image: "Assets/Equips/channeler_focus_rod.png",
       description: "A drowned focus rod for control magic and stamina manipulation.",
       set: "Channeler Set",
@@ -1473,7 +1465,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 15,
-      attack: 9,
       image: "Assets/Equips/tidemother_fangblade.png",
       description: "A one-handed fangblade shaped from the Tidemother's corrupt pressure.",
       set: "Tidemother Set",
@@ -1513,7 +1504,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 15,
-      attack: 9,
       image: "Assets/Equips/leviathan_archblade.png",
       description: "A leviathan-forged arcblade that channels stormwake resonance through every critical line.",
       set: "Stormwake Set",
@@ -1558,7 +1548,7 @@ const GAME_CONFIG = {
       set: "Stormwake Set",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { VIT: 10, DEX: 10, HP: 150, Evasion: 4, "Magic Resist": 4 }
+      bonusStats: { VIT: 10, DEX: 10, HP: 150, EVA: 4, "Magic Resist": 4 }
     },
     "Thunderclaw Dirk": {
       type: "weapon",
@@ -1566,13 +1556,12 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 14,
-      attack: 9,
       image: "Assets/Equips/thunderclaw_dirk.png",
       description: "A storm-charged dirk carved from Stormfang talons for fast critical openings.",
       set: "Stormfang Set",
       build: "DEX_STR",
       bonusSkills: [],
-      bonusStats: { DEX: 12, STR: 6, Crit: 6, Accuracy: 4, Evasion: 3 }
+      bonusStats: { DEX: 12, STR: 6, Crit: 6, ACC: 4, EVA: 3 }
     },
     "Stormhide Boots": {
       type: "armor",
@@ -1585,7 +1574,7 @@ const GAME_CONFIG = {
       set: "Stormfang Set",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 10, VIT: 6, Evasion: 6 }
+      bonusStats: { DEX: 10, VIT: 6, EVA: 6 }
     },
     "Static Fang Bracelet": {
       type: "armor",
@@ -1611,7 +1600,7 @@ const GAME_CONFIG = {
       set: "Stormfang Set",
       build: "DEX_VIT",
       bonusSkills: [],
-      bonusStats: { DEX: 10, VIT: 5, HP: 120, Evasion: 5, Accuracy: 3 }
+      bonusStats: { DEX: 10, VIT: 5, HP: 120, EVA: 5, ACC: 3 }
     },
     "Tempest Caller Rod": {
       type: "weapon",
@@ -1619,7 +1608,6 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 13,
-      attack: 8,
       image: "Assets/Equips/tempest_caller_rod.png",
       description: "A two-handed storm rod wrapped in brine currents and static control runes.",
       set: "Tempest Caller Set",
@@ -1659,13 +1647,12 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 15,
-      attack: 9,
       image: "Assets/Equips/sandfang_blade.png",
       description: "A desert-forged blade built for accurate cuts and fast pressure.",
       set: "Dunestrike",
       build: "DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 11, STR: 6, Crit: 6, Accuracy: 4 }
+      bonusStats: { DEX: 11, STR: 6, Crit: 6, ACC: 4 }
     },
     "Mirage Edge": {
       type: "weapon",
@@ -1673,7 +1660,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 16,
-      attack: 9,
       image: "Assets/Equips/mirage_edge.png",
       description: "A shimmering sword that blurs around its target.",
       set: "Mirage",
@@ -1687,13 +1673,12 @@ const GAME_CONFIG = {
       equipCategory: "warhammer",
       rarity: "common",
       itemLevel: 18,
-      attack: 10,
       image: "Assets/Equips/boarbreaker_axe.png",
       description: "A crushing weapon made to break lines and armor.",
       set: "Boarbreaker",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 13, VIT: 7, "Phys Damage": 6, "Stamina Reduction": 0 }
+      bonusStats: { STR: 13, VIT: 7, "Phys Damage": 6 }
     },
     "Venom Channeler": {
       type: "weapon",
@@ -1701,7 +1686,6 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 19,
-      attack: 11,
       image: "Assets/Equips/venom_channeler.png",
       description: "A venom-soaked focus for spike pressure and status play.",
       set: "Venomcaster",
@@ -1733,7 +1717,7 @@ const GAME_CONFIG = {
       set: "Boarbreaker",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 13, STR: 13, "Physical Resist": 8, HP: 160 }
+      bonusStats: { VIT: 13, STR: 13, "Phys Resist": 8, HP: 160 }
     },
     "Sandstep Boots": {
       type: "armor",
@@ -1772,7 +1756,7 @@ const GAME_CONFIG = {
       set: "Boarbreaker",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 12, VIT: 6, "Physical Resist": 4 }
+      bonusStats: { STR: 12, VIT: 6, "Phys Resist": 4 }
     },
     "Dune Leggings": {
       type: "armor",
@@ -1871,13 +1855,12 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 27,
-      attack: 14,
       image: "Assets/Equips/lynx_fang.png",
       description: "A rock-honed dagger for ambushes and repeat pressure.",
       set: "Lynxstrike",
       build: "DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 18, STR: 10, Crit: 8, Accuracy: 6 }
+      bonusStats: { DEX: 18, STR: 10, Crit: 8, ACC: 6 }
     },
     "Serpent Fang": {
       type: "weapon",
@@ -1885,7 +1868,6 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 28,
-      attack: 15,
       image: "Assets/Equips/template_dagger.png",
       description: "A venom-lined fang blade built for agile control.",
       set: "",
@@ -1899,13 +1881,12 @@ const GAME_CONFIG = {
       equipCategory: "two_handed",
       rarity: "common",
       itemLevel: 29,
-      attack: 15,
       image: "Assets/Equips/hornbreaker_axe.png",
       description: "An ibex-horn two-handed axe that excels at driving through defenses.",
       set: "Ibex Dominator",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 19, VIT: 11, "Phys Damage": 8, "Stamina Reduction": 0 }
+      bonusStats: { STR: 19, VIT: 11, "Phys Damage": 8 }
     },
     "Stonecaller": {
       type: "weapon",
@@ -1913,7 +1894,6 @@ const GAME_CONFIG = {
       equipCategory: "greatsword",
       rarity: "common",
       itemLevel: 30,
-      attack: 16,
       image: "Assets/Equips/stonecaller.png",
       description: "A heavy greatsword that channels binding and petrifying force.",
       set: "Earthbinder",
@@ -1971,7 +1951,7 @@ const GAME_CONFIG = {
       set: "Stoneguard",
       build: "VIT_STR",
       bonusSkills: [],
-      bonusStats: { VIT: 18, STR: 18, "Physical Resist": 8, HP: 224 }
+      bonusStats: { VIT: 18, STR: 18, "Phys Resist": 8, HP: 224 }
     },
     "Claw Ring": {
       type: "armor",
@@ -2062,7 +2042,7 @@ const GAME_CONFIG = {
       set: "Rock Serpent",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 18, VIT: 10, "Physical Resist": 6 }
+      bonusStats: { STR: 18, VIT: 10, "Phys Resist": 6 }
     },
     "Stonekind Band": {
       type: "armor",
@@ -2083,13 +2063,12 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 38,
-      attack: 19,
       image: "Assets/Equips/foxfang_blade.png",
       description: "A refined forest blade built for assassins and duelists.",
       set: "Greenleaf Assassin",
       build: "DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 25, STR: 14, Crit: 10, Accuracy: 8 }
+      bonusStats: { DEX: 25, STR: 14, Crit: 10, ACC: 8 }
     },
     "Stagpiercer": {
       type: "weapon",
@@ -2097,7 +2076,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 39,
-      attack: 20,
       image: "Assets/Equips/stag_piercer.png",
       description: "A ceremonial blade that rewards tempo, buffs, and follow-ups.",
       set: "Verdant Rite",
@@ -2111,13 +2089,12 @@ const GAME_CONFIG = {
       equipCategory: "warhammer",
       rarity: "common",
       itemLevel: 40,
-      attack: 20,
       image: "Assets/Equips/gorilla_crusher.png",
       description: "A primal crushing weapon meant for overwhelming pressure.",
       set: "Primal Rage",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 26, VIT: 15, "Phys Damage": 10, "Stamina Reduction": 0 }
+      bonusStats: { STR: 26, VIT: 15, "Phys Damage": 10 }
     },
     "Wraithcall Scepter": {
       type: "weapon",
@@ -2125,7 +2102,6 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 40,
-      attack: 22,
       image: "Assets/Equips/wraithcall_scepter.png",
       description: "A soulbound scepter for persistent magical attrition.",
       set: "Soulbinder",
@@ -2235,7 +2211,7 @@ const GAME_CONFIG = {
       set: "Jungle Titan",
       build: "STR_VIT",
       bonusSkills: [],
-      bonusStats: { STR: 23, VIT: 13, "Physical Resist": 8 }
+      bonusStats: { STR: 23, VIT: 13, "Phys Resist": 8 }
     },
     "Fang Charm ALT": {
       type: "armor",
@@ -2269,13 +2245,12 @@ const GAME_CONFIG = {
       equipCategory: "greatsword",
       rarity: "common",
       itemLevel: 45,
-      attack: 22,
       image: "Assets/Equips/ashmaw_cleaver.png",
       description: "A fire-scarred greatsword for punishing heavy swings.",
       set: "Ash Titan",
       build: "STR",
       bonusSkills: [],
-      bonusStats: { STR: 29, VIT: 17, "Phys Damage": 12, "Stamina Reduction": 0 }
+      bonusStats: { STR: 29, VIT: 17, "Phys Damage": 12 }
     },
     "Emberfang": {
       type: "weapon",
@@ -2283,13 +2258,12 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 47,
-      attack: 24,
       image: "Assets/Equips/emberfang.png",
       description: "A blazing assassin dagger built for lethal turn bursts.",
       set: "Ember Assassin",
       build: "DEX",
       bonusSkills: [],
-      bonusStats: { DEX: 30, STR: 17, Crit: 12, Accuracy: 10 }
+      bonusStats: { DEX: 30, STR: 17, Crit: 12, ACC: 10 }
     },
     "Frozen Edge": {
       type: "weapon",
@@ -2297,7 +2271,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 50,
-      attack: 24,
       image: "Assets/Equips/frozen_edge.png",
       description: "A freezing duelist blade for precise, relentless cuts.",
       set: "Frostfang",
@@ -2311,7 +2284,6 @@ const GAME_CONFIG = {
       equipCategory: "staff",
       rarity: "common",
       itemLevel: 52,
-      attack: 25,
       image: "Assets/Equips/basilisk_staff.png",
       description: "A basilisk relic staff for high-end control and debuffing.",
       set: "Basilisk Oracle",
@@ -3627,7 +3599,6 @@ const GAME_CONFIG = {
       equipCategory: "one_handed_sword",
       rarity: "common",
       itemLevel: 1,
-      attack: 1,
       image: "Assets/Equips/template_weapon.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3639,7 +3610,6 @@ const GAME_CONFIG = {
       equipCategory: "dagger",
       rarity: "common",
       itemLevel: 1,
-      attack: 1,
       image: "Assets/Equips/template_dagger.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3651,7 +3621,6 @@ const GAME_CONFIG = {
       equipCategory: "polearm",
       rarity: "common",
       itemLevel: 1,
-      attack: 1,
       image: "Assets/Equips/template_polearm.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -3663,7 +3632,6 @@ const GAME_CONFIG = {
       equipCategory: "greatsword",
       rarity: "common",
       itemLevel: 1,
-      attack: 1,
       image: "Assets/Equips/template_greatsword.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
@@ -5422,16 +5390,16 @@ const GAME_CONFIG = {
   mmoEquipmentSetBonuses: {
     "Ash Titan": {
       2: { STR: 10, "Phys Damage": 8 },
-      3: { STR: 24, "Phys Damage": 8, "Physical Resist": 6 }
+      3: { STR: 24, "Phys Damage": 8, "Phys Resist": 6 }
     },
     "Basilisk Oracle": {
       2: { INT: 16 }
     },
     Boarbreaker: {
-      2: { STR: 3, VIT: 3, "Physical Resist": 5 },
-      3: { STR: 7, VIT: 3, "Physical Resist": 5 },
-      4: { Stamina: 1, STR: 7, VIT: 3, "Physical Resist": 5, "Phys Damage": 5 },
-      5: { Stamina: 1, STR: 7, VIT: 8, "Physical Resist": 11, "Phys Damage": 5 }
+      2: { STR: 3, VIT: 3, "Phys Resist": 5 },
+      3: { STR: 7, VIT: 3, "Phys Resist": 5 },
+      4: { STA: 1, STR: 7, VIT: 3, "Phys Resist": 5, "Phys Damage": 5 },
+      5: { STA: 1, STR: 7, VIT: 8, "Phys Resist": 11, "Phys Damage": 5 }
     },
     "Channeler Set": {
       2: { INT: 2 },
@@ -5439,12 +5407,12 @@ const GAME_CONFIG = {
     },
     "Crusher Set": {
       2: { STR: 2, VIT: 2 },
-      3: { STR: 5, VIT: 2, "Physical Resist": 4 }
+      3: { STR: 5, VIT: 2, "Phys Resist": 4 }
     },
     Dunestrike: {
-      2: { DEX: 2, Crit: 5, Accuracy: 3 },
-      3: { DEX: 6, Crit: 5, Accuracy: 3, "Crit Damage": 5 },
-      4: { Stamina: 1, DEX: 10, Crit: 5, Accuracy: 3, "Crit Damage": 11 }
+      2: { DEX: 2, Crit: 5, ACC: 3 },
+      3: { DEX: 6, Crit: 5, ACC: 3, "Crit Damage": 5 },
+      4: { STA: 1, DEX: 10, Crit: 5, ACC: 3, "Crit Damage": 11 }
     },
     Earthbinder: {
       2: { INT: 6 },
@@ -5452,7 +5420,7 @@ const GAME_CONFIG = {
     },
     "Ember Assassin": {
       2: { DEX: 10, Crit: 8, "Crit Damage": 8 },
-      3: { DEX: 24, Crit: 8, "Crit Damage": 8, "Phys Damage": 10, Accuracy: 8 }
+      3: { DEX: 24, Crit: 8, "Crit Damage": 8, "Phys Damage": 10, ACC: 8 }
     },
     Frostfang: {
       2: { DEX: 11 },
@@ -5463,59 +5431,59 @@ const GAME_CONFIG = {
       3: { VIT: 25, "Magic Resist": 18, HP: 336 }
     },
     Greenleaf: {
-      2: { DEX: 8, Evasion: 7, "Healing Received": 7 }
+      2: { DEX: 8, EVA: 7, "HEAL": 7 }
     },
     "Greenleaf Assassin": {
-      2: { DEX: 8, Crit: 7, Evasion: 7 },
-      3: { DEX: 19, Crit: 7, Evasion: 7, "Crit Damage": 8, Accuracy: 7 }
+      2: { DEX: 8, Crit: 7, EVA: 7 },
+      3: { DEX: 19, Crit: 7, EVA: 7, "Crit Damage": 8, ACC: 7 }
     },
     "Jungle Titan": {
-      2: { STR: 8, VIT: 8, "Physical Resist": 7 },
-      3: { STR: 19, VIT: 8, "Physical Resist": 7, HP: 266 }
+      2: { STR: 8, VIT: 8, "Phys Resist": 7 },
+      3: { STR: 19, VIT: 8, "Phys Resist": 7, HP: 266 }
     },
     Lynxstrike: {
-      2: { DEX: 6, Crit: 6, Accuracy: 6 }
+      2: { DEX: 6, Crit: 6, ACC: 6 }
     },
     Mirage: {
-      2: { DEX: 2, INT: 2, Evasion: 5 },
-      3: { DEX: 6, INT: 6, Evasion: 5 }
+      2: { DEX: 2, INT: 2, EVA: 5 },
+      3: { DEX: 6, INT: 6, EVA: 5 }
     },
     "Rock Serpent": {
-      2: { VIT: 6, "Magic Resist": 6, "Physical Resist": 6 },
-      3: { VIT: 6, STR: 6, INT: 6, "Magic Resist": 6, "Physical Resist": 6 },
+      2: { VIT: 6, "Magic Resist": 6, "Phys Resist": 6 },
+      3: { VIT: 6, STR: 6, INT: 6, "Magic Resist": 6, "Phys Resist": 6 },
       4: {
-        Stamina: 1,
+        STA: 1,
         VIT: 14,
         STR: 6,
         INT: 6,
         "Magic Resist": 6,
-        "Physical Resist": 6,
+        "Phys Resist": 6,
         "Status Resist": 6
       }
     },
     Skimmer: {
-      2: { DEX: 1, Crit: 2, Evasion: 2 },
-      3: { DEX: 3, Crit: 2, Evasion: 2, Accuracy: 2 },
-      4: { Stamina: 1, DEX: 5, Crit: 2, Evasion: 2, Accuracy: 6 }
+      2: { DEX: 1, Crit: 2, EVA: 2 },
+      3: { DEX: 3, Crit: 2, EVA: 2, ACC: 2 },
+      4: { STA: 1, DEX: 5, Crit: 2, EVA: 2, ACC: 6 }
     },
     Soulbinder: {
       2: { INT: 9, "Magic Damage": 7 }
     },
     Stoneguard: {
-      2: { VIT: 6, "Physical Resist": 6 },
-      3: { VIT: 14, "Physical Resist": 12, HP: 182 },
-      4: { Stamina: 1, VIT: 22, "Physical Resist": 12, HP: 442 }
+      2: { VIT: 6, "Phys Resist": 6 },
+      3: { VIT: 14, "Phys Resist": 12, HP: 182 },
+      4: { STA: 1, VIT: 22, "Phys Resist": 12, HP: 442 }
     },
     "Stormfang Set": {
-      2: { DEX: 2, Crit: 4, Evasion: 3 },
-      3: { DEX: 5, Crit: 4, Evasion: 3, "Crit Damage": 4, Accuracy: 3 },
-      4: { Stamina: 1, DEX: 8, Crit: 4, Evasion: 7, "Crit Damage": 4, Accuracy: 3 }
+      2: { DEX: 2, Crit: 4, EVA: 3 },
+      3: { DEX: 5, Crit: 4, EVA: 3, "Crit Damage": 4, ACC: 3 },
+      4: { STA: 1, DEX: 8, Crit: 4, EVA: 7, "Crit Damage": 4, ACC: 3 }
     },
     "Stormwake Set": {
       2: { DEX: 2, INT: 2 },
       3: { DEX: 5, INT: 5, Crit: 5 },
       4: {
-        Stamina: 1,
+        STA: 1,
         DEX: 5,
         INT: 5,
         Crit: 5,
@@ -5529,32 +5497,32 @@ const GAME_CONFIG = {
     },
     "Thornback Bulwark": {
       2: { VIT: 3, "Status Resist": 5 },
-      3: { VIT: 7, "Status Resist": 5, HP: 126, "Physical Resist": 5 }
+      3: { VIT: 7, "Status Resist": 5, HP: 126, "Phys Resist": 5 }
     },
     Tidecaster: {
       2: { INT: 1, "Magic Damage": 4 },
       3: { INT: 3, "Magic Damage": 4, "Magic Resist": 3 },
-      4: { Stamina: 1, INT: 5, "Magic Damage": 4, "Magic Resist": 3 },
-      5: { Stamina: 1, INT: 8, "Magic Damage": 8, "Magic Resist": 3 }
+      4: { STA: 1, INT: 5, "Magic Damage": 4, "Magic Resist": 3 },
+      5: { STA: 1, INT: 8, "Magic Damage": 8, "Magic Resist": 3 }
     },
     Tideguard: {
-      2: { VIT: 1, "Physical Resist": 3 },
-      3: { VIT: 3, "Physical Resist": 3, HP: 35, "Magic Resist": 3 },
-      4: { Stamina: 1, VIT: 5, "Physical Resist": 3, HP: 84, "Magic Resist": 3 },
-      5: { Stamina: 1, VIT: 8, "Physical Resist": 8, HP: 84, "Magic Resist": 3, "Status Resist": 4 }
+      2: { VIT: 1, "Phys Resist": 3 },
+      3: { VIT: 3, "Phys Resist": 3, HP: 35, "Magic Resist": 3 },
+      4: { STA: 1, VIT: 5, "Phys Resist": 3, HP: 84, "Magic Resist": 3 },
+      5: { STA: 1, VIT: 8, "Phys Resist": 8, HP: 84, "Magic Resist": 3, "Status Resist": 4 }
     },
     "Tidemother Set": {
       2: { DEX: 2, INT: 2 },
-      3: { Stamina: 1, DEX: 2, INT: 5, "Crit Damage": 5 }
+      3: { STA: 1, DEX: 2, INT: 5, "Crit Damage": 5 }
     },
     Venomcaster: {
       2: { INT: 4, "Magic Damage": 5 }
     },
     "Verdant Rite": {
-      2: { INT: 8, VIT: 6, "Healing Received": 7 },
-      3: { INT: 19, VIT: 6, "Healing Received": 7, "Magic Resist": 7 },
-      4: { Stamina: 1, INT: 19, VIT: 17, "Healing Received": 16, "Magic Resist": 7 },
-      5: { Stamina: 1, INT: 30, VIT: 28, "Healing Received": 16, "Magic Resist": 7, HP: 266 }
+      2: { INT: 8, VIT: 6, "HEAL": 7 },
+      3: { INT: 19, VIT: 6, "HEAL": 7, "Magic Resist": 7 },
+      4: { STA: 1, INT: 19, VIT: 17, "HEAL": 16, "Magic Resist": 7 },
+      5: { STA: 1, INT: 30, VIT: 28, "HEAL": 16, "Magic Resist": 7, HP: 266 }
     }
   },
 
