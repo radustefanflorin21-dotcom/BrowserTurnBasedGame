@@ -1008,8 +1008,21 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .portrait-edit-tools {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
+  align-items: center;
+}
+
+.portrait-gender-switch {
+  display: flex;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.portrait-gender-btn.active {
+  outline: 2px solid rgba(255, 220, 120, 0.85);
+  outline-offset: 1px;
 }
 
 .portrait-edit-tools-overlay {
@@ -6221,6 +6234,106 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 4px;
+}
+
+.companion-create-modal {
+  max-width: 420px;
+}
+
+.companion-create-title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.companion-create-lead {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.companion-create-error {
+  margin: 0 0 10px;
+  color: #e88;
+  font-size: 0.85rem;
+}
+
+.companion-create-gender {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.companion-create-gender-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  cursor: pointer;
+  min-width: 130px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.companion-create-gender-btn:hover {
+  border-color: rgba(255, 220, 120, 0.45);
+}
+
+.companion-create-gender-btn--active {
+  border-color: rgba(255, 220, 120, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 220, 120, 0.35);
+}
+
+.companion-create-preview-wrap {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100px;
+  height: 110px;
+  overflow: hidden;
+}
+
+.companion-create-preview {
+  height: 100%;
+  width: auto;
+  max-width: none;
+  object-fit: contain;
+  object-position: center bottom;
+  pointer-events: none;
+}
+
+.modal--companion-create .modal-box > button:last-of-type {
+  display: none;
+}
+
+.modal--companion-create .modal-box {
+  max-width: min(460px, 94vw);
+}
+
+.companion-create-name-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--overview-muted);
+}
+
+.companion-create-name-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
 }
 
 .level-up-modal-title {

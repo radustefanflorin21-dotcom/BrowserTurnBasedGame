@@ -30,8 +30,10 @@ let dragPayload = null;
 let adventureRespawnTick = null;
 /** +HP per second while fight overlay is closed and {@link combatState} is null. */
 let outOfCombatHpRegenTick = null;
-/** Companion slot waiting for its one-time name before first enable. */
+/** Companion slot waiting for its one-time character creation before first enable. */
 let pendingCompanionEnableSlot = null;
+/** Body type picked in the companion creation modal (`male` | `female`). */
+let pendingCompanionCreationGender = "male";
 /** Reposition world encounter panels on a timer (config.worldMap.mobPanelWanderMs). */
 let adventureCampWanderTick = null;
 /** Invalidates pending RAF from startAdventureCampWanderTimer when navigating away quickly. */
@@ -127,8 +129,8 @@ function createDefaultCompanionSlot(label) {
     skills: [],
     professions: [],
     equipment: getStarterEquipment(),
-    portraitLayout: {},
-    portraitBaseLayout: getDefaultPortraitBaseLayout()
+    portraitGender: "male",
+    portraitLayouts: {}
   };
   companion.maxHp = computeMaxHp(companion);
   companion.hp = companion.maxHp;
@@ -199,9 +201,13 @@ function ensurePlayerCompanions(p) {
       equipStarterGearIfEmpty(c);
     }
     enforceOffhandRuleForEquipment(c.equipment, p.inventory);
-    if (!c.portraitLayout || typeof c.portraitLayout !== "object") c.portraitLayout = {};
-    if (!c.portraitBaseLayout || typeof c.portraitBaseLayout !== "object") {
-      c.portraitBaseLayout = getDefaultPortraitBaseLayout();
+    if (typeof c.portraitGender !== "string" || !c.portraitGender.trim()) c.portraitGender = "male";
+    ensurePortraitLayoutsStoreForOwner(c);
+    if (c.portraitLayout && typeof c.portraitLayout === "object" && Object.keys(c.portraitLayout).length) {
+      Object.assign(c.portraitLayouts.male.equipment, c.portraitLayout);
+    }
+    if (c.portraitBaseLayout && typeof c.portraitBaseLayout === "object") {
+      c.portraitLayouts.male.base = c.portraitBaseLayout;
     }
     if (!c.allocPoolsBindToLevelV2) {
       c.allocPoolsBindToLevelV2 = true;
@@ -232,7 +238,7 @@ function getActiveRosterActor() {
   return getRosterActorFromTab(getCharacterRosterTab());
 }
 
-function completeCompanionFirstEnable(slotIdx, rawName) {
+function completeCompanionFirstEnable(slotIdx, rawName, gender) {
   ensurePlayerCompanions(player);
   if (!Number.isFinite(slotIdx) || slotIdx < 0 || slotIdx >= COMPANION_SLOT_COUNT) return false;
   const comp = player.companions && player.companions[slotIdx];
@@ -240,7 +246,9 @@ function completeCompanionFirstEnable(slotIdx, rawName) {
   const nextName = typeof rawName === "string" ? rawName.trim().slice(0, 32) : "";
   if (!nextName) return false;
   comp.name = nextName;
+  comp.portraitGender = normalizePortraitGender(gender);
   comp.hasBeenEnabled = true;
+  ensurePortraitLayoutsStoreForOwner(comp);
   equipStarterGearIfEmpty(comp);
   comp.maxHp = computeMaxHp(comp);
   comp.hp = comp.maxHp;
@@ -251,24 +259,66 @@ function completeCompanionFirstEnable(slotIdx, rawName) {
   return true;
 }
 
-function openCompanionFirstEnableModal(slotIdx) {
+function buildCompanionCreationModalHtml(slotIdx, selectedGender, errorMsg, nameValue) {
+  const g = normalizePortraitGender(selectedGender);
   const fallbackName = `Companion ${slotIdx + 1}`;
+  const maleCls = g === "male" ? " companion-create-gender-btn--active" : "";
+  const femaleCls = g === "female" ? " companion-create-gender-btn--active" : "";
+  const err =
+    errorMsg && String(errorMsg).trim()
+      ? `<p class="companion-create-error">${escapeHtml(String(errorMsg).trim())}</p>`
+      : "";
+  const nameAttr = typeof nameValue === "string" ? escapeAttr(nameValue) : "";
+  return `<div class="companion-create-modal">
+    <h3 class="companion-create-title">Character creation</h3>
+    <p class="companion-create-lead muted">Set how this companion looks and what they are called. These choices are permanent.</p>
+    ${err}
+    <div class="companion-create-gender" role="radiogroup" aria-label="Body type">
+      <button type="button" class="companion-create-gender-btn${maleCls}" data-companion-create-gender="male" aria-pressed="${g === "male"}">
+        <span class="companion-create-preview-wrap"><img src="Assets/Character/male_template.png" alt="" class="companion-create-preview" draggable="false" /></span>
+        <span>Male</span>
+      </button>
+      <button type="button" class="companion-create-gender-btn${femaleCls}" data-companion-create-gender="female" aria-pressed="${g === "female"}">
+        <span class="companion-create-preview-wrap"><img src="Assets/Character/female_character.png" alt="" class="companion-create-preview" draggable="false" /></span>
+        <span>Female</span>
+      </button>
+    </div>
+    <label class="companion-create-name-label" for="companion-create-name-input">Name</label>
+    <input id="companion-create-name-input" type="text" class="companion-create-name-input" data-companion-name-input maxlength="32" placeholder="${escapeAttr(
+      fallbackName
+    )}" value="${nameAttr}" autocomplete="off" />
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-companion-name-confirm>Create companion</button>
+      <button type="button" class="btn-secondary" data-companion-name-cancel>Cancel</button>
+    </div>
+  </div>`;
+}
+
+function isCompanionCreationModalOpen() {
+  return pendingCompanionEnableSlot != null && Number.isFinite(pendingCompanionEnableSlot);
+}
+
+function openCompanionFirstEnableModal(slotIdx) {
   pendingCompanionEnableSlot = slotIdx;
-  showModalHtml(
-    `<div class="companion-name-modal">
-      <p>Name ${escapeHtml(fallbackName)} before they join your party.</p>
-      <input type="text" class="companion-name-input" data-companion-name-input maxlength="32" placeholder="${escapeAttr(
-        fallbackName
-      )}" autocomplete="off" />
-      <div class="npc-dialog-actions">
-        <button type="button" class="btn-primary" data-companion-name-confirm>Enable companion</button>
-        <button type="button" class="btn-secondary" data-companion-name-cancel>Cancel</button>
-      </div>
-    </div>`
-  );
+  pendingCompanionCreationGender = "male";
+  showModalHtml(buildCompanionCreationModalHtml(slotIdx, pendingCompanionCreationGender), { companionCreation: true });
   setTimeout(() => {
     const input = document.querySelector("[data-companion-name-input]");
     if (input && typeof input.focus === "function") input.focus();
+  }, 0);
+}
+
+function refreshCompanionCreationModal(errorMsg) {
+  const slotIdx = pendingCompanionEnableSlot;
+  if (!Number.isFinite(slotIdx) || slotIdx < 0) return;
+  const input = document.querySelector("[data-companion-name-input]");
+  const nameValue = input && typeof input.value === "string" ? input.value : "";
+  showModalHtml(buildCompanionCreationModalHtml(slotIdx, pendingCompanionCreationGender, errorMsg, nameValue), {
+    companionCreation: true
+  });
+  setTimeout(() => {
+    const next = document.querySelector("[data-companion-name-input]");
+    if (next && typeof next.focus === "function") next.focus();
   }, 0);
 }
 
@@ -898,21 +948,56 @@ function applySkillBarClearSlot(actor, idx) {
   return true;
 }
 
-function getDefaultPortraitBaseLayout() {
+const PORTRAIT_GENDER_IDS = ["male", "female"];
+
+const COMPANION_PORTRAIT_BASE_BY_GENDER = {
+  male: "Assets/Character/male_template.png",
+  female: "Assets/Character/female_character.png"
+};
+
+function normalizePortraitGender(raw) {
+  const g = String(raw || "")
+    .trim()
+    .toLowerCase();
+  return g === "female" ? "female" : "male";
+}
+
+function getPortraitCharacterPresets() {
+  return GAME_CONFIG.portraitCharacterPresets && typeof GAME_CONFIG.portraitCharacterPresets === "object"
+    ? GAME_CONFIG.portraitCharacterPresets
+    : {};
+}
+
+function getPortraitPresetPack(gender) {
+  const g = normalizePortraitGender(gender);
+  const presets = getPortraitCharacterPresets();
+  const pack = presets[g] && typeof presets[g] === "object" ? presets[g] : null;
+  if (pack) return pack;
+  const fallback = presets.male && typeof presets.male === "object" ? presets.male : null;
+  return fallback;
+}
+
+function getDefaultPortraitBaseLayout(gender) {
+  const pack = getPortraitPresetPack(gender);
+  const raw = pack && pack.baseLayout && typeof pack.baseLayout === "object" ? pack.baseLayout : null;
+  if (!raw) return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
   return {
-    offsetXPct: 11.566826474173666,
-    offsetYPct: -4.0486297112605,
-    rotDeg: 0,
-    scalePct: 124
+    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(raw.scalePct)
   };
 }
 
-function getDefaultBottomHudPortraitLayout() {
+function getDefaultBottomHudPortraitLayout(gender) {
+  const pack = getPortraitPresetPack(gender);
+  const raw = pack && pack.bottomHudLayout && typeof pack.bottomHudLayout === "object" ? pack.bottomHudLayout : null;
+  if (!raw) return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
   return {
-    offsetXPct: 0,
-    offsetYPct: 0,
-    rotDeg: 0,
-    scalePct: 100
+    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(raw.scalePct)
   };
 }
 
@@ -1001,9 +1086,8 @@ const defaultPlayer = () => {
     professions: [],
     inventory: buildStartingInventory(),
     equipment: getStarterEquipment(),
-    portraitLayout: {},
-    portraitBaseLayout: getDefaultPortraitBaseLayout(),
-    bottomHudPortraitLayout: getDefaultBottomHudPortraitLayout(),
+    portraitGender: "male",
+    portraitLayouts: {},
     portraitLayoutLastExport: "",
     theme: "medieval",
     charPointsRetroDone: true,
@@ -1303,12 +1387,16 @@ function migratePlayer(p) {
   }
   enforceOffhandRuleForEquipment(p.equipment, p.inventory);
   if (typeof p.charPoints !== "number" || p.charPoints < 0) p.charPoints = 0;
-  if (!p.portraitLayout || typeof p.portraitLayout !== "object") p.portraitLayout = {};
-  if (!p.portraitBaseLayout || typeof p.portraitBaseLayout !== "object") {
-    p.portraitBaseLayout = getDefaultPortraitBaseLayout();
+  if (!p.portraitGender) p.portraitGender = "male";
+  ensurePortraitLayoutsStoreForOwner(p);
+  if (p.portraitLayout && typeof p.portraitLayout === "object" && Object.keys(p.portraitLayout).length) {
+    Object.assign(p.portraitLayouts.male.equipment, p.portraitLayout);
   }
-  if (!p.bottomHudPortraitLayout || typeof p.bottomHudPortraitLayout !== "object") {
-    p.bottomHudPortraitLayout = getDefaultBottomHudPortraitLayout();
+  if (p.portraitBaseLayout && typeof p.portraitBaseLayout === "object") {
+    p.portraitLayouts.male.base = p.portraitBaseLayout;
+  }
+  if (p.bottomHudPortraitLayout && typeof p.bottomHudPortraitLayout === "object") {
+    p.portraitLayouts.male.bottomHud = p.bottomHudPortraitLayout;
   }
   if (typeof p.portraitLayoutLastExport !== "string") p.portraitLayoutLastExport = "";
   /** One-time retrospective: earned characteristic points = level×5; stats above 10 cost by the same curve as live spending. */
@@ -2066,173 +2154,161 @@ function getItemImage(itemName) {
   return `https://via.placeholder.com/72/3d3d3d/ddd?text=${t}`;
 }
 
-function getEquipmentOverlayImage(itemName) {
+function getEquipmentOverlayImage(itemName, layoutOwner) {
   const def = getItemDef(itemName);
-  if (!def) return getItemImage(itemName);
+  if (!def) return resolvePortraitEquipImagePath(getItemImage(itemName), layoutOwner);
   const custom =
     (typeof def.paperDollImage === "string" && def.paperDollImage.trim()) ||
     (typeof def.paperdollImage === "string" && def.paperdollImage.trim()) ||
     (typeof def.overlayImage === "string" && def.overlayImage.trim()) ||
     "";
-  if (custom) return custom;
-  return getItemImage(itemName);
+  const img = custom || getItemImage(itemName);
+  return resolvePortraitEquipImagePath(img, layoutOwner);
 }
 
-const NO_WEAPON_OVERLAY_PATH = "Assets/Equips/no_weapon.png";
-const NO_HELM_OVERLAY_PATH = "Assets/Equips/no_helm.png";
-const OFFHAND_FIXED_ARM_OVERLAY_PATH = "Assets/Equips/offhand_fixed_arm.png";
-
-function getNoWeaponOverlayImage() {
-  return NO_WEAPON_OVERLAY_PATH;
-}
-
-function getNoHelmOverlayImage() {
-  return NO_HELM_OVERLAY_PATH;
-}
-
-function getOffhandFixedArmOverlayImage() {
-  return OFFHAND_FIXED_ARM_OVERLAY_PATH;
-}
-
-const DEFAULT_PORTRAIT_LAYOUT = {
-  // Legacy keys kept for backward compatibility with existing saved layouts.
-  weapon: {
-    offsetXPct: -106.26729560795518,
-    offsetYPct: -43.375242659607835,
-    rotDeg: 3,
-    scalePct: 172
+const PORTRAIT_PLACEHOLDER_OVERLAY_PATHS = {
+  male: {
+    noWeapon: "Assets/Equips/male_no_weapon.png",
+    noHelm: "Assets/Equips/male_no_helm.png",
+    offhandFixedArm: "Assets/Equips/male_offhand_fixed_arm.png"
   },
-  weapon_one_handed_sword: {
-    offsetXPct: -106.26729560795518,
-    offsetYPct: -43.375242659607835,
-    rotDeg: 3,
-    scalePct: 172
-  },
-  weapon_dagger: {
-    offsetXPct: -84.86835294834734,
-    offsetYPct: -78.6537897112605,
-    rotDeg: 11.5,
-    scalePct: 70
-  },
-  weapon_greatsword: {
-    offsetXPct: -139.81,
-    offsetYPct: -40.4835,
-    rotDeg: 22.5,
-    scalePct: 160
-  },
-  weapon_two_handed: {
-    offsetXPct: -109.736,
-    offsetYPct: -58.4119,
-    rotDeg: 17.5,
-    scalePct: 172
-  },
-  chest: {
-    offsetXPct: 7.518376474173667,
-    offsetYPct: -32.3869,
-    rotDeg: 0,
-    scalePct: 64
-  },
-  amulet: {
-    offsetXPct: 1.1566791337815001,
-    offsetYPct: -77.49704265960783,
-    rotDeg: -12.5,
-    scalePct: 40
-  },
-  bracelet: {
-    offsetXPct: -86.17220589669466,
-    offsetYPct: -38.170161732437,
-    rotDeg: 12,
-    scalePct: 15
-  },
-  feet: {
-    offsetXPct: 2.3133735258263335,
-    offsetYPct: 5.783326474173667,
-    rotDeg: 0,
-    scalePct: 82
-  },
-  head: {
-    offsetXPct: 2.3133532370868335,
-    offsetYPct: -32.3868,
-    rotDeg: 0,
-    scalePct: 52
-  },
-  legs: {
-    offsetXPct: 6.9399664741736675,
-    offsetYPct: -20.241736762913167,
-    rotDeg: 0,
-    scalePct: 106
-  },
-  ring1: {
-    offsetXPct: 258.9379485563025,
-    offsetYPct: -154.416226352269,
-    rotDeg: 0,
-    scalePct: 15
-  },
-  ring2: {
-    offsetXPct: -249.26419825154085,
-    offsetYPct: -167.71818995506982,
-    rotDeg: 12.5,
-    scalePct: 15
-  },
-  offhand: {
-    offsetXPct: 102.9440102887395,
-    offsetYPct: -49.73697911630142,
-    rotDeg: 34,
-    scalePct: 160
-  },
-  offhand_one_handed_sword: {
-    offsetXPct: 100.6309897112605,
-    offsetYPct: -44.532036762913165,
-    rotDeg: 33,
-    scalePct: 178
-  },
-  offhand_dagger: {
-    offsetXPct: 146.319,
-    offsetYPct: -68.2438,
-    rotDeg: 37.5,
-    scalePct: 76
-  },
-  offhand_shield: {
-    offsetXPct: 102.9440102887395,
-    offsetYPct: -49.73697911630142,
-    rotDeg: 34,
-    scalePct: 160
-  },
-  offhand_fixed_arm: {
-    offsetXPct: -120.873,
-    offsetYPct: -115.088,
-    rotDeg: 0,
-    scalePct: 70
-  },
-  no_weapon: {
-    offsetXPct: -106.98864265960783,
-    offsetYPct: -66.651858845042,
-    rotDeg: 9,
-    scalePct: 20
-  },
-  no_helm: {
-    offsetXPct: 2.8917030092996683,
-    offsetYPct: -32.38687352582633,
-    rotDeg: 0,
-    scalePct: 40
+  female: {
+    noWeapon: "Assets/Equips/female_no_weapon.png",
+    noHelm: "Assets/Equips/female_no_helm.png",
+    offhandFixedArm: "Assets/Equips/female_offhand_fixed_arm.png"
   }
 };
 
-const HERO_WEAPON_OCCLUSION_BY_BASE_IMAGE = {
-  "Assets/Character/male_vanguard.png": {
-    // Hand/palm portion that should stay behind the weapon.
-    backHandClip: "polygon(58% 52%, 74% 49%, 86% 56%, 88% 71%, 79% 83%, 63% 81%, 56% 67%)",
-    // Body/front hand portion that should stay above the weapon.
-    frontBodyClip: "polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, 52% 49%, 57% 63%, 55% 79%, 43% 83%, 36% 72%, 38% 56%)"
+const PORTRAIT_GENDERED_EQUIP_IMAGES = {
+  "Assets/Equips/_male_template_hat.png": {
+    male: "Assets/Equips/_male_template_hat.png",
+    female: "Assets/Equips/_female_template_hat.png"
+  },
+  "Assets/Equips/_template_hat.png": {
+    male: "Assets/Equips/_male_template_hat.png",
+    female: "Assets/Equips/_female_template_hat.png"
   }
 };
+
+function portraitGenderFromArg(ownerOrGender) {
+  if (ownerOrGender && typeof ownerOrGender === "object") return getActorPortraitGender(ownerOrGender);
+  return normalizePortraitGender(ownerOrGender);
+}
+
+function getPortraitPlaceholderOverlayPaths(gender) {
+  const g = normalizePortraitGender(gender);
+  return PORTRAIT_PLACEHOLDER_OVERLAY_PATHS[g] || PORTRAIT_PLACEHOLDER_OVERLAY_PATHS.male;
+}
+
+function getPortraitPlaceholderLayoutKey(kind, gender) {
+  const g = normalizePortraitGender(gender);
+  const prefix = g === "female" ? "female_" : "male_";
+  if (kind === "no_weapon" || kind === "male_no_weapon" || kind === "female_no_weapon") return `${prefix}no_weapon`;
+  if (kind === "no_helm" || kind === "male_no_helm" || kind === "female_no_helm") return `${prefix}no_helm`;
+  if (kind === "offhand_fixed_arm" || kind === "male_offhand_fixed_arm" || kind === "female_offhand_fixed_arm") {
+    return `${prefix}offhand_fixed_arm`;
+  }
+  return kind;
+}
+
+function resolvePortraitEquipImagePath(imagePath, ownerOrGender) {
+  const norm = normalizeAssetPath(imagePath);
+  const map = PORTRAIT_GENDERED_EQUIP_IMAGES[norm];
+  if (!map) return imagePath;
+  const g = portraitGenderFromArg(ownerOrGender);
+  return map[g] || map.male;
+}
+
+function getNoWeaponOverlayImage(ownerOrGender) {
+  return getPortraitPlaceholderOverlayPaths(portraitGenderFromArg(ownerOrGender)).noWeapon;
+}
+
+function getNoHelmOverlayImage(ownerOrGender) {
+  return getPortraitPlaceholderOverlayPaths(portraitGenderFromArg(ownerOrGender)).noHelm;
+}
+
+function getOffhandFixedArmOverlayImage(ownerOrGender) {
+  return getPortraitPlaceholderOverlayPaths(portraitGenderFromArg(ownerOrGender)).offhandFixedArm;
+}
+
+function migratePortraitPlaceholderLayoutKeys(equipment, gender) {
+  if (!equipment || typeof equipment !== "object") return;
+  const g = normalizePortraitGender(gender);
+  const renames =
+    g === "female"
+      ? {
+          no_weapon: "female_no_weapon",
+          no_helm: "female_no_helm",
+          offhand_fixed_arm: "female_offhand_fixed_arm",
+          male_no_weapon: "female_no_weapon",
+          male_no_helm: "female_no_helm",
+          male_offhand_fixed_arm: "female_offhand_fixed_arm"
+        }
+      : {
+          no_weapon: "male_no_weapon",
+          no_helm: "male_no_helm",
+          offhand_fixed_arm: "male_offhand_fixed_arm",
+          female_no_weapon: "male_no_weapon",
+          female_no_helm: "male_no_helm",
+          female_offhand_fixed_arm: "male_offhand_fixed_arm"
+        };
+  Object.keys(renames).forEach((oldKey) => {
+    if (equipment[oldKey] && !equipment[renames[oldKey]]) equipment[renames[oldKey]] = equipment[oldKey];
+    if (equipment[oldKey]) delete equipment[oldKey];
+  });
+}
+
+function getDefaultPortraitEquipmentLayoutForGender(gender) {
+  const pack = getPortraitPresetPack(gender);
+  return pack && pack.equipment && typeof pack.equipment === "object" ? pack.equipment : {};
+}
+
+function getActorPortraitGender(actor) {
+  const a = actor || player;
+  if (a && typeof a.portraitGender === "string" && a.portraitGender.trim()) {
+    return normalizePortraitGender(a.portraitGender);
+  }
+  if (isCompanionActor(a)) return "male";
+  return normalizePortraitGender(player.portraitGender);
+}
+
+function listPortraitEquipLayoutSlotIds(gender, owner) {
+  const g = normalizePortraitGender(gender);
+  const defs = getDefaultPortraitEquipmentLayoutForGender(g);
+  const keys = new Set(Object.keys(defs));
+  if (owner) {
+    ensurePortraitLayoutsStoreForOwner(owner);
+    Object.keys(owner.portraitLayouts[g].equipment || {}).forEach((k) => keys.add(k));
+  }
+  return [...keys].sort();
+}
+
+function ensurePortraitLayoutsStoreForOwner(owner) {
+  if (!owner || typeof owner !== "object") return;
+  if (!owner.portraitLayouts || typeof owner.portraitLayouts !== "object") {
+    owner.portraitLayouts = {};
+  }
+  PORTRAIT_GENDER_IDS.forEach((g) => {
+    if (!owner.portraitLayouts[g] || typeof owner.portraitLayouts[g] !== "object") {
+      owner.portraitLayouts[g] = { equipment: {}, base: null, bottomHud: null };
+    }
+    if (!owner.portraitLayouts[g].equipment || typeof owner.portraitLayouts[g].equipment !== "object") {
+      owner.portraitLayouts[g].equipment = {};
+    }
+    if (owner.portraitLayouts[g].base === undefined) owner.portraitLayouts[g].base = null;
+    if (owner.portraitLayouts[g].bottomHud === undefined) owner.portraitLayouts[g].bottomHud = null;
+    migratePortraitPlaceholderLayoutKeys(owner.portraitLayouts[g].equipment, g);
+  });
+}
 
 function normalizeAssetPath(pathLike) {
   return String(pathLike || "").replace(/\\/g, "/").trim();
 }
 
-function getHeroWeaponOcclusionConfig(baseImagePath) {
-  return HERO_WEAPON_OCCLUSION_BY_BASE_IMAGE[normalizeAssetPath(baseImagePath)] || null;
+function getHeroWeaponOcclusionConfig(baseImagePath, gender) {
+  const pack = getPortraitPresetPack(gender);
+  const map = pack && pack.weaponOcclusion && typeof pack.weaponOcclusion === "object" ? pack.weaponOcclusion : {};
+  return map[normalizeAssetPath(baseImagePath)] || null;
 }
 
 function clampPortraitLayoutPct(v) {
@@ -2241,32 +2317,38 @@ function clampPortraitLayoutPct(v) {
   return Math.max(-300, Math.min(300, n));
 }
 
-function clampPortraitLayoutScalePct(v) {
+function isPortraitNoWeaponSlot(slotId) {
+  const k = String(slotId || "");
+  return k === "male_no_weapon" || k === "female_no_weapon" || k === "no_weapon";
+}
+
+/** Rings, bracelet, and empty-weapon overlays can scale down further in edit mode. */
+function isPortraitFineScaleSlot(slotId) {
+  const k = String(slotId || "");
+  if (isPortraitNoWeaponSlot(k)) return true;
+  return k === "ring1" || k === "ring2" || k === "bracelet";
+}
+
+function getPortraitLayoutScaleMin(slotId) {
+  return isPortraitFineScaleSlot(slotId) ? 3 : 15;
+}
+
+function getPortraitLayoutScaleWheelStep(slotId, shiftKey) {
+  if (isPortraitFineScaleSlot(slotId)) return shiftKey ? 4 : 2;
+  return shiftKey ? 12 : 6;
+}
+
+function clampPortraitLayoutScalePct(v, slotId) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 100;
-  return Math.max(15, Math.min(600, Math.round(n)));
+  const min = getPortraitLayoutScaleMin(slotId);
+  return Math.max(min, Math.min(600, Math.round(n)));
 }
 
 function clampPortraitLayoutRotDeg(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
   return Math.max(-180, Math.min(180, n));
-}
-
-function ensurePortraitLayoutStore() {
-  if (!player.portraitLayout || typeof player.portraitLayout !== "object") player.portraitLayout = {};
-}
-
-function ensurePortraitBaseLayoutStore() {
-  if (!player.portraitBaseLayout || typeof player.portraitBaseLayout !== "object") {
-    player.portraitBaseLayout = getDefaultPortraitBaseLayout();
-  }
-}
-
-function ensureBottomHudPortraitLayoutStore() {
-  if (!player.bottomHudPortraitLayout || typeof player.bottomHudPortraitLayout !== "object") {
-    player.bottomHudPortraitLayout = getDefaultBottomHudPortraitLayout();
-  }
 }
 
 function getLegacyPortraitLayoutKey(slotId) {
@@ -2283,22 +2365,36 @@ function getLegacyPortraitLayoutKey(slotId) {
   return "";
 }
 
-function ensurePortraitLayoutStoreForOwner(owner) {
-  if (!owner || typeof owner !== "object") return;
-  if (!owner.portraitLayout || typeof owner.portraitLayout !== "object") owner.portraitLayout = {};
-}
-
 function getPortraitEquipLayout(slotId, layoutOwner) {
   const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
-  if (owner === player) ensurePortraitLayoutStore();
-  else ensurePortraitLayoutStoreForOwner(owner);
+  const gender = getActorPortraitGender(owner);
+  ensurePortraitLayoutsStoreForOwner(owner);
   const legacyKey = getLegacyPortraitLayoutKey(slotId);
+  const placeholderKey = getPortraitPlaceholderLayoutKey(slotId, gender);
+  const defaults = getDefaultPortraitEquipmentLayoutForGender(gender);
+  const overrides = owner.portraitLayouts[gender].equipment;
   const raw =
-    owner.portraitLayout[slotId] ||
-    (legacyKey ? owner.portraitLayout[legacyKey] : null) ||
-    DEFAULT_PORTRAIT_LAYOUT[slotId] ||
-    (legacyKey ? DEFAULT_PORTRAIT_LAYOUT[legacyKey] : null);
+    overrides[slotId] ||
+    (placeholderKey !== slotId ? overrides[placeholderKey] : null) ||
+    (legacyKey ? overrides[legacyKey] : null) ||
+    defaults[slotId] ||
+    (placeholderKey !== slotId ? defaults[placeholderKey] : null) ||
+    (legacyKey ? defaults[legacyKey] : null);
   if (!raw || typeof raw !== "object") return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
+  return {
+    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(raw.scalePct, slotId)
+  };
+}
+
+function getPortraitBaseLayoutForOwner(owner) {
+  const o = owner && typeof owner === "object" ? owner : player;
+  const gender = getActorPortraitGender(o);
+  ensurePortraitLayoutsStoreForOwner(o);
+  const ov = o.portraitLayouts[gender].base;
+  const raw = ov && typeof ov === "object" ? ov : getDefaultPortraitBaseLayout(gender);
   return {
     offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
     offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
@@ -2307,59 +2403,29 @@ function getPortraitEquipLayout(slotId, layoutOwner) {
   };
 }
 
-function ensurePortraitBaseLayoutStoreForOwner(owner) {
-  if (!owner || typeof owner !== "object") return;
-  if (!owner.portraitBaseLayout || typeof owner.portraitBaseLayout !== "object") {
-    owner.portraitBaseLayout = getDefaultPortraitBaseLayout();
-  }
-}
-
-function getPortraitBaseLayoutForOwner(owner) {
-  if (!owner || owner === player) return getPortraitBaseLayout();
-  ensurePortraitBaseLayoutStoreForOwner(owner);
-  return {
-    offsetXPct: clampPortraitLayoutPct(owner.portraitBaseLayout.offsetXPct),
-    offsetYPct: clampPortraitLayoutPct(owner.portraitBaseLayout.offsetYPct),
-    rotDeg: clampPortraitLayoutRotDeg(owner.portraitBaseLayout.rotDeg),
-    scalePct: clampPortraitLayoutScalePct(owner.portraitBaseLayout.scalePct)
-  };
-}
-
 function getPortraitBaseLayout() {
-  ensurePortraitBaseLayoutStore();
-  return {
-    offsetXPct: clampPortraitLayoutPct(player.portraitBaseLayout.offsetXPct),
-    offsetYPct: clampPortraitLayoutPct(player.portraitBaseLayout.offsetYPct),
-    rotDeg: clampPortraitLayoutRotDeg(player.portraitBaseLayout.rotDeg),
-    scalePct: clampPortraitLayoutScalePct(player.portraitBaseLayout.scalePct)
-  };
+  return getPortraitBaseLayoutForOwner(player);
 }
 
 function getBottomHudPortraitLayout() {
-  ensureBottomHudPortraitLayoutStore();
+  const gender = getActorPortraitGender(player);
+  ensurePortraitLayoutsStoreForOwner(player);
+  const ov = player.portraitLayouts[gender].bottomHud;
+  const raw = ov && typeof ov === "object" ? ov : getDefaultBottomHudPortraitLayout(gender);
   return {
-    offsetXPct: clampPortraitLayoutPct(player.bottomHudPortraitLayout.offsetXPct),
-    offsetYPct: clampPortraitLayoutPct(player.bottomHudPortraitLayout.offsetYPct),
-    rotDeg: clampPortraitLayoutRotDeg(player.bottomHudPortraitLayout.rotDeg),
-    scalePct: clampPortraitLayoutScalePct(player.bottomHudPortraitLayout.scalePct)
+    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(raw.scalePct)
   };
 }
 
 function setPortraitBaseLayout(patch, owner) {
   const o = owner && typeof owner === "object" ? owner : player;
-  if (o !== player) {
-    ensurePortraitBaseLayoutStoreForOwner(o);
-    const prev = getPortraitBaseLayoutForOwner(o);
-    o.portraitBaseLayout = {
-      offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
-      offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
-      rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
-      scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
-    };
-    return;
-  }
-  const prev = getPortraitBaseLayout();
-  player.portraitBaseLayout = {
+  const gender = getActorPortraitGender(o);
+  ensurePortraitLayoutsStoreForOwner(o);
+  const prev = getPortraitBaseLayoutForOwner(o);
+  o.portraitLayouts[gender].base = {
     offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
     offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
     rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
@@ -2368,8 +2434,10 @@ function setPortraitBaseLayout(patch, owner) {
 }
 
 function setBottomHudPortraitLayout(patch) {
+  const gender = getActorPortraitGender(player);
+  ensurePortraitLayoutsStoreForOwner(player);
   const prev = getBottomHudPortraitLayout();
-  player.bottomHudPortraitLayout = {
+  player.portraitLayouts[gender].bottomHud = {
     offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
     offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
     rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
@@ -2379,42 +2447,40 @@ function setBottomHudPortraitLayout(patch) {
 
 function setPortraitEquipLayout(slotId, patch, layoutOwner) {
   const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
-  if (owner === player) ensurePortraitLayoutStore();
-  else ensurePortraitLayoutStoreForOwner(owner);
+  const gender = getActorPortraitGender(owner);
+  ensurePortraitLayoutsStoreForOwner(owner);
   const prev = getPortraitEquipLayout(slotId, owner);
   const next = {
     offsetXPct: clampPortraitLayoutPct(patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct),
     offsetYPct: clampPortraitLayoutPct(patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct),
     rotDeg: clampPortraitLayoutRotDeg(patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg),
-    scalePct: clampPortraitLayoutScalePct(patch && patch.scalePct != null ? patch.scalePct : prev.scalePct)
+    scalePct: clampPortraitLayoutScalePct(
+      patch && patch.scalePct != null ? patch.scalePct : prev.scalePct,
+      slotId
+    )
   };
-  owner.portraitLayout[slotId] = next;
-}
-
-function buildPortraitLayoutExportSnippet() {
-  ensurePortraitLayoutStore();
-  ensurePortraitBaseLayoutStore();
-  const out = {};
-  Object.keys(player.portraitLayout)
-    .sort()
-    .forEach((slotId) => {
-    out[slotId] = getPortraitEquipLayout(slotId);
-    });
-  return JSON.stringify({ base: getPortraitBaseLayout(), equipment: out }, null, 2);
+  owner.portraitLayouts[gender].equipment[slotId] = next;
 }
 
 function buildPortraitLayoutExportSnippetForOwner(owner) {
   const o = owner && typeof owner === "object" ? owner : player;
-  if (o === player) return buildPortraitLayoutExportSnippet();
-  ensurePortraitLayoutStoreForOwner(o);
-  ensurePortraitBaseLayoutStoreForOwner(o);
+  const gender = getActorPortraitGender(o);
   const out = {};
-  Object.keys(o.portraitLayout || {})
-    .sort()
-    .forEach((slotId) => {
-      out[slotId] = getPortraitEquipLayout(slotId, o);
-    });
-  return JSON.stringify({ base: getPortraitBaseLayoutForOwner(o), equipment: out }, null, 2);
+  listPortraitEquipLayoutSlotIds(gender, o).forEach((slotId) => {
+    out[slotId] = getPortraitEquipLayout(slotId, o);
+  });
+  const payload = {
+    gender,
+    configPath: `portraitCharacterPresets.${gender}`,
+    base: getPortraitBaseLayoutForOwner(o),
+    equipment: out
+  };
+  if (o === player) payload.bottomHud = getBottomHudPortraitLayout();
+  return JSON.stringify(payload, null, 2);
+}
+
+function buildPortraitLayoutExportSnippet() {
+  return buildPortraitLayoutExportSnippetForOwner(player);
 }
 
 async function copyPortraitLayoutExportToClipboard(opts) {
@@ -2489,6 +2555,20 @@ function tryAddInventoryItemByName(itemName) {
   return true;
 }
 
+function buildPortraitGenderSwitchHtml() {
+  const cur = getActorPortraitGender(player);
+  const btn = (g, label) => {
+    const active = cur === g ? " active" : "";
+    return `<button type="button" class="btn-secondary portrait-edit-btn portrait-gender-btn${active}" data-portrait-gender="${escapeAttr(
+      g
+    )}">${escapeHtml(label)}</button>`;
+  };
+  return `<div class="portrait-gender-switch" role="group" aria-label="Portrait layout body type">${btn(
+    "male",
+    "Male layout"
+  )}${btn("female", "Female layout")}</div>`;
+}
+
 function buildEditModeItemSpawnListHtml() {
   const names = getEditableInventoryItemNames();
   if (!names.length) {
@@ -2515,10 +2595,11 @@ function openEditModeItemSpawnModal() {
 function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipmentObj, layoutOwner, layoutOwnerTab) {
   const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player.equipment || emptyEquipment();
   const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
+  const portraitGender = getActorPortraitGender(owner);
   const base = escapeAttr(baseRaw);
   const slotOrder = ["legs", "feet", "chest", "bracelet", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
-  const hasWeapon = !!(eq.weapon || getNoWeaponOverlayImage());
-  const occ = hasWeapon ? getHeroWeaponOcclusionConfig(baseRaw) : null;
+  const hasWeapon = !!(eq.weapon || getNoWeaponOverlayImage(owner));
+  const occ = hasWeapon ? getHeroWeaponOcclusionConfig(baseRaw, portraitGender) : null;
   const layerBySlot = {};
   slotOrder.forEach((slotId) => {
     let itemName = eq[slotId];
@@ -2527,27 +2608,27 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
     if (slotId === "weapon") {
       if (itemName) {
         layoutKey = getPortraitWeaponLayoutKeyForSlot(slotId, itemName);
-        src = getEquipmentOverlayImage(itemName);
+        src = getEquipmentOverlayImage(itemName, owner);
       } else {
         itemName = "No weapon";
-        layoutKey = "no_weapon";
-        src = getNoWeaponOverlayImage();
+        layoutKey = getPortraitPlaceholderLayoutKey("no_weapon", portraitGender);
+        src = getNoWeaponOverlayImage(owner);
       }
     } else if (slotId === "offhand") {
       if (!itemName) return;
       layoutKey = getPortraitWeaponLayoutKeyForSlot(slotId, itemName);
-      src = getEquipmentOverlayImage(itemName);
+      src = getEquipmentOverlayImage(itemName, owner);
     } else if (slotId === "head") {
       if (itemName) {
-        src = getEquipmentOverlayImage(itemName);
+        src = getEquipmentOverlayImage(itemName, owner);
       } else {
         itemName = "No helm";
-        layoutKey = "no_helm";
-        src = getNoHelmOverlayImage();
+        layoutKey = getPortraitPlaceholderLayoutKey("no_helm", portraitGender);
+        src = getNoHelmOverlayImage(owner);
       }
     } else {
       if (!itemName) return;
-      src = getEquipmentOverlayImage(itemName);
+      src = getEquipmentOverlayImage(itemName, owner);
     }
     if (!src) return;
     const layout = getPortraitEquipLayout(layoutKey, owner);
@@ -2555,18 +2636,20 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
     const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
     const layerClassId = slotId === "weapon" ? "mainhand" : slotId;
     const legacyWeaponClass = slotId === "weapon" ? " portrait-equip-layer--weapon" : "";
-    const layoutTypeClass = layoutKey === "no_helm" ? " portrait-equip-layer--no-helm" : "";
+    const layoutTypeClass =
+      layoutKey === "male_no_helm" || layoutKey === "female_no_helm" ? " portrait-equip-layer--no-helm" : "";
     layerBySlot[slotId] = `<img class="portrait-equip-layer portrait-equip-layer--${escapeAttr(layerClassId)}${legacyWeaponClass}${layoutTypeClass}${backCls}" src="${escapeAttr(
       src
     )}" alt="" draggable="false" title="${escapeAttr(
       itemName
     )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(style)}" />`;
   });
-  const fixedArmLayout = getPortraitEquipLayout("offhand_fixed_arm", owner);
+  const fixedArmLayoutKey = getPortraitPlaceholderLayoutKey("offhand_fixed_arm", portraitGender);
+  const fixedArmLayout = getPortraitEquipLayout(fixedArmLayoutKey, owner);
   const fixedArmStyle = `transform: translate(${fixedArmLayout.offsetXPct}%, ${fixedArmLayout.offsetYPct}%) rotate(${fixedArmLayout.rotDeg}deg) scale(${fixedArmLayout.scalePct / 100});`;
   const fixedArmLayer = `<img class="portrait-equip-layer portrait-equip-layer--offhand-fixed-arm" src="${escapeAttr(
-    getOffhandFixedArmOverlayImage()
-  )}" alt="" draggable="false" title="Offhand fixed arm" data-portrait-slot="offhand_fixed_arm" style="${escapeAttr(fixedArmStyle)}" />`;
+    getOffhandFixedArmOverlayImage(owner)
+  )}" alt="" draggable="false" title="Offhand fixed arm" data-portrait-slot="${escapeAttr(fixedArmLayoutKey)}" style="${escapeAttr(fixedArmStyle)}" />`;
   const backLayers = [layerBySlot.weapon || "", layerBySlot.offhand || "", fixedArmLayer].join("");
   const rootTransformStyle = `transform: translate(${rootLayout.offsetXPct}%, ${rootLayout.offsetYPct}%) rotate(${rootLayout.rotDeg}deg) scale(${rootLayout.scalePct / 100});`;
   const backHandHtml =
@@ -6991,11 +7074,19 @@ function unequipToInventory(slotId, contextEl) {
   render();
 }
 
-const HERO_PORTRAITS = {
-  idle: "Assets/Character/male_vanguard.png",
-  walk: "Assets/Character/male_vanguard.png",
-  attack: "Assets/Character/male_vanguard.png"
-};
+function getHeroPortraitsForGender(gender) {
+  const pack = getPortraitPresetPack(gender);
+  const hp = pack && pack.heroPortraits && typeof pack.heroPortraits === "object" ? pack.heroPortraits : {};
+  const idle =
+    (typeof hp.idle === "string" && hp.idle) ||
+    (typeof hp.walk === "string" && hp.walk) ||
+    "Assets/Character/male_character.png";
+  return {
+    idle,
+    walk: (typeof hp.walk === "string" && hp.walk) || idle,
+    attack: (typeof hp.attack === "string" && hp.attack) || idle
+  };
+}
 
 function normalizeVisualState(state) {
   if (state === "walk" || state === "attack") return state;
@@ -7122,8 +7213,18 @@ function getEnemyVisualByName(name, state) {
   return resolveVisualByState(def, state);
 }
 
-function getHeroImageForState(state) {
-  return resolveImageByState({ images: HERO_PORTRAITS, image: HERO_PORTRAITS.idle }, state);
+function getHeroImageForState(state, gender) {
+  const portraits = getHeroPortraitsForGender(gender != null ? gender : getActorPortraitGender(player));
+  return resolveImageByState({ images: portraits, image: portraits.idle }, state);
+}
+
+function getActorPortraitBaseImage(actor, state) {
+  const a = actor || player;
+  const gender = getActorPortraitGender(a);
+  if (isCompanionActor(a)) {
+    return COMPANION_PORTRAIT_BASE_BY_GENDER[gender] || COMPANION_PORTRAIT_BASE_BY_GENDER.male;
+  }
+  return getHeroImageForState(state || "idle", gender);
 }
 
 function buildSpriteStyleAttr(sprite) {
@@ -10269,7 +10370,11 @@ function readPortraitLayerLayoutFromElement(layerEl) {
   const offsetXPct = clampPortraitLayoutPct(Number(m[1]));
   const offsetYPct = clampPortraitLayoutPct(Number(m[2]));
   const rotDeg = clampPortraitLayoutRotDeg(Number(m[3]));
-  const scalePct = clampPortraitLayoutScalePct(Number(m[4]) * 100);
+  const slotId =
+    layerEl.getAttribute && typeof layerEl.getAttribute === "function"
+      ? layerEl.getAttribute("data-portrait-slot")
+      : "";
+  const scalePct = clampPortraitLayoutScalePct(Number(m[4]) * 100, slotId);
   return { offsetXPct, offsetYPct, rotDeg, scalePct };
 }
 
@@ -10379,7 +10484,7 @@ function onPortraitLayerPointerDown(e) {
       last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
     } else if (mode === "scale") {
       const dy = ev.clientY - startY;
-      last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45);
+      last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45, slotId);
     } else {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -10446,8 +10551,8 @@ function onPortraitLayerWheel(e) {
   e.preventDefault();
   e.stopPropagation();
   const cur = readPortraitLayerLayoutFromElement(layer) || getPortraitEquipLayout(slotId, layoutOwner);
-  const step = e.shiftKey ? 12 : 6;
-  const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
+  const step = getPortraitLayoutScaleWheelStep(slotId, e.shiftKey);
+  const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step), slotId);
   setPortraitEquipLayout(
     slotId,
     {
@@ -12776,7 +12881,7 @@ function renderTurnBattle() {
       ) {
         const comp = player.companions[m.companionSlotIndex];
         portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
-          getHeroImageForState("idle"),
+          getActorPortraitBaseImage(comp, "idle"),
           getPortraitBaseLayoutForOwner(comp),
           "",
           comp.equipment || emptyEquipment(),
@@ -16562,15 +16667,15 @@ function buildOverviewHtml() {
 
   const editInvOptions = buildEditInventoryOptionsHtml(getEditableInventoryItemNames());
   const portraitEditControlsHtml = player.editMode
-    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay"><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
-      <p class="portrait-edit-hint">Edit mode: equip = left move, right rotate, Shift+drag/wheel resize. Character = same controls on base image area.</p>`
+    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay">${buildPortraitGenderSwitchHtml()}<button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
+      <p class="portrait-edit-hint">Edit mode: Male/Female switches layout preset. Equip = left move, right rotate, Shift+drag/wheel resize. Export JSON → paste into portrait_character_presets.js for that gender.</p>`
     : "";
   const resetCharacterBtnHtml = player.editMode && actor === player
     ? `<button type="button" class="btn-reset-char" data-reset-character>Reset character</button>`
     : "";
 
   const layeredPortraitHtml = buildPortraitLayeredStackHtml(
-    getHeroImageForState("idle"),
+    getActorPortraitBaseImage(actor, "idle"),
     getPortraitBaseLayoutForOwner(actor),
     "data-portrait-root",
     actor.equipment || emptyEquipment(),
@@ -18207,6 +18312,11 @@ function onDocumentKeydown(e) {
     closeWorldMapModal();
     return;
   }
+  if (e.key === "Escape" && isCompanionCreationModalOpen()) {
+    e.preventDefault();
+    closeModal();
+    return;
+  }
   if (e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
   if (tryFightSkillBarHotkey(e)) return;
   if (tryFightEndTurnHotkey(e)) return;
@@ -18885,10 +18995,22 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-portrait-layout-reset]")) {
-    clickActor.portraitLayout = {};
-    clickActor.portraitBaseLayout = getDefaultPortraitBaseLayout();
+    const g = getActorPortraitGender(clickActor);
+    ensurePortraitLayoutsStoreForOwner(clickActor);
+    clickActor.portraitLayouts[g].equipment = {};
+    clickActor.portraitLayouts[g].base = null;
+    if (clickActor === player) clickActor.portraitLayouts[g].bottomHud = null;
     save();
     render();
+    return;
+  }
+  const portraitGenderBtn = e.target.closest("[data-portrait-gender]");
+  if (portraitGenderBtn && portraitGenderBtn.dataset.portraitGender) {
+    if (clickActor === player) {
+      player.portraitGender = normalizePortraitGender(portraitGenderBtn.dataset.portraitGender);
+      save();
+      render();
+    }
     return;
   }
   if (e.target.closest("[data-portrait-layout-export]")) {
@@ -19037,6 +19159,8 @@ function showModalHtml(html, opts) {
     else m.classList.remove("modal--npc-bubble");
     if (opts && opts.charSpend) m.classList.add("modal--char-spend");
     else m.classList.remove("modal--char-spend");
+    if (opts && opts.companionCreation) m.classList.add("modal--companion-create");
+    else m.classList.remove("modal--companion-create");
   }
 }
 
@@ -19173,6 +19297,7 @@ function openBoatTravelModal(destinations) {
 function closeModal() {
   pendingDiscardInventoryItemName = null;
   pendingCompanionEnableSlot = null;
+  pendingCompanionCreationGender = "male";
   pendingCharSpend = null;
   const m = document.getElementById("modal");
   const mc = document.getElementById("modalContent");
@@ -19181,6 +19306,7 @@ function closeModal() {
     m.classList.remove("modal--portal-network");
     m.classList.remove("modal--npc-bubble");
     m.classList.remove("modal--char-spend");
+    m.classList.remove("modal--companion-create");
   }
   if (mc) {
     mc.textContent = "";
@@ -19198,24 +19324,23 @@ function onPortalNetworkModalClick(e) {
     closeModal();
     return;
   }
+  const companionGenderPick = e.target.closest("[data-companion-create-gender]");
+  if (companionGenderPick && companionGenderPick.dataset.companionCreateGender) {
+    pendingCompanionCreationGender = normalizePortraitGender(companionGenderPick.dataset.companionCreateGender);
+    refreshCompanionCreationModal();
+    return;
+  }
   if (e.target.closest("[data-companion-name-confirm]")) {
     const input = document.querySelector("[data-companion-name-input]");
     const rawName = input && typeof input.value === "string" ? input.value : "";
-    if (!completeCompanionFirstEnable(pendingCompanionEnableSlot, rawName)) {
-      showModalHtml(
-        `<div class="companion-name-modal">
-          <p>Please enter a companion name before enabling them.</p>
-          <input type="text" class="companion-name-input" data-companion-name-input maxlength="32" placeholder="Companion name" autocomplete="off" />
-          <div class="npc-dialog-actions">
-            <button type="button" class="btn-primary" data-companion-name-confirm>Enable companion</button>
-            <button type="button" class="btn-secondary" data-companion-name-cancel>Cancel</button>
-          </div>
-        </div>`
-      );
-      setTimeout(() => {
-        const retry = document.querySelector("[data-companion-name-input]");
-        if (retry && typeof retry.focus === "function") retry.focus();
-      }, 0);
+    if (
+      !completeCompanionFirstEnable(
+        pendingCompanionEnableSlot,
+        rawName,
+        pendingCompanionCreationGender
+      )
+    ) {
+      refreshCompanionCreationModal("Please enter a companion name.");
     }
     return;
   }

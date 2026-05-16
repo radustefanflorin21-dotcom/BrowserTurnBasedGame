@@ -3643,7 +3643,7 @@ const GAME_CONFIG = {
       equipCategory: "helmet",
       rarity: "common",
       itemLevel: 1,
-      image: "Assets/Equips/_template_hat.png",
+      image: "Assets/Equips/_male_template_hat.png",
       description: "Template debug item. Obtainable via add-item menu only.",
       bonusSkills: [],
       bonusStats: {}
