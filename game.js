@@ -376,27 +376,6 @@ function syncActorProgressionForEditedLevel(actor) {
 
   actor.baseAttack = 10 + Math.max(0, level - 1) * 2;
 }
-
-function getActorDamageRange(actor) {
-  const p = actor || player;
-  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
-  const effStr = Math.max(0, (typeof p.str === "number" ? p.str : 10) + (gear.str || 0));
-  let atk = (typeof p.baseAttack === "number" ? p.baseAttack : 10) + Math.floor(effStr / 2);
-  const skillsArr = Array.isArray(p.skills) ? p.skills : [];
-  skillsArr.forEach((s) => {
-    const sk = getSkillDef(s);
-    if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier !== "number") atk += sk.bonus;
-  });
-  skillsArr.forEach((s) => {
-    const sk = getSkillDef(s);
-    if (sk && typeof sk.bonus === "number" && typeof sk.combatMultiplier === "number") atk += sk.bonus;
-  });
-  const base = Math.max(1, Math.floor(atk));
-  const strB = formulaStrPhysicalDamageBonusPct(effStr) / 100;
-  const mid = Math.max(1, Math.floor(base * (1 + strB)));
-  return { min: Math.max(1, mid - 2), max: mid + 2 };
-}
-
 function getActorArmorDefense() {
   return 0;
 }
@@ -593,13 +572,6 @@ function getMinCharacterLevelForSkillAtRank(skillName, targetRank) {
   if (r <= 1) return unlockLv;
   return unlockLv + (r - 1) * step;
 }
-
-function actorMeetsSkillUnlockLevel(actor, skillName) {
-  if (!actor) return false;
-  const actorLv = typeof actor.level === "number" && actor.level > 0 ? Math.floor(actor.level) : 1;
-  return actorLv >= getMinCharacterLevelToUnlockSkill(skillName);
-}
-
 function actorMeetsSkillRankLevel(actor, skillName, targetRank) {
   if (!actor) return false;
   const actorLv = typeof actor.level === "number" && actor.level > 0 ? Math.floor(actor.level) : 1;
@@ -608,7 +580,6 @@ function actorMeetsSkillRankLevel(actor, skillName, targetRank) {
 }
 
 const DEFAULT_CLASS_ID = "adventurer";
-const CLASS_TIER_MIN_LEVEL = { early: 1, mid: 15, late: 30 };
 
 const ADVENTURER_UI_CLASS = {
   id: "adventurer",
@@ -711,11 +682,6 @@ function getSkillDef(skillName) {
 function isClassSkill(skillName) {
   return !!getClassSkillDefByName(skillName);
 }
-
-function getSkillTierMinLevel(tier) {
-  return CLASS_TIER_MIN_LEVEL[tier] || 1;
-}
-
 function getPlayerSkillLevel(skillName) {
   if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return 1;
   if (!isClassSkill(skillName)) return 0;
@@ -1768,8 +1734,6 @@ const ITEM_RARITY_RULES = Object.freeze({
     color: "#9aa0a6",
     coreMultiplier: 1.0,
     secondaryMultiplier: 1.0,
-    affixMin: 0,
-    affixMax: 0,
     legendaryStaminaChancePct: 0
   }),
   uncommon: Object.freeze({
@@ -1777,8 +1741,6 @@ const ITEM_RARITY_RULES = Object.freeze({
     color: "#52c76a",
     coreMultiplier: 1.1,
     secondaryMultiplier: 1.05,
-    affixMin: 1,
-    affixMax: 1,
     legendaryStaminaChancePct: 0
   }),
   rare: Object.freeze({
@@ -1786,8 +1748,6 @@ const ITEM_RARITY_RULES = Object.freeze({
     color: "#4c87ff",
     coreMultiplier: 1.25,
     secondaryMultiplier: 1.1,
-    affixMin: 2,
-    affixMax: 2,
     legendaryStaminaChancePct: 0
   }),
   epic: Object.freeze({
@@ -1795,8 +1755,6 @@ const ITEM_RARITY_RULES = Object.freeze({
     color: "#b16cff",
     coreMultiplier: 1.45,
     secondaryMultiplier: 1.2,
-    affixMin: 3,
-    affixMax: 3,
     legendaryStaminaChancePct: 0
   }),
   legendary: Object.freeze({
@@ -1804,8 +1762,6 @@ const ITEM_RARITY_RULES = Object.freeze({
     color: "#ff9a3c",
     coreMultiplier: 1.7,
     secondaryMultiplier: 1.3,
-    affixMin: 4,
-    affixMax: 5,
     legendaryStaminaChancePct: 18
   })
 });
@@ -1909,17 +1865,6 @@ function getScaledItemBonusStats(def, itemName) {
   if (legendarySta > 0) out.stamina = (out.stamina || 0) + legendarySta;
   return out;
 }
-
-function getItemRarityAffixRange(def, itemName) {
-  const rule = getItemRarityRule(def, itemName);
-  return { min: rule.affixMin, max: rule.affixMax };
-}
-
-function formatRarityAffixRange(def, itemName) {
-  const range = getItemRarityAffixRange(def, itemName);
-  return range.min === range.max ? String(range.min) : `${range.min}-${range.max}`;
-}
-
 function getItemEquipCategory(def) {
   if (!def || typeof def !== "object") return "";
   const rawCategory =
@@ -2033,11 +1978,6 @@ function isOffhandBlockedByEquipment(equipment) {
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
   return isTwoHandedWeaponDef(getItemDef(eq.weapon));
 }
-
-function isOffhandBlocked() {
-  return isOffhandBlockedByEquipment(player && player.equipment);
-}
-
 function isEquippableItemDef(def) {
   return getAllowedEquipSlotsForDef(def).length > 0;
 }
@@ -2651,17 +2591,6 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
     rootTransformStyle
   )}">${backHandHtml}${backLayers}<img src="${base}" alt="" class="portrait-img portrait-img--base"${baseStyle} />${frontLayers}</div></div>`;
 }
-
-function buildLayeredHeroPortraitHtml() {
-  return buildPortraitLayeredStackHtml(
-    getHeroImageForState("idle"),
-    getPortraitBaseLayout(),
-    "data-portrait-root",
-    player.equipment,
-    player
-  );
-}
-
 function buildBottomHudLayeredPortraitHtml(state) {
   return buildPortraitLayeredStackHtml(
     getHeroImageForState(state),
@@ -3067,12 +2996,6 @@ function resolveActorOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName, 
 
   return { damage: fin, missed: false, crit };
 }
-
-function resolvePlayerOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName) {
-  const activeMember = combatState ? getPartyMemberByUid(combatState, combatState.activePartyUid) : null;
-  return resolveActorOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName, player, activeMember);
-}
-
 function tryApplyStaggerFromSkill(foe, skillCfg, actor) {
   if (!foe || !foe.combat || !skillCfg || !Array.isArray(skillCfg.combatTags)) return;
   if (skillCfg.name === "Shield Slam" || skillCfg.name === "Heavy Strike" || skillCfg.name === "Earthshatter") return;
@@ -3276,11 +3199,6 @@ function getActorDamage(actor) {
   });
   return Math.max(1, Math.floor(atk));
 }
-
-function getPlayerDamage() {
-  return getActorDamage(player);
-}
-
 /** Basic attack uses full listed damage; active combat skills use core + that skill’s bonus × multiplier. */
 function getCombatDamageForActor(actor, kind, skillName) {
   if (kind !== "skill" || !skillName) return getActorDamage(actor);
@@ -3299,14 +3217,6 @@ function getCombatDamageForActor(actor, kind, skillName) {
 function getCombatDamage(kind, skillName) {
   return getCombatDamageForActor(player, kind, skillName);
 }
-
-function getDamageRange() {
-  const base = getCombatDamage("attack");
-  const strB = formulaStrPhysicalDamageBonusPct(totalStr()) / 100;
-  const mid = Math.max(1, Math.floor(base * (1 + strB)));
-  return { min: Math.max(1, mid - 2), max: mid + 2 };
-}
-
 /** Player outgoing damage mult when `playerAttackDebuffTurns` > 0 (Brittle Breath, etc.). */
 const PLAYER_WEAKENED_STRIKES_OUTGOING_MULT = 0.8;
 
@@ -3939,30 +3849,6 @@ function applyStormPressureIfDue(st) {
     appendFightLog(`Storm Pressure marks ${marked.join(", ")} (+8% damage taken, -5% accuracy).`);
   }
 }
-
-function pickPartyTargetLowestMaxHpUid(st) {
-  const living = getLivingPartyMembers(st);
-  if (!living.length) return null;
-  return living.reduce((a, b) => (a.maxHp <= b.maxHp ? a : b)).uid;
-}
-
-function pickPartyTargetHighestMaxHpUid(st) {
-  const living = getLivingPartyMembers(st);
-  if (!living.length) return null;
-  return living.reduce((a, b) => (a.maxHp >= b.maxHp ? a : b)).uid;
-}
-
-function pickPartyTargetStrongestUid(st) {
-  const living = getLivingPartyMembers(st);
-  if (!living.length) return null;
-  const score = (m) => {
-    const dex = typeof m.dex === "number" ? m.dex : typeof m.agi === "number" ? m.agi : 0;
-    const heroBonus = m.kind === "hero" ? 10 : 0;
-    return (m.maxHp || 0) * 0.1 + dex + heroBonus;
-  };
-  return living.reduce((a, b) => (score(a) >= score(b) ? a : b)).uid;
-}
-
 // ----------------------------
 // Global Monster AI: targeting helpers
 // ----------------------------
@@ -4016,36 +3902,6 @@ function getPartyDebuffScore(st) {
   if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) score += 1;
   return score;
 }
-
-function isPlayerConsideredBuffedForMonsterAI(st) {
-  const cs = st && st.classState ? st.classState : null;
-  if (!cs) return false;
-  // Everything that increases current player power (per your requirement).
-  const buffFlags = [
-    "flowStateTurns",
-    "focusFireTurns",
-    "rageTurns",
-    "exposeWeaknessTurns",
-    "manaSurgeTurns",
-    "tauntTurns",
-    "lastBastionTurns",
-    "braceTurns",
-    "fortressTurns",
-    "guardAllyTurns",
-    "sanctuaryTurns",
-    "riposteTurns",
-    "regenTurns",
-    "divineAegisShield",
-    "revitalizeTurns",
-    "catalystReadyTurns",
-    "bloodlustNextTurnStamina"
-  ];
-  return buffFlags.some((k) => {
-    const v = cs[k];
-    return typeof v === "number" && v > 0;
-  });
-}
-
 function getPredictedStaminaUsageScoreForPartyMember(member, st) {
   // Your rule: predict next turn based on stamina.
   // In current architecture, stamina is only tracked for the main player.
@@ -4547,20 +4403,6 @@ function healLowestHpFractionAlly(st, healer, pctOfMax) {
   appendFightLog(`${healer.name} heals ${target.name} for ${amt}.`);
   return true;
 }
-
-function buffStrongestAllyEcho(st, buffer, turns) {
-  const allies = st.foes.filter((f) => f.hp > 0 && f.uid !== buffer.uid);
-  if (!allies.length) return false;
-  const target = allies.reduce((a, b) => ((a.attack || 0) >= (b.attack || 0) ? a : b));
-  if (!target.combat) initFoeCombatRuntime(target);
-  target.combat.echoCryBonusTurns = Math.max(target.combat.echoCryBonusTurns || 0, turns);
-  appendFightLogFlavorWithEffects(`${buffer.name} uses Echo Cry — ${target.name} hits harder.`, [
-    `~+25% damage dealt`,
-    `${turns} round${turns === 1 ? "" : "s"}`
-  ]);
-  return true;
-}
-
 function buffAllAlliesEcho(st, buffer, turns) {
   const allies = st.foes.filter((f) => f.hp > 0 && f.uid !== buffer.uid);
   if (!allies.length) return false;
@@ -7027,25 +6869,6 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   const dmg = Math.max(1, Math.floor(atk * outMult));
   dealRawDamageToPlayer(st, dmg, foe.name, "hits you");
 }
-
-function navigate(p) {
-  if (p === "overview") {
-    openCharacterPanel();
-    return;
-  }
-  if (p === "arena" || p === "alliance" || p === "market") {
-    openMenuPanel(p);
-    return;
-  }
-  if (p === "adventure") {
-    closeCharacterPanel();
-    closeSkillsPanel();
-    closeMenuPanel();
-  }
-  currentPage = p;
-  render();
-}
-
 function setTheme(themeId) {
   if (!GAME_CONFIG.themes[themeId]) return;
   player.theme = themeId;
@@ -7995,11 +7818,6 @@ function getMonsterStatRarityMultiplier(def) {
   const v = map[tier];
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
 }
-
-function getMonsterBudgetDifficultyModifier(def) {
-  return getMonsterStatRarityMultiplier(def);
-}
-
 function computeMonsterStatBudget(level, def) {
   const lv = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
   const customMult =
@@ -8009,12 +7827,6 @@ function computeMonsterStatBudget(level, def) {
   const rarityMult = getMonsterStatRarityMultiplier(def || { spawnRarity: "common" });
   return Math.max(4, Math.round((6 + lv * 4) * rarityMult * customMult));
 }
-
-/** @deprecated Prefer {@link computeMonsterStatBudget}; common-tier budget without per-enemy modifiers. */
-function computeMonsterBaseStatBudget(level) {
-  return computeMonsterStatBudget(level, { spawnRarity: "common" });
-}
-
 function getMonsterRarityHpMultiplier(def) {
   const ms = getMonsterScalingConfig();
   const map = ms.rarityHpMultipliers && typeof ms.rarityHpMultipliers === "object" ? ms.rarityHpMultipliers : null;
@@ -8044,25 +7856,6 @@ function getPrimaryStatForRole(roleKey) {
       return "str";
   }
 }
-
-function distributeMonsterStatBudget(level, roleKey) {
-  const budget = computeMonsterStatBudget(level, { spawnRarity: "common" });
-  const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
-  const w = roles[roleKey] || roles.bruiser || { STR: 0.4, DEX: 0.2, VIT: 0.3, INT: 0.1 };
-  const ws = { str: w.STR, dex: w.DEX, vit: w.VIT, int: w.INT };
-  const out = {
-    str: Math.round(budget * (typeof ws.str === "number" ? ws.str : 0)),
-    dex: Math.round(budget * (typeof ws.dex === "number" ? ws.dex : 0)),
-    vit: Math.round(budget * (typeof ws.vit === "number" ? ws.vit : 0)),
-    int: Math.round(budget * (typeof ws.int === "number" ? ws.int : 0))
-  };
-  const sum = out.str + out.dex + out.vit + out.int;
-  const diff = budget - sum;
-  const main = getPrimaryStatForRole(roleKey);
-  out[main] = Math.max(0, (out[main] || 0) + diff);
-  return out;
-}
-
 function buildMonsterCharacteristics(level, roleKey, def) {
   const budget = computeMonsterStatBudget(level, def);
   const roles = GAME_CONFIG.enemyRoles && typeof GAME_CONFIG.enemyRoles === "object" ? GAME_CONFIG.enemyRoles : {};
@@ -11280,16 +11073,6 @@ function isWorldMobSetDefeated(x, y, setIndex) {
   }
   return true;
 }
-
-function worldMobRespawnRemainingMs(x, y, setIndex) {
-  const rec = player.worldMap.cells[worldMapKey(x, y)];
-  if (!rec || !Array.isArray(rec.defeated)) return 0;
-  const t = rec.defeated[setIndex];
-  if (t == null) return 0;
-  const ms = getWorldMobRespawnMsAt(x, y, setIndex);
-  return Math.max(0, ms - (Date.now() - t));
-}
-
 /** True while this slot is on respawn cooldown (no DOM card; no side effects). */
 function slotIsWorldMobOnRespawnCooldown(x, y, setIndex) {
   const rec = player.worldMap.cells[worldMapKey(x, y)];
@@ -11539,35 +11322,6 @@ function getCombatFoeVisual(foe) {
   if (!out.image && !out.sprite) out.image = getItemImage(foe.name);
   return out;
 }
-
-function getActiveCombatSkillDefsForActor(actor) {
-  if (!actor) return [];
-  ensureActorSkillBar(actor);
-  const slots = actor.skillBarSlots;
-  const out = [];
-  const seen = new Set();
-  for (let i = 0; i < SKILL_BAR_SLOT_COUNT; i++) {
-    const name = slots[i];
-    if (!name || typeof name !== "string") continue;
-    if (!actorOwnsSkillForBar(actor, name)) continue;
-    if (!isCombatCatalogSkillName(name)) continue;
-    const cfg = getSkillDef(name);
-    if (!cfg || typeof cfg.combatMultiplier !== "number") continue;
-    if (seen.has(cfg.name)) continue;
-    seen.add(cfg.name);
-    out.push(cfg);
-  }
-  return out;
-}
-
-function getActiveCombatSkills() {
-  return getActiveCombatSkillDefsForActor(player);
-}
-
-function getActiveCombatSkillsForActor(actor) {
-  return getActiveCombatSkillDefsForActor(actor);
-}
-
 /**
  * Resolves one loot table entry. String = guaranteed drop (100%).
  * Object: { name, dropRate } with dropRate in 0–100 (% chance per kill).
@@ -11627,11 +11381,6 @@ function getMaxSelectedProfessions(actor) {
   const raw = typeof cfg[key] === "number" && Number.isFinite(cfg[key]) ? cfg[key] : fallback;
   return Math.max(0, Math.floor(raw));
 }
-
-function getPlayerSelectedProfessions() {
-  return getActorSelectedProfessions(player);
-}
-
 function isGatheringProfessionId(id) {
   const d = getProfessionDefById(id);
   return !!(d && d.kind === "gathering");
@@ -11668,26 +11417,6 @@ function getMonsterGatheringCategories(def) {
   });
   return out;
 }
-
-function togglePlayerProfession(id) {
-  const profId = String(id || "").trim();
-  if (!profId || !getProfessionDefById(profId)) return false;
-  const selected = normalizeActorProfessions(player);
-  const curIdx = selected.indexOf(profId);
-  if (curIdx >= 0) {
-    selected.splice(curIdx, 1);
-    player.professions = selected;
-    save();
-    return true;
-  }
-  const maxPick = getMaxSelectedProfessions(player);
-  if (selected.length >= maxPick) return false;
-  selected.push(profId);
-  player.professions = selected;
-  save();
-  return true;
-}
-
 function getMonsterLootDropTable(def) {
   const tables = GAME_CONFIG.monsterDropTables;
   if (!tables || typeof tables !== "object" || !def || typeof def.name !== "string") return null;
@@ -11833,11 +11562,6 @@ function collectProfessionGatheringLootForFoe(foe, def, moodLootMult, actor, cha
   });
   return out;
 }
-
-function getCompanionLootActorsFromParty(party) {
-  return getCompanionLootEntriesFromParty(party).map((e) => e.comp);
-}
-
 /** In-fight companions eligible for bonus loot rolls (`{ comp, slotIndex }`). */
 function getCompanionLootEntriesFromParty(party) {
   const out = [];
@@ -11854,18 +11578,6 @@ function getCompanionLootEntriesFromParty(party) {
   });
   return out;
 }
-
-function collectCompanionProfessionLootForFoe(foe, def, moodLootMult, perKillMaterials, companions) {
-  const flat = [];
-  const entries = (companions || []).map((comp, i) => ({
-    comp,
-    slotIndex: typeof comp.companionSlotIndex === "number" ? comp.companionSlotIndex : i
-  }));
-  const bySlot = collectCompanionProfessionLootForFoeAttributed(foe, def, moodLootMult, perKillMaterials, entries);
-  Object.keys(bySlot).forEach((slot) => flat.push(...(bySlot[slot] || [])));
-  return flat;
-}
-
 function collectCompanionProfessionLootForFoeAttributed(foe, def, moodLootMult, perKillMaterials, companionEntries) {
   const bySlot = {};
   if (!def || !Array.isArray(companionEntries) || !companionEntries.length) return bySlot;
@@ -11911,23 +11623,6 @@ function canRollConditionedMonsterMaterialForActor(mat, actor) {
 function canRollConditionedMonsterMaterial(mat) {
   return canRollConditionedMonsterMaterialForActor(mat, player);
 }
-
-/**
- * Loot from `GAME_CONFIG.monsterDropTables`: one gear attempt (global level-based chance, then weighted gear),
- * then 1–2 material passes (each material rolls its % per pass). Mood multiplies chances only (not gear pool weights).
- * @returns {string[]}
- */
-function collectMonsterTableLootForFoe(foe, def, moodLootMult, companionLootActors) {
-  const entries = (companionLootActors || []).map((comp, i) => ({
-    comp,
-    slotIndex: typeof comp.companionSlotIndex === "number" ? comp.companionSlotIndex : i
-  }));
-  const { hero, companionBySlot } = collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, entries);
-  const flat = hero.slice();
-  Object.keys(companionBySlot).forEach((slot) => flat.push(...(companionBySlot[slot] || [])));
-  return flat;
-}
-
 /** @returns {{ hero: string[], companionBySlot: Record<number, string[]> }} */
 function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, companionEntries) {
   const table = getMonsterLootDropTable(def);
@@ -12069,19 +11764,22 @@ function getMonsterXpForFoe(foe, def) {
   if (hasActiveMood(foe)) xp = Math.round(xp * MOOD_XP_BONUS_MULT);
   return Math.max(0, xp);
 }
-
-function getLevelBalanceMultiplier(totalMonsterLevels, totalPlayerLevels) {
-  const monsterLv = Math.max(0, Number(totalMonsterLevels) || 0);
-  const playerLv = Math.max(1, Number(totalPlayerLevels) || 1);
-  const ratio = monsterLv / playerLv;
-  if (ratio < 0.4) return 0.1;
-  if (ratio < 0.6) return 0.35;
-  if (ratio < 0.75) return 0.65;
-  if (ratio < 0.9) return 0.85;
-  if (ratio <= 1.15) return 1;
-  if (ratio <= 1.35) return 1.1;
-  if (ratio <= 1.6) return 0.95;
-  return 0.7;
+/**
+ * XP multiplier from fighter level vs average defeated enemy level.
+ * At or below enemy level: full XP (reward punching up). Above enemy level: reduced XP (anti-farm).
+ */
+function getVictoryXpLevelMultiplier(fighterLevel, averageEnemyLevel) {
+  const fl = Math.max(1, Math.floor(Number(fighterLevel) || 1));
+  const avg = Math.max(1, Number(averageEnemyLevel) || 1);
+  if (fl <= avg) return 1;
+  const ratio = avg / fl;
+  if (ratio >= 0.85) return 1;
+  if (ratio >= 0.7) return 0.9;
+  if (ratio >= 0.5) return 0.75;
+  if (ratio >= 0.35) return 0.6;
+  if (ratio >= 0.2) return 0.45;
+  if (ratio >= 0.1) return 0.3;
+  return 0.2;
 }
 
 function getPartyXpMultiplier(partySize) {
@@ -12091,46 +11789,7 @@ function getPartyXpMultiplier(partySize) {
   const mult = table[size];
   if (typeof mult === "number" && Number.isFinite(mult) && mult > 0) return mult;
   const maxMult = table[8];
-  return typeof maxMult === "number" && maxMult > 0 ? maxMult : 1.7;
-}
-
-/** Levels of hero + in-fight companions for victory XP balance. */
-function getVictoryXpParticipantLevelsFromParty(party) {
-  const levels = [];
-  if (!Array.isArray(party)) return levels;
-  party.forEach((m) => {
-    if (!m) return;
-    if (m.kind === "hero") {
-      const lv = typeof player.level === "number" && player.level > 0 ? Math.floor(player.level) : 1;
-      levels.push(lv);
-      return;
-    }
-    if (m.kind === "companion" && typeof m.companionSlotIndex === "number") {
-      const c = player.companions && player.companions[m.companionSlotIndex];
-      if (!c || !c.enabled) return;
-      const lv = typeof c.level === "number" && c.level > 0 ? Math.floor(c.level) : 1;
-      levels.push(lv);
-    }
-  });
-  return levels;
-}
-
-/**
- * XP multiplier from how far the fighter's level is from average enemy level (either direction).
- * Uses avgEnemyLevel / playerLevel; when enemies are higher-level, inverts so the same tier table applies.
- */
-function getPlayerLevelPenalty(playerLevel, averageEnemyLevel) {
-  const pl = Math.max(1, Math.floor(Number(playerLevel) || 1));
-  const avg = Math.max(1, Number(averageEnemyLevel) || 1);
-  let ratio = avg / pl;
-  if (ratio > 1) ratio = 1 / ratio;
-  if (ratio >= 0.85) return 1;
-  if (ratio >= 0.7) return 0.9;
-  if (ratio >= 0.5) return 0.75;
-  if (ratio >= 0.35) return 0.6;
-  if (ratio >= 0.2) return 0.45;
-  if (ratio >= 0.1) return 0.3;
-  return 0.2;
+  return typeof maxMult === "number" && maxMult > 0 ? maxMult : 1;
 }
 
 function sumVictoryMonsterXpFromFoes(foes) {
@@ -12153,7 +11812,7 @@ function sumVictoryMonsterXpFromFoes(foes) {
 }
 
 /**
- * Per-participant victory XP: each member earns the full kill total, scaled only by their level vs average enemy level.
+ * Per-participant victory XP: each member earns the kill total × party mult × level mult (full when mob level ≥ theirs).
  * @returns {Array<{ key: string, kind: string, name: string, level: number, xp: number, companionSlotIndex?: number }>}
  */
 function computeVictoryXpByMember(foes, party) {
@@ -12162,19 +11821,14 @@ function computeVictoryXpByMember(foes, party) {
 
   const { totalMonsterXP, totalMonsterLevels, defeatedCount } = sumVictoryMonsterXpFromFoes(foes);
   const averageEnemyLevel = defeatedCount > 0 ? totalMonsterLevels / defeatedCount : 1;
+  const partyMult = getPartyXpMultiplier(memberRows.length);
 
   return memberRows.map((row) => {
-    const penalty = getPlayerLevelPenalty(row.level, averageEnemyLevel);
-    const xp = Math.max(1, Math.round(totalMonsterXP * penalty));
+    const levelMult = getVictoryXpLevelMultiplier(row.level, averageEnemyLevel);
+    const xp = Math.max(1, Math.round(totalMonsterXP * levelMult * partyMult));
     return { ...row, xp };
   });
 }
-
-/** Total XP awarded across the party (sum of per-member amounts). */
-function computeVictoryXpAward(foes, party) {
-  return computeVictoryXpByMember(foes, party).reduce((sum, m) => sum + (m.xp || 0), 0);
-}
-
 function getDefaultGoldSpecForEnemy(def) {
   const s = GAME_CONFIG.lootDropSettings && typeof GAME_CONFIG.lootDropSettings === "object" ? GAME_CONFIG.lootDropSettings : {};
   const byRarity = s.defaultGoldByRarity && typeof s.defaultGoldByRarity === "object" ? s.defaultGoldByRarity : null;
@@ -14394,12 +14048,6 @@ function playerCombatAction(kind, skillName) {
   if (!member || member.kind !== "hero") return;
   partyMemberCombatAction(member, player, kind, skillName);
 }
-
-function playerCombatPass(auto) {
-  // Legacy shim — now just ends the active actor's turn (which may roll into enemy phase).
-  endActiveActorTurn(!!auto);
-}
-
 function getActivePartyMember(st) {
   if (!st || !Array.isArray(st.party)) return null;
   return st.party.find((m) => m && m.uid === st.activePartyUid && m.hp > 0 && !m.acted) || null;
@@ -15081,19 +14729,6 @@ function closeFightOverlay() {
   }
   render();
 }
-
-function startFight(region, mob) {
-  if (mob && Array.isArray(mob.enemies) && mob.enemies.length) {
-    beginTurnCombat(region, { enemies: mob.enemies.slice() }, null);
-    return;
-  }
-  if (region && Array.isArray(region.possibleEnemies) && region.possibleEnemies.length) {
-    const roll = rollMobComposition(region.possibleEnemies, 1, region);
-    beginTurnCombat(region, { units: roll.units }, null);
-    return;
-  }
-}
-
 function levelUp() {
   return levelUpActor(player);
 }
@@ -15173,11 +14808,6 @@ function spendCharPoints(statKey, actor, amount) {
   render();
   return spent;
 }
-
-function spendCharPoint(statKey, actor) {
-  spendCharPoints(statKey, actor, 1);
-}
-
 function openCharPointSpendModal(statKey, rosterTab) {
   if (!["str", "dex", "vit", "int"].includes(statKey)) return;
   const tab = rosterTab != null && String(rosterTab).length ? String(rosterTab) : getCharacterRosterTab();
@@ -16637,15 +16267,6 @@ function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, ge
     ${btn}
   </div>`;
 }
-
-function statOverviewBonusPctRow(label, bonusPoints, statTipKey) {
-  const n = Math.round(Math.max(0, Number(bonusPoints) || 0));
-  const v = `${n}%`;
-  return `<div class="stat-plain-row stat-tip-row" data-stat-tip="${escapeAttr(statTipKey)}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(
-    v
-  )}</strong></div>`;
-}
-
 /** Character sheet: % from primary stats (formulas + per-10 steps) vs equipment-only %, same split style as stat bars. */
 function statOverviewPctRowSplit(label, fromStatsPct, fromGearPct, statTipKey) {
   const s = roundCombatDisplay(fromStatsPct);
@@ -17286,11 +16907,6 @@ function getActorCraftingProfessionIds(actor) {
     return !!(d && d.kind === "crafting");
   });
 }
-
-function getSelectedCraftingProfessionIds() {
-  return getActorCraftingProfessionIds(player);
-}
-
 /**
  * Crafting tabs for hero + enabled companions that have a crafting profession selected.
  * @returns {Array<{ tabKey: string, ownerKey: string, ownerLabel: string, actor: object, professionId: string, companionSlotIndex?: number }>}
