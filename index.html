@@ -10,7 +10,16 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="container">
+<div id="characterSelectScreen" class="character-select-screen" aria-hidden="false">
+  <div class="character-select-panel">
+    <h1 class="character-select-title">Select character</h1>
+    <p class="character-select-lead muted">Create up to five heroes. Each has separate progress.</p>
+    <div id="characterSelectSlots" class="character-select-slots"></div>
+    <button type="button" id="characterSelectPlayBtn" class="btn-primary character-select-play" disabled>Play</button>
+  </div>
+</div>
+
+<div class="container hidden">
   <div class="content" id="content"></div>
 </div>
 
@@ -23,7 +32,7 @@
   </div>
 </div>
 
-<div class="bottom-hud" id="bottomHud">
+<div class="bottom-hud hidden" id="bottomHud">
   <section class="bottom-hud-chat" aria-label="Chat">
     <div class="bottom-chat-head">Chat</div>
     <div id="bottomChatLog" class="bottom-chat-log" aria-live="polite">

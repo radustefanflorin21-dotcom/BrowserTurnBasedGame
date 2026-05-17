@@ -32,8 +32,20 @@ let adventureRespawnTick = null;
 let outOfCombatHpRegenTick = null;
 /** Companion slot waiting for its one-time character creation before first enable. */
 let pendingCompanionEnableSlot = null;
+/** Hero roster slot index waiting for character creation (`0`–`4`). */
+let pendingHeroCreationSlot = null;
 /** Body type picked in the companion creation modal (`male` | `female`). */
 let pendingCompanionCreationGender = "male";
+/** Body type picked in the hero creation modal (`male` | `female`). */
+let pendingHeroCreationGender = "male";
+/** Saved hero roster (five slots). */
+let characterRoster = null;
+/** Roster slot index of the active play session. */
+let activeCharacterSlotIndex = null;
+/** Roster slot highlighted on the character select screen. */
+let selectedCharacterSlotIndex = null;
+/** True after Play — main game UI and {@link render} are active. */
+let inGameSession = false;
 /** Reposition world encounter panels on a timer (config.worldMap.mobPanelWanderMs). */
 let adventureCampWanderTick = null;
 /** Invalidates pending RAF from startAdventureCampWanderTimer when navigating away quickly. */
@@ -44,6 +56,7 @@ let characterPanelRosterTab = "hero";
 let pendingCharSpend = null;
 
 const COMPANION_SLOT_COUNT = 3;
+const CHARACTER_SLOT_COUNT = 5;
 const COMPANION_LOOT_CHANCE_MULT = 0.75;
 /** Per-tile panel positions until wander bucket changes — avoids re-rolling on every render (no micro-jump on map open). */
 const campPanelLayoutCache = new Map();
@@ -259,26 +272,38 @@ function completeCompanionFirstEnable(slotIdx, rawName, gender) {
   return true;
 }
 
-function buildCompanionCreationModalHtml(slotIdx, selectedGender, errorMsg, nameValue) {
-  const g = normalizePortraitGender(selectedGender);
-  const fallbackName = `Companion ${slotIdx + 1}`;
+function buildCharacterCreationModalHtml(opts) {
+  const o = opts && typeof opts === "object" ? opts : {};
+  const mode = o.mode === "companion" ? "companion" : "hero";
+  const slotIdx = typeof o.slotIdx === "number" ? o.slotIdx : 0;
+  const g = normalizePortraitGender(o.selectedGender);
+  const fallbackName = mode === "companion" ? `Companion ${slotIdx + 1}` : "Hero";
   const maleCls = g === "male" ? " companion-create-gender-btn--active" : "";
   const femaleCls = g === "female" ? " companion-create-gender-btn--active" : "";
   const err =
-    errorMsg && String(errorMsg).trim()
-      ? `<p class="companion-create-error">${escapeHtml(String(errorMsg).trim())}</p>`
+    o.errorMsg && String(o.errorMsg).trim()
+      ? `<p class="companion-create-error">${escapeHtml(String(o.errorMsg).trim())}</p>`
       : "";
-  const nameAttr = typeof nameValue === "string" ? escapeAttr(nameValue) : "";
+  const nameAttr = typeof o.nameValue === "string" ? escapeAttr(o.nameValue) : "";
+  const title = mode === "companion" ? "Character creation" : "Create character";
+  const lead =
+    mode === "companion"
+      ? "Set how this companion looks and what they are called. These choices are permanent."
+      : "Choose your hero's name and appearance. These choices are permanent.";
+  const confirmLabel = mode === "companion" ? "Create companion" : "Create character";
+  const genderAttr = mode === "companion" ? "data-companion-create-gender" : "data-hero-create-gender";
+  const confirmAttr = mode === "companion" ? "data-companion-name-confirm" : "data-hero-name-confirm";
+  const cancelAttr = mode === "companion" ? "data-companion-name-cancel" : "data-hero-name-cancel";
   return `<div class="companion-create-modal">
-    <h3 class="companion-create-title">Character creation</h3>
-    <p class="companion-create-lead muted">Set how this companion looks and what they are called. These choices are permanent.</p>
+    <h3 class="companion-create-title">${escapeHtml(title)}</h3>
+    <p class="companion-create-lead muted">${escapeHtml(lead)}</p>
     ${err}
     <div class="companion-create-gender" role="radiogroup" aria-label="Body type">
-      <button type="button" class="companion-create-gender-btn${maleCls}" data-companion-create-gender="male" aria-pressed="${g === "male"}">
+      <button type="button" class="companion-create-gender-btn${maleCls}" ${genderAttr}="male" aria-pressed="${g === "male"}">
         <span class="companion-create-preview-wrap"><img src="Assets/Character/male_template.png" alt="" class="companion-create-preview" draggable="false" /></span>
         <span>Male</span>
       </button>
-      <button type="button" class="companion-create-gender-btn${femaleCls}" data-companion-create-gender="female" aria-pressed="${g === "female"}">
+      <button type="button" class="companion-create-gender-btn${femaleCls}" ${genderAttr}="female" aria-pressed="${g === "female"}">
         <span class="companion-create-preview-wrap"><img src="Assets/Character/female_character.png" alt="" class="companion-create-preview" draggable="false" /></span>
         <span>Female</span>
       </button>
@@ -288,10 +313,28 @@ function buildCompanionCreationModalHtml(slotIdx, selectedGender, errorMsg, name
       fallbackName
     )}" value="${nameAttr}" autocomplete="off" />
     <div class="npc-dialog-actions">
-      <button type="button" class="btn-primary" data-companion-name-confirm>Create companion</button>
-      <button type="button" class="btn-secondary" data-companion-name-cancel>Cancel</button>
+      <button type="button" class="btn-primary" ${confirmAttr}>${escapeHtml(confirmLabel)}</button>
+      <button type="button" class="btn-secondary" ${cancelAttr}>Cancel</button>
     </div>
   </div>`;
+}
+
+function buildCompanionCreationModalHtml(slotIdx, selectedGender, errorMsg, nameValue) {
+  return buildCharacterCreationModalHtml({
+    mode: "companion",
+    slotIdx,
+    selectedGender,
+    errorMsg,
+    nameValue
+  });
+}
+
+function isHeroCreationModalOpen() {
+  return pendingHeroCreationSlot != null && Number.isFinite(pendingHeroCreationSlot);
+}
+
+function isCharacterCreationModalOpen() {
+  return isCompanionCreationModalOpen() || isHeroCreationModalOpen();
 }
 
 function isCompanionCreationModalOpen() {
@@ -320,6 +363,267 @@ function refreshCompanionCreationModal(errorMsg) {
     const next = document.querySelector("[data-companion-name-input]");
     if (next && typeof next.focus === "function") next.focus();
   }, 0);
+}
+
+
+function openHeroCreationModal(slotIdx) {
+  pendingHeroCreationSlot = slotIdx;
+  pendingHeroCreationGender = "male";
+  showModalHtml(
+    buildCharacterCreationModalHtml({
+      mode: "hero",
+      slotIdx,
+      selectedGender: pendingHeroCreationGender
+    }),
+    { companionCreation: true }
+  );
+  setTimeout(() => {
+    const input = document.querySelector("[data-companion-name-input]");
+    if (input && typeof input.focus === "function") input.focus();
+  }, 0);
+}
+
+function refreshHeroCreationModal(errorMsg) {
+  const slotIdx = pendingHeroCreationSlot;
+  if (!Number.isFinite(slotIdx) || slotIdx < 0) return;
+  const input = document.querySelector("[data-companion-name-input]");
+  const nameValue = input && typeof input.value === "string" ? input.value : "";
+  showModalHtml(
+    buildCharacterCreationModalHtml({
+      mode: "hero",
+      slotIdx,
+      selectedGender: pendingHeroCreationGender,
+      errorMsg,
+      nameValue
+    }),
+    { companionCreation: true }
+  );
+  setTimeout(() => {
+    const next = document.querySelector("[data-companion-name-input]");
+    if (next && typeof next.focus === "function") next.focus();
+  }, 0);
+}
+
+function normalizeCharacterNameKey(rawName) {
+  return String(rawName || "").trim().toLowerCase();
+}
+
+function isCharacterNameTaken(rawName, exceptSlotIdx) {
+  ensureCharacterRoster();
+  const key = normalizeCharacterNameKey(rawName);
+  if (!key) return true;
+  for (let i = 0; i < CHARACTER_SLOT_COUNT; i++) {
+    if (exceptSlotIdx != null && i === exceptSlotIdx) continue;
+    const slot = characterRoster.slots[i];
+    if (slot && normalizeCharacterNameKey(slot.name) === key) return true;
+  }
+  return false;
+}
+
+function emptyCharacterRoster() {
+  return { version: 1, slots: Array.from({ length: CHARACTER_SLOT_COUNT }, () => null) };
+}
+
+function hydrateRosterSlot(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  try {
+    migratePlayer(raw);
+    return raw;
+  } catch {
+    const salvage = salvagePlayerFromRaw(raw);
+    try {
+      migratePlayer(salvage);
+    } catch {
+      /* Keep salvaged raw state as a last resort. */
+    }
+    return salvage;
+  }
+}
+
+function migrateLegacyPlayerToRoster() {
+  const roster = emptyCharacterRoster();
+  const fromPrimary = parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_KEY));
+  const fromBackup = parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_BACKUP_KEY));
+  const legacy = fromPrimary || fromBackup;
+  if (legacy) {
+    roster.slots[0] = hydrateRosterSlot(legacy);
+    try {
+      localStorage.setItem(CHARACTER_ROSTER_KEY, JSON.stringify(roster));
+    } catch {
+      /* ignore */
+    }
+  }
+  return roster;
+}
+
+function loadCharacterRoster() {
+  const raw = localStorage.getItem(CHARACTER_ROSTER_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.slots)) {
+        const slots = parsed.slots.slice(0, CHARACTER_SLOT_COUNT);
+        while (slots.length < CHARACTER_SLOT_COUNT) slots.push(null);
+        return {
+          version: 1,
+          slots: slots.map((entry) => hydrateRosterSlot(entry))
+        };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return migrateLegacyPlayerToRoster();
+}
+
+function ensureCharacterRoster() {
+  if (!characterRoster || !Array.isArray(characterRoster.slots)) {
+    characterRoster = loadCharacterRoster();
+  }
+}
+
+function setCharacterSelectScreenVisible(visible) {
+  const el = document.getElementById("characterSelectScreen");
+  if (el) {
+    el.classList.toggle("hidden", !visible);
+    el.setAttribute("aria-hidden", visible ? "false" : "true");
+  }
+}
+
+function setGameSessionUiVisible(visible) {
+  const container = document.querySelector(".container");
+  const hud = document.getElementById("bottomHud");
+  if (container) container.classList.toggle("hidden", !visible);
+  if (hud) hud.classList.toggle("hidden", !visible);
+}
+
+function buildCharacterSlotPreviewHtml(actor) {
+  if (!actor) return "";
+  return buildPortraitLayeredStackHtml(
+    getActorPortraitBaseImage(actor, "idle"),
+    getPortraitBaseLayoutForOwner(actor),
+    "",
+    actor.equipment || emptyEquipment(),
+    actor
+  );
+}
+
+function buildCharacterSelectSlotHtml(slotIdx) {
+  ensureCharacterRoster();
+  const actor = characterRoster.slots[slotIdx];
+  if (!actor) {
+    return `<div class="character-select-slot character-select-slot--empty">
+      <button type="button" class="character-select-add" data-character-slot-add="${slotIdx}" aria-label="Create character">+</button>
+    </div>`;
+  }
+  const selected = selectedCharacterSlotIndex === slotIdx ? " character-select-slot--selected" : "";
+  const portrait = buildCharacterSlotPreviewHtml(actor);
+  const name = typeof actor.name === "string" && actor.name.trim() ? actor.name.trim() : "Hero";
+  return `<button type="button" class="character-select-slot character-select-slot--filled${selected}" data-character-slot-select="${slotIdx}">
+    <div class="character-select-portrait-wrap"><div class="character-select-portrait">${portrait}</div></div>
+    <span class="character-select-name">${escapeHtml(name)}</span>
+  </button>`;
+}
+
+function renderCharacterSelectScreen() {
+  ensureCharacterRoster();
+  const slotsHost = document.getElementById("characterSelectSlots");
+  if (!slotsHost) return;
+  let html = "";
+  for (let i = 0; i < CHARACTER_SLOT_COUNT; i++) {
+    html += buildCharacterSelectSlotHtml(i);
+  }
+  slotsHost.innerHTML = html;
+  const playBtn = document.getElementById("characterSelectPlayBtn");
+  const canPlay =
+    selectedCharacterSlotIndex != null &&
+    Number.isFinite(selectedCharacterSlotIndex) &&
+    !!characterRoster.slots[selectedCharacterSlotIndex];
+  if (playBtn) playBtn.disabled = !canPlay;
+}
+
+function completeHeroCreation(slotIdx, rawName, gender) {
+  ensureCharacterRoster();
+  if (!Number.isFinite(slotIdx) || slotIdx < 0 || slotIdx >= CHARACTER_SLOT_COUNT) return false;
+  if (characterRoster.slots[slotIdx]) return false;
+  const nextName = typeof rawName === "string" ? rawName.trim().slice(0, 32) : "";
+  if (!nextName) return false;
+  if (isCharacterNameTaken(nextName, slotIdx)) return false;
+  const p = defaultPlayer();
+  p.name = nextName;
+  p.portraitGender = normalizePortraitGender(gender);
+  ensurePortraitLayoutsStoreForOwner(p);
+  migratePlayer(p);
+  characterRoster.slots[slotIdx] = p;
+  try {
+    localStorage.setItem(CHARACTER_ROSTER_KEY, JSON.stringify(characterRoster));
+  } catch {
+    /* ignore */
+  }
+  selectedCharacterSlotIndex = slotIdx;
+  closeModal();
+  renderCharacterSelectScreen();
+  return true;
+}
+
+function startGameWithSelectedCharacter() {
+  ensureCharacterRoster();
+  const idx = selectedCharacterSlotIndex;
+  if (idx == null || !Number.isFinite(idx) || idx < 0 || idx >= CHARACTER_SLOT_COUNT) return;
+  const slotPlayer = characterRoster.slots[idx];
+  if (!slotPlayer) return;
+  player = slotPlayer;
+  activeCharacterSlotIndex = idx;
+  inGameSession = true;
+  syncPlayerSessionUi();
+  initPlayerSession();
+  setCharacterSelectScreenVisible(false);
+  setGameSessionUiVisible(true);
+  showLoadingOverlay();
+  render();
+  waitForAllImagesToLoad().catch(() => hideLoadingOverlay());
+}
+
+function initCharacterSelectUi() {
+  const screen = document.getElementById("characterSelectScreen");
+  if (!screen || screen.dataset.bound === "1") return;
+  screen.dataset.bound = "1";
+  screen.addEventListener("click", (e) => {
+    const addBtn = e.target.closest("[data-character-slot-add]");
+    if (addBtn && addBtn.dataset.characterSlotAdd != null && addBtn.dataset.characterSlotAdd !== "") {
+      const si = parseInt(addBtn.dataset.characterSlotAdd, 10);
+      if (Number.isFinite(si) && si >= 0 && si < CHARACTER_SLOT_COUNT && !characterRoster.slots[si]) {
+        openHeroCreationModal(si);
+      }
+      return;
+    }
+    const pickBtn = e.target.closest("[data-character-slot-select]");
+    if (pickBtn && pickBtn.dataset.characterSlotSelect != null && pickBtn.dataset.characterSlotSelect !== "") {
+      const si = parseInt(pickBtn.dataset.characterSlotSelect, 10);
+      if (Number.isFinite(si) && si >= 0 && si < CHARACTER_SLOT_COUNT && characterRoster.slots[si]) {
+        selectedCharacterSlotIndex = si;
+        renderCharacterSelectScreen();
+      }
+      return;
+    }
+    if (e.target.closest("#characterSelectPlayBtn")) {
+      startGameWithSelectedCharacter();
+    }
+  });
+}
+
+function initAppAtStartup() {
+  characterRoster = loadCharacterRoster();
+  player = null;
+  inGameSession = false;
+  activeCharacterSlotIndex = null;
+  selectedCharacterSlotIndex = null;
+  initUi();
+  initCharacterSelectUi();
+  setGameSessionUiVisible(false);
+  setCharacterSelectScreenVisible(true);
+  renderCharacterSelectScreen();
+  hideLoadingOverlay();
 }
 
 function anyCompanionEnabled() {
@@ -1194,6 +1498,7 @@ function pruneDuplicateCityPortalsFromSceneEdits() {
 
 const PLAYER_SAVE_KEY = "player";
 const PLAYER_SAVE_BACKUP_KEY = "player_backup";
+const CHARACTER_ROSTER_KEY = "character_roster_v1";
 
 function parseSavedPlayerJson(raw) {
   if (typeof raw !== "string" || !raw.trim()) return null;
@@ -1245,9 +1550,9 @@ function loadPlayer() {
   return defaultPlayer();
 }
 
-/** Must run after all top-level `const` (e.g. {@link ITEM_DEF_LEGACY_BASE_NAMES}) — {@link loadPlayer} calls {@link migratePlayer} which uses {@link getItemDef}. */
-function initPlayerFromStorage() {
-  player = loadPlayer();
+/** Prepare active hero after character select (world portals, companions). */
+function initPlayerSession() {
+  if (!player) return;
   ensurePlayerCompanions(player);
   applyCityPortalsFromConfig();
   pruneDuplicateCityPortalsFromSceneEdits();
@@ -1473,10 +1778,11 @@ function migratePlayer(p) {
 }
 
 function save() {
-  const payload = JSON.stringify(player);
+  if (!inGameSession || activeCharacterSlotIndex == null || !player) return;
+  ensureCharacterRoster();
+  characterRoster.slots[activeCharacterSlotIndex] = player;
   try {
-    localStorage.setItem(PLAYER_SAVE_KEY, payload);
-    localStorage.setItem(PLAYER_SAVE_BACKUP_KEY, payload);
+    localStorage.setItem(CHARACTER_ROSTER_KEY, JSON.stringify(characterRoster));
   } catch {
     /* Ignore storage failures (quota/private mode), keep session alive. */
   }
@@ -10780,7 +11086,7 @@ function onSceneLayoutPointerDown(e) {
 }
 
 function syncEditModeUi() {
-  const on = !!player.editMode;
+  const on = !!(player && player.editMode);
   document.body.classList.toggle("edit-mode-on", on);
   const btn = document.getElementById("editModeToggle");
   if (btn) {
@@ -18316,7 +18622,7 @@ function onDocumentKeydown(e) {
     closeWorldMapModal();
     return;
   }
-  if (e.key === "Escape" && isCompanionCreationModalOpen()) {
+  if (e.key === "Escape" && isCharacterCreationModalOpen()) {
     e.preventDefault();
     closeModal();
     return;
@@ -18690,6 +18996,7 @@ function syncMinimapSlots() {
 }
 
 function renderBottomHud() {
+  if (!inGameSession || !player) return;
   const hpFill = document.getElementById("bottomHudHpFill");
   const hpText = document.getElementById("bottomHudHpText");
   const nameEl = document.getElementById("bottomHudName");
@@ -18724,6 +19031,7 @@ function renderBottomHud() {
 }
 
 function render() {
+  if (!inGameSession) return;
   const c = document.getElementById("content");
   if (currentPage !== "adventure") {
     clearAdventureRespawnTimer();
@@ -19057,9 +19365,16 @@ function onContentClick(e) {
       ) &&
       window.confirm("This cannot be undone. Reset character now?")
     ) {
-      localStorage.removeItem(PLAYER_SAVE_KEY);
-      localStorage.removeItem(PLAYER_SAVE_BACKUP_KEY);
-      player = loadPlayer();
+      const keepName = player.name;
+      const keepGender = player.portraitGender;
+      player = defaultPlayer();
+      player.name = typeof keepName === "string" && keepName.trim() ? keepName.trim() : "Hero";
+      player.portraitGender = normalizePortraitGender(keepGender);
+      migratePlayer(player);
+      ensureCharacterRoster();
+      if (activeCharacterSlotIndex != null) {
+        characterRoster.slots[activeCharacterSlotIndex] = player;
+      }
       save();
       render();
     }
@@ -19302,6 +19617,8 @@ function closeModal() {
   pendingDiscardInventoryItemName = null;
   pendingCompanionEnableSlot = null;
   pendingCompanionCreationGender = "male";
+  pendingHeroCreationSlot = null;
+  pendingHeroCreationGender = "male";
   pendingCharSpend = null;
   const m = document.getElementById("modal");
   const mc = document.getElementById("modalContent");
@@ -19324,8 +19641,30 @@ function onPortalNetworkModalClick(e) {
     closeModal();
     return;
   }
+  if (e.target.closest("[data-hero-name-cancel]")) {
+    closeModal();
+    return;
+  }
   if (e.target.closest("[data-companion-name-cancel]")) {
     closeModal();
+    return;
+  }
+  const heroGenderPick = e.target.closest("[data-hero-create-gender]");
+  if (heroGenderPick && heroGenderPick.dataset.heroCreateGender) {
+    pendingHeroCreationGender = normalizePortraitGender(heroGenderPick.dataset.heroCreateGender);
+    refreshHeroCreationModal();
+    return;
+  }
+  if (e.target.closest("[data-hero-name-confirm]")) {
+    const input = document.querySelector("[data-companion-name-input]");
+    const rawName = input && typeof input.value === "string" ? input.value : "";
+    if (!completeHeroCreation(pendingHeroCreationSlot, rawName, pendingHeroCreationGender)) {
+      let msg = "Please enter a character name.";
+      if (rawName.trim() && isCharacterNameTaken(rawName.trim(), pendingHeroCreationSlot)) {
+        msg = "That name is already used by another character.";
+      }
+      refreshHeroCreationModal(msg);
+    }
     return;
   }
   const companionGenderPick = e.target.closest("[data-companion-create-gender]");
@@ -19534,10 +19873,8 @@ function onModalDblClick(e) {
   }
 }
 
-function initUi() {
-  if (GAME_CONFIG.version) {
-    document.title = `Browser RPG — ${GAME_CONFIG.version}`;
-  }
+function syncPlayerSessionUi() {
+  if (!player) return;
   applyTheme(player.theme);
   const themeSel = document.getElementById("themeSelect");
   if (themeSel) {
@@ -19545,9 +19882,19 @@ function initUi() {
     themeSel.onchange = () => setTheme(themeSel.value);
   }
   syncEditModeUi();
+}
+
+function initUi() {
+  if (GAME_CONFIG.version) {
+    document.title = `Browser RPG — ${GAME_CONFIG.version}`;
+  }
+  syncPlayerSessionUi();
   const editModeBtn = document.getElementById("editModeToggle");
   if (editModeBtn) {
-    editModeBtn.addEventListener("click", () => setEditMode(!player.editMode));
+    editModeBtn.addEventListener("click", () => {
+      if (!player) return;
+      setEditMode(!player.editMode);
+    });
   }
   const editModeAddBtn = document.getElementById("editModeAddBtn");
   const editModeAddList = document.getElementById("editModeAddList");
@@ -19810,9 +20157,5 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
   });
 }
 
-initPlayerFromStorage();
-initUi();
-showLoadingOverlay();
-render();
+initAppAtStartup();
 window.reloadMonsters = reloadMonsters;
-waitForAllImagesToLoad().catch(() => hideLoadingOverlay());
