@@ -2187,6 +2187,10 @@ const PORTRAIT_GENDERED_EQUIP_IMAGES = {
   "Assets/Equips/_template_hat.png": {
     male: "Assets/Equips/_male_template_hat.png",
     female: "Assets/Equips/_female_template_hat.png"
+  },
+  "Assets/Equips/raggs_shirt.png": {
+    male: "Assets/Equips/raggs_shirt.png",
+    female: "Assets/Equips/raggs_shirt_female.png"
   }
 };
 
