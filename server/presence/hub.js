@@ -4,6 +4,7 @@
 
 import { getSharedMapCell } from "./map_cells.js";
 import { onUserDisconnected } from "./party.js";
+import { handleCombatUserDisconnect } from "../combat/sessions.js";
 
 const STALE_MS = 45_000;
 const PRESENCE_RADIUS = 10;
@@ -117,6 +118,7 @@ export function detachSocket(socket) {
   if (entry.sockets.size === 0) {
     byUserId.delete(userId);
     onUserDisconnected(userId);
+    handleCombatUserDisconnect(userId);
   }
   return userId;
 }

@@ -300,6 +300,35 @@
     return true;
   }
 
+  async function resume(slotIndex) {
+    if (!isOnlineCombat()) return false;
+    const idx = Number(slotIndex);
+    if (!Number.isFinite(idx)) return false;
+    try {
+      const data = await api("/api/combat/resume", { slotIndex: idx });
+      if (!data?.sessionId || !data.state) return false;
+      sessionId = data.sessionId;
+      applyServerMeta(data);
+      if (typeof data.hostUserId === "number") hostUserId = data.hostUserId;
+      const wmc = data.state.worldMapContext || null;
+      applyServerStateToCombat(data.state, null, null, wmc, {
+        participants: data.participants,
+        participantCount: data.participantCount
+      });
+      if (data.player && typeof mergeServerPlayer === "function") {
+        mergeServerPlayer(data.player, null);
+      }
+      openFightUi();
+      return true;
+    } catch (err) {
+      console.warn("Combat resume failed:", err);
+      if (err && err.status === 400 && err.message && typeof showCombatError === "function") {
+        showCombatError(err.message);
+      }
+      return false;
+    }
+  }
+
   async function join(existingSessionId, region, mob, worldMapContext) {
     if (!isOnlineCombat() || !existingSessionId) return false;
     const data = await api("/api/combat/join", {
@@ -581,6 +610,7 @@
     fetchPartySession,
     start,
     join,
+    resume,
     submitAction,
     applyRemoteCombatState,
     clearSession,

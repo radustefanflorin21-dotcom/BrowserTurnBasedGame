@@ -13,6 +13,8 @@ import {
 import { preparePlayerForCombat } from "./player_prep.js";
 import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./broadcast.js";
 import { getPartyMemberIds, notifyPartyFightStarted } from "../presence/party.js";
+import { applyCombatWorldMapOutcome } from "../progression/world_map.js";
+import { setSharedDefeat } from "../presence/map_cells.js";
 
 const sessions = new Map();
 /** @type {Map<number, string>} hostUserId -> sessionId while in prep */
@@ -106,7 +108,8 @@ export function startCoopSession(hostUserId, { player, slotIndex, encounter, rng
     userId: hostUserId,
     slotIndex,
     player,
-    ready: false
+    ready: false,
+    connected: true
   });
   const session = {
     sessionId,
@@ -172,10 +175,125 @@ export function joinCoopSession(sessionId, userId, { player, slotIndex }) {
   }
   preparePlayerForCombat(player);
   snapshotCombatStart(userId, slotIndex, player);
-  session.participants.set(userId, { userId, slotIndex, player, ready: false });
+  session.participants.set(userId, { userId, slotIndex, player, ready: false, connected: true });
   appendParticipantToState(session, userId, player);
   broadcastCoopCombat(session);
   return session;
+}
+
+/** In-progress coop fight this user can resume (prep or combat, not ended). */
+export function findActiveCombatSessionForUser(userId) {
+  for (const session of sessions.values()) {
+    if (!session.coop) continue;
+    if (!session.participants.has(userId)) continue;
+    const phase = session.state?.phase;
+    if (phase === "ended") continue;
+    return session;
+  }
+  return null;
+}
+
+function syncParticipantPlayerFromCombatHero(session, userId, player) {
+  const hero = (session.state?.party || []).find(
+    (m) => m && m.kind === "hero" && m.controllerUserId === userId
+  );
+  if (!hero || !player) return player;
+  const copy = JSON.parse(JSON.stringify(player));
+  copy.hp = Math.max(0, Math.floor(hero.hp));
+  if (typeof hero.maxHp === "number") copy.maxHp = hero.maxHp;
+  return copy;
+}
+
+/**
+ * Reattach after refresh: refresh roster snapshot, keep fight state.
+ */
+export function resumeCoopSession(sessionId, userId, { player, slotIndex }) {
+  const session = sessions.get(sessionId);
+  if (!session || !session.coop) {
+    const err = new Error("Combat session not found.");
+    err.status = 404;
+    throw err;
+  }
+  const part = session.participants.get(userId);
+  if (!part) {
+    const err = new Error("Combat session not found.");
+    err.status = 404;
+    throw err;
+  }
+  if (session.state?.phase === "ended") {
+    const err = new Error("This fight has already ended.");
+    err.status = 400;
+    throw err;
+  }
+  preparePlayerForCombat(player);
+  part.player = syncParticipantPlayerFromCombatHero(session, userId, player);
+  part.slotIndex = slotIndex;
+  part.connected = true;
+  session.state.fightLog.push(`— ${part.player?.name || "Hero"} rejoined the fight —`);
+  return session;
+}
+
+function applyWorldMapVictory(session, result) {
+  if (!result?.victory) return;
+  const wmc = session.state?.worldMapContext;
+  if (!wmc || typeof wmc.x !== "number" || typeof wmc.y !== "number") return;
+  const x = Math.floor(wmc.x);
+  const y = Math.floor(wmc.y);
+  const setIndex = typeof wmc.setIndex === "number" ? Math.floor(wmc.setIndex) : 0;
+  const killed = Array.isArray(session.state.enemyNames) ? session.state.enemyNames.slice() : [];
+  const mapCell = setSharedDefeat(x, y, setIndex, Date.now(), killed);
+  if (mapCell) {
+    import("../presence/hub.js").then(({ broadcastMapCellToTile }) => {
+      broadcastMapCellToTile(x, y, mapCell);
+    });
+  }
+}
+
+/** Persist/broadcast when a disconnect auto-pass ends the fight (rare). */
+async function finalizeCoopVictoryFromOut(session, out) {
+  const coopResults = out.participantResults;
+  if (!coopResults || !Object.keys(coopResults).length) return;
+  const victoryResult = Object.values(coopResults).find((r) => r?.victory);
+  if (victoryResult) applyWorldMapVictory(session, victoryResult);
+  for (const [userId, result] of Object.entries(coopResults)) {
+    const part = session.participants.get(Number(userId)) || session.participants.get(userId);
+    if (part?.player && result?.victory) {
+      applyCombatWorldMapOutcome(part.player, session.state, result);
+    }
+  }
+  const rosters = await persistCoopResults(session, coopResults);
+  broadcastCoopCombatFinished(session, coopResults, rosters, {
+    lastHits: out.lastHits,
+    lastEnemyHits: out.lastEnemyHits,
+    actorPartyUid: out.actorPartyUid
+  });
+  endSession(session.sessionId);
+}
+
+/**
+ * When a player closes the tab, end their turn so others are not stuck.
+ */
+export function handleCombatUserDisconnect(userId) {
+  for (const session of sessions.values()) {
+    if (!session.coop || session.state?.phase === "ended") continue;
+    const part = session.participants.get(userId);
+    if (!part) continue;
+    part.connected = false;
+    if (session.state.phase !== "player") continue;
+    const activeUid = session.state.activePartyUid;
+    const active = (session.state.party || []).find(
+      (m) => m && m.uid === activeUid && m.hp > 0 && !m.acted
+    );
+    if (!active || Number(active.controllerUserId) !== Number(userId)) continue;
+    try {
+      const out = runAction(session.sessionId, { type: "pass" }, userId);
+      if (out.participantResults && Object.keys(out.participantResults).length > 0) {
+        void finalizeCoopVictoryFromOut(session, out);
+      }
+    } catch (err) {
+      console.error("Combat disconnect auto-pass failed:", err);
+    }
+  }
 }
 
 /** @deprecated use startCoopSession */

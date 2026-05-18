@@ -12,8 +12,10 @@ import {
   isSessionParticipant,
   notifyPartyOfFight,
   findOpenPrepSessionForUser,
+  findActiveCombatSessionForUser,
+  resumeCoopSession,
 } from "./combat/sessions.js";
-import { broadcastCoopCombatFinished } from "./combat/broadcast.js";
+import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./combat/broadcast.js";
 import { publicParticipantsList } from "./combat/coop.js";
 import { preparePlayerForCombat } from "./combat/player_prep.js";
 import { applyCombatWorldMapOutcome } from "./progression/world_map.js";
@@ -61,6 +63,53 @@ function applyWorldMapVictory(session, result) {
 }
 
 export function registerCombatRoutes(app) {
+  app.post("/api/combat/resume", requireAuth, (req, res) => {
+    try {
+      const idx = Number(req.body?.slotIndex);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= SLOT_COUNT) {
+        res.status(400).json({ error: "Invalid character slot." });
+        return;
+      }
+      const session = findActiveCombatSessionForUser(req.user.id);
+      if (!session) {
+        res.json({ sessionId: null, resumed: false });
+        return;
+      }
+      const playerCopy = getPlayerFromRoster(req.user.id, idx);
+      if (!playerCopy) {
+        res.status(400).json({ error: "No character in that slot." });
+        return;
+      }
+      const part = session.participants.get(req.user.id);
+      if (part && part.slotIndex !== idx) {
+        res.status(400).json({
+          error: "This character was not in that fight. Select the slot you used for this combat."
+        });
+        return;
+      }
+      resumeCoopSession(session.sessionId, req.user.id, {
+        player: playerCopy,
+        slotIndex: idx
+      });
+      broadcastCoopCombat(session);
+      const myPart = session.participants.get(req.user.id);
+      res.json({
+        sessionId: session.sessionId,
+        resumed: true,
+        rngSeed: session.rngSeed,
+        state: session.state,
+        prepEndsAt: session.prepEndsAt,
+        hostUserId: session.hostUserId,
+        locked: session.locked,
+        player: myPart?.player,
+        participants: publicParticipantsList(session),
+        participantCount: session.participants.size
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Failed to resume combat." });
+    }
+  });
+
   app.get("/api/combat/party-session", requireAuth, (req, res) => {
     const session = findOpenPrepSessionForUser(req.user.id);
     if (!session) {

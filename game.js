@@ -1215,7 +1215,24 @@ function updateMapPlayersPanel() {
   listEl.innerHTML = html;
 }
 
-function startGameWithSelectedCharacter() {
+async function tryResumeOnlineCombat(slotIndex) {
+  if (
+    typeof window === "undefined" ||
+    !window.GameStorage?.isOnlineMode?.() ||
+    !window.ServerCombat ||
+    typeof window.ServerCombat.resume !== "function"
+  ) {
+    return false;
+  }
+  try {
+    return await window.ServerCombat.resume(slotIndex);
+  } catch (err) {
+    console.warn("tryResumeOnlineCombat:", err);
+    return false;
+  }
+}
+
+async function startGameWithSelectedCharacter() {
   ensureCharacterRoster();
   const idx = selectedCharacterSlotIndex;
   if (idx == null || !Number.isFinite(idx) || idx < 0 || idx >= CHARACTER_SLOT_COUNT) return;
@@ -1227,6 +1244,13 @@ function startGameWithSelectedCharacter() {
   syncPlayerSessionUi();
   initPlayerSession();
   initOnlinePresence();
+  const resumed = await tryResumeOnlineCombat(idx);
+  if (resumed) {
+    setCharacterSelectScreenVisible(false);
+    setGameSessionUiVisible(true);
+    hideLoadingOverlay();
+    return;
+  }
   setCharacterSelectScreenVisible(false);
   setGameSessionUiVisible(true);
   showLoadingOverlay();
