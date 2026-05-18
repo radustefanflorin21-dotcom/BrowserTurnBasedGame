@@ -6,3 +6,7 @@ Thumbs.db
 
 # LibreOffice / Excel lock files
 .~lock.*
+
+# MMO server (Phase 1)
+server/node_modules/
+server/data/

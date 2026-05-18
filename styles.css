@@ -73,6 +73,7 @@
 
 :root {
   --sidebar-width: 0px;
+  --map-players-panel-width: 0px;
   --bottom-hud-height: 220px;
   /* Overview character / inventory UI scale (1 = default). Increase if the overview feels too small. */
   --overview-page-zoom: 1.48;
@@ -92,8 +93,143 @@ body {
   transition: background 0.35s ease, color 0.25s ease;
 }
 
+.map-players-panel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: var(--bottom-hud-height);
+  width: var(--map-players-panel-width);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 10px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.map-players-panel.hidden {
+  display: none;
+}
+
+.map-players-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--nameplate-edge);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.map-players-coords {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.map-players-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.map-players-item {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.map-players-item--you {
+  border-color: rgba(139, 105, 20, 0.55);
+  background: rgba(139, 105, 20, 0.18);
+}
+
+.map-players-item--empty {
+  background: transparent;
+  border: none;
+  font-style: italic;
+}
+
+.map-players-item--clickable {
+  cursor: pointer;
+}
+
+.map-players-item--clickable:hover {
+  border-color: var(--nameplate-edge);
+  background: rgba(139, 105, 20, 0.22);
+}
+
+.map-players-section {
+  list-style: none;
+  padding: 4px 8px 2px;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.map-player-actions {
+  margin-top: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-player-actions.hidden {
+  display: none;
+}
+
+.map-player-actions-name {
+  margin: 0 0 4px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.map-player-action-btn {
+  width: 100%;
+  font-size: 0.72rem;
+}
+
+.map-player-action-btn--ghost {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.modal-box--compact {
+  max-width: 360px;
+}
+
+.modal-compact-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.modal-compact-lead {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.modal-compact-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .container {
   display: flex;
+  margin-left: var(--map-players-panel-width);
+  width: calc(100% - var(--map-players-panel-width));
   height: calc(100vh - var(--bottom-hud-height));
   max-height: calc(100vh - var(--bottom-hud-height));
   overflow: hidden;
@@ -287,12 +423,60 @@ body.edit-mode-on .sidebar-edit-mode-btn.sidebar-edit-mode-btn--active {
   gap: 6px;
 }
 
+.bottom-chat-head-row,
+.fight-chat-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .bottom-chat-head {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--nameplate-edge);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.bottom-chat-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.bottom-chat-tab {
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bottom-chat-tab.is-active {
+  color: var(--text);
+  border-color: var(--nameplate-edge);
+  background: rgba(139, 105, 20, 0.25);
+}
+
+.chat-line--world strong {
+  color: #9fd0ff;
+}
+
+.chat-line--local strong {
+  color: #b8e6c0;
+}
+
+.chat-line--private strong {
+  color: #e8b8ff;
+}
+
+.chat-line--system {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .bottom-chat-log {
@@ -3053,7 +3237,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
 .adventure-hud-top {
   position: fixed;
   top: max(8px, env(safe-area-inset-top));
-  left: calc(var(--sidebar-width) + max(10px, env(safe-area-inset-left)));
+  left: calc(var(--sidebar-width) + var(--map-players-panel-width) + max(10px, env(safe-area-inset-left)));
   z-index: 55;
   display: flex;
   flex-direction: column;
@@ -3078,6 +3262,55 @@ body.edit-mode-on .portrait-stack--editing-scale {
   font-variant-numeric: tabular-nums;
   color: var(--overview-muted);
   font-size: 0.68rem;
+}
+
+.presence-others-wrap.hidden,
+.presence-on-tile-wrap.hidden {
+  display: none;
+}
+
+.presence-others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: min(72vw, 420px);
+  margin-top: 2px;
+}
+
+.presence-other-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #e8f4ff;
+  background: rgba(30, 90, 140, 0.72);
+  border: 1px solid rgba(120, 190, 255, 0.45);
+  pointer-events: auto;
+  cursor: default;
+}
+
+.presence-other-chip--here {
+  background: rgba(40, 120, 70, 0.78);
+  border-color: rgba(140, 230, 170, 0.55);
+  color: #eafff0;
+}
+
+.presence-on-tile-wrap {
+  margin-top: 2px;
+}
+
+.presence-on-tile {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: #c8f5d8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.presence-on-tile::before {
+  content: "With you: ";
+  font-weight: 500;
+  color: var(--overview-muted);
 }
 
 .adventure-body {
@@ -3152,20 +3385,27 @@ body.edit-mode-on .portrait-stack--editing-scale {
 
 .world-nav-btn--edge.world-nav-btn--north {
   top: max(8px, env(safe-area-inset-top));
-  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+  left: calc(
+    var(--sidebar-width) + var(--map-players-panel-width) +
+      (100vw - var(--sidebar-width) - var(--map-players-panel-width)) / 2
+  );
   transform: translateX(-50%);
 }
 
 .world-nav-btn--edge.world-nav-btn--south {
   bottom: max(calc(var(--bottom-hud-height) + 8px), env(safe-area-inset-bottom));
-  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+  left: calc(
+    var(--sidebar-width) + var(--map-players-panel-width) +
+      (100vw - var(--sidebar-width) - var(--map-players-panel-width)) / 2
+  );
   transform: translateX(-50%);
 }
 
 .world-nav-btn--edge.world-nav-btn--west {
-  left: calc(var(--sidebar-width) + 1px + 8px);
+  left: calc(var(--sidebar-width) + var(--map-players-panel-width) + max(8px, env(safe-area-inset-left)));
   top: 50%;
   transform: translateY(-50%);
+  z-index: 85;
 }
 
 .world-nav-btn--edge.world-nav-btn--east {
@@ -3225,7 +3465,59 @@ body.edit-mode-on .portrait-stack--editing-scale {
 }
 
 .world-camps .world-camp[data-camp-enemies] {
-  cursor: help;
+  cursor: default;
+}
+
+.world-camps .world-camp.world-camp--ready {
+  cursor: pointer;
+  z-index: 2;
+}
+
+.world-camps .world-camp.world-camp--pending {
+  cursor: wait;
+  opacity: 0.92;
+}
+
+.world-camp-fight-btn {
+  display: block;
+  margin: 8px auto 4px;
+  padding: 6px 18px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid rgba(90, 60, 30, 0.55);
+  background: linear-gradient(180deg, rgba(255, 248, 230, 0.98) 0%, rgba(232, 210, 170, 0.95) 100%);
+  color: #3a2a18;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.world-camp-loading {
+  display: block;
+  margin: 10px auto 6px;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.mob-thumb--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 16, 12, 0.55);
+  border: 1px dashed rgba(220, 200, 160, 0.45);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.mob-thumb-fallback-label {
+  font-size: 0.58rem;
+  line-height: 1.15;
+  text-align: center;
+  padding: 4px;
+  color: #f4e8d0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  word-break: break-word;
 }
 
 .world-camps .mob-imgs {
@@ -3250,6 +3542,14 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 88px;
   flex-shrink: 0;
   border-width: 0;
+}
+
+.world-camps .mob-imgs--world .mob-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .world-camp--respawning {
@@ -4257,6 +4557,12 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   background: rgba(4, 10, 22, 0.28);
 }
 
+.fight-overlay.fight-overlay--pending .fight-player-actions button {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: wait;
+}
+
 /* Same map art as adventure, replicated inside the overlay (fixed layers often won’t backdrop-blur #content). */
 .fight-scene-backdrop {
   position: absolute;
@@ -4570,7 +4876,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   position: absolute;
   inset: -20% -16%;
   pointer-events: none;
-  z-index: 22;
+  z-index: 1;
   overflow: visible;
 }
 
@@ -4592,9 +4898,9 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 }
 
 .fight-card-status-aura--burn {
-  opacity: 0.92;
-  mix-blend-mode: screen;
-  filter: drop-shadow(0 0 14px rgba(255, 110, 40, 0.7));
+  opacity: 0.58;
+  mix-blend-mode: lighten;
+  filter: drop-shadow(0 0 10px rgba(255, 120, 50, 0.45));
   animation: fightStatusAuraBurn 1.15s ease-in-out infinite alternate;
 }
 
@@ -4614,7 +4920,19 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-ally-card.fight-card--status-burn,
 .fight-enemy-card.fight-card--status-burn {
-  box-shadow: 0 0 20px rgba(255, 90, 30, 0.4);
+  box-shadow: 0 0 16px rgba(255, 100, 40, 0.28);
+}
+
+.fight-portrait-wrap--ally,
+.fight-portrait-wrap--enemy {
+  isolation: isolate;
+}
+
+.fight-portrait-wrap .fight-portrait-img,
+.fight-portrait-wrap .portrait-stack,
+.fight-portrait-wrap .portrait-img--base {
+  position: relative;
+  z-index: 2;
 }
 
 .fight-ally-card.fight-card--status-stun .fight-portrait-wrap,
@@ -4636,12 +4954,12 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 @keyframes fightStatusAuraBurn {
   0% {
-    opacity: 0.78;
+    opacity: 0.48;
     transform: scale(0.98);
   }
   100% {
-    opacity: 1;
-    transform: scale(1.06);
+    opacity: 0.68;
+    transform: scale(1.04);
   }
 }
 
@@ -5473,6 +5791,23 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 .fight-hint--enemy {
   color: var(--nameplate-edge);
   font-weight: 600;
+}
+
+.fight-turn-banner {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--overview-muted);
+  line-height: 1.3;
+}
+
+.fight-turn-banner--yours {
+  color: var(--accent, #c9a227);
+}
+
+.fight-results-coop-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
 }
 
 .fight-action-row {
@@ -6393,6 +6728,101 @@ img {
   max-width: 100%;
 }
 
+.mmo-auth-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 8600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(28, 22, 16, 0.98) 0%, rgba(8, 6, 4, 0.99) 100%);
+}
+
+.mmo-auth-panel {
+  width: min(400px, 94vw);
+  padding: 24px 22px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.mmo-auth-title {
+  margin: 0 0 8px;
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  color: var(--overview-ink, #e8dcc8);
+}
+
+.mmo-auth-lead {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+}
+
+.mmo-auth-error {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(180, 40, 40, 0.25);
+  border: 1px solid rgba(255, 120, 120, 0.35);
+  color: #ffb0b0;
+  font-size: 0.85rem;
+}
+
+.mmo-auth-form {
+  text-align: left;
+}
+
+.mmo-auth-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--overview-muted, #a89a80);
+}
+
+.mmo-auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.mmo-auth-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.mmo-auth-switch {
+  margin: 14px 0 0;
+}
+
+.mmo-auth-link {
+  background: none;
+  border: none;
+  color: rgba(255, 220, 120, 0.9);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.mmo-auth-hint {
+  margin: 16px 0 0;
+  font-size: 0.75rem;
+}
+
+.mmo-auth-hint code {
+  font-size: 0.85em;
+}
+
 .character-select-screen {
   position: fixed;
   inset: 0;
@@ -6419,6 +6849,11 @@ img {
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
   color: var(--overview-ink, #e8dcc8);
+}
+
+.character-select-account {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
 }
 
 .character-select-lead {
@@ -6528,4 +6963,11 @@ img {
 .character-select-play:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.character-select-logout {
+  margin-top: 12px;
+  min-width: 160px;
+  padding: 8px 24px;
+  font-size: 0.95rem;
 }

@@ -10,14 +10,55 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="mmoAuthScreen" class="mmo-auth-screen hidden" aria-hidden="true">
+  <div class="mmo-auth-panel">
+    <h1 class="mmo-auth-title">Browser RPG</h1>
+    <p class="mmo-auth-lead muted">Sign in to load your characters from the server.</p>
+    <p id="mmoAuthError" class="mmo-auth-error hidden" role="alert"></p>
+    <form id="mmoLoginForm" class="mmo-auth-form">
+      <label class="mmo-auth-label" for="mmoLoginEmail">Email</label>
+      <input id="mmoLoginEmail" class="mmo-auth-input" type="email" name="email" autocomplete="username" required />
+      <label class="mmo-auth-label" for="mmoLoginPassword">Password</label>
+      <input id="mmoLoginPassword" class="mmo-auth-input" type="password" name="password" autocomplete="current-password" required />
+      <button type="submit" class="btn-primary mmo-auth-submit">Log in</button>
+    </form>
+    <form id="mmoRegisterForm" class="mmo-auth-form hidden">
+      <label class="mmo-auth-label" for="mmoRegisterEmail">Email</label>
+      <input id="mmoRegisterEmail" class="mmo-auth-input" type="email" name="email" autocomplete="username" required />
+      <label class="mmo-auth-label" for="mmoRegisterPassword">Password</label>
+      <input id="mmoRegisterPassword" class="mmo-auth-input" type="password" name="password" autocomplete="new-password" minlength="6" required />
+      <button type="submit" class="btn-primary mmo-auth-submit">Create account</button>
+    </form>
+    <p class="mmo-auth-switch">
+      <button type="button" id="mmoShowRegister" class="mmo-auth-link">Create an account</button>
+      <button type="button" id="mmoShowLogin" class="mmo-auth-link hidden">Already have an account? Log in</button>
+    </p>
+    <p class="mmo-auth-hint muted">Local play: open the game without <code>?mmo=online</code></p>
+  </div>
+</div>
+
 <div id="characterSelectScreen" class="character-select-screen" aria-hidden="false">
   <div class="character-select-panel">
     <h1 class="character-select-title">Select character</h1>
-    <p class="character-select-lead muted">Create up to five heroes. Each has separate progress.</p>
+    <p id="characterSelectAccount" class="character-select-account muted hidden"></p>
+    <p class="character-select-lead muted">Create up to five heroes. Each account has its own roster.</p>
     <div id="characterSelectSlots" class="character-select-slots"></div>
     <button type="button" id="characterSelectPlayBtn" class="btn-primary character-select-play" disabled>Play</button>
+    <button type="button" id="characterSelectLogoutBtn" class="btn-secondary character-select-logout hidden">Log out</button>
   </div>
 </div>
+
+<aside id="mapPlayersPanel" class="map-players-panel hidden" aria-label="Players on this map">
+  <h2 class="map-players-title">On this map</h2>
+  <p id="mapPlayersCoords" class="map-players-coords muted"></p>
+  <ul id="mapPlayersList" class="map-players-list"></ul>
+  <div id="mapPlayerActions" class="map-player-actions hidden">
+    <p id="mapPlayerActionsName" class="map-player-actions-name"></p>
+    <button type="button" id="mapPlayerPartyInviteBtn" class="btn-primary map-player-action-btn">Party invite</button>
+    <button type="button" id="mapPlayerMessageBtn" class="btn-secondary map-player-action-btn">Send message</button>
+    <button type="button" id="mapPlayerActionsClose" class="map-player-action-btn map-player-action-btn--ghost">Cancel</button>
+  </div>
+</aside>
 
 <div class="container hidden">
   <div class="content" id="content"></div>
@@ -34,12 +75,16 @@
 
 <div class="bottom-hud hidden" id="bottomHud">
   <section class="bottom-hud-chat" aria-label="Chat">
-    <div class="bottom-chat-head">Chat</div>
-    <div id="bottomChatLog" class="bottom-chat-log" aria-live="polite">
-      <p><strong>System:</strong> Welcome to the world.</p>
-      <p><strong>Guide:</strong> Open Adventure to explore.</p>
+    <div class="bottom-chat-head-row">
+      <span class="bottom-chat-head">Chat</span>
+      <div class="bottom-chat-tabs" role="tablist" aria-label="Chat channel">
+        <button type="button" class="bottom-chat-tab is-active" data-chat-tab="local">Local</button>
+        <button type="button" class="bottom-chat-tab" data-chat-tab="world">World</button>
+        <button type="button" class="bottom-chat-tab" data-chat-tab="private">Private</button>
+      </div>
     </div>
-    <input class="bottom-chat-input" type="text" placeholder="Type a message..." aria-label="Chat message" disabled>
+    <div id="bottomChatLog" class="bottom-chat-log" aria-live="polite"></div>
+    <input id="bottomChatInput" class="bottom-chat-input" type="text" placeholder="Sign in with ?mmo=online to chat" aria-label="Chat message" disabled>
   </section>
 
   <section class="bottom-hud-center" aria-label="Character status">
@@ -115,9 +160,16 @@
         </div>
         <div class="fight-bottom-strip">
           <section class="fight-chat-embed" aria-label="Chat">
-            <div class="fight-chat-head">Chat</div>
-            <div id="fightChatLog" class="fight-chat-log" aria-live="polite"></div>
-            <input class="fight-chat-input" type="text" placeholder="Type a message..." aria-label="Chat message" disabled>
+            <div class="bottom-chat-head-row fight-chat-head-row">
+              <span class="fight-chat-head bottom-chat-head">Chat</span>
+              <div class="bottom-chat-tabs fight-chat-tabs" role="tablist" aria-label="Chat channel">
+                <button type="button" class="bottom-chat-tab is-active" data-chat-tab="local">Local</button>
+                <button type="button" class="bottom-chat-tab" data-chat-tab="world">World</button>
+                <button type="button" class="bottom-chat-tab" data-chat-tab="private">Private</button>
+              </div>
+            </div>
+            <div id="fightChatLog" class="fight-chat-log bottom-chat-log" aria-live="polite"></div>
+            <input class="fight-chat-input bottom-chat-input" type="text" placeholder="Sign in with ?mmo=online to chat" aria-label="Chat message" disabled>
           </section>
           <div class="fight-controls-subpanel" aria-label="Combat actions">
             <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
@@ -145,6 +197,29 @@
   <div class="modal-box">
     <div id="modalContent"></div>
     <button type="button" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<div id="partyInviteModal" class="modal hidden" role="dialog" aria-labelledby="partyInviteTitle">
+  <div class="modal-box modal-box--compact">
+    <h3 id="partyInviteTitle" class="modal-compact-title">Party invite</h3>
+    <p id="partyInviteText" class="modal-compact-lead"></p>
+    <div class="modal-compact-actions">
+      <button type="button" id="partyInviteAcceptBtn" class="btn-primary">Accept</button>
+      <button type="button" id="partyInviteDeclineBtn" class="btn-secondary">Decline</button>
+    </div>
+  </div>
+</div>
+
+<div id="fightInviteModal" class="modal hidden" role="dialog" aria-labelledby="fightInviteTitle">
+  <div class="modal-box modal-box--compact">
+    <h3 id="fightInviteTitle" class="modal-compact-title">Join fight?</h3>
+    <p id="fightInviteText" class="modal-compact-lead"></p>
+    <div class="modal-compact-actions">
+      <button type="button" id="fightInviteJoinBtn" class="btn-primary">Join</button>
+      <button type="button" id="fightInviteDeclineBtn" class="btn-secondary">Decline</button>
+    </div>
+    </div>
   </div>
 </div>
 
@@ -192,12 +267,19 @@
   </div>
 </div>
 
+<script src="shared/mmo_constants.js"></script>
+<script src="mmo/config.js"></script>
+<script src="mmo/storage.js"></script>
+<script src="mmo/presence_client.js"></script>
+<script src="mmo/chat_client.js"></script>
 <script src="world_map_data.js"></script>
 <script src="config.js"></script>
 <script src="portrait_character_presets.js"></script>
 <script src="monster_drop_tables.js"></script>
 <script src="skills_catalog.js"></script>
 <script src="game.js"></script>
+<script src="mmo/combat_client.js"></script>
+<script src="mmo/auth_ui.js"></script>
 <script src="unified_skill_combat.js"></script>
 </body>
 </html>

@@ -1,0 +1,69 @@
+/** Combat role inferred from enemy `combatScript` id (mirrors game.js). */
+const MONSTER_ROLE_BY_SCRIPT_ID = {
+  burrow_hare: "controller",
+  plains_raptor: "bruiser",
+  grass_snake: "mage",
+  tusk_boar: "bruiser",
+  field_wolf: "assassin",
+  greenleaf_squirrel: "support",
+  greenleaf_parrot: "support",
+  greenleaf_fox: "assassin",
+  greenleaf_stag: "support",
+  gorilla: "bruiser",
+  stone_marmot: "tank",
+  rock_lynx: "assassin",
+  rock_ibex: "bruiser",
+  rock_serpent: "controller",
+  rock_lizard: "tank",
+  ash_lizard: "mage",
+  cinder_stalker: "assassin",
+  ember_scuttler: "controller",
+  magma_boar: "bruiser",
+  lava_basilisk: "controller",
+  icy_mink: "assassin",
+  icy_serpent: "mage",
+  glacier_turtoise: "tank",
+  frozen_stalker: "assassin",
+  frost_skitter: "controller",
+  pinebound_fawn: "support",
+  frozen_pinecone: "controller",
+  ice_tusked_boar: "tank",
+  barkhide_spriggan: "support",
+  winter_guardian: "tank",
+  dust_carver: "assassin",
+  desert_thornback_crawler: "tank",
+  mirage_lurker: "controller",
+  dune_devourer: "bruiser",
+  witherling: "mage",
+  remnant_of_rust: "controller",
+  faded_war_wraith: "summoner",
+  ash_horror: "mage",
+  cinder_husk: "tank",
+  ash_skulker: "assassin",
+  tide_hopper: "controller",
+  hermit_crab: "tank",
+  driftling: "support",
+  tidemeld_revenant: "summoner",
+  coastal_horror: "controller",
+  saltwind_skimmer: "assassin",
+  brinegullet_spitter: "mage",
+  wavebreaker_idol: "tank",
+  cliff_lurker: "assassin",
+  tideharrow: "controller",
+  tidebound_crusher: "bruiser",
+  drowned_channeler: "mage",
+  tidemother_aberration: "mage",
+  stormfang_ravager: "bruiser",
+  abyssal_tempest_caller: "mage",
+  stormwake_leviathan: "bruiser"
+};
+
+function inferMonsterCombatRole(scriptId) {
+  const s = typeof scriptId === "string" ? scriptId.trim() : "";
+  return MONSTER_ROLE_BY_SCRIPT_ID[s] || "bruiser";
+}
+
+module.exports = {
+  MONSTER_ROLE_BY_SCRIPT_ID,
+  inferMonsterCombatRole
+};

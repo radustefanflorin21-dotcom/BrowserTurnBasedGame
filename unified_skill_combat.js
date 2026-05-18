@@ -219,10 +219,18 @@
         foe.combat.allyPressureTurns = Math.max(foe.combat.allyPressureTurns || 0, t);
         foe.combat.allyPressurePct = Math.max(foe.combat.allyPressurePct || 0, deb.value || 0);
         break;
-      case "playerTaunt":
+      case "playerTaunt": {
         foe.combat.tauntedByVanguardTurns = Math.max(foe.combat.tauntedByVanguardTurns || 0, t);
-        foe.combat.tauntedByVanguardDamageDownPct = Math.max(foe.combat.tauntedByVanguardDamageDownPct || 0, deb.enemyDmgDownPct || 0);
+        foe.combat.tauntedByVanguardDamageDownPct = Math.max(
+          foe.combat.tauntedByVanguardDamageDownPct || 0,
+          deb.enemyDmgDownPct || 0
+        );
+        const taunter = combatActor();
+        if (taunter && typeof taunter.uid === "number") {
+          foe.combat.tauntedByVanguardTargetUid = taunter.uid;
+        }
         break;
+      }
       case "statusResDown":
         foe.combat.statusResDownTurns = Math.max(foe.combat.statusResDownTurns || 0, t);
         foe.combat.statusResDownPct = Math.max(foe.combat.statusResDownPct || 0, deb.value || 0);

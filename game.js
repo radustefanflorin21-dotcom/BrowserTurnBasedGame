@@ -440,24 +440,40 @@ function hydrateRosterSlot(raw) {
   }
 }
 
-function migrateLegacyPlayerToRoster() {
+async function migrateLegacyPlayerToRoster() {
+  if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.()) {
+    return emptyCharacterRoster();
+  }
   const roster = emptyCharacterRoster();
   const fromPrimary = parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_KEY));
   const fromBackup = parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_BACKUP_KEY));
   const legacy = fromPrimary || fromBackup;
   if (legacy) {
     roster.slots[0] = hydrateRosterSlot(legacy);
-    try {
-      localStorage.setItem(CHARACTER_ROSTER_KEY, JSON.stringify(roster));
-    } catch {
-      /* ignore */
-    }
+    characterRoster = roster;
+    await persistCharacterRoster();
   }
   return roster;
 }
 
-function loadCharacterRoster() {
-  const raw = localStorage.getItem(CHARACTER_ROSTER_KEY);
+async function loadCharacterRoster() {
+  const online =
+    typeof window !== "undefined" && window.GameStorage && window.GameStorage.isOnlineMode();
+  let raw = null;
+  if (typeof window !== "undefined" && window.GameStorage) {
+    try {
+      raw = await window.GameStorage.loadRosterJson();
+    } catch (err) {
+      console.error("Failed to load roster from server:", err);
+      if (online) return emptyCharacterRoster();
+    }
+  } else {
+    try {
+      raw = localStorage.getItem(CHARACTER_ROSTER_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
@@ -473,12 +489,127 @@ function loadCharacterRoster() {
       /* fall through */
     }
   }
+  if (online) return emptyCharacterRoster();
   return migrateLegacyPlayerToRoster();
+}
+
+/** Apply server-validated roster JSON (online Phase 3). */
+function applyAuthoritativeRosterJson(json, options) {
+  if (!json || typeof json !== "string") return;
+  const noRender = !!(options && options.noRender);
+  try {
+    const parsed = JSON.parse(json);
+    if (!parsed || !Array.isArray(parsed.slots)) return;
+    const slots = parsed.slots.slice(0, CHARACTER_SLOT_COUNT);
+    while (slots.length < CHARACTER_SLOT_COUNT) slots.push(null);
+    characterRoster = {
+      version: 1,
+      slots: slots.map((entry) => hydrateRosterSlot(entry))
+    };
+    if (inGameSession && activeCharacterSlotIndex != null && characterRoster.slots[activeCharacterSlotIndex]) {
+      player = characterRoster.slots[activeCharacterSlotIndex];
+      migratePlayer(player);
+    }
+    if (noRender) {
+      if (inGameSession && currentPage === "adventure") syncMinimapSlots();
+      return;
+    }
+    if (!inGameSession) renderCharacterSelectScreen();
+    else if (currentPage === "adventure") syncMinimapSlots();
+    else render();
+  } catch {
+    /* ignore */
+  }
+}
+if (typeof window !== "undefined") window.applyAuthoritativeRosterJson = applyAuthoritativeRosterJson;
+
+/** Apply server-merged world map from a saved roster JSON; keep local mob preview caches. */
+function syncPlayerWorldMapFromSavedRoster(savedJson) {
+  if (!savedJson || !inGameSession || activeCharacterSlotIndex == null || !player) return;
+  try {
+    const parsed = JSON.parse(savedJson);
+    const slot = parsed?.slots?.[activeCharacterSlotIndex];
+    if (!slot?.worldMap || typeof slot.worldMap !== "object") return;
+    const localCells =
+      player.worldMap && typeof player.worldMap.cells === "object" ? player.worldMap.cells : {};
+    const serverWm = slot.worldMap;
+    player.worldMap = {
+      ...player.worldMap,
+      ...serverWm,
+      cells: serverWm.cells && typeof serverWm.cells === "object" ? { ...serverWm.cells } : {}
+    };
+    Object.keys(localCells).forEach((k) => {
+      const loc = localCells[k];
+      const merged = player.worldMap.cells[k];
+      if (loc && merged && Array.isArray(loc.mobPreviews)) {
+        player.worldMap.cells[k] = { ...merged, mobPreviews: loc.mobPreviews };
+      }
+    });
+    migratePlayer(player);
+    ensureCharacterRoster();
+    characterRoster.slots[activeCharacterSlotIndex] = player;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Serializes online roster PUTs so stale responses cannot rewind world-map position. */
+let rosterPersistChain = Promise.resolve();
+let rosterPersistInFlight = false;
+
+async function persistCharacterRoster() {
+  if (!characterRoster) return;
+  if (rosterPersistInFlight) return;
+  if (
+    typeof window !== "undefined" &&
+    window.ServerCombat &&
+    typeof window.ServerCombat.hasSession === "function" &&
+    window.ServerCombat.hasSession()
+  ) {
+    return;
+  }
+  if (inGameSession && activeCharacterSlotIndex != null && player) {
+    ensureCharacterRoster();
+    characterRoster.slots[activeCharacterSlotIndex] = player;
+  }
+  const json = JSON.stringify(characterRoster);
+  if (typeof window !== "undefined" && window.GameStorage) {
+    rosterPersistChain = rosterPersistChain.then(async () => {
+      rosterPersistInFlight = true;
+      try {
+        const result = await window.GameStorage.saveRosterJson(json);
+        const saved =
+          result && typeof result === "object" && result.rosterJson != null
+            ? result.rosterJson
+            : typeof result === "string"
+              ? result
+              : json;
+        syncPlayerWorldMapFromSavedRoster(saved);
+      } catch {
+        /* fall through to local backup below */
+      } finally {
+        rosterPersistInFlight = false;
+      }
+    });
+    try {
+      await rosterPersistChain;
+      return;
+    } catch (err) {
+      console.error("Failed to save roster to server:", err);
+      if (window.GameStorage.isOnlineMode()) return;
+    }
+  }
+  if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.()) return;
+  try {
+    localStorage.setItem(CHARACTER_ROSTER_KEY, json);
+  } catch {
+    /* ignore */
+  }
 }
 
 function ensureCharacterRoster() {
   if (!characterRoster || !Array.isArray(characterRoster.slots)) {
-    characterRoster = loadCharacterRoster();
+    characterRoster = emptyCharacterRoster();
   }
 }
 
@@ -540,9 +671,26 @@ function renderCharacterSelectScreen() {
     Number.isFinite(selectedCharacterSlotIndex) &&
     !!characterRoster.slots[selectedCharacterSlotIndex];
   if (playBtn) playBtn.disabled = !canPlay;
+  const logoutBtn = document.getElementById("characterSelectLogoutBtn");
+  if (logoutBtn) {
+    const online = typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.();
+    logoutBtn.classList.toggle("hidden", !online);
+  }
+  const accountEl = document.getElementById("characterSelectAccount");
+  if (accountEl) {
+    const online = typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.();
+    if (online && window.GameStorage?.getAuthEmail) {
+      const email = window.GameStorage.getAuthEmail();
+      accountEl.textContent = email ? `Signed in as ${email}` : "";
+      accountEl.classList.toggle("hidden", !email);
+    } else {
+      accountEl.textContent = "";
+      accountEl.classList.add("hidden");
+    }
+  }
 }
 
-function completeHeroCreation(slotIdx, rawName, gender) {
+async function completeHeroCreation(slotIdx, rawName, gender) {
   ensureCharacterRoster();
   if (!Number.isFinite(slotIdx) || slotIdx < 0 || slotIdx >= CHARACTER_SLOT_COUNT) return false;
   if (characterRoster.slots[slotIdx]) return false;
@@ -555,15 +703,516 @@ function completeHeroCreation(slotIdx, rawName, gender) {
   ensurePortraitLayoutsStoreForOwner(p);
   migratePlayer(p);
   characterRoster.slots[slotIdx] = p;
-  try {
-    localStorage.setItem(CHARACTER_ROSTER_KEY, JSON.stringify(characterRoster));
-  } catch {
-    /* ignore */
-  }
+  await persistCharacterRoster();
   selectedCharacterSlotIndex = slotIdx;
   closeModal();
   renderCharacterSelectScreen();
   return true;
+}
+
+function getPresenceStateForClient() {
+  if (!inGameSession) {
+    return { page: "menu", slotIndex: 0, name: "", x: 0, y: 0 };
+  }
+  if (isFightOverlayOpen()) {
+    return {
+      page: "fight",
+      slotIndex: activeCharacterSlotIndex != null ? activeCharacterSlotIndex : 0,
+      name: player && player.name ? player.name : "",
+      x: player?.worldMap?.x ?? 0,
+      y: player?.worldMap?.y ?? 0
+    };
+  }
+  if (currentPage === "adventure" && player?.worldMap) {
+    return {
+      page: "adventure",
+      slotIndex: activeCharacterSlotIndex != null ? activeCharacterSlotIndex : 0,
+      name: typeof player.name === "string" ? player.name : "",
+      x: player.worldMap.x,
+      y: player.worldMap.y
+    };
+  }
+  return {
+    page: currentPage || "menu",
+    slotIndex: activeCharacterSlotIndex != null ? activeCharacterSlotIndex : 0,
+    name: player && player.name ? player.name : "",
+    x: player?.worldMap?.x ?? 0,
+    y: player?.worldMap?.y ?? 0
+  };
+}
+
+function applySharedMapCellFromServer(mapCell) {
+  if (!mapCell || !mapCell.key || !player?.worldMap || typeof mapCell !== "object") return;
+  if (!player.worldMap.cells || typeof player.worldMap.cells !== "object") {
+    player.worldMap.cells = {};
+  }
+  const key = mapCell.key;
+  const existing = player.worldMap.cells[key] || {};
+  const slotCount = Math.max(
+    Array.isArray(mapCell.defeated) ? mapCell.defeated.length : 0,
+    Array.isArray(mapCell.mobPreviews) ? mapCell.mobPreviews.length : 0,
+    Array.isArray(existing.mobPreviews) ? existing.mobPreviews.length : 0,
+    Array.isArray(existing.defeated) ? existing.defeated.length : 0
+  );
+  const defeated = [];
+  const defeatedUnits = [];
+  const mobPreviews = [];
+  for (let i = 0; i < slotCount; i++) {
+    const defTs =
+      mapCell.defeated && i < mapCell.defeated.length ? mapCell.defeated[i] : existing.defeated?.[i];
+    defeated[i] = defTs != null ? defTs : null;
+    const du =
+      mapCell.defeatedUnits && i < mapCell.defeatedUnits.length
+        ? mapCell.defeatedUnits[i]
+        : existing.defeatedUnits?.[i];
+    defeatedUnits[i] = Array.isArray(du) ? du.slice() : du != null ? du : null;
+    const onCooldown = defeated[i] != null && defeated[i] !== 0;
+    const serverPv = mapCell.mobPreviews?.[i];
+    const localPv = existing.mobPreviews?.[i];
+    if (onCooldown) {
+      mobPreviews[i] = null;
+    } else if (serverPv && Array.isArray(serverPv.units) && serverPv.units.length) {
+      mobPreviews[i] = JSON.parse(JSON.stringify(serverPv));
+    } else if (localPv && Array.isArray(localPv.units) && localPv.units.length) {
+      mobPreviews[i] = localPv;
+    } else {
+      mobPreviews[i] = null;
+    }
+  }
+  player.worldMap.cells[key] = { defeated, defeatedUnits, mobPreviews };
+}
+
+function syncSharedMapCellForTile(x, y) {
+  if (typeof window === "undefined" || !window.GameStorage?.isOnlineMode?.() || !window.MMOPresence) return;
+  const key = worldMapKey(x, y);
+  const cached = window.MMOPresence.getMapCellCache?.(key);
+  if (cached) applySharedMapCellFromServer(cached);
+  window.MMOPresence.requestMapCellSync(x, y);
+}
+
+/** @type {null | { userId: number, name: string }} */
+let mapPlayerActionTarget = null;
+/** @type {null | { hostName: string, region: object, mob: object, worldMapContext: object | null }} */
+let pendingFightInvitePayload = null;
+
+function hideMapPlayerActions() {
+  const el = document.getElementById("mapPlayerActions");
+  if (el) el.classList.add("hidden");
+  mapPlayerActionTarget = null;
+}
+
+function showMapPlayerActions(userId, name) {
+  mapPlayerActionTarget = { userId, name: name || "Traveler" };
+  const panel = document.getElementById("mapPlayerActions");
+  const nameEl = document.getElementById("mapPlayerActionsName");
+  if (nameEl) nameEl.textContent = mapPlayerActionTarget.name;
+  if (panel) panel.classList.remove("hidden");
+}
+
+function showPartyInviteModal(fromName) {
+  const modal = document.getElementById("partyInviteModal");
+  const text = document.getElementById("partyInviteText");
+  if (text) text.textContent = `${fromName || "A player"} invited you to join their party.`;
+  if (modal) modal.classList.remove("hidden");
+}
+
+function hidePartyInviteModal() {
+  const modal = document.getElementById("partyInviteModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function showFightInviteModal(payload) {
+  pendingFightInvitePayload = payload;
+  if (typeof window !== "undefined") window.pendingFightInvitePayload = payload;
+  const modal = document.getElementById("fightInviteModal");
+  const text = document.getElementById("fightInviteText");
+    if (text) {
+    const secs =
+      payload.prepEndsAt && payload.prepEndsAt > Date.now()
+        ? Math.ceil((payload.prepEndsAt - Date.now()) / 1000)
+        : 30;
+    text.textContent = `${payload.hostName || "A party member"} started a fight on this tile (${secs}s to join).`;
+  }
+  if (modal) modal.classList.remove("hidden");
+}
+
+function hideFightInviteModal() {
+  const modal = document.getElementById("fightInviteModal");
+  if (modal) modal.classList.add("hidden");
+  pendingFightInvitePayload = null;
+  if (typeof window !== "undefined") window.pendingFightInvitePayload = null;
+}
+
+function notifyPartyOfFightStart(region, mob, worldMapContext) {
+  if (typeof window === "undefined" || !window.MMOPresence?.publishPartyFightStarted) return;
+  const units = mob?.units ? mob.units : null;
+  window.MMOPresence.publishPartyFightStarted({
+    region: region ? { name: region.name, enemyScale: region.enemyScale } : null,
+    mob: units ? { units: units.map((u) => ({ ...u })) } : mob,
+    worldMapContext: worldMapContext || null
+  });
+}
+
+function bindAdventureCampFightHandlers(_root) {
+  const host = document.getElementById("content");
+  if (!host || host.dataset.campFightBound === "1") return;
+  host.dataset.campFightBound = "1";
+  host.addEventListener("click", (e) => {
+    const camp = e.target.closest(".world-camp[data-world-fight].world-camp--ready");
+    if (!camp || !host.contains(camp)) return;
+    const si = parseInt(camp.getAttribute("data-world-fight"), 10);
+    if (!Number.isNaN(si)) startWorldMapFight(si);
+  });
+}
+
+function buildWorldCampTipPayload(preview, pool, si) {
+  if (preview && preview.units && preview.units.length) {
+    return {
+      kind: "units",
+      tier: preview.difficultyTier || MOB_DIFFICULTY_TIER_LABELS[si % 3],
+      totalLevel:
+        typeof preview.mobTotalLevel === "number"
+          ? preview.mobTotalLevel
+          : preview.units.reduce((s, u) => s + (typeof u.level === "number" ? u.level : 0), 0),
+      units: preview.units.map((u) => ({ name: u.name, level: u.level, mood: u.moodName }))
+    };
+  }
+  return { kind: "pool", pool: pool.slice(), min: MOB_SIZE_MIN, max: MOB_SIZE_MAX };
+}
+
+function buildWorldCampEncounterCellHtml(si, preview, pool, posStyleAttr) {
+  const tipPayload = buildWorldCampTipPayload(preview, pool, si);
+  const campPayload = escapeAttr(JSON.stringify(tipPayload));
+  const hasUnits = !!(preview && preview.units && preview.units.length);
+  const thumbsActive = hasUnits ? buildWorldCampMobThumbsHtmlFromUnits(preview.units) : "";
+  const ariaTier = hasUnits ? preview.difficultyTier || MOB_DIFFICULTY_TIER_LABELS[si % 3] : "encounter";
+  const pendingUi = hasUnits ? "" : `<span class="world-camp-loading muted">Loading encounter…</span>`;
+  const readyCls = hasUnits ? " world-camp--ready" : " world-camp--pending";
+  return `<div class="mob-cell world-camp${readyCls}" data-world-camp="${si}" data-camp-enemies="${campPayload}"${
+    hasUnits ? ` data-world-fight="${si}"` : ""
+  } aria-label="${escapeAttr(`${ariaTier} encounter ${si + 1}`)}"${posStyleAttr || ""}>
+        <div class="mob-imgs mob-imgs--world">${thumbsActive}</div>
+        ${pendingUi}
+      </div>`;
+}
+
+function tileNeedsServerMobPreviews(x, y) {
+  const cellCfg = getCoordinateCellConfig(x, y);
+  if (cellCfg.kind !== "encounters") return false;
+  const encounterSlots = getEncounterSlotCountForCell(x, y, cellCfg);
+  const key = worldMapKey(x, y);
+  const rec = player?.worldMap?.cells?.[key];
+  for (let si = 0; si < encounterSlots; si++) {
+    if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
+    const pv = rec?.mobPreviews?.[si];
+    if (!pv || !Array.isArray(pv.units) || !pv.units.length) return true;
+  }
+  return false;
+}
+
+function getWorldCampRenderSignature(x, y, encounterSlots) {
+  const parts = [];
+  for (let si = 0; si < encounterSlots; si++) {
+    if (slotIsWorldMobOnRespawnCooldown(x, y, si)) {
+      parts.push(`${si}:cd`);
+      continue;
+    }
+    const preview = ensureMobPreview(x, y, si);
+    if (preview && preview.units && preview.units.length) {
+      parts.push(
+        `${si}:u:${preview.units.map((u) => `${u.name}@${u.level}`).join(",")}`
+      );
+    } else {
+      parts.push(`${si}:pending`);
+    }
+  }
+  return `${x},${y}|${parts.join(";")}`;
+}
+
+/** After map_cell sync, rebuild encounter panels with server mob previews (online). */
+function scheduleAdventureEncountersRefreshFromServer() {
+  if (typeof window === "undefined" || !window.GameStorage?.isOnlineMode?.() || !window.MMOPresence) return;
+  if (currentPage !== "adventure" || !player?.worldMap) return;
+  const x = player.worldMap.x;
+  const y = player.worldMap.y;
+  const cellCfg = getCoordinateCellConfig(x, y);
+  if (cellCfg.kind !== "encounters") return;
+  const key = worldMapKey(x, y);
+  const cached = window.MMOPresence.getMapCellCache?.(key);
+  if (cached) applySharedMapCellFromServer(cached);
+  if (!tileNeedsServerMobPreviews(x, y)) {
+    refreshAdventureEncountersOnly();
+    return;
+  }
+  window.MMOPresence.requestMapCellSync(x, y);
+  if (!window.MMOPresence.waitForMapCell) return;
+  window.MMOPresence.waitForMapCell(key, 5000).then((cell) => {
+    if (!cell || currentPage !== "adventure" || !player?.worldMap) return;
+    if (worldMapKey(player.worldMap.x, player.worldMap.y) !== key) return;
+    applySharedMapCellFromServer(cell);
+    refreshAdventureEncountersOnly();
+  });
+}
+
+function refreshAdventureEncountersOnly() {
+  if (currentPage !== "adventure" || !player?.worldMap) return;
+  const x = player.worldMap.x;
+  const y = player.worldMap.y;
+  const root = document.getElementById("adventurePageRoot");
+  const campsWrap = root?.querySelector(".world-camps");
+  if (!campsWrap) {
+    renderAdventure();
+    return;
+  }
+  const dungeonRun = getActiveDungeonRun();
+  if (dungeonRun || campsWrap.classList.contains("world-camps--scene")) {
+    renderAdventure();
+    return;
+  }
+  const key = worldMapKey(x, y);
+  const cached = window.MMOPresence?.getMapCellCache?.(key);
+  if (cached) applySharedMapCellFromServer(cached);
+  syncSharedMapCellForTile(x, y);
+  const biome = getWorldBiomeDefAt(x, y);
+  const pool = biome.possibleEnemies || [];
+  const cellCfg = getCoordinateCellConfig(x, y);
+  if (!biome.passable || cellCfg.kind !== "encounters" || !pool.length) return;
+
+  const encounterSlots = getEncounterSlotCountForCell(x, y, cellCfg);
+  let campsHtml = "";
+  let visibleCount = 0;
+  for (let si = 0; si < encounterSlots; si++) {
+    if (!slotIsWorldMobOnRespawnCooldown(x, y, si)) visibleCount++;
+  }
+  const campPos = visibleCount > 0 ? getCachedCampPanelPositions(x, y, visibleCount) : [];
+  const campPosStyle = (idx) => {
+    const p = campPos[idx];
+    return p ? ` style="left:${p.leftPct}%;top:${p.topPct}%;transform:translate(-50%,-50%);"` : "";
+  };
+  let ri = 0;
+  for (let si = 0; si < encounterSlots; si++) {
+    if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
+    const preview = ensureMobPreview(x, y, si);
+    campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyle(ri));
+    ri++;
+  }
+  if (visibleCount > 0) {
+    const sig = getWorldCampRenderSignature(x, y, encounterSlots);
+    if (campsWrap.dataset.campSig === sig) {
+      applyWorldCampPositionsToDom();
+      return;
+    }
+    campsWrap.dataset.campSig = sig;
+    campsWrap.className = "world-camps world-camps--spread world-camps--spread--ready";
+    campsWrap.innerHTML = campsHtml;
+    bindAdventureCampFightHandlers(root);
+    applyWorldCampPositionsToDom();
+    hydrateSpriteAnimations(root);
+    if (!adventureCampWanderTick) startAdventureCampWanderTimer();
+  } else {
+    delete campsWrap.dataset.campSig;
+    campsHtml = getWorldMapCityName(x, y)
+      ? ""
+      : `<p class="world-camps-none muted">No hostile encounters here.</p>`;
+    campsWrap.className = "world-camps";
+    campsWrap.innerHTML = campsHtml;
+    clearAdventureCampWanderTimer();
+  }
+}
+
+function initMapPlayersPanelUi() {
+  const list = document.getElementById("mapPlayersList");
+  if (list && list.dataset.bound !== "1") {
+    list.dataset.bound = "1";
+    list.addEventListener("click", (e) => {
+      const row = e.target.closest("[data-map-player-name]");
+      if (!row || row.classList.contains("map-players-item--you")) return;
+      const userId = parseInt(row.getAttribute("data-map-player-id"), 10);
+      const name = row.getAttribute("data-map-player-name") || "";
+      if (Number.isFinite(userId)) showMapPlayerActions(userId, name);
+    });
+  }
+  const inviteBtn = document.getElementById("mapPlayerPartyInviteBtn");
+  if (inviteBtn && inviteBtn.dataset.bound !== "1") {
+    inviteBtn.dataset.bound = "1";
+    inviteBtn.addEventListener("click", () => {
+      if (!mapPlayerActionTarget) return;
+      if (window.MMOPresence?.sendPartyInvite) {
+        window.MMOPresence.sendPartyInvite({
+          targetUserId: mapPlayerActionTarget.userId,
+          targetName: mapPlayerActionTarget.name
+        });
+        if (window.MMOChat?.appendSystem) {
+          window.MMOChat.appendSystem(`Party invite sent to ${mapPlayerActionTarget.name}.`);
+        }
+      }
+    });
+  }
+  const msgBtn = document.getElementById("mapPlayerMessageBtn");
+  if (msgBtn && msgBtn.dataset.bound !== "1") {
+    msgBtn.dataset.bound = "1";
+    msgBtn.addEventListener("click", () => {
+      if (!mapPlayerActionTarget) return;
+      if (window.MMOChat?.startPrivateMessage) window.MMOChat.startPrivateMessage(mapPlayerActionTarget.name);
+    });
+  }
+  const closeBtn = document.getElementById("mapPlayerActionsClose");
+  if (closeBtn && closeBtn.dataset.bound !== "1") {
+    closeBtn.dataset.bound = "1";
+    closeBtn.addEventListener("click", () => hideMapPlayerActions());
+  }
+  if (document.documentElement.dataset.mapPlayerActionsEscBound !== "1") {
+    document.documentElement.dataset.mapPlayerActionsEscBound = "1";
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const panel = document.getElementById("mapPlayerActions");
+      if (panel && !panel.classList.contains("hidden")) hideMapPlayerActions();
+    });
+  }
+  const partyAccept = document.getElementById("partyInviteAcceptBtn");
+  if (partyAccept && partyAccept.dataset.bound !== "1") {
+    partyAccept.dataset.bound = "1";
+    partyAccept.addEventListener("click", () => {
+      if (window.MMOPresence?.acceptPartyInvite) window.MMOPresence.acceptPartyInvite();
+      hidePartyInviteModal();
+    });
+  }
+  const partyDecline = document.getElementById("partyInviteDeclineBtn");
+  if (partyDecline && partyDecline.dataset.bound !== "1") {
+    partyDecline.dataset.bound = "1";
+    partyDecline.addEventListener("click", () => {
+      if (window.MMOPresence?.declinePartyInvite) window.MMOPresence.declinePartyInvite();
+      hidePartyInviteModal();
+    });
+  }
+  const fightJoin = document.getElementById("fightInviteJoinBtn");
+  if (fightJoin && fightJoin.dataset.bound !== "1") {
+    fightJoin.dataset.bound = "1";
+    fightJoin.addEventListener("click", async () => {
+      const payload = pendingFightInvitePayload;
+      hideFightInviteModal();
+      if (!payload || isFightOverlayOpen()) return;
+      const region = payload.region || { name: "Encounter", enemyScale: 1 };
+      const mob = payload.mob || { units: [] };
+      await beginTurnCombat(
+        region,
+        mob,
+        payload.worldMapContext || null,
+        payload.sessionId || null
+      );
+    });
+  }
+  const fightDecline = document.getElementById("fightInviteDeclineBtn");
+  if (fightDecline && fightDecline.dataset.bound !== "1") {
+    fightDecline.dataset.bound = "1";
+    fightDecline.addEventListener("click", () => hideFightInviteModal());
+  }
+}
+
+function initOnlinePresence() {
+  if (typeof window === "undefined" || !window.MMOPresence || !window.GameStorage?.isOnlineMode()) return;
+  window.MMOPresence.setStateProvider(getPresenceStateForClient);
+  window.onMapCellUpdated = (mapCell) => {
+    applySharedMapCellFromServer(mapCell);
+    if (isFightOverlayOpen()) return;
+    if (
+      inGameSession &&
+      currentPage === "adventure" &&
+      player?.worldMap &&
+      mapCell?.key === worldMapKey(player.worldMap.x, player.worldMap.y)
+    ) {
+      refreshAdventureEncountersOnly();
+      hydrateSpriteAnimations(document.getElementById("adventurePageRoot"));
+    }
+  };
+  window.onPresenceWelcome = () => {
+    if (inGameSession && currentPage === "adventure" && player?.worldMap) {
+      syncSharedMapCellForTile(player.worldMap.x, player.worldMap.y);
+    }
+  };
+  window.onPartyInvite = (msg) => {
+    if (msg && msg.fromName) {
+      showPartyInviteModal(msg.fromName);
+      if (window.MMOChat?.appendSystem) {
+        window.MMOChat.appendSystem(`${msg.fromName} invited you to a party.`);
+      }
+    }
+  };
+  window.onPartyState = () => updateMapPlayersPanel();
+  window.onPartyResult = (msg) => {
+    if (!msg || !msg.message) return;
+    if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(msg.message);
+    if (!msg.ok && typeof showModal === "function") showModal(msg.message);
+  };
+  window.onFightInvite = (msg) => {
+    if (!msg || !msg.sessionId) return;
+    if (isFightOverlayOpen()) return;
+    showFightInviteModal(msg);
+    if (window.MMOChat?.appendSystem) {
+      window.MMOChat.appendSystem(
+        `${msg.hostName || "A party member"} started a fight nearby — open the invite to join.`
+      );
+    }
+  };
+  window.onCombatState = (msg) => {
+    if (window.ServerCombat && typeof window.ServerCombat.applyRemoteCombatState === "function") {
+      window.ServerCombat.applyRemoteCombatState(msg);
+    }
+  };
+  window.onPresenceUpdated = () => {
+    updateMapPlayersPanel();
+    syncMinimapSlots();
+  };
+  window.MMOPresence.connect();
+}
+
+function publishOnlinePresenceNow() {
+  if (typeof window !== "undefined" && window.MMOPresence && window.GameStorage?.isOnlineMode()) {
+    window.MMOPresence.publishPresence();
+  }
+}
+
+function updateMapPlayersPanel() {
+  const panel = document.getElementById("mapPlayersPanel");
+  if (!panel) return;
+  const show =
+    inGameSession &&
+    currentPage === "adventure" &&
+    typeof window !== "undefined" &&
+    window.GameStorage?.isOnlineMode?.();
+  panel.classList.toggle("hidden", !show);
+  document.documentElement.style.setProperty("--map-players-panel-width", show ? "188px" : "0px");
+
+  if (!show || !player?.worldMap) return;
+  const x = player.worldMap.x;
+  const y = player.worldMap.y;
+  const coordsEl = document.getElementById("mapPlayersCoords");
+  const listEl = document.getElementById("mapPlayersList");
+  const biome = getWorldBiomeDefAt(x, y);
+  if (coordsEl) {
+    coordsEl.textContent = `[${x}, ${y}]${biome?.name ? ` · ${biome.name}` : ""}`;
+  }
+  if (!listEl) return;
+  const party = window.MMOPresence?.getParty?.();
+  let html = "";
+  if (party && Array.isArray(party.members) && party.members.length) {
+    html += `<li class="map-players-section muted">Party</li>`;
+    for (const m of party.members) {
+      const isYou = m.name === (player.name || "You");
+      html += `<li class="map-players-item${isYou ? " map-players-item--you" : ""}">${escapeHtml(m.name || "Traveler")}${isYou ? ' <span class="muted">(you)</span>' : ""}</li>`;
+    }
+    html += `<li class="map-players-section muted">On this tile</li>`;
+  }
+  html += `<li class="map-players-item map-players-item--you">${escapeHtml(player.name || "You")} <span class="muted">(you)</span></li>`;
+  const others = window.MMOPresence?.getSameMap?.() || [];
+  if (others.length) {
+    for (const p of others) {
+      html += `<li class="map-players-item map-players-item--clickable" data-map-player-id="${p.userId}" data-map-player-name="${escapeAttr(p.name || "Traveler")}" role="button" tabindex="0">${escapeHtml(p.name || "Traveler")}</li>`;
+    }
+  } else {
+    html += `<li class="map-players-item map-players-item--empty muted">No other players here</li>`;
+  }
+  listEl.innerHTML = html;
 }
 
 function startGameWithSelectedCharacter() {
@@ -577,6 +1226,7 @@ function startGameWithSelectedCharacter() {
   inGameSession = true;
   syncPlayerSessionUi();
   initPlayerSession();
+  initOnlinePresence();
   setCharacterSelectScreenVisible(false);
   setGameSessionUiVisible(true);
   showLoadingOverlay();
@@ -608,16 +1258,39 @@ function initCharacterSelectUi() {
     }
     if (e.target.closest("#characterSelectPlayBtn")) {
       startGameWithSelectedCharacter();
+      return;
+    }
+    if (e.target.closest("#characterSelectLogoutBtn")) {
+      logoutToLoginScreen();
     }
   });
 }
 
-function initAppAtStartup() {
-  characterRoster = loadCharacterRoster();
+function logoutToLoginScreen() {
+  if (typeof window !== "undefined" && window.ServerCombat?.hasSession?.() && window.ServerCombat.hasSession()) {
+    showModal("Finish or leave your current fight before logging out.");
+    return;
+  }
+  inGameSession = false;
+  activeCharacterSlotIndex = null;
+  selectedCharacterSlotIndex = null;
+  player = null;
+  combatState = null;
+  characterRoster = emptyCharacterRoster();
+  setGameSessionUiVisible(false);
+  setCharacterSelectScreenVisible(false);
+  if (typeof window !== "undefined" && window.GameStorage?.logout) {
+    window.GameStorage.logout();
+  }
+}
+
+async function initAppAtStartup() {
+  characterRoster = emptyCharacterRoster();
   player = null;
   inGameSession = false;
   activeCharacterSlotIndex = null;
   selectedCharacterSlotIndex = null;
+  characterRoster = await loadCharacterRoster();
   initUi();
   initCharacterSelectUi();
   setGameSessionUiVisible(false);
@@ -1229,7 +1902,23 @@ function tryFightSkillBarHotkey(e) {
 function tryFightEndTurnHotkey(e) {
   if (!isFightOverlayOpen()) return false;
   const st = combatState;
-  if (!st || st.phase !== "player") return false;
+  if (!st) return false;
+  if (st.phase === "prep") {
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    const key = e.key;
+    if (key !== " " && key !== "F1") return false;
+    if (
+      st.serverAuthoritative &&
+      window.ServerCombat?.isFightHost?.() &&
+      window.ServerCombat?.submitAction
+    ) {
+      e.preventDefault();
+      void window.ServerCombat.submitAction({ type: "ready" });
+      return true;
+    }
+    return false;
+  }
+  if (st.phase !== "player") return false;
   if (!getActivePartyMember(st)) return false;
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
   const key = e.key;
@@ -1777,15 +2466,31 @@ function migratePlayer(p) {
   ensurePlayerCompanions(p);
 }
 
-function save() {
+let onlineSaveDebounceTimer = null;
+
+function save(opts) {
   if (!inGameSession || activeCharacterSlotIndex == null || !player) return;
   ensureCharacterRoster();
   characterRoster.slots[activeCharacterSlotIndex] = player;
-  try {
-    localStorage.setItem(CHARACTER_ROSTER_KEY, JSON.stringify(characterRoster));
-  } catch {
-    /* Ignore storage failures (quota/private mode), keep session alive. */
+  const flush = !!(opts && opts.flush);
+  if (
+    !flush &&
+    typeof window !== "undefined" &&
+    window.GameStorage &&
+    window.GameStorage.isOnlineMode()
+  ) {
+    if (onlineSaveDebounceTimer) clearTimeout(onlineSaveDebounceTimer);
+    onlineSaveDebounceTimer = setTimeout(() => {
+      onlineSaveDebounceTimer = null;
+      void persistCharacterRoster();
+    }, 500);
+    return;
   }
+  if (onlineSaveDebounceTimer) {
+    clearTimeout(onlineSaveDebounceTimer);
+    onlineSaveDebounceTimer = null;
+  }
+  void persistCharacterRoster();
 }
 
 function addEquipmentBonusStat(out, key, value) {
@@ -2675,6 +3380,37 @@ function getLegacyPortraitLayoutKey(slotId) {
   return "";
 }
 
+function clampPortraitLayoutRow(raw, slotId) {
+  if (!raw || typeof raw !== "object") return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
+  return {
+    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
+    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
+    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
+    scalePct: clampPortraitLayoutScalePct(raw.scalePct, slotId)
+  };
+}
+
+function getDefaultPortraitEquipLayout(slotId, gender) {
+  const g = normalizePortraitGender(gender);
+  const legacyKey = getLegacyPortraitLayoutKey(slotId);
+  const placeholderKey = getPortraitPlaceholderLayoutKey(slotId, g);
+  const defaults = getDefaultPortraitEquipmentLayoutForGender(g);
+  const raw =
+    defaults[slotId] ||
+    (placeholderKey !== slotId ? defaults[placeholderKey] : null) ||
+    (legacyKey ? defaults[legacyKey] : null);
+  return clampPortraitLayoutRow(raw, slotId);
+}
+
+/** Standard fight-card layouts (ignores per-character editor overrides for consistent sizing). */
+function getFightPortraitBaseLayout(actor) {
+  return getDefaultPortraitBaseLayout(getActorPortraitGender(actor));
+}
+
+function getFightPortraitEquipLayout(slotId, gender) {
+  return getDefaultPortraitEquipLayout(slotId, gender);
+}
+
 function getPortraitEquipLayout(slotId, layoutOwner) {
   const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
   const gender = getActorPortraitGender(owner);
@@ -2690,13 +3426,7 @@ function getPortraitEquipLayout(slotId, layoutOwner) {
     defaults[slotId] ||
     (placeholderKey !== slotId ? defaults[placeholderKey] : null) ||
     (legacyKey ? defaults[legacyKey] : null);
-  if (!raw || typeof raw !== "object") return { offsetXPct: 0, offsetYPct: 0, rotDeg: 0, scalePct: 100 };
-  return {
-    offsetXPct: clampPortraitLayoutPct(raw.offsetXPct),
-    offsetYPct: clampPortraitLayoutPct(raw.offsetYPct),
-    rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
-    scalePct: clampPortraitLayoutScalePct(raw.scalePct, slotId)
-  };
+  return clampPortraitLayoutRow(raw, slotId);
 }
 
 function getPortraitBaseLayoutForOwner(owner) {
@@ -2906,6 +3636,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
   const eq = equipmentObj && typeof equipmentObj === "object" ? equipmentObj : player.equipment || emptyEquipment();
   const owner = layoutOwner && typeof layoutOwner === "object" ? layoutOwner : player;
   const portraitGender = getActorPortraitGender(owner);
+  const useFightLayouts = layoutOwnerTab === "fight";
   const base = escapeAttr(baseRaw);
   const slotOrder = ["legs", "feet", "chest", "bracelet", "head", "amulet", "ring1", "ring2", "offhand", "weapon"];
   const hasWeapon = !!(eq.weapon || getNoWeaponOverlayImage(owner));
@@ -2941,7 +3672,9 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
       src = getEquipmentOverlayImage(itemName, owner);
     }
     if (!src) return;
-    const layout = getPortraitEquipLayout(layoutKey, owner);
+    const layout = useFightLayouts
+      ? getFightPortraitEquipLayout(layoutKey, portraitGender)
+      : getPortraitEquipLayout(layoutKey, owner);
     const style = `transform: translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100});`;
     const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
     const layerClassId = slotId === "weapon" ? "mainhand" : slotId;
@@ -2955,7 +3688,9 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
     )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(style)}" />`;
   });
   const fixedArmLayoutKey = getPortraitPlaceholderLayoutKey("offhand_fixed_arm", portraitGender);
-  const fixedArmLayout = getPortraitEquipLayout(fixedArmLayoutKey, owner);
+  const fixedArmLayout = useFightLayouts
+    ? getFightPortraitEquipLayout(fixedArmLayoutKey, portraitGender)
+    : getPortraitEquipLayout(fixedArmLayoutKey, owner);
   const fixedArmStyle = `transform: translate(${fixedArmLayout.offsetXPct}%, ${fixedArmLayout.offsetYPct}%) rotate(${fixedArmLayout.rotDeg}deg) scale(${fixedArmLayout.scalePct / 100});`;
   const fixedArmLayer = `<img class="portrait-equip-layer portrait-equip-layer--offhand-fixed-arm" src="${escapeAttr(
     getOffhandFixedArmOverlayImage(owner)
@@ -3496,6 +4231,17 @@ function refillCombatStamina(st) {
   st.quickActionsUsedThisTurn = 0;
 }
 
+function refillPartyMemberStamina(member, st) {
+  if (!member || typeof member.maxStamina !== "number") return;
+  const bonus = typeof member.staminaBonusNextTurn === "number" ? member.staminaBonusNextTurn : 0;
+  member.stamina = Math.min(member.maxStamina, member.maxStamina + (bonus > 0 ? bonus : 0));
+  member.staminaBonusNextTurn = 0;
+  if (member.kind === "hero" && st && !st.serverAuthoritative) {
+    st.stamina = member.stamina;
+    if (typeof member.maxStamina === "number") st.maxStamina = member.maxStamina;
+  }
+}
+
 function getAttackStaminaCost() {
   const sys = getStatSystem();
   return typeof sys.attackStaminaCost === "number" && sys.attackStaminaCost > 0 ? Math.floor(sys.attackStaminaCost) : 2;
@@ -3805,10 +4551,20 @@ function getActiveMonsterTauntSource(st) {
   );
 }
 
-function getForcedVanguardPartyUid(st) {
+/** @returns {number|null} party uid the taunted foe must attack */
+function getTauntedPartyTargetUid(st, attackingFoe) {
   ensureCombatParty(st);
-  const hero = st.party.find((m) => m && m.kind === "hero" && m.hp > 0);
-  return hero && typeof hero.uid === "number" ? hero.uid : null;
+  const living = (st.party || []).filter((m) => m && m.hp > 0);
+  if (!living.length || !attackingFoe?.combat) return null;
+  if ((attackingFoe.combat.tauntedByVanguardTurns || 0) <= 0) return null;
+  const uid = attackingFoe.combat.tauntedByVanguardTargetUid;
+  if (typeof uid === "number" && living.some((m) => m.uid === uid)) return uid;
+  const hero = living.find((m) => m.kind === "hero");
+  return hero && typeof hero.uid === "number" ? hero.uid : living[0].uid;
+}
+
+function getForcedVanguardPartyUid(st) {
+  return getTauntedPartyTargetUid(st, st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null);
 }
 
 function ensurePlayerClassCombatState(st) {
@@ -3916,6 +4672,10 @@ function getClassSkillCooldownTurns(skillName) {
 
 function getClassSkillCooldownRemaining(st, skillName) {
   if (!st || !skillName) return 0;
+  if (st.serverAuthoritative && st.skillCooldowns && typeof st.skillCooldowns === "object") {
+    const root = st.skillCooldowns[skillName];
+    if (typeof root === "number" && root > 0) return Math.floor(root);
+  }
   const cs = ensurePlayerClassCombatState(st);
   const v = cs.skillCooldowns[skillName];
   return typeof v === "number" && v > 0 ? Math.floor(v) : 0;
@@ -4306,9 +5066,12 @@ function getPredictedStaminaUsageScoreForPartyMember(member, st) {
   return 0;
 }
 
-function pickPartyTargetForMonsterTargetRule(st, targetRule) {
+function pickPartyTargetForMonsterTargetRule(st, targetRule, attackingFoe) {
   const living = getLivingPartyMembers(st);
   if (!living.length) return null;
+
+  const tauntedUid = getTauntedPartyTargetUid(st, attackingFoe || (st && st.__monsterDamageSourceFoe));
+  if (tauntedUid != null) return tauntedUid;
 
   const pickMax = (scoreFn) => living.reduce((a, b) => (scoreFn(a) >= scoreFn(b) ? a : b)).uid;
   const pickMin = (scoreFn) => living.reduce((a, b) => (scoreFn(a) <= scoreFn(b) ? a : b)).uid;
@@ -4503,14 +5266,13 @@ function dealRawDamageToPlayer(st, rawDamage, foeName, logVerb, opts) {
     return;
   }
   const srcFoe = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
-  const forcedVanguardUid =
-    srcFoe &&
-    srcFoe.combat &&
-    typeof srcFoe.combat.tauntedByVanguardTurns === "number" &&
-    srcFoe.combat.tauntedByVanguardTurns > 0
-      ? getForcedVanguardPartyUid(st)
-      : null;
-  const uid = forcedVanguardUid != null ? forcedVanguardUid : o && typeof o.partyUid === "number" ? o.partyUid : pickPartyTargetLowestHpUid(st);
+  const forcedTauntUid = getTauntedPartyTargetUid(st, srcFoe);
+  const uid =
+    forcedTauntUid != null
+      ? forcedTauntUid
+      : o && typeof o.partyUid === "number"
+        ? o.partyUid
+        : pickPartyTargetLowestHpUid(st);
   if (uid == null) return;
   dealRawDamageToPartyMember(st, uid, rawDamageAdj, foeName, logVerb);
 }
@@ -4621,7 +5383,13 @@ function tickPlayerTurnEndBuffs(st) {
     if (typeof f.combat.mitigationTurns === "number" && f.combat.mitigationTurns > 0) f.combat.mitigationTurns -= 1;
     if (typeof f.combat.reflectTurns === "number" && f.combat.reflectTurns > 0) f.combat.reflectTurns -= 1;
     if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
-    if (typeof f.combat.tauntedByVanguardTurns === "number" && f.combat.tauntedByVanguardTurns > 0) f.combat.tauntedByVanguardTurns -= 1;
+    if (typeof f.combat.tauntedByVanguardTurns === "number" && f.combat.tauntedByVanguardTurns > 0) {
+      f.combat.tauntedByVanguardTurns -= 1;
+      if (f.combat.tauntedByVanguardTurns <= 0) {
+        f.combat.tauntedByVanguardDamageDownPct = 0;
+        delete f.combat.tauntedByVanguardTargetUid;
+      }
+    }
     if (typeof f.combat.staggerDamageDownTurns === "number" && f.combat.staggerDamageDownTurns > 0) f.combat.staggerDamageDownTurns -= 1;
     if (typeof f.combat.weakenTurns === "number" && f.combat.weakenTurns > 0) f.combat.weakenTurns -= 1;
     if (typeof f.combat.staggerLockedTurns === "number" && f.combat.staggerLockedTurns > 0) f.combat.staggerLockedTurns -= 1;
@@ -7646,6 +8414,7 @@ function hydrateSpriteAnimations(root) {
 const PLAYER_TURN_SECONDS = 30;
 /** @type {ReturnType<typeof setInterval> | null} */
 let playerTurnTimerTick = null;
+let prepPhaseTimerTick = null;
 /** @type {ReturnType<typeof setInterval> | null} */
 let enemyTurnTimerTick = null;
 
@@ -7976,7 +8745,13 @@ function buildWorldCampMobThumbsHtmlFromUnits(units) {
   return units
     .map((u) => {
       const visual = getEnemyVisualByName(u.name, "walk");
-      return buildVisualHtml(visual, "mob-thumb mob-thumb--live", u.name, true);
+      let html = buildVisualHtml(visual, "mob-thumb mob-thumb--live", u.name, true);
+      if (html && html.includes("<img ")) {
+        html = html.replace("<img ", '<img loading="eager" decoding="async" ');
+      }
+      if (html) return html;
+      const label = typeof u.name === "string" && u.name.trim() ? u.name.trim() : "?";
+      return `<div class="mob-thumb mob-thumb--fallback mob-thumb--live" role="img" aria-label="${escapeAttr(label)}"><span class="mob-thumb-fallback-label">${escapeHtml(label)}</span></div>`;
     })
     .join("");
 }
@@ -8127,14 +8902,47 @@ function ensureMobPreview(x, y, si) {
   while (rec.defeated.length < slots) rec.defeated.push(null);
   while (rec.defeatedUnits.length < slots) rec.defeatedUnits.push(null);
   while (rec.mobPreviews.length < slots) rec.mobPreviews.push(null);
+  if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.() && window.MMOPresence) {
+    const cached = window.MMOPresence.getMapCellCache?.(key);
+    if (cached) applySharedMapCellFromServer(cached);
+    if (rec.mobPreviews[si] && rec.mobPreviews[si].units && rec.mobPreviews[si].units.length) {
+      return rec.mobPreviews[si];
+    }
+    if (isWorldMobSetDefeated(x, y, si)) return null;
+    window.MMOPresence.requestMapCellSync?.(x, y);
+    return null;
+  }
   if (rec.mobPreviews[si] && rec.mobPreviews[si].units && rec.mobPreviews[si].units.length) {
     return rec.mobPreviews[si];
   }
   const roll = rollMobComposition(pool, si, biome, { worldMap: true });
   rec.mobPreviews[si] = roll;
-  if (roll && Array.isArray(roll.units) && roll.units.length) recordMonsterSpawnsFromUnits(roll.units);
-  save();
+  if (roll && Array.isArray(roll.units) && roll.units.length) {
+    recordMonsterSpawnsFromUnits(roll.units);
+  }
   return roll;
+}
+
+/** Online: request server roll and wait for shared map_cell (do not roll locally). */
+async function ensureMobPreviewOnline(x, y, si) {
+  const preview = ensureMobPreview(x, y, si);
+  if (preview && preview.units && preview.units.length) return preview;
+  if (isWorldMobSetDefeated(x, y, si)) return null;
+  const key = worldMapKey(x, y);
+  if (window.MMOPresence?.requestMapCellSync) {
+    window.MMOPresence.requestMapCellSync(x, y);
+  }
+  if (window.MMOPresence?.waitForMapCell) {
+    const mapCell = await window.MMOPresence.waitForMapCell(key, 4000);
+    if (mapCell) applySharedMapCellFromServer(mapCell);
+  }
+  const rec = player.worldMap.cells[key];
+  const after = rec && rec.mobPreviews && rec.mobPreviews[si];
+  if (after && after.units && after.units.length) {
+    recordMonsterSpawnsFromUnits(after.units);
+    return after;
+  }
+  return null;
 }
 
 function getMonsterScalingConfig() {
@@ -8779,7 +9587,6 @@ function requestAllBiomeTexturesFromConfig() {
     const base = biomeBackgroundFolderBaseUrl(biome.name);
     if (!base) continue;
     requestBiomeTextureLoad(`${base}/${BIOME_TEXTURE_FILE}`);
-    requestBiomeTextureLoad(`${base}/${BIOME_BORDER_TEXTURE_FILE}`);
   }
   for (const cname of getWorldMapCityUniqueNames()) {
     const cbase = cityBackgroundFolderBaseUrl(cname);
@@ -9673,7 +10480,7 @@ function ensureWorldMapPosition() {
   if (nx !== player.worldMap.x || ny !== player.worldMap.y) {
     player.worldMap.x = nx;
     player.worldMap.y = ny;
-    save();
+    save({ flush: true });
   }
 }
 
@@ -11445,7 +12252,7 @@ function onAdventureSceneButtonClick(e) {
     }
     player.worldMap.x = tx;
     player.worldMap.y = ty;
-    save();
+    save({ flush: true });
     render();
     return true;
   }
@@ -11517,7 +12324,7 @@ function beginAdventureMapFade(_dx, _dy, nx, ny) {
   if (!pageRoot || !fadeEl) {
     player.worldMap.x = nx;
     player.worldMap.y = ny;
-    save();
+    save({ flush: true });
     render();
     return;
   }
@@ -11553,7 +12360,7 @@ function beginAdventureMapFade(_dx, _dy, nx, ny) {
     fadeEl.style.filter = "";
     player.worldMap.x = nx;
     player.worldMap.y = ny;
-    save();
+    save({ flush: true });
     render();
 
     const pr = document.getElementById("adventurePageScene") || document.getElementById("adventurePageRoot");
@@ -11666,7 +12473,8 @@ function moveWorldMap(dx, dy) {
   }
   player.worldMap.x = nx;
   player.worldMap.y = ny;
-  save();
+  save({ flush: true });
+  publishOnlinePresenceNow();
   render();
 }
 
@@ -11677,7 +12485,7 @@ function startDungeonEncounterFromAdventure() {
   startDungeonRoomCombat(dr.id, dr.roomIndex);
 }
 
-function startWorldMapFight(setIndex) {
+async function startWorldMapFight(setIndex) {
   const x = player.worldMap.x;
   const y = player.worldMap.y;
   const cellCfg = getCoordinateCellConfig(x, y);
@@ -11689,8 +12497,18 @@ function startWorldMapFight(setIndex) {
   if (!biome.passable) return;
   const pool = biome.possibleEnemies;
   if (!pool || !pool.length) return;
-  const preview = ensureMobPreview(x, y, setIndex);
-  if (!preview || !preview.units || !preview.units.length) return;
+  const preview =
+    typeof window !== "undefined" &&
+    window.GameStorage?.isOnlineMode?.() &&
+    window.MMOPresence
+      ? await ensureMobPreviewOnline(x, y, setIndex)
+      : ensureMobPreview(x, y, setIndex);
+  if (!preview || !preview.units || !preview.units.length) {
+    if (window.GameStorage?.isOnlineMode?.()) {
+      showModal("Could not load encounter data from the server. Try again in a moment.");
+    }
+    return;
+  }
   const region = { name: biome.name, enemyScale: biome.enemyScale || 1 };
   beginTurnCombat(region, { units: preview.units }, { x, y, setIndex });
 }
@@ -12109,6 +12927,15 @@ function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, compani
     });
   });
   collectProfessionGatheringLootForFoe(foe, def, mult, player, 1).forEach((n) => hero.push(n));
+  if ((foe?.isBoss === true || (def && def.isBoss === true)) && !hero.length && allMats.length) {
+    let sig = allMats[0];
+    for (const mat of allMats) {
+      if (!mat?.name) continue;
+      const rate = Number(mat.dropRate) || 0;
+      if (rate > (Number(sig?.dropRate) || 0)) sig = mat;
+    }
+    if (sig?.name) hero.push(String(sig.name).trim());
+  }
   const profBySlot = collectCompanionProfessionLootForFoeAttributed(foe, def, mult, perKillMaterials, entries);
   Object.keys(profBySlot).forEach((slot) => {
     const idx = Number(slot);
@@ -12488,8 +13315,13 @@ function getFoeCombatStatusEffectLines(foe) {
   const c = foe.combat;
   if ((c.tauntPlayerTurns || 0) > 0) lines.push(`Taunting you (${c.tauntPlayerTurns}t): you must target this foe`);
   if ((c.tauntedByVanguardTurns || 0) > 0) {
+    let targetHint = "";
+    if (typeof c.tauntedByVanguardTargetUid === "number" && combatState?.party) {
+      const forced = combatState.party.find((m) => m && m.uid === c.tauntedByVanguardTargetUid);
+      if (forced?.name) targetHint = `; must attack ${forced.name}`;
+    }
     lines.push(
-      `Player taunt (${c.tauntedByVanguardTurns}t): −${roundCombatDisplay(c.tauntedByVanguardDamageDownPct)}% damage it deals`
+      `Player taunt (${c.tauntedByVanguardTurns}t): −${roundCombatDisplay(c.tauntedByVanguardDamageDownPct)}% damage it deals${targetHint}`
     );
   }
   if ((c.mitigationTurns || 0) > 0 && typeof c.mitigationMult === "number" && c.mitigationMult > 0 && c.mitigationMult < 1) {
@@ -12678,6 +13510,112 @@ function clearPlayerTurnTimer() {
     clearInterval(playerTurnTimerTick);
     playerTurnTimerTick = null;
   }
+}
+
+function clearPrepPhaseTimer() {
+  if (prepPhaseTimerTick) {
+    clearInterval(prepPhaseTimerTick);
+    prepPhaseTimerTick = null;
+  }
+}
+
+function syncPrepPhaseTimerDisplay() {
+  const st = combatState;
+  const el = document.getElementById("fightPrepTimer");
+  if (!el || !st || st.phase !== "prep") return;
+  const endMs = typeof st.prepEndsAt === "number" ? st.prepEndsAt : 0;
+  if (!endMs) {
+    el.textContent = "—";
+    return;
+  }
+  const left = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
+  el.textContent = `${left}s`;
+  el.setAttribute("data-end-at", String(endMs));
+}
+
+function startPrepPhaseTimer() {
+  clearPrepPhaseTimer();
+  const st = combatState;
+  if (!st || st.phase !== "prep") return;
+  syncPrepPhaseTimerDisplay();
+  prepPhaseTimerTick = setInterval(() => {
+    const cur = combatState;
+    if (!cur || cur.phase !== "prep") {
+      clearPrepPhaseTimer();
+      return;
+    }
+    syncPrepPhaseTimerDisplay();
+  }, 250);
+}
+
+function fightActorSnapshotFromMember(member) {
+  const pg =
+    typeof member.portraitGender === "string" && member.portraitGender.trim()
+      ? member.portraitGender.trim()
+      : typeof member.gender === "string" && member.gender.trim()
+        ? member.gender.trim()
+        : "male";
+  return {
+    name: member.name,
+    portraitGender: pg,
+    gender: pg,
+    class: member.portraitClass,
+    portraitImage: member.portraitImage,
+    equipment: member.equipment || emptyEquipment(),
+    enabled: true
+  };
+}
+
+function resolveFightAllyActor(member) {
+  if (!member) return null;
+  const st = combatState;
+  const online = !!(st && st.serverAuthoritative);
+  const myUid =
+    typeof window !== "undefined" && window.ServerCombat && window.ServerCombat.getMyUserId
+      ? window.ServerCombat.getMyUserId()
+      : typeof window !== "undefined" && window.MMOPresence && window.MMOPresence.getMyUserId
+        ? window.MMOPresence.getMyUserId()
+        : null;
+  const hasController = typeof member.controllerUserId === "number";
+  const isMine = online
+    ? hasController && typeof myUid === "number" && Number(member.controllerUserId) === Number(myUid)
+    : member.kind === "hero" ||
+      (member.kind === "companion" && Number.isFinite(member.companionSlotIndex));
+  if (isMine) {
+    if (member.kind === "hero") return player;
+    if (member.kind === "companion" && Number.isFinite(member.companionSlotIndex)) {
+      return player.companions && player.companions[member.companionSlotIndex];
+    }
+  }
+  return fightActorSnapshotFromMember(member);
+}
+
+function buildFightAllyPortraitHtml(member, st) {
+  const auraTypes = getCombatStatusAuraTypesForAlly(member, st);
+  const statusAuras = buildFightCardStatusAuraHtml(auraTypes);
+  const actor = resolveFightAllyActor(member);
+  if (member.kind === "hero" && actor) {
+    const heroState = actor === player ? getCombatHeroVisualState() : "idle";
+    return `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
+      getHeroImageForState(heroState, getActorPortraitGender(actor)),
+      getFightPortraitBaseLayout(actor),
+      "",
+      actor.equipment || emptyEquipment(),
+      actor,
+      "fight"
+    )}${statusAuras}</div>`;
+  }
+  if (member.kind === "companion" && actor) {
+    return `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
+      getActorPortraitBaseImage(actor, "idle"),
+      getFightPortraitBaseLayout(actor),
+      "",
+      actor.equipment || emptyEquipment(),
+      actor,
+      "fight"
+    )}${statusAuras}</div>`;
+  }
+  return `<div class="fight-portrait-wrap fight-portrait-wrap--ally"><img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(member.name))}" alt="" />${statusAuras}</div>`;
 }
 
 function clearEnemyTurnTimer() {
@@ -13072,12 +14010,10 @@ function buildCombatSkillButtonsHtml(st, actor, isHero, activeMember) {
   if (!actor) return "";
   ensureActorSkillBar(actor);
   const readonly = st.phase === "ended";
-  const stam = isHero
-    ? typeof st.stamina === "number"
+  const stam = activeMember
+    ? getPartyMemberStamina(activeMember, st)
+    : isHero && typeof st.stamina === "number"
       ? st.stamina
-      : 0
-    : activeMember && typeof activeMember.stamina === "number"
-      ? activeMember.stamina
       : 0;
   let html = "";
   for (let slotIdx = 0; slotIdx < SKILL_BAR_SLOT_COUNT; slotIdx++) {
@@ -13087,9 +14023,14 @@ function buildCombatSkillButtonsHtml(st, actor, isHero, activeMember) {
     const sk = getSkillDef(skName);
     if (!sk || typeof sk.combatMultiplier !== "number") continue;
     const sImg = escapeAttr(getSkillImage(sk.name));
-    const sc = isHero
-      ? resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name)
-      : getSkillStaminaCost(sk.name);
+    const sc =
+      st.serverAuthoritative && typeof SKILL_CATALOG !== "undefined" && SKILL_CATALOG[sk.name]
+        ? typeof SKILL_CATALOG[sk.name].stamina === "number"
+          ? Math.max(0, Math.floor(SKILL_CATALOG[sk.name].stamina))
+          : getSkillStaminaCost(sk.name)
+        : isHero
+          ? resolveSkillStaminaCost(getSkillStaminaCost(sk.name), sk.name)
+          : getSkillStaminaCost(sk.name);
     const cdLeft = getClassSkillCooldownRemaining(st, sk.name);
     const onCd = cdLeft > 0;
     const staminaBlocked = !readonly && !onCd && stam < sc;
@@ -13115,6 +14056,10 @@ function buildCombatSkillButtonsHtml(st, actor, isHero, activeMember) {
 }
 
 function syncFightEmbeddedChat() {
+  if (typeof window !== "undefined" && window.MMOChat && typeof window.MMOChat.renderLog === "function") {
+    window.MMOChat.renderLog();
+    return;
+  }
   const src = document.getElementById("bottomChatLog");
   const dst = document.getElementById("fightChatLog");
   if (!src || !dst) return;
@@ -13162,45 +14107,20 @@ function renderTurnBattle() {
   hideItemTooltip();
 
   ensureCombatTarget();
-  ensureCombatParty(st);
+  if (!st.serverAuthoritative) ensureCombatParty(st);
 
-  ensureActivePartyUid(st);
+  if (st.phase !== "prep") ensureActivePartyUid(st);
   const megaLeviathanPortrait = isStormbreakHollowLeviathanBossRoomFight(st);
   let partyHtml = "";
   (st.party || [])
-    .filter((m) => m && m.hp > 0)
+    .filter((m) => m && (st.phase === "prep" || m.hp > 0))
     .forEach((m) => {
       const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
       const isActive = st.phase === "player" && st.activePartyUid === m.uid && !m.acted;
       const hasActed = st.phase === "player" && !!m.acted;
       const isTargeted = st.phase === "player" && st.selectedAllyUid === m.uid && m.hp > 0;
       const auraTypes = getCombatStatusAuraTypesForAlly(m, st);
-      const statusAuras = buildFightCardStatusAuraHtml(auraTypes);
-      let portraitHtml;
-      if (m.kind === "hero") {
-        portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
-          getHeroImageForState(getCombatHeroVisualState()),
-          getPortraitBaseLayout(),
-          ""
-        )}${statusAuras}</div>`;
-      } else if (
-        m.kind === "companion" &&
-        typeof m.companionSlotIndex === "number" &&
-        player.companions &&
-        player.companions[m.companionSlotIndex]
-      ) {
-        const comp = player.companions[m.companionSlotIndex];
-        portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally">${buildPortraitLayeredStackHtml(
-          getActorPortraitBaseImage(comp, "idle"),
-          getPortraitBaseLayoutForOwner(comp),
-          "",
-          comp.equipment || emptyEquipment(),
-          comp,
-          String(m.companionSlotIndex)
-        )}${statusAuras}</div>`;
-      } else {
-        portraitHtml = `<div class="fight-portrait-wrap fight-portrait-wrap--ally"><img class="fight-portrait-img fight-portrait-img--ally" src="${escapeAttr(getItemImage(m.name))}" alt="" />${statusAuras}</div>`;
-      }
+      const portraitHtml = buildFightAllyPortraitHtml(m, st);
       const cardCls = [
         "fight-ally-card",
         isActive ? "fight-ally-card--active" : "",
@@ -13291,10 +14211,13 @@ function renderTurnBattle() {
       const stamEnd = typeof st.stamina === "number" ? st.stamina : 0;
       const maxSEnd = typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina();
       const skillBtnsPreview = buildCombatSkillButtonsHtml(st, player, true, null);
-      const won = st.endOutcome !== "defeat";
-      const hintEnd = won
-        ? "Victory — each party member's XP, gold, and loot are listed in the results panel."
-        : "Defeat — no rewards. Close when ready.";
+      const abandoned = st.endOutcome === "abandoned";
+      const won = !abandoned && st.endOutcome !== "defeat";
+      const hintEnd = abandoned
+        ? "You left the fight."
+        : won
+          ? "Victory — each party member's XP, gold, and loot are listed in the results panel."
+          : "Defeat — no rewards. Close when ready.";
       actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span class="fight-turn-timer fight-turn-timer--inactive">—</span></div>
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stamEnd} / ${maxSEnd}</span></div>
           <p class="fight-hint">${hintEnd}</p>
@@ -13303,9 +14226,43 @@ function renderTurnBattle() {
             <button type="button" class="btn-secondary" disabled data-fight-action="leave">Leave (forfeit)</button>
             ${skillBtnsPreview}
           </div>`;
+    } else if (st.phase === "prep") {
+      actionsEl.classList.remove("hidden");
+      const prepEnd = st.prepEndsAt || 0;
+      const secsLeft = prepEnd > Date.now() ? Math.ceil((prepEnd - Date.now()) / 1000) : 0;
+      const isHost =
+        typeof window !== "undefined" &&
+        window.ServerCombat &&
+        typeof window.ServerCombat.isFightHost === "function" &&
+        window.ServerCombat.isFightHost();
+      const readyBtn = isHost
+        ? `<button type="button" class="btn-primary fight-ready-btn" data-fight-action="ready" title="Start fight now">Ready</button>`
+        : `<button type="button" class="btn-secondary fight-ready-btn" disabled title="Waiting for host">Waiting for host…</button>`;
+      const prepRoster = Array.isArray(st.participants) ? st.participants : [];
+      const rosterHint =
+        prepRoster.length > 0
+          ? `<p class="fight-hint fight-hint--prep-roster">Fighters: ${prepRoster
+              .map((p) => escapeHtml(p.name || "Hero"))
+              .join(", ")}</p>`
+          : "";
+      actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Prep time</span><span id="fightPrepTimer" class="fight-turn-timer" data-end-at="${prepEnd}">${secsLeft}s</span></div>
+          <p class="fight-hint">Party members on this tile can join. When the host readies up or the timer ends, the fight locks.</p>
+          ${rosterHint}
+          <div class="fight-action-row fight-action-row--prep">
+            ${readyBtn}
+            <button type="button" class="btn-secondary" data-fight-action="leave">Leave</button>
+          </div>`;
     } else if (st.phase === "player") {
       actionsEl.classList.remove("hidden");
-      const active = getActivePartyMember(st);
+      const canAct =
+        !st.serverAuthoritative ||
+        (typeof window !== "undefined" &&
+          window.ServerCombat &&
+          typeof window.ServerCombat.canControlActiveMember === "function" &&
+          window.ServerCombat.canControlActiveMember());
+      if (st.serverAuthoritative && canAct) syncCombatStaminaUiForServerState(st);
+      const active =
+        (canAct ? getCombatUiPartyMember(st) : null) || getActivePartyMember(st);
       if (!active) {
         actionsEl.innerHTML = `<p class="fight-hint">All allies have ended their turn.</p>
           <div class="fight-action-row">
@@ -13313,20 +14270,40 @@ function renderTurnBattle() {
           </div>`;
       } else {
         const isHero = active.kind === "hero";
-        const actor = isHero
-          ? player
-          : (typeof active.companionSlotIndex === "number" ? player.companions[active.companionSlotIndex] : null);
-        const stam = isHero
-          ? (typeof st.stamina === "number" ? st.stamina : 0)
-          : (typeof active.stamina === "number" ? active.stamina : 0);
-        const maxS = isHero
-          ? (typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina())
-          : (typeof active.maxStamina === "number" ? active.maxStamina : (actor ? getActorCombatMaxStamina(actor) : 0));
-        const skillBtns = buildCombatSkillButtonsHtml(st, actor, isHero, active);
+        const actor = resolveFightAllyActor(active);
+        const stam = getPartyMemberStamina(active, st);
+        const maxS =
+          typeof active.maxStamina === "number"
+            ? active.maxStamina
+            : isHero
+              ? actor
+                ? getActorCombatMaxStamina(actor)
+                : typeof st.maxStamina === "number"
+                  ? st.maxStamina
+                  : getPlayerCombatMaxStamina()
+              : actor
+                ? getActorCombatMaxStamina(actor)
+                : 0;
+        const skillBtns = canAct ? buildCombatSkillButtonsHtml(st, actor, isHero, active) : "";
+        const turnMember =
+          getActivePartyMember(st) ||
+          (st.party || []).find((m) => m && m.uid === st.activePartyUid && m.hp > 0);
+        const turnBanner =
+          turnMember && st.serverAuthoritative
+            ? `<p class="fight-turn-banner${canAct ? " fight-turn-banner--yours" : ""}" aria-live="polite">${
+                canAct ? "Your turn" : `${escapeHtml(turnMember.name || "Ally")}'s turn`
+              }</p>`
+            : "";
+        const waitHint =
+          canAct || turnBanner
+            ? ""
+            : `<p class="fight-hint">Waiting for another player's turn…</p>`;
         actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
+          ${turnBanner}
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
+          ${waitHint}
           <div class="fight-action-row">
-            <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass" title="End turn (Space or F1)">End turn</button>
+            <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass" title="End turn (Space or F1)"${canAct ? "" : " disabled"}>End turn</button>
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
             ${skillBtns}
           </div>`;
@@ -13343,12 +14320,21 @@ function renderTurnBattle() {
   }
 
   clearEnemyTurnTimer();
-  if (st.phase === "player") {
+  if (st.phase === "prep") {
+    clearPlayerTurnTimer();
+    clearEnemyTurnTimer();
+    startPrepPhaseTimer();
+    const fightTitleElPrep = document.querySelector("#fightOverlay .fight-title");
+    if (fightTitleElPrep) fightTitleElPrep.textContent = "Preparation";
+  } else if (st.phase === "player") {
+    clearPrepPhaseTimer();
     startPlayerTurnTimer();
   } else if (st.phase === "enemy") {
+    clearPrepPhaseTimer();
     clearPlayerTurnTimer();
     startEnemyTurnTimer();
   } else {
+    clearPrepPhaseTimer();
     clearPlayerTurnTimer();
     clearEnemyTurnTimer();
     const tEl = document.getElementById("fightTurnTimer");
@@ -13365,8 +14351,19 @@ function renderTurnBattle() {
 
   const fightTitleEl = document.querySelector("#fightOverlay .fight-title");
   if (fightTitleEl) {
-    if (st.phase === "ended") fightTitleEl.textContent = st.endOutcome === "defeat" ? "Defeat" : "Victory";
-    else fightTitleEl.textContent = "Combat";
+    if (st.phase === "ended") {
+      fightTitleEl.textContent =
+        st.endOutcome === "defeat" ? "Defeat" : st.endOutcome === "abandoned" ? "Left fight" : "Victory";
+    } else if (st.phase === "prep") {
+      fightTitleEl.textContent = "Preparation";
+    } else if (st.phase === "player" && st.serverAuthoritative) {
+      const turnMember = getActivePartyMember(st);
+      fightTitleEl.textContent = turnMember
+        ? `${turnMember.name || "Ally"}'s turn`
+        : "Combat";
+    } else {
+      fightTitleEl.textContent = "Combat";
+    }
   }
 
   syncFightEmbeddedChat();
@@ -13567,16 +14564,25 @@ function showFightResults(victory, result) {
               items: result.items || []
             }
           ];
+    const st = combatState;
+    const coopSplitNote =
+      st?.serverAuthoritative &&
+      (typeof st.participantCount === "number"
+        ? st.participantCount > 1
+        : Array.isArray(st.participants) && st.participants.length > 1)
+        ? `<p class="fight-results-coop-note muted">Gold and loot are rolled separately for each player.</p>`
+        : "";
     const membersHtml = members.map((m) => buildFightVictoryMemberHtml(m)).join("");
     el.innerHTML = `<div class="fight-results-head fight-results-head--win" id="${titleId}">Victory</div>
       <div class="fight-results-body">
+        ${coopSplitNote}
         <div class="fight-results-members">${membersHtml}</div>
       </div>
       ${closeFooter}`;
   } else {
-    el.innerHTML = `<div class="fight-results-head fight-results-head--lose" id="${titleId}">Defeat</div>
+    el.innerHTML = `<div class="fight-results-head fight-results-head--lose" id="${titleId}">${result?.leftFight ? "Left fight" : "Defeat"}</div>
       <div class="fight-results-body">
-        <p class="fight-results-msg">You were defeated. No XP, gold, or loot.</p>
+        <p class="fight-results-msg">${result?.leftFight ? "You left the fight. No XP, gold, or loot." : "You were defeated. No XP, gold, or loot."}</p>
       </div>
       ${closeFooter}`;
   }
@@ -13584,9 +14590,77 @@ function showFightResults(victory, result) {
   if (btn) btn.onclick = () => closeFightOverlay();
 }
 
+/** Apply server-computed fight outcome (rewards already on {@link player}). */
+function applyServerFightResult(result) {
+  const st = combatState;
+  if (!st || !result) return;
+  st.phase = "ended";
+  st.endOutcome = result.leftFight ? "left" : result.victory ? "victory" : "defeat";
+  if (typeof result.finalPlayerHp === "number") {
+    player.hp = Math.max(1, result.finalPlayerHp);
+  }
+  syncCombatPartyHeroMirror(st);
+  syncCompanionHpFromCombatParty(st);
+  migratePlayer(player);
+  levelUpActor(player);
+  if (Array.isArray(player.companions)) {
+    player.companions.forEach((c) => {
+      if (c) levelUpActor(c);
+    });
+  }
+  if (result.victory) {
+    const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
+    recordMonsterKillsFromNames(killedNamesAll);
+    if (!st.serverAuthoritative) {
+      if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
+        player.worldMap.dungeonPostCombat = {
+          dungeonId: st.worldMapContext.dungeonId.trim(),
+          roomIndex: typeof st.worldMapContext.roomIndex === "number" ? st.worldMapContext.roomIndex : 0,
+          victory: true
+        };
+      } else if (st.worldMapContext && typeof st.worldMapContext.x === "number" && typeof st.worldMapContext.y === "number") {
+        const { x, y, setIndex } = st.worldMapContext;
+        const key = worldMapKey(x, y);
+        const cellCfg = getCoordinateCellConfig(x, y);
+        const slots = getEncounterSlotCountForCell(x, y, cellCfg);
+        if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], defeatedUnits: [], mobPreviews: [] };
+        if (!Array.isArray(player.worldMap.cells[key].defeated)) player.worldMap.cells[key].defeated = [];
+        if (!Array.isArray(player.worldMap.cells[key].defeatedUnits)) player.worldMap.cells[key].defeatedUnits = [];
+        if (!Array.isArray(player.worldMap.cells[key].mobPreviews)) player.worldMap.cells[key].mobPreviews = [];
+        while (player.worldMap.cells[key].defeated.length < slots) player.worldMap.cells[key].defeated.push(null);
+        while (player.worldMap.cells[key].defeatedUnits.length < slots) player.worldMap.cells[key].defeatedUnits.push(null);
+        while (player.worldMap.cells[key].mobPreviews.length < slots) player.worldMap.cells[key].mobPreviews.push(null);
+        player.worldMap.cells[key].defeated[setIndex] = Date.now();
+        player.worldMap.cells[key].defeatedUnits[setIndex] = killedNamesAll;
+        player.worldMap.cells[key].mobPreviews[setIndex] = null;
+      }
+    }
+    showFightResults(true, result);
+  } else {
+    if (
+      !result.leftFight &&
+      st.worldMapContext &&
+      typeof st.worldMapContext.dungeonId === "string" &&
+      st.worldMapContext.dungeonId.trim()
+    ) {
+      player.worldMap.dungeonPostCombat = {
+        dungeonId: st.worldMapContext.dungeonId.trim(),
+        defeat: true
+      };
+    }
+    showFightResults(false, result);
+  }
+  ensureCharacterRoster();
+  characterRoster.slots[activeCharacterSlotIndex] = player;
+  save({ flush: true });
+  renderTurnBattle();
+}
+window.applyServerFightResult = applyServerFightResult;
+
 function finishCombatVictory() {
   const st = combatState;
   if (!st) return;
+  if (st.serverAuthoritative) return;
   st.phase = "ended";
   st.endOutcome = "victory";
   syncCombatPartyHeroMirror(st);
@@ -13636,6 +14710,7 @@ function finishCombatVictory() {
 function finishCombatDefeat() {
   const st = combatState;
   if (!st) return;
+  if (st.serverAuthoritative) return;
   st.phase = "ended";
   st.endOutcome = "defeat";
   syncCombatPartyHeroMirror(st);
@@ -13819,6 +14894,13 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         targetFoe.combat.tauntedByVanguardTurns = Math.max(targetFoe.combat.tauntedByVanguardTurns || 0, turns);
         const dmgDown = clampNumber(8, 18, 6 + Math.floor(totalVit() / 80) + lv);
         targetFoe.combat.tauntedByVanguardDamageDownPct = Math.max(targetFoe.combat.tauntedByVanguardDamageDownPct || 0, dmgDown);
+        const taunter =
+          st.party && typeof st.activePartyUid === "number"
+            ? st.party.find((m) => m && m.uid === st.activePartyUid && m.hp > 0)
+            : st.party && st.party.find((m) => m && m.kind === "hero" && m.hp > 0);
+        if (taunter && typeof taunter.uid === "number") {
+          targetFoe.combat.tauntedByVanguardTargetUid = taunter.uid;
+        }
         appendFightLogFlavorWithEffects(`You taunt ${targetFoe.name} and draw its focus.`, [
           `${targetFoe.combat.tauntedByVanguardTurns}t taunt`,
           `It deals −${roundCombatDisplay(targetFoe.combat.tauntedByVanguardDamageDownPct)}% damage while taunted`
@@ -14212,15 +15294,91 @@ function applyPlayerClassSkillOnHit(st, skillName, foe, dmg, crit) {
 
 function getPartyMemberStamina(member, st) {
   if (!member || !st) return 0;
-  if (member.kind === "hero") return typeof st.stamina === "number" ? st.stamina : 0;
-  return typeof member.stamina === "number" ? member.stamina : 0;
+  const fromMember = typeof member.stamina === "number" ? member.stamina : null;
+  const fromGlobal =
+    member.kind === "hero" && typeof st.stamina === "number" ? st.stamina : null;
+  const onlineParty =
+    st.serverAuthoritative &&
+    (typeof st.participantCount === "number"
+      ? st.participantCount > 1
+      : coopHeroTurnsOnlyClient(st));
+  if (onlineParty && member.kind === "hero") {
+    if (fromMember != null && fromGlobal != null) return Math.max(fromMember, fromGlobal);
+    if (fromMember != null) return fromMember;
+    if (fromGlobal != null) return fromGlobal;
+    return 0;
+  }
+  if (fromMember != null) return fromMember;
+  if (member.kind === "hero" && typeof st.stamina === "number") return st.stamina;
+  return 0;
+}
+
+/** Party member whose stamina/controls the action row should reflect (online co-op). */
+function getCombatUiPartyMember(st) {
+  if (!st) return null;
+  if (!st.serverAuthoritative) return getActivePartyMember(st);
+  const canControl =
+    typeof window !== "undefined" &&
+    window.ServerCombat &&
+    typeof window.ServerCombat.canControlActiveMember === "function" &&
+    window.ServerCombat.canControlActiveMember();
+  if (!canControl) return getActivePartyMember(st);
+  const myUid =
+    typeof window !== "undefined" && window.ServerCombat && window.ServerCombat.getMyUserId
+      ? window.ServerCombat.getMyUserId()
+      : typeof window !== "undefined" && window.MMOPresence && window.MMOPresence.getMyUserId
+        ? window.MMOPresence.getMyUserId()
+        : null;
+  if (typeof myUid !== "number") return getActivePartyMember(st);
+  const heroesOnly = coopHeroTurnsOnlyClient(st);
+  const active = getActivePartyMember(st);
+  if (active && Number(active.controllerUserId) === Number(myUid)) return active;
+  const mine = (st.party || []).find(
+    (m) =>
+      m &&
+      m.hp > 0 &&
+      !m.acted &&
+      Number(m.controllerUserId) === Number(myUid) &&
+      (!heroesOnly || m.kind === "hero")
+  );
+  return mine || active;
+}
+
+function syncCombatStaminaUiFromMember(st, member) {
+  if (!st || !member) return;
+  if (typeof member.maxStamina === "number") st.maxStamina = member.maxStamina;
+  const stam = getPartyMemberStamina(member, st);
+  if (member.kind === "hero") {
+    member.stamina = stam;
+    st.stamina = stam;
+  }
+}
+
+/** Keep action-panel stamina in sync after server state (online). */
+function syncCombatStaminaUiForServerState(st) {
+  if (!st?.serverAuthoritative || st.phase !== "player") return;
+  const canControl =
+    typeof window !== "undefined" &&
+    window.ServerCombat &&
+    typeof window.ServerCombat.canControlActiveMember === "function" &&
+    window.ServerCombat.canControlActiveMember();
+  const member = getCombatUiPartyMember(st);
+  if (!member) return;
+  syncCombatStaminaUiFromMember(st, member);
+  if (canControl && member.uid != null) {
+    st.activePartyUid = member.uid;
+    st.selectedAllyUid = member.uid;
+  }
 }
 
 function setPartyMemberStamina(member, st, value) {
   if (!member || !st) return;
-  const v = Math.max(0, Math.floor(value));
-  if (member.kind === "hero") st.stamina = v;
-  else member.stamina = v;
+  let v = Math.max(0, Math.floor(value));
+  if (typeof member.maxStamina === "number") v = Math.min(member.maxStamina, v);
+  member.stamina = v;
+  if (member.kind === "hero" && !st.serverAuthoritative) {
+    st.stamina = v;
+  }
 }
 
 function adjustPartyMemberStamina(member, st, delta) {
@@ -14463,21 +15621,55 @@ function playerCombatAction(kind, skillName) {
   if (!member || member.kind !== "hero") return;
   partyMemberCombatAction(member, player, kind, skillName);
 }
+function coopHeroTurnsOnlyClient(st) {
+  if (!st?.serverAuthoritative) return false;
+  if (typeof st.participantCount === "number" && st.participantCount > 1) return true;
+  const heroControllers = new Set();
+  let heroCount = 0;
+  (st.party || []).forEach((m) => {
+    if (!m || m.kind !== "hero" || m.hp <= 0) return;
+    heroCount += 1;
+    if (typeof m.controllerUserId === "number") heroControllers.add(m.controllerUserId);
+  });
+  return heroControllers.size > 1 || heroCount > 1;
+}
+
+function eligibleActingMembersClient(st) {
+  const heroesOnly = coopHeroTurnsOnlyClient(st);
+  return (st.party || []).filter((m) => {
+    if (!m || m.hp <= 0 || m.acted) return false;
+    if (heroesOnly && m.kind !== "hero") return false;
+    return true;
+  });
+}
+
 function getActivePartyMember(st) {
   if (!st || !Array.isArray(st.party)) return null;
-  return st.party.find((m) => m && m.uid === st.activePartyUid && m.hp > 0 && !m.acted) || null;
+  const heroesOnly = coopHeroTurnsOnlyClient(st);
+  let m = st.party.find((x) => x && x.uid === st.activePartyUid && x.hp > 0 && !x.acted) || null;
+  if (m && heroesOnly && m.kind !== "hero") m = null;
+  if (!m && st.phase === "player") {
+    const elig = eligibleActingMembersClient(st);
+    m = elig[0] || null;
+    if (m) {
+      st.activePartyUid = m.uid;
+      st.selectedAllyUid = m.uid;
+    }
+  }
+  return m;
 }
 
 function ensureActivePartyUid(st) {
   if (!st || !Array.isArray(st.party)) return;
   if (st.phase !== "player") return;
-  const elig = st.party.filter((m) => m && m.hp > 0 && !m.acted);
+  const elig = eligibleActingMembersClient(st);
   if (!elig.length) {
     st.activePartyUid = null;
     return;
   }
   if (st.activePartyUid == null || !elig.some((m) => m.uid === st.activePartyUid)) {
     st.activePartyUid = elig[0].uid;
+    st.selectedAllyUid = elig[0].uid;
   }
 }
 
@@ -14521,6 +15713,25 @@ function companionCombatAction(member, kind, skillName) {
 function activeActorAction(kind, skillName) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
+  if (st.serverAuthoritative && typeof window !== "undefined" && window.ServerCombat) {
+    if (kind === "attack") {
+      void window.ServerCombat.submitAction({ type: "attack", targetUid: st.selectedUid });
+    } else if (kind === "skill") {
+      const mode = skillName ? getFightSkillTargetMode(skillName) : "enemy";
+      const targetUid =
+        mode === "ally" || mode === "self"
+          ? st.selectedAllyUid
+          : mode === "party"
+            ? st.activePartyUid
+            : st.selectedUid;
+      void window.ServerCombat.submitAction({
+        type: "skill",
+        skillName: skillName || "",
+        targetUid
+      });
+    }
+    return;
+  }
   ensureActivePartyUid(st);
   const active = getActivePartyMember(st);
   if (!active) return;
@@ -14535,6 +15746,10 @@ function endActiveActorTurn(auto) {
   const st = combatState;
   if (!st || st.phase !== "player") return;
   clearPlayerTurnTimer();
+  if (st.serverAuthoritative && typeof window !== "undefined" && window.ServerCombat) {
+    void window.ServerCombat.submitAction({ type: "pass" });
+    return;
+  }
   ensureActivePartyUid(st);
   const active = getActivePartyMember(st);
   if (active) {
@@ -14544,8 +15759,13 @@ function endActiveActorTurn(auto) {
   }
   const next = (st.party || []).find((m) => m && m.hp > 0 && !m.acted);
   if (next) {
+    if (!active || next.uid !== active.uid) refillPartyMemberStamina(next, st);
     st.activePartyUid = next.uid;
     st.selectedAllyUid = next.uid;
+    if (st.serverAuthoritative && next.kind === "hero") {
+      st.stamina = next.stamina;
+      if (typeof next.maxStamina === "number") st.maxStamina = next.maxStamina;
+    }
     renderTurnBattle();
     startPlayerTurnTimer();
     return;
@@ -14556,6 +15776,10 @@ function endActiveActorTurn(auto) {
 function playerForfeitCurrentFight() {
   const st = combatState;
   if (!st || st.phase === "ended") return;
+  if (st.serverAuthoritative && typeof window !== "undefined" && window.ServerCombat) {
+    void window.ServerCombat.submitAction({ type: "forfeit" });
+    return;
+  }
   clearPlayerTurnTimer();
   appendFightLog(`${player.name} leaves the fight and is defeated.`);
   st.playerHp = 1;
@@ -14596,6 +15820,67 @@ function onFightOverlayClick(ev) {
   const t = ev.target;
   if (t.closest("[data-fight-action='leave']")) {
     playerForfeitCurrentFight();
+    return;
+  }
+  if (st.serverAuthoritative && typeof window !== "undefined" && window.ServerCombat) {
+    if (t.closest("[data-fight-action='ready']")) {
+      void window.ServerCombat.submitAction({ type: "ready" });
+      return;
+    }
+    if (st.phase === "prep") return;
+    if (st.phase !== "player") return;
+    if (
+      typeof window.ServerCombat.canControlActiveMember === "function" &&
+      !window.ServerCombat.canControlActiveMember()
+    ) {
+      return;
+    }
+    const allyCard = t.closest("[data-party-member]");
+    if (allyCard) {
+      const uid = parseInt(allyCard.getAttribute("data-party-member"), 10);
+      const m = (st.party || []).find((x) => x && x.uid === uid);
+      if (m && m.hp > 0) {
+        st.selectedAllyUid = uid;
+        if (!m.acted && st.activePartyUid !== uid) st.activePartyUid = uid;
+        updateFightAllySelection();
+      }
+      return;
+    }
+    const card = t.closest("[data-fight-target]");
+    if (card) {
+      const uid = parseInt(card.getAttribute("data-fight-target"), 10);
+      const foe = st.foes.find((f) => f.uid === uid);
+      if (foe && foe.hp > 0) {
+        st.selectedUid = uid;
+        updateFightTargetSelection();
+      }
+      return;
+    }
+    if (t.closest("[data-fight-action='pass']")) {
+      void window.ServerCombat.submitAction({ type: "pass" });
+      return;
+    }
+    if (t.closest("[data-fight-action='attack']")) {
+      void window.ServerCombat.submitAction({ type: "attack", targetUid: st.selectedUid });
+      return;
+    }
+    const skillBtn = t.closest("[data-fight-skill]");
+    if (skillBtn) {
+      const name = skillBtn.getAttribute("data-fight-skill");
+      const mode = name ? getFightSkillTargetMode(name) : "enemy";
+      const targetUid =
+        mode === "ally" || mode === "self"
+          ? st.selectedAllyUid
+          : mode === "party"
+            ? st.activePartyUid
+            : st.selectedUid;
+      void window.ServerCombat.submitAction({
+        type: "skill",
+        skillName: name || "",
+        targetUid
+      });
+      return;
+    }
     return;
   }
   if (st.phase !== "player") return;
@@ -15035,7 +16320,38 @@ function buildDungeonEpilogueSceneHtml() {
   </div>`;
 }
 
-function beginTurnCombat(region, mob, worldMapContext) {
+async function beginTurnCombat(region, mob, worldMapContext, coopSessionId) {
+  if (
+    typeof window !== "undefined" &&
+    window.GameStorage?.isOnlineMode?.() &&
+    window.ServerCombat
+  ) {
+    if (!inGameSession || activeCharacterSlotIndex == null) {
+      showModal("Select a character before starting a fight.");
+      return;
+    }
+    try {
+      save({ flush: true });
+      await persistCharacterRoster();
+
+      const sessionToJoin = coopSessionId || null;
+
+      let ok = false;
+      if (sessionToJoin && typeof window.ServerCombat.join === "function") {
+        ok = await window.ServerCombat.join(sessionToJoin, region, mob, worldMapContext);
+      } else {
+        if (!coopSessionId) hideFightInviteModal();
+        ok = await window.ServerCombat.start(region, mob, worldMapContext);
+      }
+      if (!ok) {
+        showModal("Could not start online combat. Make sure you are logged in with a character selected.");
+      }
+    } catch (err) {
+      console.error("Online combat start failed:", err);
+      showModal(err && err.message ? err.message : "Could not start online combat.");
+    }
+    return;
+  }
   const cappedUnits = mob.units ? mob.units.slice(0, COMBAT_FOES_MAX) : null;
   const cappedEnemies = !mob.units && mob.enemies ? mob.enemies.slice(0, COMBAT_FOES_MAX) : [];
   const foes = mob.units ? spawnEnemiesFromPreview(region, cappedUnits) : spawnEnemies(region, cappedEnemies);
@@ -15091,6 +16407,14 @@ function applyFightResult(result) {
 }
 
 function closeFightOverlay() {
+  if (typeof window !== "undefined" && window.ServerCombat?.clearSession) {
+    window.ServerCombat.clearSession();
+  }
+  if (inGameSession && activeCharacterSlotIndex != null && player) {
+    ensureCharacterRoster();
+    characterRoster.slots[activeCharacterSlotIndex] = player;
+    save({ flush: true });
+  }
   const dungeonPost =
     player.worldMap && player.worldMap.dungeonPostCombat && typeof player.worldMap.dungeonPostCombat === "object"
       ? { ...player.worldMap.dungeonPostCombat }
@@ -15142,7 +16466,8 @@ function closeFightOverlay() {
     render();
     return;
   }
-  render();
+  if (currentPage === "adventure") renderAdventure();
+  else render();
 }
 function levelUp() {
   return levelUpActor(player);
@@ -16371,8 +17696,13 @@ function getPartyMemberLocalStatusEffectLines(member) {
 
 function buildFightPartyTooltipHtml(member, st) {
   const role = member.kind === "hero" ? "Player character" : "Companion";
-  const maxStamina = member.kind === "hero" ? (typeof st.maxStamina === "number" ? st.maxStamina : getPlayerCombatMaxStamina()) : member.maxStamina;
-  const currentStamina = member.kind === "hero" ? st.stamina : member.stamina;
+  const maxStamina =
+    typeof member.maxStamina === "number"
+      ? member.maxStamina
+      : member.kind === "hero"
+        ? getPlayerCombatMaxStamina()
+        : 0;
+  const currentStamina = getPartyMemberStamina(member, st);
   const stamina = formatCombatStaminaLabel(currentStamina, maxStamina);
   const localLines = getPartyMemberLocalStatusEffectLines(member);
   const statusHtml =
@@ -18029,6 +19359,7 @@ function applyWorldCampPositionsToDom() {
     if (!p) return;
     el.style.left = `${p.leftPct}%`;
     el.style.top = `${p.topPct}%`;
+    el.style.transform = "translate(-50%, -50%)";
   });
 }
 
@@ -18088,6 +19419,7 @@ function computeWorldMapModalInitialCellPx() {
 
 function tickAdventureRespawnOnly() {
   if (currentPage !== "adventure") return;
+  if (isFightOverlayOpen()) return;
   const root = document.getElementById("adventurePageRoot");
   if (!root) return;
   const x = player.worldMap.x;
@@ -18102,13 +19434,17 @@ function tickAdventureRespawnOnly() {
   const defArr = rec && Array.isArray(rec.defeated) ? rec.defeated : [];
   const ms = GAME_CONFIG.worldMap.mobRespawnMs;
   let needRefresh = false;
+  let clearedRespawn = false;
   for (let si = 0; si < encounterSlots; si++) {
     const t = defArr[si];
-    if (t != null && Date.now() - t >= ms) needRefresh = true;
+    if (t != null && Date.now() - t >= ms) {
+      needRefresh = true;
+      rec.defeated[si] = null;
+      if (Array.isArray(rec.defeatedUnits)) rec.defeatedUnits[si] = null;
+      clearedRespawn = true;
+    }
   }
-  for (let si = 0; si < encounterSlots; si++) {
-    isWorldMobSetDefeated(x, y, si);
-  }
+  if (clearedRespawn) save();
   if (needRefresh) renderAdventure();
 }
 
@@ -18814,6 +20150,9 @@ function renderAdventure() {
   } else if (!pool.length) {
     campsHtml = `<p class="world-camps-none muted">This land cannot be crossed.</p>`;
   } else {
+    if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.() && window.MMOPresence) {
+      syncSharedMapCellForTile(x, y);
+    }
     const encounterSlots = getEncounterSlotCountForCell(x, y, cellCfg);
     if (encounterSlots === 0) {
       campsHtml = getWorldMapCityName(x, y)
@@ -18833,32 +20172,8 @@ function renderAdventure() {
       let ri = 0;
       for (let si = 0; si < encounterSlots; si++) {
         if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
-        isWorldMobSetDefeated(x, y, si);
         const preview = ensureMobPreview(x, y, si);
-        const thumbsActive =
-          preview && preview.units && preview.units.length ? buildWorldCampMobThumbsHtmlFromUnits(preview.units) : "";
-        const tipPayload =
-          preview && preview.units && preview.units.length
-            ? {
-                kind: "units",
-                tier: preview.difficultyTier || MOB_DIFFICULTY_TIER_LABELS[si % 3],
-                totalLevel:
-                  typeof preview.mobTotalLevel === "number"
-                    ? preview.mobTotalLevel
-                    : preview.units.reduce((s, u) => s + (typeof u.level === "number" ? u.level : 0), 0),
-                units: preview.units.map((u) => ({ name: u.name, level: u.level, mood: u.moodName }))
-              }
-            : { kind: "pool", pool: pool.slice(), min: MOB_SIZE_MIN, max: MOB_SIZE_MAX };
-        const campPayload = escapeAttr(JSON.stringify(tipPayload));
-        const ariaTier =
-          preview && preview.units && preview.units.length
-            ? preview.difficultyTier || MOB_DIFFICULTY_TIER_LABELS[si % 3]
-            : "encounter";
-        campsHtml += `<div class="mob-cell world-camp" data-world-camp="${si}" data-camp-enemies="${campPayload}" data-world-fight="${si}" aria-label="${escapeAttr(
-          `${ariaTier} encounter ${si + 1}`
-        )}"${campPosStyle(ri)}>
-        <div class="mob-imgs mob-imgs--world">${thumbsActive}</div>
-      </div>`;
+        campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyle(ri));
         ri++;
       }
     }
@@ -18944,12 +20259,7 @@ function renderAdventure() {
       else if (dir === "west") moveWorldMap(-1, 0);
     });
   });
-  c.querySelectorAll("[data-world-fight]").forEach((el) => {
-    el.addEventListener("click", () => {
-      const si = parseInt(el.getAttribute("data-world-fight"), 10);
-      if (!Number.isNaN(si)) startWorldMapFight(si);
-    });
-  });
+  bindAdventureCampFightHandlers(c);
   c.querySelectorAll("[data-dungeon-fight]").forEach((el) => {
     el.addEventListener("click", () => {
       startDungeonEncounterFromAdventure();
@@ -18980,6 +20290,17 @@ function renderAdventure() {
     startAdventureCampWanderTimer();
   } else {
     clearAdventureCampWanderTimer();
+  }
+
+  publishOnlinePresenceNow();
+  if (
+    typeof window !== "undefined" &&
+    window.GameStorage?.isOnlineMode?.() &&
+    window.MMOPresence &&
+    worldCampsClass.includes("world-camps--spread") &&
+    !worldCampsClass.includes("world-camps--scene")
+  ) {
+    scheduleAdventureEncountersRefreshFromServer();
   }
 }
 
@@ -19028,6 +20349,7 @@ function renderBottomHud() {
   if (atlasBtn) atlasBtn.classList.toggle("is-active", isMenuPanelOpen() && activeMenuPanel === "atlas");
 
   syncMinimapSlots();
+  updateMapPlayersPanel();
 }
 
 function render() {
@@ -19062,6 +20384,7 @@ function render() {
   if (isCharacterPanelOpen()) renderCharacterPanelContent();
   if (isSkillsPanelOpen()) renderSkillsPanelContent();
   if (isMenuPanelOpen()) renderMenuPanelContent();
+  updateMapPlayersPanel();
 }
 
 function onDragStart(e) {
@@ -19273,8 +20596,11 @@ function onContentClick(e) {
         return;
       }
       comp.enabled = wantOn;
+      if (wantOn) comp.hasBeenEnabled = true;
       if (!wantOn && characterPanelRosterTab === String(si)) characterPanelRosterTab = "hero";
-      save();
+      save(
+        typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.() ? { flush: true } : undefined
+      );
       render();
     }
     return;
@@ -19658,13 +20984,15 @@ function onPortalNetworkModalClick(e) {
   if (e.target.closest("[data-hero-name-confirm]")) {
     const input = document.querySelector("[data-companion-name-input]");
     const rawName = input && typeof input.value === "string" ? input.value : "";
-    if (!completeHeroCreation(pendingHeroCreationSlot, rawName, pendingHeroCreationGender)) {
-      let msg = "Please enter a character name.";
-      if (rawName.trim() && isCharacterNameTaken(rawName.trim(), pendingHeroCreationSlot)) {
-        msg = "That name is already used by another character.";
+    void (async () => {
+      if (!(await completeHeroCreation(pendingHeroCreationSlot, rawName, pendingHeroCreationGender))) {
+        let msg = "Please enter a character name.";
+        if (rawName.trim() && isCharacterNameTaken(rawName.trim(), pendingHeroCreationSlot)) {
+          msg = "That name is already used by another character.";
+        }
+        refreshHeroCreationModal(msg);
       }
-      refreshHeroCreationModal(msg);
-    }
+    })();
     return;
   }
   const companionGenderPick = e.target.closest("[data-companion-create-gender]");
@@ -19802,7 +21130,7 @@ function onPortalNetworkModalClick(e) {
     const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
     player.worldMap.x = ent.x;
     player.worldMap.y = ent.y;
-    save();
+    save({ flush: true });
     closeModal();
     render();
     return;
@@ -19841,7 +21169,7 @@ function onPortalNetworkModalClick(e) {
     closeModal();
     player.worldMap.x = x;
     player.worldMap.y = y;
-    save();
+    save({ flush: true });
     render();
     return;
   }
@@ -19858,7 +21186,7 @@ function onPortalNetworkModalClick(e) {
   closeModal();
   player.worldMap.x = x;
   player.worldMap.y = y;
-  save();
+  save({ flush: true });
   render();
 }
 
@@ -20049,6 +21377,11 @@ function initUi() {
 
   if (outOfCombatHpRegenTick) clearInterval(outOfCombatHpRegenTick);
   outOfCombatHpRegenTick = setInterval(tickOutOfCombatHpRegen, 1000);
+
+  if (typeof window !== "undefined" && window.MMOChat && typeof window.MMOChat.init === "function") {
+    window.MMOChat.init();
+  }
+  initMapPlayersPanelUi();
 }
 
 function showLoadingOverlay() {
@@ -20070,35 +21403,33 @@ function getMapAndMinimapPendingCount() {
   return pending;
 }
 
-function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
+function waitForAllImagesToLoad({ idleMs = 400, maxWaitMs = 8000, maxTrack = 800 } = {}) {
   return new Promise((resolve) => {
     const tracked = new Set();
     const pending = new Set();
     let loaded = 0;
     let total = 0;
-    let lastMutation = Date.now();
+    let skipped = 0;
 
     const textEl = document.getElementById("loadingText");
     const fillEl = document.getElementById("loadingBarFill");
-    let externalPeakPending = 0;
 
     const setProgress = () => {
       if (!textEl || !fillEl) return;
-      const externalPending = getMapAndMinimapPendingCount();
-      if (externalPending > externalPeakPending) externalPeakPending = externalPending;
-      const externalDone = Math.max(0, externalPeakPending - externalPending);
-      const safeTotal = Math.max(1, total + externalPeakPending);
-      const done = Math.min(safeTotal, loaded + externalDone);
+      const safeTotal = Math.max(1, total);
+      const done = Math.min(safeTotal, loaded);
       const pct = Math.round((done / safeTotal) * 100);
       textEl.textContent =
-        externalPending > 0
-          ? `Loading… ${done}/${safeTotal} (map ${externalPending})`
-          : `Loading… ${done}/${safeTotal}`;
+        skipped > 0 ? `Loading… ${done}/${safeTotal}` : `Loading… ${done}/${safeTotal}`;
       fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`;
     };
 
     const trackImg = (img) => {
       if (!img || tracked.has(img)) return;
+      if (total >= maxTrack) {
+        skipped++;
+        return;
+      }
       tracked.add(img);
       total++;
       const done = () => {
@@ -20119,36 +21450,19 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
       img.addEventListener("error", done, { once: true });
     };
 
-    // Track current images.
     document.querySelectorAll("img").forEach((img) => trackImg(img));
     setProgress();
-
-    const obs = new MutationObserver((muts) => {
-      lastMutation = Date.now();
-      muts.forEach((m) => {
-        if (m.type !== "childList") return;
-        m.addedNodes.forEach((n) => {
-          if (!(n instanceof Element)) return;
-          if (n.tagName === "IMG") trackImg(n);
-          n.querySelectorAll?.("img")?.forEach((img) => trackImg(img));
-        });
-      });
-    });
-
-    obs.observe(document.body, { childList: true, subtree: true });
 
     const startedAt = Date.now();
     const tick = window.setInterval(() => {
       setProgress();
       if (Date.now() - startedAt > maxWaitMs) {
-        obs.disconnect();
         hideLoadingOverlay();
         window.clearInterval(tick);
         resolve();
         return;
       }
-      if (pending.size === 0 && getMapAndMinimapPendingCount() === 0 && Date.now() - lastMutation >= idleMs) {
-        obs.disconnect();
+      if (pending.size === 0 && Date.now() - startedAt >= idleMs) {
         hideLoadingOverlay();
         window.clearInterval(tick);
         resolve();
@@ -20157,5 +21471,35 @@ function waitForAllImagesToLoad({ idleMs = 600, maxWaitMs = 15000 } = {}) {
   });
 }
 
-initAppAtStartup();
+async function bootApp() {
+  showLoadingOverlay();
+  try {
+    if (typeof window !== "undefined" && window.GameStorage && window.GameStorage.isOnlineMode()) {
+      const ready = await window.GameStorage.ensureSession();
+      if (!ready) {
+        hideLoadingOverlay();
+        return;
+      }
+      window.GameStorage.onSessionReady();
+    }
+    await initAppAtStartup();
+  } catch (err) {
+    console.error("Game boot failed:", err);
+    hideLoadingOverlay();
+  }
+}
+
+/** Called after online login/register (see mmo/auth_ui.js). */
+window.bootGameAfterAuth = async function bootGameAfterAuth() {
+  showLoadingOverlay();
+  try {
+    await initAppAtStartup();
+  } catch (err) {
+    console.error("Game boot failed:", err);
+    hideLoadingOverlay();
+  }
+};
+
+bootApp();
 window.reloadMonsters = reloadMonsters;
+
