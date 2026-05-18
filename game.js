@@ -782,6 +782,51 @@ function applySharedMapCellFromServer(mapCell) {
   player.worldMap.cells[key] = { defeated, defeatedUnits, mobPreviews };
 }
 
+/** Mark a world-map encounter slot defeated immediately (online + offline UI). */
+function applyWorldMapVictoryFromCombatState(st) {
+  if (!st || !player?.worldMap) return;
+  if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
+    player.worldMap.dungeonPostCombat = {
+      dungeonId: st.worldMapContext.dungeonId.trim(),
+      roomIndex: typeof st.worldMapContext.roomIndex === "number" ? st.worldMapContext.roomIndex : 0,
+      victory: true
+    };
+    return;
+  }
+  if (
+    !st.worldMapContext ||
+    typeof st.worldMapContext.x !== "number" ||
+    typeof st.worldMapContext.y !== "number"
+  ) {
+    return;
+  }
+  const { x, y, setIndex } = st.worldMapContext;
+  const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
+  const key = worldMapKey(x, y);
+  const cellCfg = getCoordinateCellConfig(x, y);
+  const slots = getEncounterSlotCountForCell(x, y, cellCfg);
+  if (!player.worldMap.cells[key]) {
+    player.worldMap.cells[key] = { defeated: [], defeatedUnits: [], mobPreviews: [] };
+  }
+  const cell = player.worldMap.cells[key];
+  if (!Array.isArray(cell.defeated)) cell.defeated = [];
+  if (!Array.isArray(cell.defeatedUnits)) cell.defeatedUnits = [];
+  if (!Array.isArray(cell.mobPreviews)) cell.mobPreviews = [];
+  while (cell.defeated.length < slots) cell.defeated.push(null);
+  while (cell.defeatedUnits.length < slots) cell.defeatedUnits.push(null);
+  while (cell.mobPreviews.length < slots) cell.mobPreviews.push(null);
+  const now = Date.now();
+  cell.defeated[setIndex] = now;
+  cell.defeatedUnits[setIndex] = killedNamesAll;
+  cell.mobPreviews[setIndex] = null;
+  if (typeof window !== "undefined" && window.MMOPresence?.getMapCellCache) {
+    const cached = window.MMOPresence.getMapCellCache(key);
+    if (cached) applySharedMapCellFromServer(cached);
+    cell.defeated[setIndex] = now;
+    cell.mobPreviews[setIndex] = null;
+  }
+}
+
 function syncSharedMapCellForTile(x, y) {
   if (typeof window === "undefined" || !window.GameStorage?.isOnlineMode?.() || !window.MMOPresence) return;
   const key = worldMapKey(x, y);
@@ -984,17 +1029,15 @@ function refreshAdventureEncountersOnly() {
   for (let si = 0; si < encounterSlots; si++) {
     if (!slotIsWorldMobOnRespawnCooldown(x, y, si)) visibleCount++;
   }
-  const campPos = visibleCount > 0 ? getCachedCampPanelPositions(x, y, visibleCount) : [];
-  const campPosStyle = (idx) => {
-    const p = campPos[idx];
+  const campPosStyleForSlot = (si) => {
+    const campPos = getCachedCampPanelPositions(x, y, encounterSlots);
+    const p = campPos[si];
     return p ? ` style="left:${p.leftPct}%;top:${p.topPct}%;transform:translate(-50%,-50%);"` : "";
   };
-  let ri = 0;
   for (let si = 0; si < encounterSlots; si++) {
     if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
     const preview = ensureMobPreview(x, y, si);
-    campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyle(ri));
-    ri++;
+    campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyleForSlot(si));
   }
   if (visibleCount > 0) {
     const sig = getWorldCampRenderSignature(x, y, encounterSlots);
@@ -14635,30 +14678,7 @@ function applyServerFightResult(result) {
   if (result.victory) {
     const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
     recordMonsterKillsFromNames(killedNamesAll);
-    if (!st.serverAuthoritative) {
-      if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
-        player.worldMap.dungeonPostCombat = {
-          dungeonId: st.worldMapContext.dungeonId.trim(),
-          roomIndex: typeof st.worldMapContext.roomIndex === "number" ? st.worldMapContext.roomIndex : 0,
-          victory: true
-        };
-      } else if (st.worldMapContext && typeof st.worldMapContext.x === "number" && typeof st.worldMapContext.y === "number") {
-        const { x, y, setIndex } = st.worldMapContext;
-        const key = worldMapKey(x, y);
-        const cellCfg = getCoordinateCellConfig(x, y);
-        const slots = getEncounterSlotCountForCell(x, y, cellCfg);
-        if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], defeatedUnits: [], mobPreviews: [] };
-        if (!Array.isArray(player.worldMap.cells[key].defeated)) player.worldMap.cells[key].defeated = [];
-        if (!Array.isArray(player.worldMap.cells[key].defeatedUnits)) player.worldMap.cells[key].defeatedUnits = [];
-        if (!Array.isArray(player.worldMap.cells[key].mobPreviews)) player.worldMap.cells[key].mobPreviews = [];
-        while (player.worldMap.cells[key].defeated.length < slots) player.worldMap.cells[key].defeated.push(null);
-        while (player.worldMap.cells[key].defeatedUnits.length < slots) player.worldMap.cells[key].defeatedUnits.push(null);
-        while (player.worldMap.cells[key].mobPreviews.length < slots) player.worldMap.cells[key].mobPreviews.push(null);
-        player.worldMap.cells[key].defeated[setIndex] = Date.now();
-        player.worldMap.cells[key].defeatedUnits[setIndex] = killedNamesAll;
-        player.worldMap.cells[key].mobPreviews[setIndex] = null;
-      }
-    }
+    applyWorldMapVictoryFromCombatState(st);
     showFightResults(true, result);
   } else {
     if (
@@ -19368,18 +19388,16 @@ function applyWorldCampPositionsToDom() {
   const root = document.getElementById("adventurePageRoot");
   if (!root || currentPage !== "adventure") return;
   const cells = root.querySelectorAll(".world-camps--spread .world-camp[data-world-camp]");
-  const n = cells.length;
-  if (!n) return;
+  if (!cells.length) return;
   const x = player.worldMap.x;
   const y = player.worldMap.y;
-  const wanderMs = getMobPanelWanderMs();
-  const positions = layoutWorldCampPositions(x, y, n, wanderMs);
-  campPanelLayoutCache.set(campPanelLayoutCacheKey(x, y, n), {
-    bucket: Math.floor(Date.now() / wanderMs),
-    positions
-  });
-  cells.forEach((el, i) => {
-    const p = positions[i];
+  const cellCfg = getCoordinateCellConfig(x, y);
+  const encounterSlots = getEncounterSlotCountForCell(x, y, cellCfg);
+  const positions = getCachedCampPanelPositions(x, y, encounterSlots);
+  cells.forEach((el) => {
+    const si = parseInt(el.getAttribute("data-world-camp"), 10);
+    if (!Number.isFinite(si)) return;
+    const p = positions[si];
     if (!p) return;
     el.style.left = `${p.leftPct}%`;
     el.style.top = `${p.topPct}%`;
@@ -20187,18 +20205,16 @@ function renderAdventure() {
       for (let si = 0; si < encounterSlots; si++) {
         if (!slotIsWorldMobOnRespawnCooldown(x, y, si)) visibleCount++;
       }
-      const campPos = visibleCount > 0 ? getCachedCampPanelPositions(x, y, visibleCount) : [];
       if (visibleCount > 0) worldCampsClass = "world-camps world-camps--spread";
-      const campPosStyle = (idx) => {
-        const p = campPos[idx];
+      const campPosStyleForSlot = (si) => {
+        const campPos = getCachedCampPanelPositions(x, y, encounterSlots);
+        const p = campPos[si];
         return p ? ` style="left:${p.leftPct}%;top:${p.topPct}%;transform:translate(-50%,-50%);"` : "";
       };
-      let ri = 0;
       for (let si = 0; si < encounterSlots; si++) {
         if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
         const preview = ensureMobPreview(x, y, si);
-        campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyle(ri));
-        ri++;
+        campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyleForSlot(si));
       }
     }
   }
