@@ -1,0 +1,36 @@
+# Browser RPG — production reverse proxy (Caddy 2)
+#
+# 1. Replace yourgame.example.com with your domain.
+# 2. Copy to /etc/caddy/Caddyfile (or include from main Caddyfile).
+# 3. Set root to your deployed game files (see DEPLOY.md).
+#
+# Requires DNS A/AAAA record pointing at this VPS.
+
+yourgame.example.com {
+	encode gzip zstd
+
+	# Game client (static HTML/JS/CSS/assets)
+	root * /opt/browser-rpg
+	file_server
+
+	# REST API
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	# Presence: chat, party, map sync, combat broadcasts
+	handle /presence {
+		reverse_proxy 127.0.0.1:3001 {
+			# WebSocket upgrade
+			transport http {
+				versions 1.1
+			}
+		}
+	}
+
+	# Optional: security headers
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

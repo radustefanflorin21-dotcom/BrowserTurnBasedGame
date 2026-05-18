@@ -1,0 +1,20 @@
+[Unit]
+Description=Browser RPG game server (API + WebSocket)
+After=network.target
+
+[Service]
+Type=simple
+User=browser-rpg
+Group=browser-rpg
+WorkingDirectory=/opt/browser-rpg/server
+EnvironmentFile=/opt/browser-rpg/server/.env
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=5
+
+# Hardening (adjust if you hit permission issues)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

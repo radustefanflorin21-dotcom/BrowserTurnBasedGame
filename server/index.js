@@ -13,6 +13,8 @@ import { getPresenceStats } from "./presence/hub.js";
 import { getWorldShardInfo } from "./world/shard.js";
 
 const PORT = Number(process.env.PORT) || 3001;
+/** Bind address. Use 127.0.0.1 on VPS (Caddy terminates TLS); omit or 0.0.0.0 for LAN dev. */
+const HOST = process.env.HOST || "0.0.0.0";
 const app = express();
 
 app.use(
@@ -59,8 +61,9 @@ app.use((err, _req, res, _next) => {
 const httpServer = http.createServer(app);
 attachPresenceWebSocket(httpServer);
 
-httpServer.listen(PORT, () => {
-  console.log(`Browser RPG API listening on http://localhost:${PORT}`);
-  console.log(`Presence WebSocket: ws://localhost:${PORT}/presence`);
+httpServer.listen(PORT, HOST, () => {
+  const base = HOST === "0.0.0.0" ? `http://localhost:${PORT}` : `http://${HOST}:${PORT}`;
+  console.log(`Browser RPG API listening on ${base} (bind ${HOST}:${PORT})`);
+  console.log(`Presence WebSocket: ${base.replace(/^http/, "ws")}/presence`);
   console.log(`SQLite database: ${dbPath}`);
 });
