@@ -336,6 +336,9 @@ export function tickPlayerDefenseAfterEnemyPhase(st) {
 }
 
 export function tickPlayerTurnEndBuffs(st) {
+  (st.party || []).forEach((m) => {
+    if (m && typeof m.crippleTurns === "number" && m.crippleTurns > 0) m.crippleTurns -= 1;
+  });
   tickPlayerDebuffsBeforeEnemyPhase(st);
 }
 

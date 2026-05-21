@@ -327,6 +327,83 @@ const SCRIPT_HANDLERS = {
     return true;
   },
 
+  bramblehorn_matriarch(foe, st, ctx) {
+    const allies = (st.foes || []).filter((f) => f && f.hp > 0 && f.uid !== foe.uid);
+    const lowest = allies.reduce(
+      (a, b) => (a && b && a.hp / a.maxHp <= b.hp / b.maxHp ? a : b),
+      allies[0]
+    );
+    if (lowest && ctx.ready("rootmend")) {
+      ctx.setCd("rootmend", 3);
+      const heal = Math.max(1, Math.floor((foe.vit || 20) * 0.85));
+      lowest.hp = Math.min(lowest.maxHp, lowest.hp + heal);
+      ctx.log(`${foe.name} casts Rootmend on ${lowest.name}.`);
+      return true;
+    }
+    const member = ctx.pickTarget("mage");
+    if (ctx.ready("thorn_prayer")) {
+      ctx.setCd("thorn_prayer", 4);
+      applyPlayerAccuracyDown(st, 8, 2);
+      ctx.log(`${foe.name} casts Thorn Prayer.`);
+      return true;
+    }
+    if (ctx.ready("rootlash")) {
+      ctx.setCd("rootlash", 1);
+      ctx.hit(member, Math.max(1, Math.floor((foe.int || 20) * 0.4 * ctx.outMult)), "casts Rootlash at");
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.int || 20) * 0.35 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  fangroot_alpha(foe, st, ctx) {
+    const member = ctx.pickTarget("assassin");
+    if (ctx.ready("alpha_lunge")) {
+      ctx.setCd("alpha_lunge", 2);
+      ctx.hit(member, ctx.atk * 1.1 * ctx.outMult, "Alpha Lunges at");
+      return true;
+    }
+    if (ctx.ready("rootfang_rend")) {
+      ctx.setCd("rootfang_rend", 2);
+      const hit = Math.max(1, Math.floor(ctx.atk * 0.75 * ctx.outMult));
+      ctx.hit(member, hit, "Rootfang Rends");
+      applyPlayerBleed(st, Math.max(1, Math.floor(hit * 0.14)), 2);
+      return true;
+    }
+    ctx.hit(member, ctx.atk * 0.55 * ctx.outMult, "strikes");
+    return true;
+  },
+
+  gaiahide_behemoth(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const hpFrac = ctx.foeHpFrac();
+    if (hpFrac <= 0.7 && !foe.combat.gaiaPhase2) {
+      foe.combat.gaiaPhase2 = true;
+      foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
+      foe.combat.magResBonusPct = (foe.combat.magResBonusPct || 0) + 5;
+      ctx.log(`${foe.name} gains Root Armor (+resist).`);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.gaiaPhase3) {
+      foe.combat.gaiaPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      ctx.log(`${foe.name} enters Gaia Fury!`);
+      return true;
+    }
+    if (ctx.ready("gaiahide_slam")) {
+      ctx.setCd("gaiahide_slam", 2);
+      ctx.hit(member, ctx.atk * 1.05 * ctx.outMult, "Gaiahide Slams");
+      return true;
+    }
+    if (ctx.ready("rootquake")) {
+      ctx.setCd("rootquake", 3);
+      ctx.hit(member, ctx.atk * 0.65 * ctx.outMult, "Rootquake shakes");
+      return true;
+    }
+    ctx.hit(member, ctx.atk * 0.65 * ctx.outMult, "crushes");
+    return true;
+  },
+
   gorilla(foe, st, ctx) {
     const member = ctx.pickTarget("bruiser");
     foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;

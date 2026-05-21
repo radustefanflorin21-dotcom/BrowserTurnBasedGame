@@ -1,4 +1,5 @@
 import { byUserId, displayLabel, sendJsonToUser } from "./hub.js";
+import { canReceiveLocalChatFrom, normalizeDungeonId } from "./location.js";
 
 const MAX_CHAT_LEN = 500;
 
@@ -68,21 +69,26 @@ export function deliverChatMessage(senderEntry, opts) {
     return;
   }
 
-  // Local: same world map tile (adventure coordinates).
+  // Local: same overworld tile or same dungeon chamber.
   if (senderEntry.page !== "adventure") {
     sendJsonToUser(senderEntry.userId, {
       type: "chat_error",
-      message: "Local chat is only available while exploring the world map."
+      message: "Local chat is only available while exploring or in a dungeon."
     });
     return;
   }
   const mapX = Math.floor(senderEntry.x);
   const mapY = Math.floor(senderEntry.y);
-  const payload = { ...base, mapX, mapY };
-  broadcastJson(payload, (entry) => {
-    if (entry.page !== "adventure") return false;
-    return Math.floor(entry.x) === mapX && Math.floor(entry.y) === mapY;
-  });
+  const dungeonId = normalizeDungeonId(senderEntry.dungeonId);
+  const payload = {
+    ...base,
+    mapX,
+    mapY,
+    ...(dungeonId
+      ? { dungeonId, dungeonRoomIndex: Math.max(0, Math.floor(senderEntry.dungeonRoomIndex || 0)) }
+      : {})
+  };
+  broadcastJson(payload, (entry) => canReceiveLocalChatFrom(senderEntry, entry));
 }
 
 /**

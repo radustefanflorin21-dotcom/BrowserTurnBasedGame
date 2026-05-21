@@ -173,7 +173,7 @@
       "offsetXPct": 0,
       "offsetYPct": 0,
       "rotDeg": 0,
-      "scalePct": 100
+      "scalePct": 149
     },
     "weaponOcclusion": {
       "Assets/Character/female_character.png": {

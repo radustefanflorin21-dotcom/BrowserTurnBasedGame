@@ -16,6 +16,7 @@ import { initCombatPassives } from "./combat_passives.js";
 import { initFoeCombatRuntime } from "./enemy_ai.js";
 import { ensureCombatStatus } from "./status.js";
 import { byUserId } from "../presence/hub.js";
+import { presenceMatchesWorldMapContext } from "../presence/location.js";
 import { preparePlayerForCombat } from "./player_prep.js";
 import { getActorCombatMaxStamina, syncGlobalStaminaFromMember } from "./stamina.js";
 
@@ -478,9 +479,9 @@ export function publicParticipantsList(session) {
 
 export function sameTileForJoin(session, joinerUserId) {
   const wmc = session.state?.worldMapContext;
-  if (!wmc || typeof wmc.x !== "number" || typeof wmc.y !== "number") return true;
+  if (!wmc || typeof wmc !== "object") return true;
   const entry = byUserId.get(joinerUserId);
   if (!entry) return false;
   if (entry.page !== "adventure") return false;
-  return Math.floor(entry.x) === Math.floor(wmc.x) && Math.floor(entry.y) === Math.floor(wmc.y);
+  return presenceMatchesWorldMapContext(entry, wmc);
 }

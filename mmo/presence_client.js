@@ -45,7 +45,7 @@
     if (typeof stateProvider === "function") {
       const st = stateProvider();
       if (st && typeof st === "object") {
-        return {
+        const payload = {
           type: "update",
           page: st.page || "menu",
           slotIndex: typeof st.slotIndex === "number" ? st.slotIndex : 0,
@@ -53,6 +53,15 @@
           x: typeof st.x === "number" ? Math.floor(st.x) : 0,
           y: typeof st.y === "number" ? Math.floor(st.y) : 0
         };
+        if (typeof st.dungeonId === "string" && st.dungeonId.trim()) {
+          payload.dungeonId = st.dungeonId.trim();
+          payload.dungeonRoomIndex =
+            typeof st.dungeonRoomIndex === "number" ? Math.floor(st.dungeonRoomIndex) : 0;
+        } else if (st.dungeonId === null) {
+          payload.dungeonId = null;
+          payload.dungeonRoomIndex = 0;
+        }
+        return payload;
       }
     }
     return { type: "update", page: "menu", slotIndex: 0, name: "", x: 0, y: 0 };
@@ -255,6 +264,10 @@
     }
     if (msg.type === "fight_invite" && typeof root.onFightInvite === "function") {
       root.onFightInvite(msg);
+      return;
+    }
+    if (msg.type === "dungeon_enter_invite" && typeof root.onDungeonEnterInvite === "function") {
+      root.onDungeonEnterInvite(msg);
       return;
     }
     if (msg.type === "combat_state" && typeof root.onCombatState === "function") {

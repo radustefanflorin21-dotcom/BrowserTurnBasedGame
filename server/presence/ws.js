@@ -178,7 +178,9 @@ export function attachPresenceWebSocket(httpServer) {
           x: msg.x,
           y: msg.y,
           name: msg.name,
-          page: msg.page
+          page: msg.page,
+          dungeonId: msg.dungeonId,
+          dungeonRoomIndex: msg.dungeonRoomIndex
         });
         scheduleBroadcastPresence();
         return;

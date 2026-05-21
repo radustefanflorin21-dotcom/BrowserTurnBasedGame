@@ -5,6 +5,7 @@
 import { getSharedMapCell } from "./map_cells.js";
 import { onUserDisconnected } from "./party.js";
 import { handleCombatUserDisconnect } from "../combat/sessions.js";
+import { getSameLocationPlayers, normalizeDungeonId, normalizeDungeonRoomIndex } from "./location.js";
 
 const STALE_MS = 45_000;
 const PRESENCE_RADIUS = 10;
@@ -26,7 +27,7 @@ function chebyshev(ax, ay, bx, by) {
 }
 
 function publicEntry(entry) {
-  return {
+  const out = {
     userId: entry.userId,
     name: displayLabel(entry),
     slotIndex: entry.slotIndex,
@@ -34,6 +35,12 @@ function publicEntry(entry) {
     y: entry.y,
     page: entry.page
   };
+  const dungeonId = normalizeDungeonId(entry.dungeonId);
+  if (dungeonId) {
+    out.dungeonId = dungeonId;
+    out.dungeonRoomIndex = normalizeDungeonRoomIndex(entry.dungeonRoomIndex);
+  }
+  return out;
 }
 
 function pruneStale() {
@@ -69,14 +76,20 @@ export function getNearbyForViewer(viewerId, x, y) {
  * @param {number} x
  * @param {number} y
  */
+/** Same overworld tile (ignores dungeon instances). */
 export function getSameMapPlayers(viewerId, x, y) {
   pruneStale();
+  const viewer = byUserId.get(viewerId);
+  if (viewer && normalizeDungeonId(viewer.dungeonId)) {
+    return getSameLocationPlayers(viewerId, viewer).map(publicEntry);
+  }
   const ix = Math.floor(x);
   const iy = Math.floor(y);
   const out = [];
   for (const entry of byUserId.values()) {
     if (entry.userId === viewerId) continue;
     if (entry.page !== "adventure") continue;
+    if (normalizeDungeonId(entry.dungeonId)) continue;
     if (Math.floor(entry.x) !== ix || Math.floor(entry.y) !== iy) continue;
     out.push(publicEntry(entry));
   }
@@ -99,6 +112,8 @@ export function attachSocket(user, socket) {
       x: 0,
       y: 0,
       page: "menu",
+      dungeonId: null,
+      dungeonRoomIndex: 0,
       updatedAt: Date.now(),
       sockets: new Set()
     };
@@ -137,6 +152,17 @@ export function updatePresence(userId, patch) {
   if (typeof patch.x === "number" && Number.isFinite(patch.x)) entry.x = Math.floor(patch.x);
   if (typeof patch.y === "number" && Number.isFinite(patch.y)) entry.y = Math.floor(patch.y);
   if (typeof patch.page === "string" && patch.page.trim()) entry.page = patch.page.trim().slice(0, 24);
+  if (patch.dungeonId === null || patch.dungeonId === "") {
+    entry.dungeonId = null;
+    entry.dungeonRoomIndex = 0;
+  } else if (typeof patch.dungeonId === "string" && patch.dungeonId.trim()) {
+    entry.dungeonId = patch.dungeonId.trim().slice(0, 48);
+    if (typeof patch.dungeonRoomIndex === "number" && Number.isFinite(patch.dungeonRoomIndex)) {
+      entry.dungeonRoomIndex = Math.max(0, Math.floor(patch.dungeonRoomIndex));
+    }
+  } else if (typeof patch.dungeonRoomIndex === "number" && Number.isFinite(patch.dungeonRoomIndex)) {
+    entry.dungeonRoomIndex = Math.max(0, Math.floor(patch.dungeonRoomIndex));
+  }
   entry.updatedAt = Date.now();
   return entry;
 }
@@ -159,7 +185,9 @@ export function broadcastPresence() {
   for (const entry of byUserId.values()) {
     const nearby = getNearbyForViewer(entry.userId, entry.x, entry.y);
     const sameMap =
-      entry.page === "adventure" ? getSameMapPlayers(entry.userId, entry.x, entry.y) : [];
+      entry.page === "adventure"
+        ? getSameLocationPlayers(entry.userId, entry).map(publicEntry)
+        : [];
     // Map cell state is pushed via map_cell / welcome / map_cell_sync — not on every presence tick
     // (re-sending it here caused clients to rebuild encounter DOM ~4×/sec and broke mob portraits).
     const payload = JSON.stringify({ type: "presence", players: nearby, sameMap });

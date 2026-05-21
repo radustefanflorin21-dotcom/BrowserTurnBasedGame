@@ -293,7 +293,8 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
   const cdLeft = getCooldownRemaining(st, skillName);
   if (cdLeft > 0) return { ok: false, error: `${skillName} is on cooldown (${cdLeft} turn${cdLeft === 1 ? "" : "s"}).` };
 
-  const cost = resolveSkillStaminaCost(st, def);
+  let cost = resolveSkillStaminaCost(st, def);
+  if ((member.crippleTurns || 0) > 0) cost += 1;
   const stam = getMemberStamina(st, member);
   if (stam < cost) return { ok: false, error: `Not enough stamina (need ${cost}, have ${stam}).` };
 

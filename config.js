@@ -69,6 +69,31 @@ const GAME_CONFIG = {
       possibleLevels: [19, 20, 21],
       possibleMoods: ["berserk"]},
     {
+      name: "Bramblehorn Matriarch",
+      combatScript: "bramblehorn_matriarch",
+      combatRole: "support",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Skin of Gaia/Rootwarren/bramblehorn_matriarch.png",
+      possibleLevels: [20],
+      possibleMoods: ["steady"]},
+    {
+      name: "Fangroot Alpha",
+      combatScript: "fangroot_alpha",
+      combatRole: "assassin",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Skin of Gaia/Rootwarren/fangroot_alpha.png",
+      possibleLevels: [21],
+      possibleMoods: ["berserk"]},
+    {
+      name: "Gaiahide Behemoth",
+      combatScript: "gaiahide_behemoth",
+      combatRole: "bruiser",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/Skin of Gaia/Rootwarren/gaiahide_behemoth.png",
+      possibleLevels: [22],
+      possibleMoods: ["berserk"]},
+    {
       name: "Leafdart Squirrel",
       combatScript: "greenleaf_squirrel",
       combatRole: "harasser",
@@ -933,6 +958,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/sunken_grotto_key.png",
       description: "A storm-scored dungeon key for the sealed entrance beneath the northern cliffs.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rootwarren Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/rootwaren_key.png",
+      description: "A root-choked key for the warren beneath the Skin of Gaia.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -5647,7 +5680,8 @@ const GAME_CONFIG = {
      */
     coordinateBackgrounds: {
       "29,55": "Assets/Biomes/Paradise South/boat_between_paradises.png",
-      "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png"
+      "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png",
+      "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -5701,6 +5735,25 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/Paradise South/Sunken Grotto/hollis_dredge.png",
             text: "Hollis leans on his shovel.",
             dungeonEntrance: "sunken_grotto"
+          }
+        ]
+      },
+      "22,66": {
+        kind: "scene",
+        title: "Skin of Gaia — Rootwarren entrance",
+        description: "A gnarled root-choked shaft hums with something hungry below.",
+        elements: [
+          {
+            type: "npc",
+            id: "merrit_rootsniffer",
+            label: "Merrit Rootsniffer",
+            editable: true,
+            leftPct: 46.69576059850374,
+            topPct: 72.66087059380175,
+            scalePct: 90,
+            image: "Assets/Biomes/Skin of Gaia/Rootwarren/merrit_rootsniffer.png",
+            text: "Merrit watches the sealed roots.",
+            dungeonEntrance: "rootwarren"
           }
         ]
       },
@@ -5887,6 +5940,114 @@ const GAME_CONFIG = {
             bgPhaseStems: ["5_0", "5_1", "5_2", "5_3"],
             enemies: [
               { name: "The Stormwake Leviathan", level: 15, moodId: "berserk", isBoss: true }
+            ]
+          }
+        ]
+      },
+      rootwarren: {
+        name: "The Rootwarren",
+        keyItem: "Rootwarren Key",
+        entrance: { x: 22, y: 66 },
+        assetBase: "Assets/Biomes/Skin of Gaia/Rootwarren",
+        rootPressure: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Tusk Boar", level: 20, moodId: "steady" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Tusk Boar", level: 20, moodId: "steady" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText: "Root Pressure: every 3 rounds, a random hero may be Crippled.",
+            enemies: [
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Field Wolf", level: 21, moodId: "berserk" },
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Tusk Boar", level: 20, moodId: "steady" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText: "Root Pressure continues in this chamber.",
+            enemies: [
+              { name: "Tusk Boar", level: 20, moodId: "steady" },
+              { name: "Tusk Boar", level: 20, moodId: "steady" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Field Wolf", level: 21, moodId: "berserk" },
+              {
+                name: "Bramblehorn Matriarch",
+                level: 20,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Skin of Gaia/Rootwarren/bramblehorn_matriarch.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText: "Root Pressure continues in this chamber.",
+            enemies: [
+              { name: "Field Wolf", level: 21, moodId: "berserk" },
+              { name: "Field Wolf", level: 21, moodId: "berserk" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Tusk Boar", level: 20, moodId: "steady" },
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              {
+                name: "Fangroot Alpha",
+                level: 21,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/Skin of Gaia/Rootwarren/fangroot_alpha.png"
+              }
+            ]
+          },
+          {
+            bg: "6",
+            modifierText: "Root Pressure continues. The Behemoth calls reinforcements on long fights.",
+            enemies: [
+              { name: "Burrow Hare", level: 15, moodId: "cautious" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Plains Raptor", level: 17, moodId: "focused" },
+              { name: "Grass Snake", level: 19, moodId: "focused" },
+              { name: "Tusk Boar", level: 20, moodId: "steady" },
+              { name: "Field Wolf", level: 21, moodId: "berserk" },
+              {
+                name: "Fangroot Alpha",
+                level: 21,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/Skin of Gaia/Rootwarren/fangroot_alpha.png"
+              },
+              {
+                name: "Gaiahide Behemoth",
+                level: 22,
+                moodId: "berserk",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/Skin of Gaia/Rootwarren/gaiahide_behemoth.png"
+              }
             ]
           }
         ]

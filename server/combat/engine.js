@@ -21,6 +21,7 @@ import {
   tryDuelistMomentumOnCrit,
   trySecondBreath
 } from "./combat_passives.js";
+import { applyDungeonMechanicsEndOfEnemyPhase } from "./dungeon_mechanics.js";
 import { initFoeCombatRuntime, runSingleEnemyTurn } from "./enemy_ai.js";
 import {
   ensureCombatStatus,
@@ -146,6 +147,8 @@ function runEnemyPhase(st, player, rng, enemyHits, session = null) {
 
   if (!isPartyAlive(st)) return { outcome: "defeat" };
   if (!st.foes.some((f) => f.hp > 0)) return { outcome: "victory" };
+
+  applyDungeonMechanicsEndOfEnemyPhase(st, rng, (line) => appendLog(st, line));
 
   tickSkillCooldowns(st);
   tickFoeDebuffs(st);

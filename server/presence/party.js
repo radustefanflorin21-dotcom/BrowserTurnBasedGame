@@ -4,6 +4,7 @@
 
 import { byUserId, displayLabel, sendJsonToUser } from "./hub.js";
 import { findUserIdByCharacterName } from "./chat.js";
+import { presenceMatchesWorldMapContext } from "./location.js";
 
 /** @type {Map<number, string>} userId -> partyId */
 const userParty = new Map();
@@ -180,17 +181,11 @@ export function leaveParty(userId) {
   return { ok: true };
 }
 
-function isOnSameAdventureTile(userId, worldMapContext) {
-  if (!worldMapContext || typeof worldMapContext.x !== "number" || typeof worldMapContext.y !== "number") {
-    return true;
-  }
+function isEligibleForPartyFightInvite(userId, worldMapContext) {
   const entry = byUserId.get(userId);
   if (!entry) return false;
-  if (entry.page !== "adventure") return false;
-  return (
-    Math.floor(entry.x) === Math.floor(worldMapContext.x) &&
-    Math.floor(entry.y) === Math.floor(worldMapContext.y)
-  );
+  if (!worldMapContext || typeof worldMapContext !== "object") return true;
+  return presenceMatchesWorldMapContext(entry, worldMapContext);
 }
 
 export function notifyPartyFightStarted(hostUserId, payload) {
@@ -202,7 +197,7 @@ export function notifyPartyFightStarted(hostUserId, payload) {
 
   for (const uid of memberIds) {
     if (uid === hostUserId) continue;
-    if (!isOnSameAdventureTile(uid, wmc)) continue;
+    if (!isEligibleForPartyFightInvite(uid, wmc)) continue;
     const invite = {
       hostUserId,
       hostName,

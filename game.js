@@ -710,17 +710,33 @@ async function completeHeroCreation(slotIdx, rawName, gender) {
   return true;
 }
 
+function getPresenceDungeonFieldsForClient() {
+  const run = getActiveDungeonRun();
+  if (!run || run.epilogue) return { dungeonId: null, dungeonRoomIndex: 0 };
+  return {
+    dungeonId: run.id,
+    dungeonRoomIndex: typeof run.roomIndex === "number" ? run.roomIndex : 0
+  };
+}
+
+function publishPresenceDungeonLocation() {
+  if (typeof window === "undefined" || !window.MMOPresence?.publishPresence) return;
+  window.MMOPresence.publishPresence();
+}
+
 function getPresenceStateForClient() {
   if (!inGameSession) {
-    return { page: "menu", slotIndex: 0, name: "", x: 0, y: 0 };
+    return { page: "menu", slotIndex: 0, name: "", x: 0, y: 0, dungeonId: null, dungeonRoomIndex: 0 };
   }
+  const dungeonFields = getPresenceDungeonFieldsForClient();
   if (isFightOverlayOpen()) {
     return {
       page: "fight",
       slotIndex: activeCharacterSlotIndex != null ? activeCharacterSlotIndex : 0,
       name: player && player.name ? player.name : "",
       x: player?.worldMap?.x ?? 0,
-      y: player?.worldMap?.y ?? 0
+      y: player?.worldMap?.y ?? 0,
+      ...dungeonFields
     };
   }
   if (currentPage === "adventure" && player?.worldMap) {
@@ -729,7 +745,8 @@ function getPresenceStateForClient() {
       slotIndex: activeCharacterSlotIndex != null ? activeCharacterSlotIndex : 0,
       name: typeof player.name === "string" ? player.name : "",
       x: player.worldMap.x,
-      y: player.worldMap.y
+      y: player.worldMap.y,
+      ...dungeonFields
     };
   }
   return {
@@ -737,7 +754,9 @@ function getPresenceStateForClient() {
     slotIndex: activeCharacterSlotIndex != null ? activeCharacterSlotIndex : 0,
     name: player && player.name ? player.name : "",
     x: player?.worldMap?.x ?? 0,
-    y: player?.worldMap?.y ?? 0
+    y: player?.worldMap?.y ?? 0,
+    dungeonId: null,
+    dungeonRoomIndex: 0
   };
 }
 
@@ -1182,6 +1201,13 @@ function initOnlinePresence() {
     }
   };
   window.onPartyState = () => updateMapPlayersPanel();
+  window.onDungeonEnterInvite = (msg) => {
+    const text =
+      msg && typeof msg.message === "string" && msg.message.trim()
+        ? msg.message.trim()
+        : "Your party is entering a dungeon. Meet at the entrance with your key.";
+    showModal(text);
+  };
   window.onPartyResult = (msg) => {
     if (!msg || !msg.message) return;
     if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(msg.message);
@@ -1218,6 +1244,7 @@ function publishOnlinePresenceNow() {
 function updateMapPlayersPanel() {
   const panel = document.getElementById("mapPlayersPanel");
   if (!panel) return;
+  const dungeonRun = getActiveDungeonRun();
   const show =
     inGameSession &&
     currentPage === "adventure" &&
@@ -1232,11 +1259,19 @@ function updateMapPlayersPanel() {
   const coordsEl = document.getElementById("mapPlayersCoords");
   const listEl = document.getElementById("mapPlayersList");
   const biome = getWorldBiomeDefAt(x, y);
+  const defDg = dungeonRun && !dungeonRun.epilogue ? getDungeonDef(dungeonRun.id) : null;
   if (coordsEl) {
-    coordsEl.textContent = `[${x}, ${y}]${biome?.name ? ` · ${biome.name}` : ""}`;
+    if (defDg) {
+      const ri = typeof dungeonRun.roomIndex === "number" ? dungeonRun.roomIndex + 1 : 1;
+      const roomCount = Array.isArray(defDg.rooms) ? defDg.rooms.length : "?";
+      coordsEl.textContent = `${defDg.name || dungeonRun.id} · Room ${ri}/${roomCount}`;
+    } else {
+      coordsEl.textContent = `[${x}, ${y}]${biome?.name ? ` · ${biome.name}` : ""}`;
+    }
   }
   if (!listEl) return;
   const party = window.MMOPresence?.getParty?.();
+  const locationLabel = defDg ? "In this chamber" : "On this tile";
   let html = "";
   if (party && Array.isArray(party.members) && party.members.length) {
     html += `<li class="map-players-section muted">Party</li>`;
@@ -1244,7 +1279,7 @@ function updateMapPlayersPanel() {
       const isYou = m.name === (player.name || "You");
       html += `<li class="map-players-item${isYou ? " map-players-item--you" : ""}">${escapeHtml(m.name || "Traveler")}${isYou ? ' <span class="muted">(you)</span>' : ""}</li>`;
     }
-    html += `<li class="map-players-section muted">On this tile</li>`;
+    html += `<li class="map-players-section muted">${locationLabel}</li>`;
   }
   html += `<li class="map-players-item map-players-item--you">${escapeHtml(player.name || "You")} <span class="muted">(you)</span></li>`;
   const others = window.MMOPresence?.getSameMap?.() || [];
@@ -5017,11 +5052,21 @@ function getLivingPartyMembers(st) {
   return st.party.filter((m) => m && m.hp > 0);
 }
 
+function isDungeonMechanicCombat(st, flag) {
+  const ctx = st && st.worldMapContext && typeof st.worldMapContext === "object" ? st.worldMapContext : null;
+  if (!ctx || typeof ctx.dungeonId !== "string") return false;
+  const def = getDungeonDef(ctx.dungeonId);
+  return !!(def && def[flag]);
+}
+
 function isStormbreakHollowCombat(st) {
   const ctx = st && st.worldMapContext && typeof st.worldMapContext === "object" ? st.worldMapContext : null;
   if (!ctx || ctx.dungeonId !== "stormbreak_hollow") return false;
-  const def = getDungeonDef(ctx.dungeonId);
-  return !!(def && def.stormPressure);
+  return isDungeonMechanicCombat(st, "stormPressure");
+}
+
+function isDungeonRootPressureCombat(st) {
+  return isDungeonMechanicCombat(st, "rootPressure");
 }
 
 /** Final Stormbreak Hollow room (Stormwake Leviathan): special fight UI layout only here. */
@@ -5046,6 +5091,82 @@ function tickStormMarksAtStartOfPlayerTurn(st) {
   st.party.forEach((m) => {
     if (m && typeof m.stormMarkTurns === "number" && m.stormMarkTurns > 0) m.stormMarkTurns -= 1;
   });
+}
+
+function tickDungeonCombatGlobalRound(st) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || typeof ctx !== "object") return 0;
+  ctx.combatGlobalRound = (typeof ctx.combatGlobalRound === "number" ? ctx.combatGlobalRound : 0) + 1;
+  return ctx.combatGlobalRound;
+}
+
+function maxLevelFromEnemyDefByName(name) {
+  const def = getEnemyDefByName(name);
+  if (!def || !Array.isArray(def.possibleLevels) || !def.possibleLevels.length) return 1;
+  return Math.max(...def.possibleLevels);
+}
+
+function randomMoodIdFromEnemyDef(def) {
+  const moods = Array.isArray(def?.possibleMoods) ? def.possibleMoods : ["berserk"];
+  return moods[Math.floor(Math.random() * moods.length)];
+}
+
+function summonDungeonReinforcement(st, enemyName) {
+  if (!st || !enemyName) return false;
+  if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
+  const def = getEnemyDefByName(enemyName);
+  if (!def) return false;
+  const unit = {
+    name: enemyName,
+    level: maxLevelFromEnemyDefByName(enemyName),
+    moodId: randomMoodIdFromEnemyDef(def)
+  };
+  const spawned = spawnEnemiesFromPreview(st.region, [unit]);
+  if (!spawned.length) return false;
+  spawned.forEach((f) => {
+    f.uid = getNextCombatFoeUid(st);
+    initFoeCombatRuntime(f);
+    st.foes.push(f);
+  });
+  appendFightLog(`A ${enemyName} joins the fight!`);
+  return true;
+}
+
+function applyDungeonRootPressureIfDue(st, round) {
+  if (!isDungeonRootPressureCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 2) return;
+  if (round % 3 !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    ensureCombatStatus(st);
+    if (pick.kind === "hero") {
+      st.status.playerCrippleTurns = Math.max(st.status.playerCrippleTurns || 0, 1);
+    } else if (pick) {
+      pick.crippleTurns = Math.max(pick.crippleTurns || 0, 1);
+    }
+    appendFightLog(`Root Pressure cripples ${pick.name || "a hero"} (+1 stamina per action).`);
+  }
+}
+
+function applyRootwarrenBossReinforcementsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "rootwarren") return;
+  const def = getDungeonDef("rootwarren");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  if (round !== 8 && round !== 12) return;
+  summonDungeonReinforcement(st, "Burrow Hare");
+}
+
+function applyDungeonEndOfRoundMechanics(st) {
+  if (!st?.worldMapContext || typeof st.worldMapContext.dungeonId !== "string") return;
+  const round = tickDungeonCombatGlobalRound(st);
+  applyDungeonRootPressureIfDue(st, round);
+  applyRootwarrenBossReinforcementsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -10589,6 +10710,7 @@ function clearDungeonRun() {
   delete player.worldMap.dungeonPostCombat;
   lastDungeonPhaseBgCrossfadeKey = "";
   pendingLeviathanPhaseCeremony = null;
+  publishPresenceDungeonLocation();
 }
 
 function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
@@ -14470,6 +14592,7 @@ function runEnemyPhase() {
       tickEffectsAtStartOfPlayerTurn(cur);
       tickStormMarksAtStartOfPlayerTurn(cur);
       applyStormPressureIfDue(cur);
+      applyDungeonEndOfRoundMechanics(cur);
       if (!isPartyAlive(cur)) {
         syncCombatPartyHeroMirror(cur);
         setTimeout(() => finishCombatDefeat(), 200);
@@ -16024,6 +16147,7 @@ function advanceDungeonToNextRoomOrEpilogue() {
     run.epilogue = true;
   }
   save();
+  publishPresenceDungeonLocation();
   render();
 }
 
@@ -16039,7 +16163,7 @@ function startDungeonRoomCombat(dungeonId, roomIndex) {
     enemyScale: biome && typeof biome.enemyScale === "number" ? biome.enemyScale : 1,
     mobDifficulty: biome && biome.mobDifficulty ? biome.mobDifficulty : { easy: 3, medium: 6, hard: 10 }
   };
-  const ctx = { dungeonId, roomIndex };
+  const ctx = { dungeonId, roomIndex, combatGlobalRound: 0 };
   if (typeof room.enemyDamageMult === "number" && Number.isFinite(room.enemyDamageMult) && room.enemyDamageMult > 0) {
     ctx.enemyDamageMult = room.enemyDamageMult;
   }
@@ -16064,6 +16188,36 @@ function openHollisEntranceDialog(dungeonId) {
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
+}
+
+function openMerritRootsnifferEntranceDialog() {
+  const def = getDungeonDef("rootwarren");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Rootwarren Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Merrit Rootsniffer</p>
+      <p class="npc-dialog-body">You hear that scratching below? That is not wind. That is dinner being discussed. Hand me the Rootwarren Key, and I will open the way.</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="rootwarren">Use Rootwarren Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="rootwarren">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Merrit Rootsniffer</p>
+    <p class="npc-dialog-body">No Rootwarren Key? Then the door stays shut. The roots are picky, and frankly, I respect that.</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="rootwarren">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openMerritRootsnifferKeyAcceptedDialog() {
+  openDungeonKeyAcceptedDialog("rootwarren");
 }
 
 function openNeraStormwatchEntranceDialog() {
@@ -16151,6 +16305,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openNeraStormwatchEntranceDialog();
     return;
   }
+  if (id === "rootwarren") {
+    openMerritRootsnifferEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -16167,9 +16325,12 @@ function openDungeonEntranceDialog(dungeonId) {
 function openDungeonKeyAcceptedDialog(dungeonId) {
   const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
   const isSunken = id === "sunken_grotto";
+  const isRootwarren = id === "rootwarren";
   const body = isSunken
     ? "Ahh… there it is. Right then—if you don’t come back, I’m fillin’ this thing back in."
-    : "The key turns by itself. Thunder exhales from the gap ahead.";
+    : isRootwarren
+      ? "The roots peel back with a wet sigh. Something vast shifts in the dark below."
+      : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -16181,7 +16342,7 @@ function openHollisKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("sunken_grotto");
 }
 
-function beginDungeonRunFromModal(dungeonId) {
+async function beginDungeonRunFromModal(dungeonId) {
   const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
   const def = getDungeonDef(id);
   if (!def) {
@@ -16194,12 +16355,48 @@ function beginDungeonRunFromModal(dungeonId) {
     showModal("You no longer have the key.");
     return;
   }
+  const ent =
+    def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? def.entrance
+      : { x: 37, y: 55 };
+
+  if (
+    typeof window !== "undefined" &&
+    window.GameStorage?.isOnlineMode?.() &&
+    typeof window.GameStorage.enterDungeon === "function" &&
+    activeCharacterSlotIndex != null
+  ) {
+    try {
+      const body = await window.GameStorage.enterDungeon(id, activeCharacterSlotIndex);
+      if (body?.roster?.slots && activeCharacterSlotIndex != null) {
+        ensureCharacterRoster();
+        characterRoster.slots = body.roster.slots;
+        while (characterRoster.slots.length < CHARACTER_SLOT_COUNT) characterRoster.slots.push(null);
+        player = characterRoster.slots[activeCharacterSlotIndex];
+      } else if (body?.dungeonRun) {
+        player.worldMap.dungeonRun = { ...body.dungeonRun };
+        player.worldMap.x = ent.x;
+        player.worldMap.y = ent.y;
+      }
+      save({ flush: true });
+      if (typeof persistCharacterRoster === "function") await persistCharacterRoster();
+      publishPresenceDungeonLocation();
+      closeModal();
+      render();
+      return;
+    } catch (err) {
+      console.error("enterDungeon:", err);
+      showModal(err && err.message ? err.message : "Could not enter dungeon.");
+      return;
+    }
+  }
+
   player.inventory.splice(idx, 1);
-  const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
   player.worldMap.x = ent.x;
   player.worldMap.y = ent.y;
   player.worldMap.dungeonRun = { id, roomIndex: 0, epilogue: false };
   save();
+  publishPresenceDungeonLocation();
   closeModal();
   render();
 }
