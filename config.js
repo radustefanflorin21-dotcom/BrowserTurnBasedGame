@@ -2473,6 +2473,149 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 30, STR: 17, HP: 480 }
     },
+    "Bramblehorn Antler Crown": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "rare",
+      itemLevel: 20,
+      image: "Assets/Equips/bramblehorn_antler_crown.png",
+      description: "An antler crown woven with living bramble; favors healing and protection.",
+      set: "Bramblehorn",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 14, VIT: 12, HEAL: 6, "Magic Resist": 5, "Status Resist": 4, HP: 120 }
+    },
+    "Rootmender Sash": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "rare",
+      itemLevel: 21,
+      image: "Assets/Equips/rootmender_sash.png",
+      description: "A rootmend sash that steadies the wearer under magical assault.",
+      set: "Bramblehorn",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 15, INT: 10, HEAL: 7, HP: 150, "Magic Resist": 4 }
+    },
+    "Thornweave Bracelet": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "rare",
+      itemLevel: 21,
+      image: "Assets/Equips/thornweave_bracelet.png",
+      description: "Thorn-thread bracelet that sharpens support casting tempo.",
+      set: "Bramblehorn",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 13, DEX: 8, HEAL: 5, ACC: 4, "Status Resist": 4 }
+    },
+    "Fangroot Biteblade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "dagger",
+      rarity: "rare",
+      itemLevel: 21,
+      image: "Assets/Equips/fangroot_biteblade.png",
+      description: "A predatory blade honed from fangroot claws for bleeding burst kills.",
+      set: "Fangroot",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { STR: 18, DEX: 17, "Phys Damage": 8, Crit: 7, ACC: 5 }
+    },
+    "Bloodroot Mantle": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "rare",
+      itemLevel: 21,
+      image: "Assets/Equips/bloodroot_mantle.png",
+      description: "A bloodroot-lined mantle for evasive assassins.",
+      set: "Fangroot",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 18, STR: 10, EVA: 7, Crit: 5, HP: 100 }
+    },
+    "Predator Fang Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "rare",
+      itemLevel: 22,
+      image: "Assets/Equips/predator_fang_ring.png",
+      description: "A fangroot ring that rewards precise critical strikes.",
+      set: "Fangroot",
+      build: "DEX_STR",
+      bonusSkills: [],
+      bonusStats: { DEX: 16, STR: 12, Crit: 6, ACC: 5, "Phys Damage": 5 }
+    },
+    "Gaiahide Warplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "rare",
+      itemLevel: 22,
+      image: "Assets/Equips/gaiahide_warplate.png",
+      description: "Heavy gaiahide plate for frontline bruisers.",
+      set: "Gaiahide",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 24, STR: 16, HP: 260, "Phys Resist": 8, "Magic Resist": 5 }
+    },
+    "Rootquake Greaves": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "rare",
+      itemLevel: 22,
+      image: "Assets/Equips/rootquake_greaves.png",
+      description: "Greaves rooted with behemoth bone for crushing advances.",
+      set: "Gaiahide",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 18, VIT: 14, HP: 180, "Phys Damage": 6, "Status Resist": 5 }
+    },
+    "Heartburrow Horn Charm": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "rare",
+      itemLevel: 23,
+      image: "Assets/Equips/heartburrow_horn_charm.png",
+      description: "A horn charm pulsing with ancient gaia sap.",
+      set: "Gaiahide",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 20, VIT: 16, "Phys Damage": 7, "Status Resist": 6, HP: 160 }
+    },
+    "Behemoth Rootguard": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "warhammer",
+      rarity: "rare",
+      itemLevel: 23,
+      image: "Assets/Equips/behemoth_rootguard.png",
+      description: "A gaiahide warhammer grown from the behemoth's deepest plates.",
+      set: "Gaiahide",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 22, STR: 12, HP: 240, "Phys Damage": 9, "Status Resist": 6, "Magic Resist": 4 }
+    },
+    "Rootsap Focus": {
+      type: "armor",
+      slot: "offhand",
+      equipCategory: "shield",
+      rarity: "rare",
+      itemLevel: 22,
+      image: "Assets/Equips/rootsap_focus.png",
+      description: "A focus orb of condensed rootsap for defensive casters.",
+      set: "",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 18, VIT: 12, HEAL: 6, "Magic Damage": 5, ACC: 4 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -3355,11 +3498,89 @@ const GAME_CONFIG = {
       image: "Assets/Resources/ripple_core.png",
       description: "Ripple Core used in crafting and loot."
     },
+    "Alpha Fang": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/alpha_fang.png",
+      description: "A dominant fang from the Fangroot Alpha."
+    },
+    "Ancient Gaia Sap": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ancient_gaia_sap.png",
+      description: "Ancient sap crystallized within the Gaiahide Behemoth."
+    },
+    "Behemoth Rootbone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/behemoth_rootbone.png",
+      description: "Dense rootbone from the Gaiahide Behemoth."
+    },
+    "Bloodroot Hide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bloodroot_hide.png",
+      description: "Blood-soaked hide stripped from the Fangroot Alpha."
+    },
+    "Bramblehorn Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bramblehorn_shard.png",
+      description: "A splintered horn shard from the Bramblehorn Matriarch."
+    },
+    "Fangroot Claw": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/fangroot_claw.png",
+      description: "A claw from the Fangroot Alpha, ideal for blades and rings."
+    },
+    "Gaia Sap Antler": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/gaia_sap_antler.png",
+      description: "Sap-filled antler from the Bramblehorn Matriarch."
+    },
+    "Gaiahide Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/gaiahide_plate.png",
+      description: "Layered hide plate from the Gaiahide Behemoth."
+    },
+    "Heartburrow Horn": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/heartburrow_horn.png",
+      description: "A horn core from deep within the Rootwarren behemoth."
+    },
+    "Living Bramble Fiber": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/living_bramble_fiber.png",
+      description: "Still-living bramble fiber from the Matriarch's ward."
+    },
+    "Predator Sap": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/predator_sap.png",
+      description: "Predatory sap distilled from the Fangroot Alpha."
+    },
     "Root Fiber": {
       type: "material",
       value: 5,
       image: "Assets/Resources/root_fiber.png",
       description: "Root Fiber used in crafting and loot."
+    },
+    "Rootmend Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/rootmend_core.png",
+      description: "A mending core from the Bramblehorn Matriarch."
+    },
+    "Rootquake Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/rootquake_core.png",
+      description: "A tremor core shaken loose from the Gaiahide Behemoth."
     },
     "Rough Core": {
       type: "material",
@@ -3926,7 +4147,10 @@ const GAME_CONFIG = {
     "Stormfang Ravager": ["beast", "elemental"],
     "Abyssal Tempest Caller": ["beast", "elemental"],
     "The Stormwake Leviathan": ["beast", "elemental"],
-    "Cliff Lurker": ["beast", "stone"]
+    "Cliff Lurker": ["beast", "stone"],
+    "Bramblehorn Matriarch": ["beast", "nature"],
+    "Fangroot Alpha": ["beast"],
+    "Gaiahide Behemoth": ["beast", "stone"]
   },
 
   crafting: {
@@ -4591,6 +4815,18 @@ const GAME_CONFIG = {
               { item: "Abyss Residue", qty: 4, source: "monster_loot" },
               { item: "Residue", qty: 3, source: "gathering_loot" }
             ]
+          },
+          {
+            id: "bramblehorn_antler_crown",
+            resultItem: "Bramblehorn Antler Crown",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Gaia Sap Antler", qty: 2, source: "monster_loot" },
+              { item: "Living Bramble Fiber", qty: 6, source: "monster_loot" },
+              { item: "Nature Essence", qty: 8, source: "monster_loot" },
+              { item: "Soft Fur", qty: 5, source: "monster_loot" },
+              { item: "Bone Shard", qty: 3, source: "monster_loot" }
+            ]
           }]
       },
       {
@@ -4598,6 +4834,128 @@ const GAME_CONFIG = {
         minLevel: 21,
         maxLevel: 30,
         recipes: [
+          {
+            id: "rootmender_sash",
+            resultItem: "Rootmender Sash",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Rootmend Core", qty: 1, source: "monster_loot" },
+              { item: "Living Bramble Fiber", qty: 8, source: "monster_loot" },
+              { item: "Thick Hide", qty: 6, source: "monster_loot" },
+              { item: "Nature Essence", qty: 8, source: "monster_loot" },
+              { item: "Digging Claw", qty: 4, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "thornweave_bracelet",
+            resultItem: "Thornweave Bracelet",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Bramblehorn Shard", qty: 3, source: "monster_loot" },
+              { item: "Living Bramble Fiber", qty: 5, source: "monster_loot" },
+              { item: "Venom Sac", qty: 3, source: "monster_loot" },
+              { item: "Nature Essence", qty: 6, source: "monster_loot" },
+              { item: "Bone Shard", qty: 4, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "fangroot_biteblade",
+            resultItem: "Fangroot Biteblade",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Fangroot Claw", qty: 3, source: "monster_loot" },
+              { item: "Alpha Fang", qty: 2, source: "monster_loot" },
+              { item: "Talon Fragment", qty: 8, source: "monster_loot" },
+              { item: "Bone Shard", qty: 5, source: "monster_loot" },
+              { item: "Root Fiber", qty: 6, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "bloodroot_mantle",
+            resultItem: "Bloodroot Mantle",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Bloodroot Hide", qty: 3, source: "monster_loot" },
+              { item: "Predator Sap", qty: 2, source: "monster_loot" },
+              { item: "Thick Hide", qty: 8, source: "monster_loot" },
+              { item: "Soft Fur", qty: 6, source: "monster_loot" },
+              { item: "Root Fiber", qty: 5, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "predator_fang_ring",
+            resultItem: "Predator Fang Ring",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Alpha Fang", qty: 2, source: "monster_loot" },
+              { item: "Fangroot Claw", qty: 2, source: "monster_loot" },
+              { item: "Predator Sap", qty: 3, source: "monster_loot" },
+              { item: "Digging Claw", qty: 5, source: "monster_loot" },
+              { item: "Talon Fragment", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "gaiahide_warplate",
+            resultItem: "Gaiahide Warplate",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Gaiahide Plate", qty: 4, source: "monster_loot" },
+              { item: "Behemoth Rootbone", qty: 2, source: "monster_loot" },
+              { item: "Ancient Gaia Sap", qty: 2, source: "monster_loot" },
+              { item: "Thick Hide", qty: 10, source: "monster_loot" },
+              { item: "Root Fiber", qty: 8, source: "gathering_loot" },
+              { item: "Digging Claw", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "rootquake_greaves",
+            resultItem: "Rootquake Greaves",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Rootquake Core", qty: 2, source: "monster_loot" },
+              { item: "Gaiahide Plate", qty: 3, source: "monster_loot" },
+              { item: "Behemoth Rootbone", qty: 2, source: "monster_loot" },
+              { item: "Thick Hide", qty: 8, source: "monster_loot" },
+              { item: "Nature Essence", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "heartburrow_horn_charm",
+            resultItem: "Heartburrow Horn Charm",
+            resultLevel: 23,
+            ingredients: [
+              { item: "Heartburrow Horn", qty: 2, source: "monster_loot" },
+              { item: "Ancient Gaia Sap", qty: 3, source: "monster_loot" },
+              { item: "Behemoth Rootbone", qty: 2, source: "monster_loot" },
+              { item: "Bone Shard", qty: 8, source: "monster_loot" },
+              { item: "Nature Essence", qty: 10, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "behemoth_rootguard",
+            resultItem: "Behemoth Rootguard",
+            resultLevel: 23,
+            ingredients: [
+              { item: "Gaiahide Plate", qty: 5, source: "monster_loot" },
+              { item: "Rootquake Core", qty: 1, source: "monster_loot" },
+              { item: "Ancient Gaia Sap", qty: 2, source: "monster_loot" },
+              { item: "Root Fiber", qty: 10, source: "gathering_loot" },
+              { item: "Thick Hide", qty: 8, source: "monster_loot" },
+              { item: "Digging Claw", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "rootsap_focus",
+            resultItem: "Rootsap Focus",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Ancient Gaia Sap", qty: 2, source: "monster_loot" },
+              { item: "Rootmend Core", qty: 1, source: "monster_loot" },
+              { item: "Bramblehorn Shard", qty: 2, source: "monster_loot" },
+              { item: "Living Bramble Fiber", qty: 6, source: "monster_loot" },
+              { item: "Nature Essence", qty: 10, source: "monster_loot" }
+            ]
+          },
           {
             id: "lynx_fang",
             resultItem: "Lynx Fang",
@@ -5384,6 +5742,9 @@ const GAME_CONFIG = {
     Basilisk: 1,
     "Basilisk Oracle": 2,
     Boarbreaker: 5,
+    Bramblehorn: 3,
+    Fangroot: 3,
+    Gaiahide: 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -5433,6 +5794,19 @@ const GAME_CONFIG = {
       3: { STR: 7, VIT: 3, "Phys Resist": 5 },
       4: { STA: 1, STR: 7, VIT: 3, "Phys Resist": 5, "Phys Damage": 5 },
       5: { STA: 1, STR: 7, VIT: 8, "Phys Resist": 11, "Phys Damage": 5 }
+    },
+    Bramblehorn: {
+      2: { VIT: 8, HEAL: 4, "Magic Resist": 5 },
+      3: { VIT: 14, INT: 10, HEAL: 7, "Magic Resist": 5, "Status Resist": 4 }
+    },
+    Fangroot: {
+      2: { DEX: 10, Crit: 4, ACC: 3 },
+      3: { DEX: 18, STR: 10, Crit: 7, ACC: 5, "Phys Damage": 5 }
+    },
+    Gaiahide: {
+      2: { VIT: 12, HP: 120, "Phys Resist": 4 },
+      3: { VIT: 20, STR: 12, HP: 220, "Phys Resist": 6, "Status Resist": 4 },
+      4: { STA: 1, VIT: 28, STR: 18, HP: 340, "Phys Resist": 8, "Status Resist": 6 }
     },
     "Channeler Set": {
       2: { INT: 2 },

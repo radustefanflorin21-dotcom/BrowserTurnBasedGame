@@ -237,6 +237,31 @@
         { name: "Blood Essence", dropRate: 3 }
       ]
     },
+    "Bramblehorn Matriarch": {
+      materials: [
+        { name: "Bramblehorn Shard", dropRate: 26 },
+        { name: "Living Bramble Fiber", dropRate: 20 },
+        { name: "Gaia Sap Antler", dropRate: 14 },
+        { name: "Rootmend Core", dropRate: 9 }
+      ]
+    },
+    "Fangroot Alpha": {
+      materials: [
+        { name: "Fangroot Claw", dropRate: 26 },
+        { name: "Alpha Fang", dropRate: 20 },
+        { name: "Bloodroot Hide", dropRate: 14 },
+        { name: "Predator Sap", dropRate: 9 }
+      ]
+    },
+    "Gaiahide Behemoth": {
+      materials: [
+        { name: "Gaiahide Plate", dropRate: 22 },
+        { name: "Behemoth Rootbone", dropRate: 20 },
+        { name: "Rootquake Core", dropRate: 16 },
+        { name: "Ancient Gaia Sap", dropRate: 12 },
+        { name: "Heartburrow Horn", dropRate: 8 }
+      ]
+    },
     "Desert Thornback Crawler": {
       materials: [
         { name: "Spiked Shell", dropRate: 37.5 },

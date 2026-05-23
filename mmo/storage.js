@@ -249,16 +249,10 @@
 
   async function enterDungeon(dungeonId, slotIndex) {
     if (!isOnlineMode()) return null;
-    const res = await apiFetch("/api/dungeon/enter", {
+    return apiFetch("/api/dungeon/enter", {
       method: "POST",
       body: JSON.stringify({ dungeonId, slotIndex })
     });
-    if (!res.ok) {
-      const err = new Error((res.body && res.body.error) || "Failed to enter dungeon.");
-      err.status = res.status;
-      throw err;
-    }
-    return res.body;
   }
 
   root.GameStorage = {
