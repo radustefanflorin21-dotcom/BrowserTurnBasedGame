@@ -4351,6 +4351,21 @@ const GAME_CONFIG = {
             ]
           },
           {
+            id: "rootwarren_key",
+            resultItem: "Rootwarren Key",
+            resultLevel: 18,
+            ingredients: [
+              { item: "Digging Claw", qty: 6, source: "monster_loot" },
+              { item: "Earth Essence", qty: 4, source: "monster_loot" },
+              { item: "Scaled Skin", qty: 5, source: "monster_loot" },
+              { item: "Poison Essence", qty: 3, source: "monster_loot" },
+              { item: "Talon Fragment", qty: 5, source: "monster_loot" },
+              { item: "Wild Essence", qty: 4, source: "monster_loot" },
+              { item: "Boar Tusk", qty: 3, source: "monster_loot" },
+              { item: "Nature Essence", qty: 4, source: "monster_loot" }
+            ]
+          },
+          {
             id: "sandfang_blade",
             resultItem: "Sandfang Blade",
             resultLevel: 15,
