@@ -94,6 +94,55 @@ const GAME_CONFIG = {
       possibleLevels: [22],
       possibleMoods: ["berserk"]},
     {
+      name: "Thornback Graveguard",
+      combatScript: "thornback_graveguard",
+      combatRole: "tank",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/The misery of life/Withered Maw/thornback_graveguard.png",
+      possibleLevels: [20],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 24, dex: 11, vit: 59, int: 14 },
+      baseHp: 705
+    },
+    {
+      name: "Mirage Maw",
+      combatScript: "mirage_maw",
+      combatRole: "controller",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/The misery of life/Withered Maw/mirage_maw.png",
+      possibleLevels: [21],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 7,
+      baseStats: { str: 18, dex: 22, vit: 27, int: 45 },
+      baseHp: 456
+    },
+    {
+      name: "Mirage Remnant",
+      combatScript: "mirage_remnant",
+      combatRole: "controller",
+      spawnRarity: "rare",
+      image: "Assets/Biomes/The misery of life/Withered Maw/mirage_remnant.png",
+      possibleLevels: [18],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 6,
+      baseStats: { str: 8, dex: 14, vit: 12, int: 28 },
+      baseHp: 120
+    },
+    {
+      name: "The Dune Mourner",
+      combatScript: "dune_mourner",
+      combatRole: "summoner",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/The misery of life/Withered Maw/the_dune_mourner.png",
+      possibleLevels: [22],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 8,
+      baseStats: { str: 14, dex: 22, vit: 41, int: 59 },
+      baseHp: 1888
+    },
+    {
       name: "Leafdart Squirrel",
       combatScript: "greenleaf_squirrel",
       combatRole: "harasser",
@@ -966,6 +1015,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/rootwaren_key.png",
       description: "A root-choked key for the warren beneath the Skin of Gaia.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Withered Maw Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/withered_maw_key.png",
+      description: "A sand-scored key for the sinkhole known as The Withered Maw.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -4150,7 +4207,11 @@ const GAME_CONFIG = {
     "Cliff Lurker": ["beast", "stone"],
     "Bramblehorn Matriarch": ["beast", "nature"],
     "Fangroot Alpha": ["beast"],
-    "Gaiahide Behemoth": ["beast", "stone"]
+    "Gaiahide Behemoth": ["beast", "stone"],
+    "Thornback Graveguard": ["beast", "stone"],
+    "Mirage Maw": ["construct", "elemental"],
+    "Mirage Remnant": ["construct", "elemental"],
+    "The Dune Mourner": ["undead", "elemental"]
   },
 
   crafting: {
@@ -6070,7 +6131,8 @@ const GAME_CONFIG = {
     coordinateBackgrounds: {
       "29,55": "Assets/Biomes/Paradise South/boat_between_paradises.png",
       "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png",
-      "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png"
+      "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png",
+      "35,33": "Assets/Biomes/The misery of life/Withered Maw/the_withered_maw_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -6143,6 +6205,25 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/Skin of Gaia/Rootwarren/merrit_rootsniffer.png",
             text: "Merrit watches the sealed roots.",
             dungeonEntrance: "rootwarren"
+          }
+        ]
+      },
+      "35,33": {
+        kind: "scene",
+        title: "The misery of life — Withered Maw entrance",
+        description: "A heat-warped sinkhole exhales dry breath. The sand below looks hungry.",
+        elements: [
+          {
+            type: "npc",
+            id: "old_varro",
+            label: "Old Varro",
+            editable: true,
+            leftPct: 48,
+            topPct: 70,
+            scalePct: 88,
+            image: "Assets/Biomes/The misery of life/Withered Maw/old_varro.png",
+            text: "Old Varro leans on his crooked stick.",
+            dungeonEntrance: "withered_maw"
           }
         ]
       },
@@ -6436,6 +6517,116 @@ const GAME_CONFIG = {
                 moodId: "berserk",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/Skin of Gaia/Rootwarren/gaiahide_behemoth.png"
+              }
+            ]
+          }
+        ]
+      },
+      withered_maw: {
+        name: "The Withered Maw",
+        keyItem: "Withered Maw Key",
+        entrance: { x: 35, y: 33 },
+        assetBase: "Assets/Biomes/The misery of life/Withered Maw",
+        thirstingSand: true,
+        starvationPressure: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Dune Devourer", level: 19, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText: "Thirsting Sand: every 3 rounds, a random fighter may be Blinded.",
+            enemies: [
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText: "Thirsting Sand and Starvation Pressure threaten this chamber.",
+            enemies: [
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Dune Devourer", level: 19, moodId: "berserk" },
+              {
+                name: "Thornback Graveguard",
+                level: 20,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/thornback_graveguard.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText: "Thirsting Sand and Starvation Pressure continue here.",
+            enemies: [
+              { name: "Dune Devourer", level: 19, moodId: "berserk" },
+              { name: "Dune Devourer", level: 19, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              {
+                name: "Mirage Maw",
+                level: 21,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/mirage_maw.png"
+              }
+            ]
+          },
+          {
+            bg: "6",
+            modifierText:
+              "Thirsting Sand and Starvation Pressure continue. The Dune Mourner calls Mirage Remnants on long fights.",
+            enemies: [
+              { name: "Dust Carver", level: 14, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Witherling", level: 15, moodId: "berserk" },
+              { name: "Mirage Lurker", level: 18, moodId: "berserk" },
+              { name: "Desert Thornback Crawler", level: 17, moodId: "berserk" },
+              { name: "Dune Devourer", level: 19, moodId: "berserk" },
+              {
+                name: "Mirage Maw",
+                level: 21,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/mirage_maw.png"
+              },
+              {
+                name: "The Dune Mourner",
+                level: 22,
+                moodId: "berserk",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/the_dune_mourner.png"
               }
             ]
           }

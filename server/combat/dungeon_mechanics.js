@@ -1,10 +1,11 @@
 /**
- * Shared dungeon combat mechanics (Rootwarren pressure, boss reinforcements).
+ * Shared dungeon combat mechanics (Rootwarren pressure, Withered Maw sand/starvation, boss reinforcements).
  */
 
 import { loadGameConfig, getEnemyDefByName } from "../load_game_config.js";
 import { buildFoeFromUnit } from "./formulas.js";
 import { initFoeCombatRuntime } from "./enemy_ai.js";
+import { applyPartyMemberBlind, applyPartyMemberCripple } from "./status.js";
 
 function getDungeonDef(dungeonId) {
   const cfg = loadGameConfig();
@@ -43,6 +44,18 @@ function spawnReinforcement(st, name, rng) {
   return true;
 }
 
+/** Mirage Remnants ignore the normal 8-enemy cap. */
+export function spawnMirageRemnantUncapped(st, rng, summonerUid) {
+  const level = maxLevelForEnemyName("Mirage Remnant");
+  const moodId = randomMoodIdForEnemy("Mirage Remnant", rng);
+  const foe = buildFoeFromUnit({ name: "Mirage Remnant", level, moodId }, nextFoeUid(st));
+  if (!foe) return null;
+  initFoeCombatRuntime(foe);
+  if (typeof summonerUid === "number") foe.combat.summonerUid = summonerUid;
+  st.foes.push(foe);
+  return foe;
+}
+
 function incrementGlobalCombatRound(st) {
   const wmc = st.worldMapContext;
   if (!wmc || typeof wmc !== "object") return 0;
@@ -69,8 +82,30 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (living.length) {
       const pick = living[Math.floor(rng.next() * living.length)];
       if (rng.chance(0.35)) {
-        pick.crippleTurns = Math.max(pick.crippleTurns || 0, 1);
+        applyPartyMemberCripple(st, pick, 1);
         log(`Root Pressure cripples ${pick.name || "a hero"} (+1 stamina per skill).`);
+      }
+    }
+  }
+
+  if (def.thirstingSand && roomIndex >= 2 && round % 3 === 0) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    if (living.length) {
+      const pick = living[Math.floor(rng.next() * living.length)];
+      if (rng.chance(0.35)) {
+        applyPartyMemberBlind(st, pick, 6, 1);
+        log(`Thirsting Sand blinds ${pick.name || "a fighter"} (−6% accuracy).`);
+      }
+    }
+  }
+
+  if (def.starvationPressure && roomIndex >= 3 && round % 4 === 0) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    if (living.length) {
+      const pick = living[Math.floor(rng.next() * living.length)];
+      if (rng.chance(0.3)) {
+        applyPartyMemberCripple(st, pick, 1);
+        log(`Starvation Pressure cripples ${pick.name || "a fighter"} (+1 stamina per skill).`);
       }
     }
   }
@@ -79,6 +114,14 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (round === 8 || round === 12) {
       if (spawnReinforcement(st, "Burrow Hare", rng)) {
         log("Gaiahide Behemoth shakes the den — a Burrow Hare burrows into the fight!");
+      }
+    }
+  }
+
+  if (dungeonId === "withered_maw" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
+    if (round === 7 || round === 11) {
+      if (spawnMirageRemnantUncapped(st, rng)) {
+        log("The sand shimmers — a Mirage Remnant claws its way into the fight!");
       }
     }
   }

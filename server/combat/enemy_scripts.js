@@ -2,6 +2,8 @@ import { createRequire } from "node:module";
 import { getEnemyCombatRoleKey } from "./monster_stats.js";
 import { getEnemyDefByName } from "../load_game_config.js";
 import {
+  applyPartyMemberBlind,
+  applyPartyMemberCripple,
   applyPlayerAccuracyDown,
   applyPlayerBleed,
   applyPlayerPoison,
@@ -9,6 +11,7 @@ import {
   extendPlayerDebuffDurations,
   ensureCombatStatus
 } from "./status.js";
+import { spawnMirageRemnantUncapped } from "./dungeon_mechanics.js";
 
 const require = createRequire(import.meta.url);
 const { inferMonsterCombatRole } = require("../../shared/monster_roles.js");
@@ -18,6 +21,46 @@ export function runEnemyScriptTurn(scriptId, foe, st, ctx) {
   const fn = SCRIPT_HANDLERS[scriptId];
   if (fn) return fn(foe, st, ctx);
   return runRoleFallbackTurn(scriptId, foe, st, ctx);
+}
+
+function countMirageRemnants(st) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Mirage Remnant").length;
+}
+
+function lowestHpAlly(st, excludeUid) {
+  const allies = (st.foes || []).filter((f) => f && f.hp > 0 && f.uid !== excludeUid);
+  if (!allies.length) return null;
+  return allies.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+}
+
+function grantFoeAbsorb(foe, amount, turns) {
+  if (!foe.combat) return;
+  foe.combat.absorbHp = Math.max(foe.combat.absorbHp || 0, Math.max(1, Math.floor(amount)));
+  foe.combat.absorbTurns = Math.max(foe.combat.absorbTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+function setFoeMitigation(foe, turns, mult) {
+  if (!foe.combat) return;
+  foe.combat.mitigationTurns = Math.max(foe.combat.mitigationTurns || 0, turns);
+  foe.combat.mitigationMult = mult;
+}
+
+function setFoeReflect(foe, turns, frac) {
+  if (!foe.combat) return;
+  foe.combat.reflectTurns = Math.max(foe.combat.reflectTurns || 0, turns);
+  foe.combat.reflectFrac = frac;
+}
+
+function rollBlindAll(st, ctx, chance, pct, turns) {
+  for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+    if (ctx.rng.chance(chance)) applyPartyMemberBlind(st, m, pct, turns);
+  }
+}
+
+function isMemberBlinded(st, member) {
+  if (!member) return false;
+  if (member.kind === "hero") return (st.status?.playerOutgoingAccuracyDownTurns || 0) > 0;
+  return (member.outgoingAccuracyDownTurns || 0) > 0;
 }
 
 function runRoleFallbackTurn(scriptId, foe, st, ctx) {
@@ -401,6 +444,177 @@ const SCRIPT_HANDLERS = {
       return true;
     }
     ctx.hit(member, ctx.atk * 0.65 * ctx.outMult, "crushes");
+    return true;
+  },
+
+  thornback_graveguard(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    if (ctx.ready("grave_shell")) {
+      ctx.setCd("grave_shell", 3);
+      setFoeMitigation(foe, 2, 0.88);
+      setFoeReflect(foe, 2, 0.1);
+      ctx.log(`${foe.name} raises Grave Shell (+resist, reflect).`);
+      return true;
+    }
+    if (ctx.ready("thorn_challenge")) {
+      ctx.setCd("thorn_challenge", 4);
+      if (ctx.rng.chance(0.55)) {
+        foe.combat.tauntPlayerTurns = Math.max(foe.combat.tauntPlayerTurns || 0, 1);
+      }
+      setFoeMitigation(foe, 1, 0.88);
+      ctx.log(`${foe.name} issues Thorn Challenge.`);
+      return true;
+    }
+    const lowest = lowestHpAlly(st, foe.uid);
+    if (lowest && ctx.ready("splinter_guard")) {
+      ctx.setCd("splinter_guard", 4);
+      grantFoeAbsorb(lowest, Math.max(1, Math.floor((foe.vit || 20) * 0.65)), 2);
+      ctx.log(`${foe.name} shields ${lowest.name} with Splinter Guard.`);
+      return true;
+    }
+    if (ctx.ready("bone_impale")) {
+      ctx.setCd("bone_impale", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.85 * ctx.outMult));
+      ctx.hit(member, hit, "Bone Impales");
+      if (ctx.rng.chance(0.45)) applyPlayerBleed(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.45 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  mirage_maw(foe, st, ctx) {
+    const member = ctx.pickTarget("controller");
+    if (ctx.ready("splitting_mirage")) {
+      ctx.setCd("splitting_mirage", 3);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.28);
+      foe.combat.splitMirageBlindOnDodge = true;
+      ctx.log(`${foe.name} splits into mirages (+evasion).`);
+      return true;
+    }
+    if (ctx.ready("thirsting_haze")) {
+      ctx.setCd("thirsting_haze", 3);
+      rollBlindAll(st, ctx, 0.5, 8, 2);
+      ctx.log(`${foe.name} spreads Thirsting Haze.`);
+      return true;
+    }
+    if (ctx.ready("mirage_lock")) {
+      ctx.setCd("mirage_lock", 4);
+      const dur = isMemberBlinded(st, member) ? 3 : 2;
+      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, dur);
+      ctx.log(`${foe.name} locks ${member?.name || "a fighter"} in mirage sand.`);
+      return true;
+    }
+    if (ctx.ready("false_wound")) {
+      ctx.setCd("false_wound", 2);
+      const hit = Math.max(1, Math.floor((foe.int || 20) * 0.55 * ctx.outMult));
+      ctx.hit(member, hit, "False Wounds");
+      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.int || 20) * 0.4 * ctx.outMult)), "mirage-strikes");
+    return true;
+  },
+
+  mirage_remnant(foe, st, ctx) {
+    const member = ctx.pickTarget("controller");
+    if (ctx.ready("vanish")) {
+      ctx.setCd("vanish", 3);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.18);
+      ctx.log(`${foe.name} Vanishes into heat haze.`);
+      return true;
+    }
+    const hit = Math.max(1, Math.floor((foe.int || 20) * 0.35 * ctx.outMult));
+    ctx.hit(member, hit, "Mirage Scratches");
+    if (ctx.rng.chance(0.35)) applyPartyMemberBlind(st, member, 5, 1);
+    return true;
+  },
+
+  dune_mourner(foe, st, ctx) {
+    const member = ctx.pickTarget("mage");
+    const hpFrac = ctx.foeHpFrac();
+    if (hpFrac <= 0.7 && !foe.combat.dunePhase2) {
+      foe.combat.dunePhase2 = true;
+      foe.combat.duneMagicBonusPct = (foe.combat.duneMagicBonusPct || 0) + 8;
+      ctx.log(`${foe.name} opens The Maw — Mirage Remnants answer.`);
+      spawnMirageRemnantUncapped(st, ctx.rng, foe.uid);
+      spawnMirageRemnantUncapped(st, ctx.rng, foe.uid);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.dunePhase3) {
+      foe.combat.dunePhase3 = true;
+      foe.combat.duneAccuracyBonusPct = (foe.combat.duneAccuracyBonusPct || 0) + 8;
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        if (ctx.rng.chance(0.35)) applyPartyMemberCripple(st, m, 1);
+      }
+      ctx.log(`${foe.name} enters Nothing Left — starvation pulses through the party.`);
+      return true;
+    }
+    const magicMult = 1 + (foe.combat.duneMagicBonusPct || 0) / 100;
+    const accMult = 1 + (foe.combat.duneAccuracyBonusPct || 0) / 100;
+    const intv = foe.int || 20;
+    if (ctx.ready("open_the_maw")) {
+      ctx.setCd("open_the_maw", 5);
+      if (countMirageRemnants(st) >= 3) {
+        (st.foes || []).forEach((f) => {
+          if (!f || f.hp <= 0 || f.name !== "Mirage Remnant") return;
+          if (!f.combat) return;
+          f.combat.magicDmgBonusTurns = Math.max(f.combat.magicDmgBonusTurns || 0, 2);
+          f.combat.magicDmgBonusPct = Math.max(f.combat.magicDmgBonusPct || 0, 10);
+        });
+        ctx.log(`${foe.name} empowers existing Mirage Remnants (+magic damage).`);
+      } else {
+        spawnMirageRemnantUncapped(st, ctx.rng, foe.uid);
+        ctx.log(`${foe.name} opens the Maw — a Mirage Remnant emerges.`);
+      }
+      return true;
+    }
+    if (ctx.ready("mirage_burial")) {
+      ctx.setCd("mirage_burial", 4);
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      const primary = member || living[0];
+      const others = living.filter((m) => m !== primary).slice(0, 2);
+      const targets = primary ? [primary, ...others] : others;
+      const dmg = Math.max(1, Math.floor(intv * 0.5 * ctx.outMult * magicMult * accMult));
+      for (const t of targets) {
+        ctx.hit(t, dmg, "Mirage Burials");
+        if (ctx.rng.chance(0.45)) applyPartyMemberBlind(st, t, 8, 2);
+        if (ctx.rng.chance(0.4)) applyPartyMemberCripple(st, t, 1);
+      }
+      return true;
+    }
+    if (ctx.ready("withering_cry")) {
+      ctx.setCd("withering_cry", 3);
+      rollBlindAll(st, ctx, 0.5, 8, 2);
+      const dmg = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult * accMult));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Withering Cries at");
+      return true;
+    }
+    if (ctx.ready("drought_curse")) {
+      ctx.setCd("drought_curse", 4);
+      if (ctx.rng.chance(0.55)) applyPartyMemberCripple(st, member, 2);
+      if (ctx.rng.chance(0.4)) applyPartyMemberBlind(st, member, 6, 2);
+      ctx.log(`${foe.name} curses ${member?.name || "a fighter"} with drought.`);
+      return true;
+    }
+    if (ctx.ready("sand_hunger")) {
+      ctx.setCd("sand_hunger", 2);
+      const weak = (st.party || [])
+        .filter((m) => m && m.hp > 0)
+        .reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b), null);
+      const target = weak || member;
+      const dmg = Math.max(1, Math.floor(intv * 0.6 * ctx.outMult * magicMult * accMult));
+      ctx.hit(target, dmg, "Sand Hungers");
+      const dotActive =
+        (st.status?.playerBleed?.turns || 0) > 0 ||
+        (st.status?.playerBurn?.turns || 0) > 0;
+      const healPct = dotActive ? 0.45 : 0.3;
+      const healed = Math.max(1, Math.floor(dmg * healPct));
+      foe.hp = Math.min(foe.maxHp, foe.hp + healed);
+      ctx.log(`${foe.name} drinks ${healed} HP from the sand.`);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult * accMult)), "sand-lashes");
     return true;
   },
 

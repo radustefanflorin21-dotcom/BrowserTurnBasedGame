@@ -5069,6 +5069,14 @@ function isDungeonRootPressureCombat(st) {
   return isDungeonMechanicCombat(st, "rootPressure");
 }
 
+function isDungeonThirstingSandCombat(st) {
+  return isDungeonMechanicCombat(st, "thirstingSand");
+}
+
+function isDungeonStarvationPressureCombat(st) {
+  return isDungeonMechanicCombat(st, "starvationPressure");
+}
+
 /** Final Stormbreak Hollow room (Stormwake Leviathan): special fight UI layout only here. */
 function isStormbreakHollowLeviathanBossRoomFight(st) {
   if (!isStormbreakHollowCombat(st)) return false;
@@ -5132,6 +5140,92 @@ function summonDungeonReinforcement(st, enemyName) {
   return true;
 }
 
+function countMirageRemnants(st) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Mirage Remnant").length;
+}
+
+function summonMirageRemnantUncapped(st, summoner) {
+  if (!st) return null;
+  const def = getEnemyDefByName("Mirage Remnant");
+  if (!def) return null;
+  const unit = { name: "Mirage Remnant", level: 18, moodId: "berserk" };
+  const spawned = spawnEnemiesFromPreview(st.region, [unit]);
+  if (!spawned.length) return null;
+  const foe = spawned[0];
+  foe.uid = getNextCombatFoeUid(st);
+  initFoeCombatRuntime(foe);
+  if (summoner && typeof summoner.uid === "number") foe.combat.summonerUid = summoner.uid;
+  st.foes.push(foe);
+  appendFightLog("The sand shimmers — a Mirage Remnant claws its way into the fight!");
+  return foe;
+}
+
+function applyPartyMemberBlind(st, member, pct, turns) {
+  if (!member) return;
+  if (member.kind === "hero") {
+    applyPlayerOutgoingAccuracyDown(st, pct, turns);
+    return;
+  }
+  member.outgoingAccuracyDownPct = Math.max(
+    member.outgoingAccuracyDownPct || 0,
+    Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, pct))
+  );
+  member.outgoingAccuracyDownTurns = Math.max(member.outgoingAccuracyDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+function applyPartyMemberCripple(st, member, turns) {
+  if (!member) return;
+  const t = Math.max(1, Math.floor(turns));
+  ensureCombatStatus(st);
+  if (member.kind === "hero") {
+    st.status.playerCrippleTurns = Math.max(st.status.playerCrippleTurns || 0, t);
+  }
+  member.crippleTurns = Math.max(member.crippleTurns || 0, t);
+}
+
+function isPartyMemberBlinded(st, member) {
+  if (!member) return false;
+  if (member.kind === "hero") return (st.status?.playerOutgoingAccuracyDownTurns || 0) > 0;
+  return (member.outgoingAccuracyDownTurns || 0) > 0;
+}
+
+function rollBlindAllPartyMembers(st, chance, pct, turns) {
+  for (const m of getLivingPartyMembers(st)) {
+    if (Math.random() < chance) applyPartyMemberBlind(st, m, pct, turns);
+  }
+}
+
+function rollCrippleAllPartyMembers(st, chance, turns) {
+  for (const m of getLivingPartyMembers(st)) {
+    if (Math.random() < chance) applyPartyMemberCripple(st, m, turns);
+  }
+}
+
+function grantFoeAbsorbShield(foe, amount, turns) {
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  foe.combat.absorbHp = Math.max(foe.combat.absorbHp || 0, Math.max(1, Math.floor(amount)));
+  foe.combat.absorbTurns = Math.max(foe.combat.absorbTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+function applyDamageToFoeHp(foe, dmg) {
+  let d = Math.max(0, Math.floor(dmg));
+  if (foe?.combat?.absorbHp > 0) {
+    const blocked = Math.min(foe.combat.absorbHp, d);
+    foe.combat.absorbHp -= blocked;
+    d -= blocked;
+    if (blocked > 0) appendFightLog(`${foe.name}'s shield absorbs ${blocked} damage.`);
+  }
+  foe.hp -= d;
+  if (foe.hp < 0) foe.hp = 0;
+  return d;
+}
+
+function getLowestHpLivingFoeAlly(st, excludeUid) {
+  const allies = (st.foes || []).filter((f) => f && f.hp > 0 && f.uid !== excludeUid);
+  if (!allies.length) return null;
+  return allies.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+}
+
 function applyDungeonRootPressureIfDue(st, round) {
   if (!isDungeonRootPressureCombat(st)) return;
   const ctx = st.worldMapContext;
@@ -5162,11 +5256,54 @@ function applyRootwarrenBossReinforcementsIfDue(st, round) {
   summonDungeonReinforcement(st, "Burrow Hare");
 }
 
+function applyDungeonThirstingSandIfDue(st, round) {
+  if (!isDungeonThirstingSandCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 2) return;
+  if (round % 3 !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    applyPartyMemberBlind(st, pick, 6, 1);
+    appendFightLog(`Thirsting Sand blinds ${pick.name || "a fighter"} (−6% accuracy).`);
+  }
+}
+
+function applyDungeonStarvationPressureIfDue(st, round) {
+  if (!isDungeonStarvationPressureCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 3) return;
+  if (round % 4 !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.3) {
+    applyPartyMemberCripple(st, pick, 1);
+    appendFightLog(`Starvation Pressure cripples ${pick.name || "a fighter"} (+1 stamina per action).`);
+  }
+}
+
+function applyWitheredMawBossReinforcementsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "withered_maw") return;
+  const def = getDungeonDef("withered_maw");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  if (round !== 7 && round !== 11) return;
+  summonMirageRemnantUncapped(st, null);
+}
+
 function applyDungeonEndOfRoundMechanics(st) {
   if (!st?.worldMapContext || typeof st.worldMapContext.dungeonId !== "string") return;
   const round = tickDungeonCombatGlobalRound(st);
   applyDungeonRootPressureIfDue(st, round);
+  applyDungeonThirstingSandIfDue(st, round);
+  applyDungeonStarvationPressureIfDue(st, round);
   applyRootwarrenBossReinforcementsIfDue(st, round);
+  applyWitheredMawBossReinforcementsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -5530,6 +5667,14 @@ function tickPlayerTurnEndBuffs(st) {
   if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) s.playerComboChanceDownTurns -= 1;
   if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) s.playerStaminaCostUpTurns -= 1;
   if (typeof s.playerCrippleTurns === "number" && s.playerCrippleTurns > 0) s.playerCrippleTurns -= 1;
+  (st.party || []).forEach((m) => {
+    if (!m) return;
+    if (typeof m.crippleTurns === "number" && m.crippleTurns > 0) m.crippleTurns -= 1;
+    if (typeof m.outgoingAccuracyDownTurns === "number" && m.outgoingAccuracyDownTurns > 0) {
+      m.outgoingAccuracyDownTurns -= 1;
+      if (m.outgoingAccuracyDownTurns <= 0) m.outgoingAccuracyDownPct = 0;
+    }
+  });
   const decTurn = (turnKey, pctKey) => {
     if (typeof s[turnKey] === "number" && s[turnKey] > 0) {
       s[turnKey] -= 1;
@@ -5570,6 +5715,10 @@ function tickPlayerTurnEndBuffs(st) {
     }
     if (typeof f.combat.mitigationTurns === "number" && f.combat.mitigationTurns > 0) f.combat.mitigationTurns -= 1;
     if (typeof f.combat.reflectTurns === "number" && f.combat.reflectTurns > 0) f.combat.reflectTurns -= 1;
+    if (typeof f.combat.absorbTurns === "number" && f.combat.absorbTurns > 0) {
+      f.combat.absorbTurns -= 1;
+      if (f.combat.absorbTurns <= 0) f.combat.absorbHp = 0;
+    }
     if (typeof f.combat.armorBreakTurns === "number" && f.combat.armorBreakTurns > 0) f.combat.armorBreakTurns -= 1;
     if (typeof f.combat.tauntedByVanguardTurns === "number" && f.combat.tauntedByVanguardTurns > 0) {
       f.combat.tauntedByVanguardTurns -= 1;
@@ -7972,6 +8121,194 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     }
 
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.85 * outMult)), foe.name, "crushes you");
+    return true;
+  }
+
+  if (scriptId === "thornback_graveguard") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    if (ready("grave_shell")) {
+      setCd("grave_shell", 3);
+      setFoeMitigation(foe, 2, 0.88);
+      setFoeReflect(foe, 2, 0.1);
+      appendFightLog(`${foe.name} raises Grave Shell (+resist, reflect).`);
+      return true;
+    }
+    if (ready("thorn_challenge")) {
+      setCd("thorn_challenge", 4);
+      if (Math.random() < 0.55) applyMonsterTauntOnPlayer(st, foe, 1);
+      setFoeMitigation(foe, 1, 0.88);
+      appendFightLog(`${foe.name} issues Thorn Challenge.`);
+      return true;
+    }
+    const lowest = getLowestHpLivingFoeAlly(st, foe.uid);
+    if (lowest && ready("splinter_guard")) {
+      setCd("splinter_guard", 4);
+      grantFoeAbsorbShield(lowest, Math.max(1, Math.floor((foe.vit || 20) * 0.65)), 2);
+      appendFightLog(`${foe.name} shields ${lowest.name} with Splinter Guard.`);
+      return true;
+    }
+    if (ready("bone_impale")) {
+      setCd("bone_impale", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.85 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Bone Impales you", { partyUid });
+      if (Math.random() < 0.45) applyBleedToPlayer(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.str || 20) * 0.45 * outMult)), foe.name, "strikes you", {
+      partyUid
+    });
+    return true;
+  }
+
+  if (scriptId === "mirage_maw") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("splitting_mirage")) {
+      setCd("splitting_mirage", 3);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.28);
+      foe.combat.splitMirageBlindOnDodge = true;
+      appendFightLog(`${foe.name} splits into mirages (+evasion).`);
+      return true;
+    }
+    if (ready("thirsting_haze")) {
+      setCd("thirsting_haze", 3);
+      rollBlindAllPartyMembers(st, 0.5, 8, 2);
+      appendFightLog(`${foe.name} spreads Thirsting Haze.`);
+      return true;
+    }
+    if (ready("mirage_lock")) {
+      setCd("mirage_lock", 4);
+      const dur = isPartyMemberBlinded(st, member) ? 3 : 2;
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, dur);
+      appendFightLog(`${foe.name} locks ${member?.name || "you"} in mirage sand.`);
+      return true;
+    }
+    if (ready("false_wound")) {
+      setCd("false_wound", 2);
+      const hit = Math.max(1, Math.floor((foe.int || 20) * 0.55 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "False Wounds you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.int || 20) * 0.4 * outMult)), foe.name, "mirage-strikes you", {
+      partyUid
+    });
+    return true;
+  }
+
+  if (scriptId === "mirage_remnant") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("vanish")) {
+      setCd("vanish", 3);
+      foe.combat.evadeNextChance = Math.max(foe.combat.evadeNextChance || 0, 0.18);
+      appendFightLog(`${foe.name} Vanishes into heat haze.`);
+      return true;
+    }
+    const hit = Math.max(1, Math.floor((foe.int || 20) * 0.35 * outMult));
+    dealRawDamageToPlayer(st, hit, foe.name, "Mirage Scratches you", { partyUid });
+    if (Math.random() < 0.35) applyPartyMemberBlind(st, member, 5, 1);
+    return true;
+  }
+
+  if (scriptId === "dune_mourner") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (hpFrac <= 0.7 && !foe.combat.dunePhase2) {
+      foe.combat.dunePhase2 = true;
+      foe.combat.duneMagicBonusPct = (foe.combat.duneMagicBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} opens The Maw — Mirage Remnants answer.`);
+      summonMirageRemnantUncapped(st, foe);
+      summonMirageRemnantUncapped(st, foe);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.dunePhase3) {
+      foe.combat.dunePhase3 = true;
+      foe.combat.duneAccuracyBonusPct = (foe.combat.duneAccuracyBonusPct || 0) + 8;
+      rollCrippleAllPartyMembers(st, 0.35, 1);
+      appendFightLog(`${foe.name} enters Nothing Left — starvation pulses through the party.`);
+      return true;
+    }
+    const magicMult = 1 + (foe.combat.duneMagicBonusPct || 0) / 100;
+    const accMult = 1 + (foe.combat.duneAccuracyBonusPct || 0) / 100;
+    const intv = foe.int || 20;
+    if (ready("open_the_maw")) {
+      setCd("open_the_maw", 5);
+      if (countMirageRemnants(st) >= 3) {
+        st.foes.forEach((f) => {
+          if (!f || f.hp <= 0 || f.name !== "Mirage Remnant") return;
+          if (!f.combat) initFoeCombatRuntime(f);
+          f.combat.magicDmgBonusTurns = Math.max(f.combat.magicDmgBonusTurns || 0, 2);
+          f.combat.magicDmgBonusPct = Math.max(f.combat.magicDmgBonusPct || 0, 10);
+        });
+        appendFightLog(`${foe.name} empowers existing Mirage Remnants (+magic damage).`);
+      } else {
+        summonMirageRemnantUncapped(st, foe);
+      }
+      return true;
+    }
+    if (ready("mirage_burial")) {
+      setCd("mirage_burial", 4);
+      const living = getLivingPartyMembers(st);
+      const primary = member || living[0];
+      const others = living.filter((m) => m !== primary);
+      const pool = others.slice();
+      const extra = [];
+      while (pool.length && extra.length < 2) {
+        const idx = Math.floor(Math.random() * pool.length);
+        extra.push(pool.splice(idx, 1)[0]);
+      }
+      const targets = primary ? [primary, ...extra] : extra;
+      const dmg = Math.max(1, Math.floor(intv * 0.5 * outMult * magicMult * accMult));
+      for (const t of targets) {
+        dealRawDamageToPlayer(st, dmg, foe.name, "Mirage Burials you", {
+          partyUid: typeof t.uid === "number" ? t.uid : null
+        });
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, t, 8, 2);
+        if (Math.random() < 0.4) applyPartyMemberCripple(st, t, 1);
+      }
+      return true;
+    }
+    if (ready("withering_cry")) {
+      setCd("withering_cry", 3);
+      rollBlindAllPartyMembers(st, 0.5, 8, 2);
+      const dmg = Math.max(1, Math.floor(intv * 0.45 * outMult * magicMult * accMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Withering Cries at you", { aoeAllParty: true });
+      return true;
+    }
+    if (ready("drought_curse")) {
+      setCd("drought_curse", 4);
+      if (Math.random() < 0.55) applyPartyMemberCripple(st, member, 2);
+      if (Math.random() < 0.4) applyPartyMemberBlind(st, member, 6, 2);
+      appendFightLog(`${foe.name} curses ${member?.name || "you"} with drought.`);
+      return true;
+    }
+    if (ready("sand_hunger")) {
+      setCd("sand_hunger", 2);
+      const living = getLivingPartyMembers(st);
+      const weak = living.length
+        ? living.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b))
+        : null;
+      const target = weak || member;
+      const targetUid = target && typeof target.uid === "number" ? target.uid : partyUid;
+      const dmg = Math.max(1, Math.floor(intv * 0.6 * outMult * magicMult * accMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Sand Hungers you", { partyUid: targetUid });
+      ensureCombatStatus(st);
+      const dotActive = (st.status.playerBleed && st.status.playerBleed.turns > 0) || (st.status.playerBurn && st.status.playerBurn.turns > 0);
+      const healPct = dotActive ? 0.45 : 0.3;
+      const healed = Math.max(1, Math.floor(dmg * healPct));
+      foe.hp = Math.min(foe.maxHp, foe.hp + healed);
+      appendFightLog(`${foe.name} drinks ${healed} HP from the sand.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.45 * outMult * magicMult * accMult)), foe.name, "sand-lashes you", {
+      partyUid
+    });
     return true;
   }
 
@@ -15690,8 +16027,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
         continue;
       }
       const dmg = res.damage;
-      foe.hp -= dmg;
-      if (foe.hp < 0) foe.hp = 0;
+      applyDamageToFoeHp(foe, dmg);
       playAllyStrikeOnFoe(member, foe, res, dmg, outgoingDmgKind);
       appendFightLog(
         `${actorName} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
@@ -15744,6 +16080,10 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
       clearPlayerTurnTimer();
       st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
       appendFightLog(`${actorName} uses ${label} on ${foe.name}, but ${foe.name} evades!`);
+      if (foe.combat && foe.combat.splitMirageBlindOnDodge) {
+        foe.combat.splitMirageBlindOnDodge = false;
+        if (Math.random() < 0.4) applyPartyMemberBlind(st, member, 6, 1);
+      }
       if (!st.foes.some((f) => f.hp > 0)) {
         finishCombatVictory();
         return;
@@ -15764,8 +16104,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
     return;
   }
   const dmg = res.damage;
-  foe.hp -= dmg;
-  if (foe.hp < 0) foe.hp = 0;
+  applyDamageToFoeHp(foe, dmg);
   playAllyStrikeOnFoe(member, foe, res, dmg, outgoingDmgKind);
   appendFightLog(`${actorName} uses ${label} on ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`);
   if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg, actor);
@@ -16220,6 +16559,35 @@ function openMerritRootsnifferKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("rootwarren");
 }
 
+function openOldVarroEntranceDialog() {
+  const def = getDungeonDef("withered_maw");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Withered Maw Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Old Varro</p>
+      <p class="npc-dialog-body">You brought the key? Hah. Brave. Or thirsty in the head. Same thing out here.</p>
+      <p class="npc-dialog-body">The Maw's awake today. I can hear it grinding its teeth below. Give me the Withered Maw Key, and I'll open the way before it changes its mind.</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="withered_maw">Use the Withered Maw Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="withered_maw">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Old Varro</p>
+    <p class="npc-dialog-body">No key? Then no Maw. That hole eats fools for free, but it only lets adventurers in with payment.</p>
+    <p class="npc-dialog-body">Bring me a Withered Maw Key. And maybe don't look too long into the sand while you're gone. It looks back.</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="withered_maw">Requires Withered Maw Key</button>
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="withered_maw">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
 function openNeraStormwatchEntranceDialog() {
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-speaker">Nera Stormwatch</p>
@@ -16309,6 +16677,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openMerritRootsnifferEntranceDialog();
     return;
   }
+  if (id === "withered_maw") {
+    openOldVarroEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -16326,11 +16698,14 @@ function openDungeonKeyAcceptedDialog(dungeonId) {
   const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
   const isSunken = id === "sunken_grotto";
   const isRootwarren = id === "rootwarren";
+  const isWitheredMaw = id === "withered_maw";
   const body = isSunken
     ? "Ahh… there it is. Right then—if you don’t come back, I’m fillin’ this thing back in."
     : isRootwarren
       ? "The roots peel back with a wet sigh. Something vast shifts in the dark below."
-      : "The key turns by itself. Thunder exhales from the gap ahead.";
+      : isWitheredMaw
+        ? "Old Varro pries the sand aside. Heat rolls up from the Maw below."
+        : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -16461,6 +16836,21 @@ function openDungeonEpilogueDialog(dungeonId) {
     showModalHtml(html, { npcBubble: true });
     return;
   }
+  if (id === "withered_maw") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Old Varro</p>
+    <p class="npc-dialog-body">Well, look at that. The Maw spat something back up.</p>
+    <p class="npc-dialog-body">You killed the Mourner, didn't you? I felt the ground stop crying. First quiet moment I've had in years.</p>
+    <p class="npc-dialog-body">Come on then. Out you go. Before the desert realizes it owes you a refund.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Return to the surface</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">I'll stay a little longer</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
   const def = getDungeonDef(id);
   const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
   const html = `<div class="npc-dialog-bubble">
@@ -16515,6 +16905,37 @@ function buildDungeonEpilogueSceneHtml() {
       return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. Nera watches the horizon like it's owed money.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    if (dungeonId === "withered_maw") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "old_varro");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Old Varro", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Old Varro" aria-label="Old Varro"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      } else {
+        btn = `<button type="button" class="btn-secondary world-scene-btn" data-world-scene="${payload}">Return to the surface</button>`;
+      }
+      const layoutId = "old_varro_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Old Varro squints at you like you're a mirage that forgot to vanish.</p>
     <div class="${actionsClass}">
       ${btn}
     </div>

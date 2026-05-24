@@ -22,6 +22,9 @@ export function ensureCombatStatus(st) {
       playerBurn: null,
       playerAccuracyDownPct: 0,
       playerAccuracyDownTurns: 0,
+      playerOutgoingAccuracyDownPct: 0,
+      playerOutgoingAccuracyDownTurns: 0,
+      playerCrippleTurns: 0,
       playerPhysDamageDownPct: 0,
       playerPhysDamageDownTurns: 0,
       playerMagicDamageDownPct: 0,
@@ -233,6 +236,41 @@ export function applyPlayerAccuracyDown(st, pct, turns) {
   st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, Math.max(1, turns));
 }
 
+export function applyPlayerOutgoingAccuracyDown(st, pct, turns) {
+  ensureCombatStatus(st);
+  st.status.playerOutgoingAccuracyDownPct = Math.max(
+    st.status.playerOutgoingAccuracyDownPct || 0,
+    Math.max(0, Math.min(CAPS.accuracyDown, pct))
+  );
+  st.status.playerOutgoingAccuracyDownTurns = Math.max(
+    st.status.playerOutgoingAccuracyDownTurns || 0,
+    Math.max(1, Math.floor(turns))
+  );
+}
+
+export function applyPartyMemberBlind(st, member, pct, turns) {
+  if (!member) return;
+  if (member.kind === "hero") {
+    applyPlayerOutgoingAccuracyDown(st, pct, turns);
+    return;
+  }
+  member.outgoingAccuracyDownPct = Math.max(
+    member.outgoingAccuracyDownPct || 0,
+    Math.max(0, Math.min(CAPS.accuracyDown, pct))
+  );
+  member.outgoingAccuracyDownTurns = Math.max(member.outgoingAccuracyDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+export function applyPartyMemberCripple(st, member, turns) {
+  if (!member) return;
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerCrippleTurns = Math.max(st.status.playerCrippleTurns || 0, t);
+  }
+  member.crippleTurns = Math.max(member.crippleTurns || 0, t);
+}
+
 export function applyPlayerBleed(st, dmgPerTurn, turns) {
   ensureCombatStatus(st);
   const prev = st.status.playerBleed;
@@ -317,6 +355,8 @@ export function tickPlayerDebuffsBeforeEnemyPhase(st) {
     }
   };
   dec("playerAccuracyDownTurns", "playerAccuracyDownPct");
+  dec("playerOutgoingAccuracyDownTurns", "playerOutgoingAccuracyDownPct");
+  if ((s.playerCrippleTurns || 0) > 0) s.playerCrippleTurns -= 1;
   dec("playerPhysDamageDownTurns", "playerPhysDamageDownPct");
   dec("playerMagicDamageDownTurns", "playerMagicDamageDownPct");
   if ((s.playerFragileTurns || 0) > 0) s.playerFragileTurns -= 1;
@@ -337,7 +377,12 @@ export function tickPlayerDefenseAfterEnemyPhase(st) {
 
 export function tickPlayerTurnEndBuffs(st) {
   (st.party || []).forEach((m) => {
-    if (m && typeof m.crippleTurns === "number" && m.crippleTurns > 0) m.crippleTurns -= 1;
+    if (!m) return;
+    if (typeof m.crippleTurns === "number" && m.crippleTurns > 0) m.crippleTurns -= 1;
+    if (typeof m.outgoingAccuracyDownTurns === "number" && m.outgoingAccuracyDownTurns > 0) {
+      m.outgoingAccuracyDownTurns -= 1;
+      if (m.outgoingAccuracyDownTurns <= 0) m.outgoingAccuracyDownPct = 0;
+    }
   });
   tickPlayerDebuffsBeforeEnemyPhase(st);
 }
