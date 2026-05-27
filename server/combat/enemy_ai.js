@@ -1,4 +1,4 @@
-import { getEnemyDefByName } from "../load_game_config.js";
+import { getEnemyDefByName, getItemDef } from "../load_game_config.js";
 import { resolveIncomingToMember } from "./formulas.js";
 import { getPlayerDamageReductionPct, getPlayerEvasionUpPct } from "./status.js";
 import {
@@ -10,6 +10,29 @@ import { trySecondBreath } from "./combat_passives.js";
 import { getFoeEffectiveAttack, getFoeOutgoingDamageMult } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
 import { isFoeStunned } from "./status.js";
+
+function countEquippedSetPieces(equipment, setName) {
+  const want = typeof setName === "string" ? setName.trim() : "";
+  if (!want || !equipment || typeof equipment !== "object") return 0;
+  let count = 0;
+  Object.values(equipment).forEach((itemName) => {
+    if (!itemName) return;
+    const def = getItemDef(itemName);
+    if (def?.set === want) count += 1;
+  });
+  return count;
+}
+
+function tryProcThornbackGraveguardBleed(equipment, foe, damageTaken, rng) {
+  if (!foe || foe.hp <= 0) return;
+  const pieces = countEquippedSetPieces(equipment || null, "Thornback Graveguard Set");
+  if (pieces < 3) return;
+  if (!rng?.chance?.(15)) return;
+  if (!foe.combat || typeof foe.combat !== "object") foe.combat = { skillCd: {} };
+  const tick = Math.max(1, Math.floor(Math.max(1, Number(damageTaken) || 0) * 0.08));
+  foe.combat.bleedTurns = Math.max(foe.combat.bleedTurns || 0, 2);
+  foe.combat.bleedDamage = Math.max(foe.combat.bleedDamage || 0, tick);
+}
 
 export function initFoeCombatRuntime(foe) {
   const def = getEnemyDefByName(foe.name);
@@ -105,6 +128,9 @@ export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, pla
   const shielded = absorbDamageWithShield(st, raw);
   const dmg = resolveIncomingToMember(shielded.damage, member);
   member.hp = Math.max(0, member.hp - dmg);
+  if (member.kind === "hero" && dmg > 0) {
+    tryProcThornbackGraveguardBleed(player?.equipment, foe, dmg, rng);
+  }
   syncHeroHp(st);
   let secondBreathLog = null;
   if (member.kind === "hero" && player) {

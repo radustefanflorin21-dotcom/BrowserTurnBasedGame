@@ -1796,6 +1796,45 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 14, STR: 8, HP: 200 }
     },
+    "Thornback Graveplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "common",
+      itemLevel: 20,
+      image: "Assets/Equips/thornback_graveplate.png",
+      description: "Graveguard chest armor layered with thornback shell to punish close attackers.",
+      set: "Thornback Graveguard Set",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 20, STR: 10, HP: 220, "Phys Resist": 7, "Status Resist": 4 }
+    },
+    "Bone-Spike Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 21,
+      image: "Assets/Equips/bone_spike_pants.png",
+      description: "Barbed graveguard legplates that trade mobility for brutal staying power.",
+      set: "Thornback Graveguard Set",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 18, STR: 9, HP: 180, "Phys Resist": 5, "Status Resist": 5 }
+    },
+    "Grave Impaler": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "polearm",
+      rarity: "common",
+      itemLevel: 21,
+      image: "Assets/Equips/grave_impaler.png",
+      description: "A grave-forged polearm that rewards disciplined counters and precise impales.",
+      set: "Thornback Graveguard Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 18, VIT: 10, "Phys Damage": 7, ACC: 4, Crit: 3 }
+    },
     "Boarhide Chest": {
       type: "armor",
       slot: "chest",
@@ -5846,6 +5885,7 @@ const GAME_CONFIG = {
     Stoneguard: 4,
     "Stormfang Set": 4,
     "Stormwake Set": 4,
+    "Thornback Graveguard Set": 3,
     "Tempest Caller Set": 3,
     "Thornback Bulwark": 3,
     Tidecaster: 5,
@@ -5973,6 +6013,10 @@ const GAME_CONFIG = {
         "Magic Damage": 5,
         "Crit Damage": 5
       }
+    },
+    "Thornback Graveguard Set": {
+      2: { VIT: 10, HP: 120, "Phys Resist": 4 },
+      3: { VIT: 18, STR: 10, HP: 220, "Phys Resist": 7, "Status Resist": 4 }
     },
     "Tempest Caller Set": {
       2: { INT: 2 },

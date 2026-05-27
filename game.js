@@ -2651,6 +2651,20 @@ function countEquippedSetPieces(equipment, setName) {
   return count;
 }
 
+function tryProcThornbackGraveguardBleed(st, attackerFoe, receivedDamage) {
+  if (!attackerFoe || attackerFoe.hp <= 0) return;
+  if (typeof player === "undefined" || !player || !player.equipment) return;
+  const pieces = countEquippedSetPieces(player.equipment, "Thornback Graveguard Set");
+  if (pieces < 3) return;
+  if (Math.random() >= 0.15) return;
+  const base = Math.max(1, Math.floor(Number(receivedDamage) || 0));
+  const dot = Math.max(1, Math.floor(base * 0.08));
+  if (!attackerFoe.combat || typeof attackerFoe.combat !== "object") attackerFoe.combat = {};
+  attackerFoe.combat.bleedTurns = Math.max(attackerFoe.combat.bleedTurns || 0, 2);
+  attackerFoe.combat.bleedDamage = Math.max(attackerFoe.combat.bleedDamage || 0, dot);
+  appendFightLog(`${attackerFoe.name} is bleeding from Thornback Graveguard spikes.`);
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -5513,6 +5527,7 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, effectiveTaken));
     const srcFoeHit = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
     if (srcFoeHit && effectiveTaken > 0) playFoeStrikeOnAlly(srcFoeHit, m.uid, effectiveTaken, false);
+    if (srcFoeHit && effectiveTaken > 0) tryProcThornbackGraveguardBleed(st, srcFoeHit, effectiveTaken);
     if (cls.id === "vanguard") {
       const csVg = ensurePlayerClassCombatState(st);
       const p = Math.min(0.2, 0.06 + totalVit() * 0.0005 + getClassSkillProcBonus("Shield Slam"));
