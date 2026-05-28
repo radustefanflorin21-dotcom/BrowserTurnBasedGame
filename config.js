@@ -1874,6 +1874,32 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 7, DEX: 7, HP: 136 }
     },
+    "Mirage Maw Hood": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "common",
+      itemLevel: 21,
+      image: "Assets/Equips/mirage_maw_hood.png",
+      description: "A hood woven from mirage threads that sharpens deceptive casting.",
+      set: "Mirage Maw Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 18, DEX: 12, ACC: 6, EVA: 5, "Magic Damage": 5 }
+    },
+    "Mourner’s Veil": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "veil",
+      rarity: "common",
+      itemLevel: 22,
+      image: "Assets/Equips/mourners_veil.png",
+      description: "A ritual veil worn by desert mourners to sharpen focus through heat haze.",
+      set: "Dune Mourner Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 22, VIT: 14, "Magic Damage": 7, ACC: 5, "Magic Resist": 5 }
+    },
     "Boneguard Gloves": {
       type: "armor",
       slot: "bracelet",
@@ -1899,6 +1925,45 @@ const GAME_CONFIG = {
       build: "VIT_DEX",
       bonusSkills: [],
       bonusStats: { VIT: 8, DEX: 8, HP: 152 }
+    },
+    "Haze-Torn Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 21,
+      image: "Assets/Equips/haze_torn_pants.png",
+      description: "Mirage-sheared pants that favor evasive footwork and arcane control.",
+      set: "Mirage Maw Set",
+      build: "DEX_INT",
+      bonusSkills: [],
+      bonusStats: { DEX: 17, INT: 11, EVA: 7, HP: 120, "Magic Resist": 4 }
+    },
+    "Hollow Sand Robe": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "robe",
+      rarity: "common",
+      itemLevel: 22,
+      image: "Assets/Equips/hollow_sand_robe.png",
+      description: "A robe lined with hollowed dune-silk for steady casting under pressure.",
+      set: "Dune Mourner Set",
+      build: "VIT_INT",
+      bonusSkills: [],
+      bonusStats: { VIT: 22, INT: 18, HP: 240, "Magic Resist": 7, "Status Resist": 5 }
+    },
+    "Droughtworn Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "common",
+      itemLevel: 23,
+      image: "Assets/Equips/droughtworn_pants.png",
+      description: "Sun-baked pants that trade comfort for precision in prolonged engagements.",
+      set: "Dune Mourner Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 20, VIT: 16, HP: 180, ACC: 5, EVA: 4 }
     },
     "Venom Ring": {
       type: "armor",
@@ -1938,6 +2003,32 @@ const GAME_CONFIG = {
       build: "DEX_INT",
       bonusSkills: [],
       bonusStats: { DEX: 10, INT: 10, "Crit Damage": 4 }
+    },
+    "False Wound Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "common",
+      itemLevel: 22,
+      image: "Assets/Equips/false_wound_ring.png",
+      description: "A warped ring that turns false openings into precise magical finishers.",
+      set: "Mirage Maw Set",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 17, DEX: 12, ACC: 6, "Magic Damage": 5, Crit: 3 }
+    },
+    "Mawcaller Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "common",
+      itemLevel: 23,
+      image: "Assets/Equips/mawcaller_staff.png",
+      description: "A staff carved to echo mirage calls and punish overextended foes.",
+      set: "Dune Mourner Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 26, VIT: 10, "Magic Damage": 9, ACC: 7, Crit: 4 }
     },
     "Bone Charm": {
       type: "armor",
@@ -5863,6 +5954,7 @@ const GAME_CONFIG = {
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
+    "Dune Mourner Set": 4,
     Earthbinder: 3,
     Ember: 1,
     "Ember Assassin": 3,
@@ -5875,6 +5967,7 @@ const GAME_CONFIG = {
     "Jungle Titan": 3,
     Lynxstrike: 2,
     Mirage: 3,
+    "Mirage Maw Set": 3,
     Molten: 1,
     "Molten Colossus": 1,
     Predator: 1,
@@ -5937,6 +6030,11 @@ const GAME_CONFIG = {
       3: { DEX: 6, Crit: 5, ACC: 3, "Crit Damage": 5 },
       4: { STA: 1, DEX: 10, Crit: 5, ACC: 3, "Crit Damage": 11 }
     },
+    "Dune Mourner Set": {
+      2: { INT: 12, HP: 120, "Magic Damage": 4 },
+      3: { INT: 20, VIT: 12, HP: 220, "Magic Damage": 7, ACC: 4 },
+      4: { STA: 1, INT: 28, VIT: 18, HP: 340, "Magic Damage": 9, ACC: 6 }
+    },
     Earthbinder: {
       2: { INT: 6 },
       3: { INT: 15, "Magic Damage": 6, "Magic Resist": 6 }
@@ -5970,6 +6068,10 @@ const GAME_CONFIG = {
     Mirage: {
       2: { DEX: 2, INT: 2, EVA: 5 },
       3: { DEX: 6, INT: 6, EVA: 5 }
+    },
+    "Mirage Maw Set": {
+      2: { INT: 10, ACC: 4, EVA: 3 },
+      3: { INT: 18, DEX: 10, ACC: 7, EVA: 5, "Magic Damage": 5 }
     },
     "Rock Serpent": {
       2: { VIT: 6, "Magic Resist": 6, "Phys Resist": 6 },

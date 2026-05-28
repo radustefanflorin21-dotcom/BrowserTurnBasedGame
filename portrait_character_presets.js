@@ -70,6 +70,12 @@
         "rotDeg": 0,
         "scalePct": 64
       },
+      "chest_robe": {
+        "offsetXPct": 7.518376474173667,
+        "offsetYPct": -24.3869,
+        "rotDeg": 0,
+        "scalePct": 74
+      },
       "amulet": {
         "offsetXPct": 1.1566791337815001,
         "offsetYPct": -77.49704265960783,
@@ -93,6 +99,12 @@
         "offsetYPct": -32.3868,
         "rotDeg": 0,
         "scalePct": 52
+      },
+      "head_veil": {
+        "offsetXPct": 2.3133532370868335,
+        "offsetYPct": -34.3868,
+        "rotDeg": 0,
+        "scalePct": 62
       },
       "legs": {
         "offsetXPct": 6.9399664741736675,
@@ -164,10 +176,10 @@
       "attack": "Assets/Character/female_character.png"
     },
     "baseLayout": {
-      "offsetXPct": 15.756060963998811,
-      "offsetYPct": 2.4255801800059507,
+      "offsetXPct": 21.08781710800357,
+      "offsetYPct": 3.18735,
       "rotDeg": 0,
-      "scalePct": 172
+      "scalePct": 184
     },
     "bottomHudLayout": {
       "offsetXPct": 0,
@@ -218,6 +230,12 @@
         "rotDeg": 0,
         "scalePct": 40
       },
+      "chest_robe": {
+        "offsetXPct": 9.04173843201428,
+        "offsetYPct": -8.344985063969057,
+        "rotDeg": 0,
+        "scalePct": 66
+      },
       "amulet": {
         "offsetXPct": -1.1283528919964296,
         "offsetYPct": -34.46224650401666,
@@ -241,6 +259,12 @@
         "offsetYPct": -5.72807,
         "rotDeg": 0,
         "scalePct": 40
+      },
+      "head_veil": {
+        "offsetXPct": 3.07503,
+        "offsetYPct": 5.98213,
+        "rotDeg": 0,
+        "scalePct": 66
       },
       "legs": {
         "offsetXPct": 3.13157,

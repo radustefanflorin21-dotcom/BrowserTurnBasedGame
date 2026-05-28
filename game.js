@@ -3102,6 +3102,8 @@ function getItemEquipCategory(def) {
     category === "bracelet" ||
     category === "ring" ||
     category === "chest_armor" ||
+    category === "robe" ||
+    category === "veil" ||
     category === "leg_armor" ||
     category === "feet_armor"
   ) {
@@ -3131,7 +3133,8 @@ function getAllowedEquipSlotsForDef(def) {
   if (category === "amulet") return ["amulet"];
   if (category === "bracelet") return ["bracelet"];
   if (category === "ring") return ["ring1", "ring2"];
-  if (category === "chest_armor") return ["chest"];
+  if (category === "chest_armor" || category === "robe") return ["chest"];
+  if (category === "veil") return ["head"];
   if (category === "leg_armor") return ["legs"];
   if (category === "feet_armor") return ["feet"];
   if (typeof def.slot === "string" && def.slot.trim()) return [def.slot.trim()];
@@ -3186,6 +3189,13 @@ function getPortraitWeaponLayoutKeyForSlot(slotId, itemName) {
     if (poseCategory === "shield") return "offhand_shield";
     return "offhand_one_handed_sword";
   }
+  return slotId;
+}
+
+function getPortraitArmorLayoutKeyForSlot(slotId, itemName) {
+  const category = getItemEquipCategory(getItemDef(itemName));
+  if (slotId === "chest" && category === "robe") return "chest_robe";
+  if (slotId === "head" && category === "veil") return "head_veil";
   return slotId;
 }
 
@@ -3777,6 +3787,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
       src = getEquipmentOverlayImage(itemName, owner);
     } else if (slotId === "head") {
       if (itemName) {
+        layoutKey = getPortraitArmorLayoutKeyForSlot(slotId, itemName);
         src = getEquipmentOverlayImage(itemName, owner);
       } else {
         itemName = "No helm";
@@ -3785,6 +3796,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
       }
     } else {
       if (!itemName) return;
+      layoutKey = getPortraitArmorLayoutKeyForSlot(slotId, itemName);
       src = getEquipmentOverlayImage(itemName, owner);
     }
     if (!src) return;
