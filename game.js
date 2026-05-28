@@ -14712,6 +14712,8 @@ function renderTurnBattle() {
     const label = escapeHtml(f.name);
     const moodLabel = typeof f.moodName === "string" ? f.moodName.trim() : "";
     const lvl = typeof f.level === "number" ? f.level : 1;
+    const def = getEnemyDefByName(f.name);
+    const bossCard = f?.isBoss === true || def?.isBoss === true;
     const metaLine = moodLabel
       ? `<span class="fight-card-meta fight-card-meta--enemy-sub"><span class="fight-card-level">Lv ${lvl}</span> · ${escapeHtml(moodLabel)}</span>`
       : `<span class="fight-card-meta fight-card-meta--enemy-sub"><span class="fight-card-level">Lv ${lvl}</span></span>`;
@@ -14722,7 +14724,7 @@ function renderTurnBattle() {
     const auraTypes = getCombatStatusAuraTypesForFoe(f);
     const statusAuras = buildFightCardStatusAuraHtml(auraTypes);
     const statusCls = auraTypes.map((t) => `fight-card--status-${t}`).join(" ");
-    return `<div class="fight-enemy-card ${cardClass || ""}${megaCls}${statusCls ? ` ${statusCls}` : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
+    return `<div class="fight-enemy-card ${cardClass || ""}${bossCard ? " fight-enemy-card--boss" : ""}${megaCls}${statusCls ? ` ${statusCls}` : ""} ${sel ? "fight-enemy-card--selected" : ""}" data-fight-target="${f.uid}" role="button" tabindex="0" aria-pressed="${sel}">
       <div class="fight-portrait-wrap fight-portrait-wrap--enemy">
         ${foeVisualHtml}
         ${statusAuras}

@@ -5563,6 +5563,21 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   font-size: 0.54rem;
 }
 
+.fight-enemy-card--boss {
+  width: 156px;
+  min-width: 156px;
+}
+
+.fight-enemy-card--boss .fight-portrait-wrap--enemy {
+  width: 140px;
+  height: 140px;
+}
+
+.fight-enemy-card--boss .fight-portrait-wrap--enemy .fight-portrait-img--enemy {
+  width: 104px;
+  height: 104px;
+}
+
 /* Stormbreak Hollow boss room only: enlarged Leviathan portrait (game.js adds .fight-enemy-card--leviathan-mega). */
 .fight-enemy-group--leviathan-mega {
   align-items: flex-end;

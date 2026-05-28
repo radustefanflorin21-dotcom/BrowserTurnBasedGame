@@ -98,7 +98,7 @@ const GAME_CONFIG = {
       combatScript: "thornback_graveguard",
       combatRole: "tank",
       spawnRarity: "epic",
-      image: "Assets/Biomes/The misery of life/Withered Maw/thornback_graveguard.png",
+      image: "Assets/Biomes/The misery of life/The Withered Maw/thornback_graveguard.png",
       possibleLevels: [20],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
@@ -110,7 +110,7 @@ const GAME_CONFIG = {
       combatScript: "mirage_maw",
       combatRole: "controller",
       spawnRarity: "epic",
-      image: "Assets/Biomes/The misery of life/Withered Maw/mirage_maw.png",
+      image: "Assets/Biomes/The misery of life/The Withered Maw/mirage_maw.png",
       possibleLevels: [21],
       possibleMoods: ["berserk"],
       staminaPerTurn: 7,
@@ -122,7 +122,7 @@ const GAME_CONFIG = {
       combatScript: "mirage_remnant",
       combatRole: "controller",
       spawnRarity: "rare",
-      image: "Assets/Biomes/The misery of life/Withered Maw/mirage_remnant.png",
+      image: "Assets/Biomes/The misery of life/The Withered Maw/mirage_remnant.png",
       possibleLevels: [18],
       possibleMoods: ["berserk"],
       staminaPerTurn: 6,
@@ -135,7 +135,7 @@ const GAME_CONFIG = {
       combatRole: "summoner",
       spawnRarity: "myth",
       isBoss: true,
-      image: "Assets/Biomes/The misery of life/Withered Maw/the_dune_mourner.png",
+      image: "Assets/Biomes/The misery of life/The Withered Maw/the_dune_mourner.png",
       possibleLevels: [22],
       possibleMoods: ["berserk"],
       staminaPerTurn: 8,
@@ -6506,7 +6506,7 @@ const GAME_CONFIG = {
       "29,55": "Assets/Biomes/Paradise South/boat_between_paradises.png",
       "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png",
       "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png",
-      "35,33": "Assets/Biomes/The misery of life/Withered Maw/the_withered_maw_entrance.png"
+      "35,33": "Assets/Biomes/The misery of life/The Withered Maw/the_withered_maw_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -6592,10 +6592,10 @@ const GAME_CONFIG = {
             id: "old_varro",
             label: "Old Varro",
             editable: true,
-            leftPct: 48,
-            topPct: 70,
-            scalePct: 88,
-            image: "Assets/Biomes/The misery of life/Withered Maw/old_varro.png",
+            leftPct: 53.34821428571429,
+            topPct: 66.79382540809084,
+            scalePct: 100,
+            image: "Assets/Biomes/The misery of life/The Withered Maw/old_varro.png",
             text: "Old Varro leans on his crooked stick.",
             dungeonEntrance: "withered_maw"
           }
@@ -6900,7 +6900,7 @@ const GAME_CONFIG = {
         name: "The Withered Maw",
         keyItem: "Withered Maw Key",
         entrance: { x: 35, y: 33 },
-        assetBase: "Assets/Biomes/The misery of life/Withered Maw",
+        assetBase: "Assets/Biomes/The misery of life/The Withered Maw",
         thirstingSand: true,
         starvationPressure: true,
         rooms: [
@@ -6955,7 +6955,7 @@ const GAME_CONFIG = {
                 name: "Thornback Graveguard",
                 level: 20,
                 moodId: "steady",
-                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/thornback_graveguard.png"
+                portraitImage: "Assets/Biomes/The misery of life/The Withered Maw/thornback_graveguard.png"
               }
             ]
           },
@@ -6974,7 +6974,7 @@ const GAME_CONFIG = {
                 name: "Mirage Maw",
                 level: 21,
                 moodId: "berserk",
-                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/mirage_maw.png"
+                portraitImage: "Assets/Biomes/The misery of life/The Withered Maw/mirage_maw.png"
               }
             ]
           },
@@ -6993,14 +6993,14 @@ const GAME_CONFIG = {
                 name: "Mirage Maw",
                 level: 21,
                 moodId: "berserk",
-                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/mirage_maw.png"
+                portraitImage: "Assets/Biomes/The misery of life/The Withered Maw/mirage_maw.png"
               },
               {
                 name: "The Dune Mourner",
                 level: 22,
                 moodId: "berserk",
                 isBoss: true,
-                portraitImage: "Assets/Biomes/The misery of life/Withered Maw/the_dune_mourner.png"
+                portraitImage: "Assets/Biomes/The misery of life/The Withered Maw/the_dune_mourner.png"
               }
             ]
           }
