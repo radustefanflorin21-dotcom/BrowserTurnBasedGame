@@ -4021,6 +4021,84 @@ const GAME_CONFIG = {
       image: "Assets/Resources/withered_tissue.png",
       description: "Withered Tissue used in crafting and loot."
     },
+    "Thornback Carapace": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/thornbackCarapace.png",
+      description: "Thornback Carapace used in crafting and loot."
+    },
+    "Grave Thorn": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/grave_thorn.png",
+      description: "Grave Thorn used in crafting and loot."
+    },
+    "Bleached Shell Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bleached_shell_plate.png",
+      description: "Bleached Shell Plate used in crafting and loot."
+    },
+    "Buried Bone Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/buried_bone_core.png",
+      description: "Buried Bone Core used in crafting and loot."
+    },
+    "Mirage Jawbone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/mirage_jawbone.png",
+      description: "Mirage Jawbone used in crafting and loot."
+    },
+    "Haze-Torn Skin": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/haze_torn_skin.png",
+      description: "Haze-Torn Skin used in crafting and loot."
+    },
+    "Thirsting Eye": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/thirsting_eye.png",
+      description: "Thirsting Eye used in crafting and loot."
+    },
+    "Splintered Illusion Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/splintered_illusion_core.png",
+      description: "Splintered Illusion Core used in crafting and loot."
+    },
+    "Mourner’s Veilcloth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/mourners_veilcloth.png",
+      description: "Mourner’s Veilcloth used in crafting and loot."
+    },
+    "Hollow Rib Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/hollow_rib_fragment.png",
+      description: "Hollow Rib Fragment used in crafting and loot."
+    },
+    "Drought Essence": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/drought_essence.png",
+      description: "Drought Essence used in crafting and loot."
+    },
+    "Black Sand Heart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/black_sand_heart.png",
+      description: "Black Sand Heart used in crafting and loot."
+    },
+    "Mawbound Soulcore": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/mawbound_soulcore.png",
+      description: "Mawbound Soulcore used in crafting and loot."
+    },
     "World Seed": {
       type: "material",
       value: 5,
@@ -4557,6 +4635,21 @@ const GAME_CONFIG = {
             ]
           },
           {
+            id: "withered_maw_key",
+            resultItem: "Withered Maw Key",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Razor Claw", qty: 6, source: "monster_loot" },
+              { item: "Dust Essence", qty: 4, source: "monster_loot" },
+              { item: "Withered Tissue", qty: 6, source: "monster_loot" },
+              { item: "Decay Fragment", qty: 5, source: "monster_loot" },
+              { item: "Spiked Shell", qty: 4, source: "monster_loot" },
+              { item: "Mirage Dust", qty: 5, source: "monster_loot" },
+              { item: "Illusion Thread", qty: 4, source: "monster_loot" },
+              { item: "Hunger Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
             id: "sandfang_blade",
             resultItem: "Sandfang Blade",
             resultLevel: 15,
@@ -4776,6 +4869,141 @@ const GAME_CONFIG = {
               { item: "Illusion Essence", qty: 5, source: "monster_loot" },
               { item: "Distorted Core", qty: 3, source: "gathering_loot" },
               { item: "Residue", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "thornback_graveplate",
+            resultItem: "Thornback Graveplate",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Thornback Carapace", qty: 4, source: "monster_loot" },
+              { item: "Bleached Shell Plate", qty: 3, source: "monster_loot" },
+              { item: "Spiked Shell", qty: 8, source: "monster_loot" },
+              { item: "Carapace Fragment", qty: 10, source: "monster_loot" },
+              { item: "Defense Core", qty: 2, source: "monster_loot" },
+              { item: "Earth Essence", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "bone_spike_pants",
+            resultItem: "Bone-Spike Pants",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Thornback Carapace", qty: 3, source: "monster_loot" },
+              { item: "Grave Thorn", qty: 4, source: "monster_loot" },
+              { item: "Bleached Shell Plate", qty: 2, source: "monster_loot" },
+              { item: "Spiked Shell", qty: 7, source: "monster_loot" },
+              { item: "Carapace Fragment", qty: 8, source: "monster_loot" },
+              { item: "Withered Tissue", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "grave_impaler",
+            resultItem: "Grave Impaler",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Grave Thorn", qty: 5, source: "monster_loot" },
+              { item: "Buried Bone Core", qty: 1, source: "monster_loot" },
+              { item: "Thornback Carapace", qty: 2, source: "monster_loot" },
+              { item: "Razor Claw", qty: 6, source: "monster_loot" },
+              { item: "Sand Blade Fragment", qty: 6, source: "monster_loot" },
+              { item: "Precision Core", qty: 2, source: "monster_loot" },
+              { item: "Dust Essence", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "mirage_maw_hood",
+            resultItem: "Mirage Maw Hood",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Haze-Torn Skin", qty: 4, source: "monster_loot" },
+              { item: "Mirage Jawbone", qty: 2, source: "monster_loot" },
+              { item: "Mirage Dust", qty: 8, source: "monster_loot" },
+              { item: "Illusion Thread", qty: 6, source: "monster_loot" },
+              { item: "Trickster Core", qty: 2, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "haze_torn_pants",
+            resultItem: "Haze-Torn Pants",
+            resultLevel: 21,
+            ingredients: [
+              { item: "Haze-Torn Skin", qty: 5, source: "monster_loot" },
+              { item: "Mirage Dust", qty: 8, source: "monster_loot" },
+              { item: "Illusion Thread", qty: 8, source: "monster_loot" },
+              { item: "Sand Residue", qty: 6, source: "monster_loot" },
+              { item: "Withered Tissue", qty: 5, source: "monster_loot" },
+              { item: "Trickster Core", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "false_wound_ring",
+            resultItem: "False Wound Ring",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Thirsting Eye", qty: 3, source: "monster_loot" },
+              { item: "Splintered Illusion Core", qty: 1, source: "monster_loot" },
+              { item: "Mirage Dust", qty: 6, source: "monster_loot" },
+              { item: "Illusion Essence", qty: 5, source: "monster_loot" },
+              { item: "Distorted Core", qty: 2, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 4, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "mourners_veil",
+            resultItem: "Mourner’s Veil",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Mourner’s Veilcloth", qty: 4, source: "monster_loot" },
+              { item: "Hollow Rib Fragment", qty: 2, source: "monster_loot" },
+              { item: "Drought Essence", qty: 2, source: "monster_loot" },
+              { item: "Illusion Thread", qty: 8, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 6, source: "monster_loot" },
+              { item: "Decay Fragment", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "hollow_sand_robe",
+            resultItem: "Hollow Sand Robe",
+            resultLevel: 22,
+            ingredients: [
+              { item: "Mourner’s Veilcloth", qty: 5, source: "monster_loot" },
+              { item: "Hollow Rib Fragment", qty: 3, source: "monster_loot" },
+              { item: "Black Sand Heart", qty: 1, source: "monster_loot" },
+              { item: "Withered Tissue", qty: 10, source: "monster_loot" },
+              { item: "Decay Fragment", qty: 8, source: "monster_loot" },
+              { item: "Decay Core", qty: 2, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "droughtworn_pants",
+            resultItem: "Droughtworn Pants",
+            resultLevel: 23,
+            ingredients: [
+              { item: "Mourner’s Veilcloth", qty: 4, source: "monster_loot" },
+              { item: "Drought Essence", qty: 3, source: "monster_loot" },
+              { item: "Hollow Rib Fragment", qty: 2, source: "monster_loot" },
+              { item: "Sand Residue", qty: 10, source: "monster_loot" },
+              { item: "Withered Tissue", qty: 8, source: "monster_loot" },
+              { item: "Decay Core", qty: 2, source: "monster_loot" },
+              { item: "Hunger Core", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "mawcaller_staff",
+            resultItem: "Mawcaller Staff",
+            resultLevel: 23,
+            ingredients: [
+              { item: "Mawbound Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Black Sand Heart", qty: 2, source: "monster_loot" },
+              { item: "Hollow Rib Fragment", qty: 5, source: "monster_loot" },
+              { item: "Drought Essence", qty: 4, source: "monster_loot" },
+              { item: "Devourer Tooth", qty: 6, source: "monster_loot" },
+              { item: "Sand Core", qty: 3, source: "monster_loot" },
+              { item: "Hunger Core", qty: 2, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 8, source: "monster_loot" }
             ]
           },
           {

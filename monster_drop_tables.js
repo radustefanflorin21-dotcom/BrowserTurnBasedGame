@@ -288,6 +288,31 @@
         { name: "Illusion Essence", dropRate: 2.5 }
       ]
     },
+    "Thornback Graveguard": {
+      materials: [
+        { name: "Thornback Carapace", dropRate: 70 },
+        { name: "Grave Thorn", dropRate: 55 },
+        { name: "Bleached Shell Plate", dropRate: 35 },
+        { name: "Buried Bone Core", dropRate: 15 }
+      ]
+    },
+    "Mirage Maw": {
+      materials: [
+        { name: "Mirage Jawbone", dropRate: 70 },
+        { name: "Haze-Torn Skin", dropRate: 55 },
+        { name: "Thirsting Eye", dropRate: 35 },
+        { name: "Splintered Illusion Core", dropRate: 15 }
+      ]
+    },
+    "The Dune Mourner": {
+      materials: [
+        { name: "Mourner’s Veilcloth", dropRate: 100 },
+        { name: "Hollow Rib Fragment", dropRate: 75 },
+        { name: "Drought Essence", dropRate: 45 },
+        { name: "Black Sand Heart", dropRate: 25 },
+        { name: "Mawbound Soulcore", dropRate: 8 }
+      ]
+    },
     "Witherling": {
       materials: [
         { name: "Withered Tissue", dropRate: 32.5 },
