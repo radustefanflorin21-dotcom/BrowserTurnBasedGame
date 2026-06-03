@@ -55,7 +55,10 @@ const MONSTER_ROLE_BY_SCRIPT_ID = {
   tidemother_aberration: "mage",
   stormfang_ravager: "bruiser",
   abyssal_tempest_caller: "mage",
-  stormwake_leviathan: "bruiser"
+  stormwake_leviathan: "bruiser",
+  petrified_coilwarden: "controller",
+  granitehorn_breaker: "bruiser",
+  held_colossus: "bruiser"
 };
 
 function inferMonsterCombatRole(scriptId) {

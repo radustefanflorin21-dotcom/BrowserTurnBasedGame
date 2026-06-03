@@ -262,6 +262,31 @@
         { name: "Heartburrow Horn", dropRate: 8 }
       ]
     },
+    "Petrified Coilwarden": {
+      materials: [
+        { name: "Petrified Coil Fragment", dropRate: 70 },
+        { name: "Stone Scale", dropRate: 55 },
+        { name: "Petrify Gland", dropRate: 35 },
+        { name: "Control Core", dropRate: 15 }
+      ]
+    },
+    "Granitehorn Breaker": {
+      materials: [
+        { name: "Granitehorn Splinter", dropRate: 70 },
+        { name: "Ibex Horn", dropRate: 55 },
+        { name: "Hardened Stone", dropRate: 35 },
+        { name: "Strength Core", dropRate: 15 }
+      ]
+    },
+    "The Held Colossus": {
+      materials: [
+        { name: "Stillstone Heart", dropRate: 100 },
+        { name: "Hardened Stone", dropRate: 75 },
+        { name: "Stone Scale", dropRate: 45 },
+        { name: "Predator Core", dropRate: 25 },
+        { name: "Pressure Core", dropRate: 8 }
+      ]
+    },
     "Desert Thornback Crawler": {
       materials: [
         { name: "Spiked Shell", dropRate: 37.5 },

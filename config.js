@@ -223,6 +223,43 @@ const GAME_CONFIG = {
       possibleLevels: [29, 30, 31],
       possibleMoods: ["berserk"]},
     {
+      name: "Petrified Coilwarden",
+      combatScript: "petrified_coilwarden",
+      combatRole: "controller",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/The held breath/The Stonevein Sanctum/petrified_coilwarden.png",
+      possibleLevels: [30],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 41, dex: 51, vit: 61, int: 102 },
+      baseHp: 729
+    },
+    {
+      name: "Granitehorn Breaker",
+      combatScript: "granitehorn_breaker",
+      combatRole: "bruiser",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/The held breath/The Stonevein Sanctum/granitehorn_breaker.png",
+      possibleLevels: [31],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 7,
+      baseStats: { str: 65, dex: 28, vit: 46, int: 15 },
+      baseHp: 739
+    },
+    {
+      name: "The Held Colossus",
+      combatScript: "held_colossus",
+      combatRole: "bruiser",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/The held breath/The Stonevein Sanctum/the_held_colossus.png",
+      possibleLevels: [32],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 8,
+      baseStats: { str: 67, dex: 29, vit: 88, int: 21 },
+      baseHp: 2544
+    },
+    {
       name: "Ash Lizard",
       combatScript: "ash_lizard",
       combatRole: "bruiser",
@@ -1023,6 +1060,35 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/withered_maw_key.png",
       description: "A sand-scored key for the sinkhole known as The Withered Maw.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Stonevein Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/stonevein_key.png",
+      description: "A fault-scored key for the sealed descent into the Stonevein Sanctum.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Petrified Coil Fragment": {
+      type: "resource",
+      image: "Assets/Resources/stonevein_key.png",
+      description: "A petrified scale fragment shed by the Coilwarden.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Granitehorn Splinter": {
+      type: "resource",
+      image: "Assets/Resources/stonevein_key.png",
+      description: "A splintered horn plate from the Granitehorn Breaker.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Stillstone Heart": {
+      type: "resource",
+      image: "Assets/Resources/stonevein_key.png",
+      description: "A dense heartstone shaken loose from the Held Colossus.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -4419,7 +4485,10 @@ const GAME_CONFIG = {
     "Thornback Graveguard": ["beast", "stone"],
     "Mirage Maw": ["construct", "elemental"],
     "Mirage Remnant": ["construct", "elemental"],
-    "The Dune Mourner": ["undead", "elemental"]
+    "The Dune Mourner": ["undead", "elemental"],
+    "Petrified Coilwarden": ["construct", "stone"],
+    "Granitehorn Breaker": ["beast", "stone"],
+    "The Held Colossus": ["construct", "stone"]
   },
 
   crafting: {
@@ -5424,6 +5493,21 @@ const GAME_CONFIG = {
               { item: "Hardened Stone", qty: 5, source: "monster_loot" },
               { item: "Earth Residue", qty: 4, source: "gathering_loot" },
               { item: "Dense Bone", qty: 4, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "stonevein_key",
+            resultItem: "Stonevein Key",
+            resultLevel: 28,
+            ingredients: [
+              { item: "Hardened Stone", qty: 6, source: "monster_loot" },
+              { item: "Stone Scale", qty: 5, source: "monster_loot" },
+              { item: "Petrify Gland", qty: 4, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 5, source: "monster_loot" },
+              { item: "Predator Core", qty: 3, source: "monster_loot" },
+              { item: "Stone Claw", qty: 5, source: "monster_loot" },
+              { item: "Earth Residue", qty: 4, source: "gathering_loot" },
+              { item: "Dense Bone", qty: 3, source: "gathering_loot" }
             ]
           },
           {
@@ -6506,7 +6590,8 @@ const GAME_CONFIG = {
       "29,55": "Assets/Biomes/Paradise South/boat_between_paradises.png",
       "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png",
       "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png",
-      "35,33": "Assets/Biomes/The misery of life/The Withered Maw/the_withered_maw_entrance.png"
+      "35,33": "Assets/Biomes/The misery of life/The Withered Maw/the_withered_maw_entrance.png",
+      "32,70": "Assets/Biomes/The held breath/The Stonevein Sanctum/stonevein_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -6598,6 +6683,25 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/The misery of life/The Withered Maw/old_varro.png",
             text: "Old Varro leans on his crooked stick.",
             dungeonEntrance: "withered_maw"
+          }
+        ]
+      },
+      "32,70": {
+        kind: "scene",
+        title: "The held breath — Stonevein Sanctum",
+        description: "A fault-lined descent exhales cold dust. Brannock guards the sealed stone arch.",
+        elements: [
+          {
+            type: "npc",
+            id: "brannock_stonewhisper",
+            label: "Brannock Stonewhisper",
+            editable: true,
+            leftPct: 48,
+            topPct: 62,
+            scalePct: 90,
+            image: "Assets/Biomes/The held breath/The Stonevein Sanctum/brannock_stonewhisper.png",
+            text: "Brannock listens to the stone breathe.",
+            dungeonEntrance: "stonevein_sanctum"
           }
         ]
       },
@@ -7001,6 +7105,122 @@ const GAME_CONFIG = {
                 moodId: "berserk",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/The misery of life/The Withered Maw/the_dune_mourner.png"
+              }
+            ]
+          }
+        ]
+      },
+      stonevein_sanctum: {
+        name: "The Stonevein Sanctum",
+        keyItem: "Stonevein Key",
+        entrance: { x: 32, y: 70 },
+        assetBase: "Assets/Biomes/The held breath/The Stonevein Sanctum",
+        pressureCracks: true,
+        fallingStone: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Stone Marmot", level: 22, moodId: "berserk" },
+              { name: "Stone Marmot", level: 22, moodId: "berserk" },
+              { name: "Rock Lynx", level: 23, moodId: "berserk" },
+              { name: "Rock Lynx", level: 23, moodId: "berserk" },
+              { name: "Rock Ibex", level: 24, moodId: "berserk" },
+              { name: "Rock Serpent", level: 25, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Stone Marmot", level: 22, moodId: "berserk" },
+              { name: "Stone Marmot", level: 22, moodId: "berserk" },
+              { name: "Rock Lynx", level: 23, moodId: "berserk" },
+              { name: "Rock Lynx", level: 23, moodId: "berserk" },
+              { name: "Rock Ibex", level: 24, moodId: "berserk" },
+              { name: "Rock Ibex", level: 24, moodId: "berserk" },
+              { name: "Rock Serpent", level: 25, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText: "Pressure Cracks: every 3 rounds, cracked stone may Cripple a random fighter.",
+            enemies: [
+              { name: "Rock Ibex", level: 26, moodId: "berserk" },
+              { name: "Rock Ibex", level: 26, moodId: "berserk" },
+              { name: "Rock Serpent", level: 27, moodId: "berserk" },
+              { name: "Rock Serpent", level: 27, moodId: "berserk" },
+              { name: "Stone Marmot", level: 22, moodId: "berserk" },
+              { name: "Rock Lynx", level: 23, moodId: "berserk" },
+              { name: "Rock Lizard", level: 28, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText: "Pressure Cracks and Falling Stone threaten this chamber.",
+            enemies: [
+              { name: "Rock Serpent", level: 27, moodId: "berserk" },
+              { name: "Rock Serpent", level: 27, moodId: "berserk" },
+              { name: "Rock Lizard", level: 28, moodId: "berserk" },
+              { name: "Stone Marmot", level: 23, moodId: "berserk" },
+              { name: "Stone Marmot", level: 23, moodId: "berserk" },
+              { name: "Rock Lynx", level: 24, moodId: "berserk" },
+              { name: "Rock Ibex", level: 26, moodId: "berserk" },
+              {
+                name: "Petrified Coilwarden",
+                level: 30,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/The held breath/The Stonevein Sanctum/petrified_coilwarden.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText: "Pressure Cracks and Falling Stone continue here.",
+            enemies: [
+              { name: "Rock Ibex", level: 27, moodId: "berserk" },
+              { name: "Rock Ibex", level: 27, moodId: "berserk" },
+              { name: "Rock Lynx", level: 25, moodId: "berserk" },
+              { name: "Rock Lynx", level: 25, moodId: "berserk" },
+              { name: "Rock Serpent", level: 28, moodId: "berserk" },
+              { name: "Rock Lizard", level: 29, moodId: "berserk" },
+              { name: "Stone Marmot", level: 23, moodId: "berserk" },
+              {
+                name: "Granitehorn Breaker",
+                level: 31,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/The held breath/The Stonevein Sanctum/granitehorn_breaker.png"
+              }
+            ]
+          },
+          {
+            bg: "6",
+            bgPhaseStems: ["6", "6_1", "6_2", "6_3"],
+            modifierText:
+              "Pressure Cracks and Falling Stone continue. The Held Colossus awakens as the mountain shifts.",
+            enemies: [
+              { name: "Stone Marmot", level: 24, moodId: "berserk" },
+              { name: "Rock Lynx", level: 25, moodId: "berserk" },
+              { name: "Rock Ibex", level: 26, moodId: "berserk" },
+              { name: "Rock Serpent", level: 27, moodId: "berserk" },
+              { name: "Rock Lizard", level: 28, moodId: "berserk" },
+              {
+                name: "Petrified Coilwarden",
+                level: 30,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/The held breath/The Stonevein Sanctum/petrified_coilwarden.png"
+              },
+              {
+                name: "Granitehorn Breaker",
+                level: 31,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/The held breath/The Stonevein Sanctum/granitehorn_breaker.png"
+              },
+              {
+                name: "The Held Colossus",
+                level: 32,
+                moodId: "berserk",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/The held breath/The Stonevein Sanctum/the_held_colossus.png"
               }
             ]
           }

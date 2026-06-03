@@ -33,7 +33,7 @@ function randomMoodIdForEnemy(name, rng) {
   return moods[Math.max(0, Math.min(moods.length - 1, idx))];
 }
 
-function spawnReinforcement(st, name, rng) {
+export function spawnReinforcement(st, name, rng) {
   if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
   const level = maxLevelForEnemyName(name);
   const moodId = randomMoodIdForEnemy(name, rng);
@@ -106,6 +106,35 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
       if (rng.chance(0.3)) {
         applyPartyMemberCripple(st, pick, 1);
         log(`Starvation Pressure cripples ${pick.name || "a fighter"} (+1 stamina per skill).`);
+      }
+    }
+  }
+
+  if (def.pressureCracks && roomIndex >= 2 && round % 3 === 0) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    if (living.length) {
+      const pick = living[Math.floor(rng.next() * living.length)];
+      if (rng.chance(0.35)) {
+        applyPartyMemberCripple(st, pick, 1);
+        log(`Pressure Cracks cripple ${pick.name || "a fighter"} (+1 stamina per skill).`);
+      }
+    }
+  }
+
+  if (def.fallingStone && roomIndex >= 3) {
+    const colossusPhase3 = (st.foes || []).some(
+      (f) => f && f.name === "The Held Colossus" && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp <= 0.35
+    );
+    const interval = colossusPhase3 ? 3 : 4;
+    if (round % interval === 0) {
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      if (living.length) {
+        const pick = living[Math.floor(rng.next() * living.length)];
+        log(`Falling Stone shifts above ${pick.name || "the party"}…`);
+        if (rng.chance(0.15)) {
+          applyPartyMemberCripple(st, pick, 1);
+          log(`${pick.name || "A fighter"} is stunned by debris (+1 stamina per skill).`);
+        }
       }
     }
   }

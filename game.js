@@ -4143,14 +4143,20 @@ function getFoeEvasionPct(foe) {
 
 function getFoePhysicalResistPct(foe) {
   const d = getEnemyDefCombatFields(foe);
-  if (typeof d.physicalResistPct === "number" && Number.isFinite(d.physicalResistPct)) return Math.max(0, d.physicalResistPct);
-  return 0;
+  let res = typeof d.physicalResistPct === "number" && Number.isFinite(d.physicalResistPct) ? d.physicalResistPct : 0;
+  if (foe?.combat && typeof foe.combat.physResBonusPct === "number" && foe.combat.physResBonusPct > 0) {
+    res += foe.combat.physResBonusPct;
+  }
+  return Math.max(0, res);
 }
 
 function getFoeMagicResistPct(foe) {
   const d = getEnemyDefCombatFields(foe);
-  if (typeof d.magicResistPct === "number" && Number.isFinite(d.magicResistPct)) return Math.max(0, d.magicResistPct);
-  return 0;
+  let res = typeof d.magicResistPct === "number" && Number.isFinite(d.magicResistPct) ? d.magicResistPct : 0;
+  if (foe?.combat && typeof foe.combat.magResBonusPct === "number" && foe.combat.magResBonusPct > 0) {
+    res += foe.combat.magResBonusPct;
+  }
+  return Math.max(0, res);
 }
 
 function getFoeFlatDamageReduction(foe) {
@@ -4742,7 +4748,11 @@ function getPlayerCombatStatusResistPct(st) {
   const gearSr = sumEquippedBonusStats().statusResist || 0;
   const cs = st ? ensurePlayerClassCombatState(st) : null;
   const bonus = cs && cs.braceTurns > 0 ? cs.braceStatusResistBonusPct || 0 : 0;
-  return clampNumber(0, 90, base + bonus + gearSr);
+  let down = 0;
+  if (st?.status && (st.status.playerStatusResistDownTurns || 0) > 0) {
+    down = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, Number(st.status.playerStatusResistDownPct) || 0));
+  }
+  return clampNumber(0, 90, base + bonus + gearSr - down);
 }
 
 function getPlayerCombatHealingReceivedMultiplier(st) {
@@ -4950,6 +4960,9 @@ function getFoeOutgoingDamageMultiplier(st, foe) {
     m *= 1 - clampNumber(0, 95, foe.combat.tauntedByVanguardDamageDownPct) / 100;
   }
   if (foe.combat && typeof foe.combat.staggerDamageDownTurns === "number" && foe.combat.staggerDamageDownTurns > 0) m *= 0.88;
+  if (foe.combat && typeof foe.combat.outgoingDamageBonusPct === "number" && foe.combat.outgoingDamageBonusPct > 0) {
+    m *= 1 + clampNumber(0, 50, foe.combat.outgoingDamageBonusPct) / 100;
+  }
   if (cs && cs.tauntTurns > 0) m *= 0.94;
   return m;
 }
@@ -5103,6 +5116,25 @@ function isDungeonStarvationPressureCombat(st) {
   return isDungeonMechanicCombat(st, "starvationPressure");
 }
 
+function isDungeonPressureCracksCombat(st) {
+  return isDungeonMechanicCombat(st, "pressureCracks");
+}
+
+function isDungeonFallingStoneCombat(st) {
+  return isDungeonMechanicCombat(st, "fallingStone");
+}
+
+function isHeldColossusPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) => f && f.name === "The Held Colossus" && f.hp > 0 && f.maxHp > 0 && f.hp / f.maxHp <= 0.35
+  );
+}
+
+function getDungeonFallingStoneInterval(st) {
+  return isHeldColossusPhase3Active(st) ? 3 : 4;
+}
+
 /** Final Stormbreak Hollow room (Stormwake Leviathan): special fight UI layout only here. */
 function isStormbreakHollowLeviathanBossRoomFight(st) {
   if (!isStormbreakHollowCombat(st)) return false;
@@ -5209,6 +5241,82 @@ function applyPartyMemberCripple(st, member, turns) {
   member.crippleTurns = Math.max(member.crippleTurns || 0, t);
 }
 
+function getPartyMemberStatusResistPct(st, member) {
+  if (!member) return 0;
+  if (member.kind === "hero") return getPlayerCombatStatusResistPct(st);
+  const down =
+    typeof member.statusResistDownPct === "number" && (member.statusResistDownTurns || 0) > 0
+      ? Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, member.statusResistDownPct))
+      : 0;
+  return Math.max(0, (member.baseStatusResistPct || 0) - down);
+}
+
+function applyPartyMemberStatusResistDown(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.accuracyDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerStatusResistDownPct = Math.max(st.status.playerStatusResistDownPct || 0, p);
+    st.status.playerStatusResistDownTurns = Math.max(st.status.playerStatusResistDownTurns || 0, t);
+    return;
+  }
+  member.statusResistDownPct = Math.max(member.statusResistDownPct || 0, p);
+  member.statusResistDownTurns = Math.max(member.statusResistDownTurns || 0, t);
+}
+
+function applyPartyMemberIncomingDamageUp(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(50, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerIncomingDamageUpPct = Math.max(st.status.playerIncomingDamageUpPct || 0, p);
+    st.status.playerIncomingDamageUpTurns = Math.max(st.status.playerIncomingDamageUpTurns || 0, t);
+    return;
+  }
+  member.incomingDamageUpPct = Math.max(member.incomingDamageUpPct || 0, p);
+  member.incomingDamageUpTurns = Math.max(member.incomingDamageUpTurns || 0, t);
+}
+
+function getAdjacentPartyMemberUids(st, centerUid, count) {
+  ensureCombatParty(st);
+  const living = st.party.filter((m) => m && m.hp > 0);
+  const idx = living.findIndex((m) => m.uid === centerUid);
+  if (idx < 0) return [];
+  const out = [];
+  for (let d = 1; d <= count && out.length < count; d++) {
+    if (idx - d >= 0) out.push(living[idx - d].uid);
+    if (out.length >= count) break;
+    if (idx + d < living.length) out.push(living[idx + d].uid);
+  }
+  return out.slice(0, count);
+}
+
+function dealRawDamageToPlayerAdjacent(st, rawDamage, foeName, logVerb, centerUid, adjacentCount, perTargetMult) {
+  const mult = typeof perTargetMult === "number" && perTargetMult > 0 ? perTargetMult : 1;
+  const uids = [centerUid, ...getAdjacentPartyMemberUids(st, centerUid, adjacentCount)];
+  const seen = new Set();
+  for (const uid of uids) {
+    if (typeof uid !== "number" || seen.has(uid)) continue;
+    seen.add(uid);
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(rawDamage * mult)), foeName, logVerb, { partyUid: uid });
+  }
+}
+
+function tryPartyMemberStun(st, member, chance) {
+  if (!member) return false;
+  if (member.kind === "hero") return tryPlayerStun(st, chance);
+  const resist = getPartyMemberStatusResistPct(st, member) / 100;
+  const finalP = Math.min(1, Math.max(0, chance)) * (1 - resist);
+  if (finalP >= 1 || Math.random() < finalP) {
+    member.crippleTurns = Math.max(member.crippleTurns || 0, 1);
+    appendFightLog(`${member.name || "A companion"} is struck senseless (+1 stamina per action).`);
+    return true;
+  }
+  return false;
+}
+
 function isPartyMemberBlinded(st, member) {
   if (!member) return false;
   if (member.kind === "hero") return (st.status?.playerOutgoingAccuracyDownTurns || 0) > 0;
@@ -5312,6 +5420,35 @@ function applyDungeonStarvationPressureIfDue(st, round) {
   }
 }
 
+function applyDungeonPressureCracksIfDue(st, round) {
+  if (!isDungeonPressureCracksCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 2) return;
+  if (round % 3 !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    applyPartyMemberCripple(st, pick, 1);
+    appendFightLog(`Pressure Cracks cripple ${pick.name || "a fighter"} (+1 stamina per action).`);
+  }
+}
+
+function applyDungeonFallingStoneIfDue(st, round) {
+  if (!isDungeonFallingStoneCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 3) return;
+  const interval = getDungeonFallingStoneInterval(st);
+  if (round % interval !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  appendFightLog(`Falling Stone shifts above ${pick.name || "the party"}…`);
+  tryPartyMemberStun(st, pick, 0.15);
+}
+
 function applyWitheredMawBossReinforcementsIfDue(st, round) {
   const ctx = st && st.worldMapContext;
   if (!ctx || ctx.dungeonId !== "withered_maw") return;
@@ -5328,6 +5465,8 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyDungeonRootPressureIfDue(st, round);
   applyDungeonThirstingSandIfDue(st, round);
   applyDungeonStarvationPressureIfDue(st, round);
+  applyDungeonPressureCracksIfDue(st, round);
+  applyDungeonFallingStoneIfDue(st, round);
   applyRootwarrenBossReinforcementsIfDue(st, round);
   applyWitheredMawBossReinforcementsIfDue(st, round);
 }
@@ -5496,8 +5635,17 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
   if (!m || m.hp <= 0) return;
   let raw = rawDamage;
   if (isPartyMemberStormMarked(m)) raw = Math.max(1, Math.floor(raw * 1.08));
+  if (typeof m.incomingDamageUpTurns === "number" && m.incomingDamageUpTurns > 0 && typeof m.incomingDamageUpPct === "number") {
+    raw = Math.max(1, Math.floor(raw * (1 + clampNumber(0, 50, m.incomingDamageUpPct) / 100)));
+  }
   if (m.kind === "hero") {
     ensureCombatStatus(st);
+    if ((st.status.playerIncomingDamageUpTurns || 0) > 0) {
+      raw = Math.max(
+        1,
+        Math.floor(raw * (1 + clampNumber(0, 50, Number(st.status.playerIncomingDamageUpPct) || 0) / 100))
+      );
+    }
     if (typeof st.status.playerFragileTurns === "number" && st.status.playerFragileTurns > 0) raw += 2;
     if (cls.id === "vanguard") {
       const csVg = ensurePlayerClassCombatState(st);
@@ -5643,6 +5791,18 @@ function tickEnemySkillCooldownsEndOfTurn(foe) {
     foe.combat.channelerStaminaTaxCooldownTurns -= 1;
   }
   foe.combat.forceBasicThisTurn = false;
+  if (typeof foe.combat.outgoingDamageBonusTurns === "number" && foe.combat.outgoingDamageBonusTurns > 0) {
+    foe.combat.outgoingDamageBonusTurns -= 1;
+    if (foe.combat.outgoingDamageBonusTurns <= 0) foe.combat.outgoingDamageBonusPct = 0;
+  }
+  if (typeof foe.combat.physResBonusTurns === "number" && foe.combat.physResBonusTurns > 0) {
+    foe.combat.physResBonusTurns -= 1;
+    if (foe.combat.physResBonusTurns <= 0) foe.combat.physResBonusPct = 0;
+  }
+  if (typeof foe.combat.statusResBonusTurns === "number" && foe.combat.statusResBonusTurns > 0) {
+    foe.combat.statusResBonusTurns -= 1;
+    if (foe.combat.statusResBonusTurns <= 0) foe.combat.statusResBonusPct = 0;
+  }
 }
 
 /** Bleed/poison damage and DoT duration — runs when your turn begins (after the enemy phase). */
@@ -5694,12 +5854,28 @@ function tickPlayerTurnEndBuffs(st) {
   if (typeof s.playerComboChanceDownTurns === "number" && s.playerComboChanceDownTurns > 0) s.playerComboChanceDownTurns -= 1;
   if (typeof s.playerStaminaCostUpTurns === "number" && s.playerStaminaCostUpTurns > 0) s.playerStaminaCostUpTurns -= 1;
   if (typeof s.playerCrippleTurns === "number" && s.playerCrippleTurns > 0) s.playerCrippleTurns -= 1;
+  if (typeof s.playerStatusResistDownTurns === "number" && s.playerStatusResistDownTurns > 0) {
+    s.playerStatusResistDownTurns -= 1;
+    if (s.playerStatusResistDownTurns <= 0) s.playerStatusResistDownPct = 0;
+  }
+  if (typeof s.playerIncomingDamageUpTurns === "number" && s.playerIncomingDamageUpTurns > 0) {
+    s.playerIncomingDamageUpTurns -= 1;
+    if (s.playerIncomingDamageUpTurns <= 0) s.playerIncomingDamageUpPct = 0;
+  }
   (st.party || []).forEach((m) => {
     if (!m) return;
     if (typeof m.crippleTurns === "number" && m.crippleTurns > 0) m.crippleTurns -= 1;
     if (typeof m.outgoingAccuracyDownTurns === "number" && m.outgoingAccuracyDownTurns > 0) {
       m.outgoingAccuracyDownTurns -= 1;
       if (m.outgoingAccuracyDownTurns <= 0) m.outgoingAccuracyDownPct = 0;
+    }
+    if (typeof m.statusResistDownTurns === "number" && m.statusResistDownTurns > 0) {
+      m.statusResistDownTurns -= 1;
+      if (m.statusResistDownTurns <= 0) m.statusResistDownPct = 0;
+    }
+    if (typeof m.incomingDamageUpTurns === "number" && m.incomingDamageUpTurns > 0) {
+      m.incomingDamageUpTurns -= 1;
+      if (m.incomingDamageUpTurns <= 0) m.incomingDamageUpPct = 0;
     }
   });
   const decTurn = (turnKey, pctKey) => {
@@ -8339,6 +8515,152 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     return true;
   }
 
+  if (scriptId === "petrified_coilwarden") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const intv = foe.int || 20;
+    if (ready("petrifying_stare")) {
+      setCd("petrifying_stare", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.5 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Petrifying Stare locks onto you", { partyUid });
+      tryPartyMemberStun(st, member, 0.2);
+      return true;
+    }
+    if (ready("stone_venom")) {
+      setCd("stone_venom", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Stone Venom bites you", { partyUid });
+      applyPoisonToPlayer(st, Math.max(1, Math.floor(hit * 0.12)), 3);
+      return true;
+    }
+    if (ready("crushing_coil")) {
+      setCd("crushing_coil", 3);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.8 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Crushing Coil constricts you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    if (ready("mineral_haze")) {
+      setCd("mineral_haze", 4);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+        if (Math.random() < 0.35) applyPartyMemberStatusResistDown(st, m, 5, 2);
+      }
+      appendFightLog(`${foe.name} spreads Mineral Haze.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.35 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "granitehorn_breaker") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "bruiser");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("hornbreaker_charge")) {
+      setCd("hornbreaker_charge", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 1.1 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Hornbreaker Charge smashes you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ready("staggering_headbutt")) {
+      setCd("staggering_headbutt", 3);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.85 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Staggering Headbutt rocks you", { partyUid });
+      tryPartyMemberStun(st, member, 0.18);
+      return true;
+    }
+    if (ready("stonehide_rage")) {
+      setCd("stonehide_rage", 4);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 8);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 8);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} enters Stonehide Rage (+damage, +resist).`);
+      return true;
+    }
+    if (ready("faultline_kick")) {
+      setCd("faultline_kick", 3);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.65 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Faultline Kick strikes", partyUid, 1, 1);
+      if (Math.random() < 0.35) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.str || 20) * 0.6 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "held_colossus") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const intv = foe.int || 20;
+    if (hpFrac <= 0.7 && !foe.combat.colossusPhase2) {
+      foe.combat.colossusPhase2 = true;
+      foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
+      foe.combat.statusResBonusPct = (foe.combat.statusResBonusPct || 0) + 6;
+      appendFightLog(`${foe.name} enters The Mountain Shifts (+resist).`);
+      summonDungeonReinforcement(st, "Stone Marmot");
+      summonDungeonReinforcement(st, "Rock Serpent");
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.colossusPhase3) {
+      foe.combat.colossusPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      appendFightLog(`${foe.name} releases its held breath—Falling Stone quickens.`);
+      return true;
+    }
+    if (ready("colossus_slam")) {
+      setCd("colossus_slam", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 1.1 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Colossus Slam crushes you", { partyUid });
+      if (Math.random() < 0.4) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ready("faultquake")) {
+      setCd("faultquake", 3);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.7 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Faultquake shakes", partyUid, 2, 1);
+      if (Math.random() < 0.45) applyPlayerSuppressedDamageDownBoth(st, 8, 2);
+      return true;
+    }
+    if (ready("stone_breath")) {
+      setCd("stone_breath", 4);
+      const dmg = Math.max(1, Math.floor(intv * 0.65 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Stone Breath washes over you", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+        if (Math.random() < 0.35) applyPartyMemberCripple(st, m, 1);
+      }
+      return true;
+    }
+    if (ready("mountainhide")) {
+      setCd("mountainhide", 4);
+      setFoeMitigation(foe, 2, 0.84);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Mountainhide (−16% damage taken).`);
+      return true;
+    }
+    if (foe.combat.colossusPhase2 && ready("stillness_crush")) {
+      setCd("stillness_crush", 5);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 1.25 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Stillness Crush shatters your guard", { partyUid });
+      tryPartyMemberStun(st, member, 0.2);
+      return true;
+    }
+    const basicMult = foe.combat.colossusPhase3 ? 0.55 : 0.65;
+    if (foe.combat.colossusPhase3) {
+      dealRawDamageToPlayerAdjacent(st, Math.max(1, Math.floor((foe.str || 20) * basicMult * outMult)), foe.name, "strikes", partyUid, 1, 1);
+    } else {
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.str || 20) * basicMult * outMult)), foe.name, "strikes you", { partyUid });
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -10551,13 +10873,34 @@ function getLeviathanPhaseTransitionLogMessage(stemIndex) {
   return byStem[ix] || "The Stormwake Leviathan's domain shifts into a new phase.";
 }
 
-function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
+function getColossusPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "The stone groans—the sanctum shifts as the colossus stirs.",
+    2: "The mountain shifts—fault lines split the chamber into a deadlier shape.",
+    3: "Breath released—the still stone fractures as the arena transforms."
+  };
+  return byStem[ix] || "The Held Colossus's domain shifts into a new phase.";
+}
+
+function getBossPhaseTransitionLogMessage(dungeonId, stemIndex) {
+  if (dungeonId === "stonevein_sanctum") return getColossusPhaseTransitionLogMessage(stemIndex);
+  return getLeviathanPhaseTransitionLogMessage(stemIndex);
+}
+
+function shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st) {
   const def = getDungeonDef(dungeonId);
   const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
   const stems = room && Array.isArray(room.bgPhaseStems) ? room.bgPhaseStems : null;
   if (!stems || stems.length < 2) return false;
   const levi = st.foes && st.foes.find((f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0);
-  return !!levi;
+  if (levi) return true;
+  const colossus = st.foes && st.foes.find((f) => f && f.name === "The Held Colossus" && f.hp > 0);
+  return !!colossus;
+}
+
+function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
+  return shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st);
 }
 
 function runLeviathanPhaseCeremony(done) {
@@ -11093,11 +11436,20 @@ function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
     ctx.roomIndex === roomIndex;
   if (!inThisRoomFight) return 0;
   const levi = co.foes && co.foes.find((f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0);
-  if (!levi || !(levi.maxHp > 0)) return Math.min(1, stems.length - 1);
-  const frac = levi.hp / levi.maxHp;
-  if (frac > 0.7) return Math.min(1, stems.length - 1);
-  if (frac > 0.3) return Math.min(2, stems.length - 1);
-  return Math.min(3, stems.length - 1);
+  if (levi && levi.maxHp > 0) {
+    const frac = levi.hp / levi.maxHp;
+    if (frac > 0.7) return Math.min(1, stems.length - 1);
+    if (frac > 0.3) return Math.min(2, stems.length - 1);
+    return Math.min(3, stems.length - 1);
+  }
+  const colossus = co.foes && co.foes.find((f) => f && f.name === "The Held Colossus" && f.hp > 0);
+  if (colossus && colossus.maxHp > 0) {
+    const frac = colossus.hp / colossus.maxHp;
+    if (frac > 0.7) return Math.min(1, stems.length - 1);
+    if (frac > 0.35) return Math.min(2, stems.length - 1);
+    return Math.min(3, stems.length - 1);
+  }
+  return Math.min(1, stems.length - 1);
 }
 
 function resolveDungeonRoomBackgroundUrl(dungeonId, roomIndex, phaseStemIndex, onResolved) {
@@ -11151,7 +11503,7 @@ function refreshDungeonPhaseBackgroundFromCombat(st) {
         url,
         isCityArt,
         stemIndex: idx,
-        message: getLeviathanPhaseTransitionLogMessage(idx),
+        message: getBossPhaseTransitionLogMessage(ctx.dungeonId, idx),
         resolveKey: key,
         preloadImg
       };

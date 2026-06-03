@@ -134,6 +134,9 @@ export function getFoeOutgoingDamageMult(st, foe) {
     if ((c.physDmgDownTurns || 0) > 0) down = Math.max(down, c.physDmgDownPct || 0);
     if ((c.magDmgDownTurns || 0) > 0) down = Math.max(down, c.magDmgDownPct || 0);
     if (down > 0) mult *= Math.max(0.5, 1 - Math.min(50, down) / 100);
+    if (typeof c.outgoingDamageBonusPct === "number" && c.outgoingDamageBonusPct > 0) {
+      mult *= 1 + Math.max(0, Math.min(50, c.outgoingDamageBonusPct)) / 100;
+    }
   }
   return mult;
 }

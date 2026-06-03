@@ -85,6 +85,7 @@ export function getFoePhysResist(foe) {
   const c = foe.combat;
   if (c && (c.physResDownTurns || 0) > 0) res = Math.max(0, res - (c.physResDownPct || 0));
   if (c && (c.bothResDownTurns || 0) > 0) res = Math.max(0, res - (c.bothResDownPct || 0));
+  if (c && typeof c.physResBonusPct === "number" && c.physResBonusPct > 0) res += c.physResBonusPct;
   return res;
 }
 

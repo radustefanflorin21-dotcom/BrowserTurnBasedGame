@@ -11,7 +11,7 @@ import {
   extendPlayerDebuffDurations,
   ensureCombatStatus
 } from "./status.js";
-import { spawnMirageRemnantUncapped } from "./dungeon_mechanics.js";
+import { spawnMirageRemnantUncapped, spawnReinforcement } from "./dungeon_mechanics.js";
 
 const require = createRequire(import.meta.url);
 const { inferMonsterCombatRole } = require("../../shared/monster_roles.js");
@@ -615,6 +615,125 @@ const SCRIPT_HANDLERS = {
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult * accMult)), "sand-lashes");
+    return true;
+  },
+
+  petrified_coilwarden(foe, st, ctx) {
+    const member = ctx.pickTarget("controller");
+    const intv = foe.int || 20;
+    if (ctx.ready("petrifying_stare")) {
+      ctx.setCd("petrifying_stare", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.5 * ctx.outMult));
+      ctx.hit(member, hit, "Petrifying Stare locks onto");
+      if (ctx.rng.chance(0.2)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ctx.ready("stone_venom")) {
+      ctx.setCd("stone_venom", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult));
+      ctx.hit(member, hit, "Stone Venom bites");
+      applyPlayerPoison(st, Math.max(1, Math.floor(hit * 0.12)), 3);
+      return true;
+    }
+    if (ctx.ready("crushing_coil")) {
+      ctx.setCd("crushing_coil", 3);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.8 * ctx.outMult));
+      ctx.hit(member, hit, "Crushing Coil constricts");
+      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    if (ctx.ready("mineral_haze")) {
+      ctx.setCd("mineral_haze", 4);
+      rollBlindAll(st, ctx, 0.45, 8, 2);
+      ctx.log(`${foe.name} spreads Mineral Haze.`);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  granitehorn_breaker(foe, st, ctx) {
+    const member = ctx.pickTarget("bruiser");
+    if (ctx.ready("hornbreaker_charge")) {
+      ctx.setCd("hornbreaker_charge", 2);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 1.1 * ctx.outMult)), "Hornbreaker Charge smashes");
+      return true;
+    }
+    if (ctx.ready("staggering_headbutt")) {
+      ctx.setCd("staggering_headbutt", 3);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.85 * ctx.outMult)), "Staggering Headbutt rocks");
+      if (ctx.rng.chance(0.18)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ctx.ready("stonehide_rage")) {
+      ctx.setCd("stonehide_rage", 4);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 8);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 8);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} enters Stonehide Rage.`);
+      return true;
+    }
+    if (ctx.ready("faultline_kick")) {
+      ctx.setCd("faultline_kick", 3);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.65 * ctx.outMult)), "Faultline Kick strikes");
+      if (ctx.rng.chance(0.35)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.6 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  held_colossus(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const hpFrac = ctx.foeHpFrac();
+    const intv = foe.int || 20;
+    if (hpFrac <= 0.7 && !foe.combat.colossusPhase2) {
+      foe.combat.colossusPhase2 = true;
+      foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
+      foe.combat.statusResBonusPct = (foe.combat.statusResBonusPct || 0) + 6;
+      ctx.log(`${foe.name} enters The Mountain Shifts.`);
+      spawnReinforcement(st, "Stone Marmot", ctx.rng);
+      spawnReinforcement(st, "Rock Serpent", ctx.rng);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.colossusPhase3) {
+      foe.combat.colossusPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      ctx.log(`${foe.name} releases its held breath.`);
+      return true;
+    }
+    if (ctx.ready("colossus_slam")) {
+      ctx.setCd("colossus_slam", 2);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 1.1 * ctx.outMult)), "Colossus Slam crushes");
+      if (ctx.rng.chance(0.4)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ctx.ready("faultquake")) {
+      ctx.setCd("faultquake", 3);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.7 * ctx.outMult)), "Faultquake shakes");
+      return true;
+    }
+    if (ctx.ready("stone_breath")) {
+      ctx.setCd("stone_breath", 4);
+      const dmg = Math.max(1, Math.floor(intv * 0.65 * ctx.outMult));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Stone Breath washes over");
+      return true;
+    }
+    if (ctx.ready("mountainhide")) {
+      ctx.setCd("mountainhide", 4);
+      setFoeMitigation(foe, 2, 0.84);
+      ctx.log(`${foe.name} raises Mountainhide.`);
+      return true;
+    }
+    if (foe.combat.colossusPhase2 && ctx.ready("stillness_crush")) {
+      ctx.setCd("stillness_crush", 5);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 1.25 * ctx.outMult)), "Stillness Crush shatters");
+      if (ctx.rng.chance(0.2)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    const basicMult = foe.combat.colossusPhase3 ? 0.55 : 0.65;
+    ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * basicMult * ctx.outMult)), "strikes");
     return true;
   },
 
