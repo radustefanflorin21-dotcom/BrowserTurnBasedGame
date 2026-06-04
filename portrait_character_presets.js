@@ -194,35 +194,17 @@
       }
     },
     "equipment": {
-      "weapon": {
-        "offsetXPct": -106.26729560795518,
-        "offsetYPct": -43.375242659607835,
-        "rotDeg": 3,
-        "scalePct": 172
+      "amulet": {
+        "offsetXPct": -1.1283528919964296,
+        "offsetYPct": -34.46224650401666,
+        "rotDeg": -12.5,
+        "scalePct": 22
       },
-      "weapon_one_handed_sword": {
-        "offsetXPct": -100.17313903600119,
-        "offsetYPct": -54.41941710800357,
-        "rotDeg": 3,
-        "scalePct": 112
-      },
-      "weapon_dagger": {
-        "offsetXPct": -85.6301,
-        "offsetYPct": -76.3688,
-        "rotDeg": 11.5,
-        "scalePct": 40
-      },
-      "weapon_greatsword": {
-        "offsetXPct": -119.62551710800358,
-        "offsetYPct": -54.19362192799762,
-        "rotDeg": 22.5,
-        "scalePct": 88
-      },
-      "weapon_two_handed": {
-        "offsetXPct": -100.59632192799762,
-        "offsetYPct": -64.88609518000595,
-        "rotDeg": 17.5,
-        "scalePct": 112
+      "bracelet": {
+        "offsetXPct": -81.60220699196667,
+        "offsetYPct": -27.50667060398691,
+        "rotDeg": 12,
+        "scalePct": 9
       },
       "chest": {
         "offsetXPct": 4.09083,
@@ -236,23 +218,29 @@
         "rotDeg": 0,
         "scalePct": 66
       },
-      "amulet": {
-        "offsetXPct": -1.1283528919964296,
-        "offsetYPct": -34.46224650401666,
-        "rotDeg": -12.5,
-        "scalePct": 22
-      },
-      "bracelet": {
-        "offsetXPct": -81.60220699196667,
-        "offsetYPct": -27.50667060398691,
-        "rotDeg": 12,
-        "scalePct": 9
-      },
       "feet": {
         "offsetXPct": -0.733342,
         "offsetYPct": -24.683839036001192,
         "rotDeg": 2,
         "scalePct": 58
+      },
+      "female_no_helm": {
+        "offsetXPct": -0.154981,
+        "offsetYPct": -1.15806,
+        "rotDeg": 0,
+        "scalePct": 34
+      },
+      "female_no_weapon": {
+        "offsetXPct": -98.2295,
+        "offsetYPct": -69.6985,
+        "rotDeg": 9,
+        "scalePct": 13
+      },
+      "female_offhand_fixed_arm": {
+        "offsetXPct": -167.33548289199643,
+        "offsetYPct": -121.9451609639988,
+        "rotDeg": 0,
+        "scalePct": 34
       },
       "head": {
         "offsetXPct": 0.7899940360011901,
@@ -272,6 +260,30 @@
         "rotDeg": 0,
         "scalePct": 76
       },
+      "offhand": {
+        "offsetXPct": 102.9440102887395,
+        "offsetYPct": -49.73697911630142,
+        "rotDeg": 34,
+        "scalePct": 160
+      },
+      "offhand_dagger": {
+        "offsetXPct": 120.04151710800357,
+        "offsetYPct": -70.14801710800357,
+        "rotDeg": 37.5,
+        "scalePct": 40
+      },
+      "offhand_one_handed_sword": {
+        "offsetXPct": 93.0143,
+        "offsetYPct": -53.672039036001195,
+        "rotDeg": 33,
+        "scalePct": 136
+      },
+      "offhand_shield": {
+        "offsetXPct": 102.9440102887395,
+        "offsetYPct": -49.73697911630142,
+        "rotDeg": 34,
+        "scalePct": 160
+      },
       "ring1": {
         "offsetXPct": 233.04309253198454,
         "offsetYPct": -161.2707325200833,
@@ -284,47 +296,35 @@
         "rotDeg": -18.5,
         "scalePct": 11
       },
-      "offhand": {
-        "offsetXPct": 102.9440102887395,
-        "offsetYPct": -49.73697911630142,
-        "rotDeg": 34,
-        "scalePct": 160
+      "weapon": {
+        "offsetXPct": -106.26729560795518,
+        "offsetYPct": -43.375242659607835,
+        "rotDeg": 3,
+        "scalePct": 172
       },
-      "offhand_one_handed_sword": {
-        "offsetXPct": 93.0143,
-        "offsetYPct": -53.672039036001195,
-        "rotDeg": 33,
-        "scalePct": 136
-      },
-      "offhand_dagger": {
-        "offsetXPct": 120.04151710800357,
-        "offsetYPct": -70.14801710800357,
-        "rotDeg": 37.5,
+      "weapon_dagger": {
+        "offsetXPct": -85.6301,
+        "offsetYPct": -76.3688,
+        "rotDeg": 11.5,
         "scalePct": 40
       },
-      "offhand_shield": {
-        "offsetXPct": 102.9440102887395,
-        "offsetYPct": -49.73697911630142,
-        "rotDeg": 34,
-        "scalePct": 160
+      "weapon_greatsword": {
+        "offsetXPct": -119.62551710800358,
+        "offsetYPct": -54.19362192799762,
+        "rotDeg": 22.5,
+        "scalePct": 88
       },
-      "female_offhand_fixed_arm": {
-        "offsetXPct": -167.33548289199643,
-        "offsetYPct": -121.9451609639988,
-        "rotDeg": 0,
-        "scalePct": 34
+      "weapon_one_handed_sword": {
+        "offsetXPct": -100.17313903600119,
+        "offsetYPct": -54.41941710800357,
+        "rotDeg": 3,
+        "scalePct": 112
       },
-      "female_no_weapon": {
-        "offsetXPct": -98.2295,
-        "offsetYPct": -69.6985,
-        "rotDeg": 9,
-        "scalePct": 13
-      },
-      "female_no_helm": {
-        "offsetXPct": -0.154981,
-        "offsetYPct": -1.15806,
-        "rotDeg": 0,
-        "scalePct": 34
+      "weapon_two_handed": {
+        "offsetXPct": -100.59632192799762,
+        "offsetYPct": -64.88609518000595,
+        "rotDeg": 17.5,
+        "scalePct": 112
       }
     }
   }

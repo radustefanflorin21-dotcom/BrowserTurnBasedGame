@@ -6980,9 +6980,9 @@ const GAME_CONFIG = {
             id: "brannock_stonewhisper",
             label: "Brannock Stonewhisper",
             editable: true,
-            leftPct: 48,
-            topPct: 62,
-            scalePct: 90,
+            leftPct: 34.70982142857143,
+            topPct: 65.2797492311332,
+            scalePct: 80,
             image: "Assets/Biomes/The held breath/The Stonevein Sanctum/brannock_stonewhisper.png",
             text: "Brannock listens to the stone breathe.",
             dungeonEntrance: "stonevein_sanctum"

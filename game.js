@@ -12191,6 +12191,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "brannock_stonewhisper_epilogue") {
+    const svDef = getDungeonDef("stonevein_sanctum");
+    const ex =
+      svDef && svDef.entrance && typeof svDef.entrance.x === "number" ? Math.floor(svDef.entrance.x) : 32;
+    const ey =
+      svDef && svDef.entrance && typeof svDef.entrance.y === "number" ? Math.floor(svDef.entrance.y) : 70;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(39.39732142857143),
+        topPct: clampScenePct(42.7578660988881),
+        scalePct: clampSceneScalePct(100)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -12331,6 +12345,19 @@ function buildNpcLayoutExportByCoordinate() {
         : null;
     if (sbEnt && x === sbEnt.x && y === sbEnt.y) {
       const epId = "nera_stormwatch_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 100;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const svDef = getDungeonDef("stonevein_sanctum");
+    const svEnt =
+      svDef && svDef.entrance && typeof svDef.entrance.x === "number" && typeof svDef.entrance.y === "number"
+        ? { x: Math.floor(svDef.entrance.x), y: Math.floor(svDef.entrance.y) }
+        : null;
+    if (svEnt && x === svEnt.x && y === svEnt.y) {
+      const epId = "brannock_stonewhisper_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 100;
       if (!epDefault) {
@@ -17282,6 +17309,21 @@ function openDungeonEpilogueDialog(dungeonId) {
     showModalHtml(html, { npcBubble: true });
     return;
   }
+  if (id === "stonevein_sanctum") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Brannock Stonewhisper</p>
+    <p class="npc-dialog-body">The held breath broke. I felt the mountain unclench its jaw.</p>
+    <p class="npc-dialog-body">You stood when the Colossus fell. Good. Stone remembers who keeps their feet.</p>
+    <p class="npc-dialog-body">Come—before the fault lines decide to inhale again.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Leave the sanctum</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay a moment</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
   const def = getDungeonDef(id);
   const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
   const html = `<div class="npc-dialog-bubble">
@@ -17367,6 +17409,35 @@ function buildDungeonEpilogueSceneHtml() {
       return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. Old Varro squints at you like you're a mirage that forgot to vanish.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    if (dungeonId === "stonevein_sanctum") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "brannock_stonewhisper");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Brannock Stonewhisper", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Brannock Stonewhisper" aria-label="Brannock Stonewhisper"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "brannock_stonewhisper_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Brannock listens to stone that finally stopped screaming.</p>
     <div class="${actionsClass}">
       ${btn}
     </div>
