@@ -2665,6 +2665,48 @@ function tryProcThornbackGraveguardBleed(st, attackerFoe, receivedDamage) {
   appendFightLog(`${attackerFoe.name} is bleeding from Thornback Graveguard spikes.`);
 }
 
+function getEquipmentForCombatMember(member, actor) {
+  if (member?.kind === "hero" && typeof player !== "undefined" && player?.equipment) return player.equipment;
+  if (actor?.equipment && typeof actor.equipment === "object") return actor.equipment;
+  if (member?.kind === "companion" && typeof member.companionSlotIndex === "number") {
+    const comp = player?.companions?.[member.companionSlotIndex];
+    if (comp?.equipment) return comp.equipment;
+  }
+  return null;
+}
+
+function applyFoePhysResDown(foe, pct, turns) {
+  if (!foe) return;
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  const t = Math.max(1, Math.floor(turns));
+  foe.combat.physResDownPct = Math.max(foe.combat.physResDownPct || 0, Math.max(0, pct));
+  foe.combat.physResDownTurns = Math.max(foe.combat.physResDownTurns || 0, t);
+}
+
+function applyFoeCrippleFromSet(foe, turns) {
+  if (!foe) return;
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  const t = Math.max(1, Math.floor(turns));
+  foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, t);
+}
+
+function tryProcGranitehornPhysResDown(st, equipment, foe, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return;
+  if (countEquippedSetPieces(equipment, "Granitehorn") < 2) return;
+  if (Math.random() >= 0.15) return;
+  applyFoePhysResDown(foe, 5, 2);
+  appendFightLog(`${foe.name}'s physical resist is lowered (Granitehorn).`);
+}
+
+function tryProcHeldColossusCrippleOnHit(st, member, actor, attackerFoe, damageTaken) {
+  if (!attackerFoe || attackerFoe.hp <= 0 || !damageTaken || damageTaken <= 0) return;
+  const equipment = getEquipmentForCombatMember(member, actor);
+  if (!equipment || countEquippedSetPieces(equipment, "Held Colossus") < 4) return;
+  if (Math.random() >= 0.15) return;
+  applyFoeCrippleFromSet(attackerFoe, 1);
+  appendFightLog(`${attackerFoe.name} is crippled by stillstone backlash (+1 stamina per action).`);
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -5687,7 +5729,10 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, effectiveTaken));
     const srcFoeHit = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
     if (srcFoeHit && effectiveTaken > 0) playFoeStrikeOnAlly(srcFoeHit, m.uid, effectiveTaken, false);
-    if (srcFoeHit && effectiveTaken > 0) tryProcThornbackGraveguardBleed(st, srcFoeHit, effectiveTaken);
+    if (srcFoeHit && effectiveTaken > 0) {
+      tryProcThornbackGraveguardBleed(st, srcFoeHit, effectiveTaken);
+      tryProcHeldColossusCrippleOnHit(st, m, null, srcFoeHit, effectiveTaken);
+    }
     if (cls.id === "vanguard") {
       const csVg = ensurePlayerClassCombatState(st);
       const p = Math.min(0.2, 0.06 + totalVit() * 0.0005 + getClassSkillProcBonus("Shield Slam"));
@@ -5714,7 +5759,10 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     if (m.hp < 0) m.hp = 0;
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
     const srcFoeComp = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
-    if (srcFoeComp && taken > 0) playFoeStrikeOnAlly(srcFoeComp, m.uid, taken, false);
+    if (srcFoeComp && taken > 0) {
+      playFoeStrikeOnAlly(srcFoeComp, m.uid, taken, false);
+      tryProcHeldColossusCrippleOnHit(st, m, null, srcFoeComp, taken);
+    }
   }
   syncCombatPartyHeroMirror(st);
 }
@@ -16416,6 +16464,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
       if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg, actor);
       if (member.kind === "hero") applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
       applyReflectDamageToPartyHero(st, dmg, foe);
+      if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
       }
@@ -16491,6 +16540,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
   if (dmg > 0 && skCfg) tryApplyStaggerFromSkill(foe, skCfg, actor);
   if (member.kind === "hero") applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
   applyReflectDamageToPartyHero(st, dmg, foe);
+  if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (foe.combat && foe.combat.script === "tusk_boar") {
     foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
   }

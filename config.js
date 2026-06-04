@@ -1071,27 +1071,6 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Petrified Coil Fragment": {
-      type: "resource",
-      image: "Assets/Resources/stonevein_key.png",
-      description: "A petrified scale fragment shed by the Coilwarden.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Granitehorn Splinter": {
-      type: "resource",
-      image: "Assets/Resources/stonevein_key.png",
-      description: "A splintered horn plate from the Granitehorn Breaker.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
-    "Stillstone Heart": {
-      type: "resource",
-      image: "Assets/Resources/stonevein_key.png",
-      description: "A dense heartstone shaken loose from the Held Colossus.",
-      bonusSkills: [],
-      bonusStats: {}
-    },
 
     "Rusty Sword": {
       type: "weapon",
@@ -2869,6 +2848,110 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 18, VIT: 12, HEAL: 6, "Magic Damage": 5, ACC: 4 }
     },
+    "Venomstone Ring": {
+      type: "armor",
+      slot: "ring1",
+      equipCategory: "ring",
+      rarity: "epic",
+      itemLevel: 31,
+      image: "Assets/Equips/venomstone_ring.png",
+      description: "A petrified venomstone ring tuned for coilwarden magic.",
+      set: "",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 23, DEX: 12, "Magic Damage": 7, ACC: 6, Crit: 4 }
+    },
+    "Granitehorn Ramplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "epic",
+      itemLevel: 31,
+      image: "Assets/Equips/granitehorn_ramplate.png",
+      description: "Layered granitehorn plate for frontline bruisers.",
+      set: "Granitehorn",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 24, VIT: 18, HP: 260, "Phys Resist": 8, "Phys Damage": 6 }
+    },
+    "Breaker's Horn Bracers": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "bracelet",
+      rarity: "epic",
+      itemLevel: 31,
+      image: "Assets/Equips/breakers_horn_bracers.png",
+      description: "Horn-plated bracers that channel the breaker's crushing force.",
+      set: "Granitehorn",
+      build: "STR_DEX",
+      bonusSkills: [],
+      bonusStats: { STR: 25, DEX: 12, "Phys Damage": 8, ACC: 5, Crit: 4 }
+    },
+    "Colossus Stoneplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "epic",
+      itemLevel: 32,
+      image: "Assets/Equips/colossus_stoneplate.png",
+      description: "Stillstone warplate from the heart of the sanctum.",
+      set: "Held Colossus",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, STR: 22, HP: 360, "Phys Resist": 10, "Status Resist": 6 }
+    },
+    "Stillstone Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helmet",
+      rarity: "epic",
+      itemLevel: 32,
+      image: "Assets/Equips/stillstone_helm.png",
+      description: "A helm carved from breath-held stillstone.",
+      set: "Held Colossus",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 26, STR: 18, HP: 280, "Magic Resist": 8, "Status Resist": 7 }
+    },
+    "Faultvein Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "epic",
+      itemLevel: 33,
+      image: "Assets/Equips/faultvein_pants.png",
+      description: "Fault-veined legplates that anchor the wearer against quakes.",
+      set: "Held Colossus",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 28, STR: 16, HP: 300, "Phys Resist": 8, "Magic Resist": 5 }
+    },
+    "Mountainheart Maul": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "polearm",
+      rarity: "epic",
+      itemLevel: 33,
+      image: "Assets/Equips/mountainheart_maul.png",
+      description: "A sanctum polearm forged around a mountainheart core.",
+      set: "Held Colossus",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 30, VIT: 22, HP: 220, "Phys Damage": 9, "Phys Resist": 6 }
+    },
+    "Pressurecore Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "epic",
+      itemLevel: 33,
+      image: "Assets/Equips/pressurecore_amulet.png",
+      description: "An amulet housing pressure from the Held Colossus's core.",
+      set: "",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 24, STR: 20, HP: 240, "Status Resist": 8, "Phys Resist": 6 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -3798,6 +3881,84 @@ const GAME_CONFIG = {
       value: 5,
       image: "Assets/Resources/gaiahide_plate.png",
       description: "Layered hide plate from the Gaiahide Behemoth."
+    },
+    "Petrified Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/petrified_scale.png",
+      description: "Petrified scale shed by the Petrified Coilwarden."
+    },
+    "Venomstone Fang": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/venomstone_fang.png",
+      description: "A venomstone fang from the Petrified Coilwarden."
+    },
+    "Mineral Venom Sac": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/mineral_venom_sac.png",
+      description: "A mineral-veined venom sac from the Coilwarden."
+    },
+    "Coilwarden Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/coilwarden_core.png",
+      description: "Dense core from the Petrified Coilwarden."
+    },
+    "Granite Horn Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/granite_horn_fragment.png",
+      description: "Splintered granite horn from the Granitehorn Breaker."
+    },
+    "Breaker Hide Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/breaker_hide_plate.png",
+      description: "Layered hide plate stripped from the Granitehorn Breaker."
+    },
+    "Faultline Hoof": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/faultline_hoof.png",
+      description: "A fault-scored hoof from the Granitehorn Breaker."
+    },
+    "Hornbreaker Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/hornbreaker_core.png",
+      description: "Crushing core from the Granitehorn Breaker."
+    },
+    "Colossus Plate Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/colossus_stoneplate_shard.png",
+      description: "Stoneplate shard torn from the Held Colossus."
+    },
+    "Stillstone Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/stillstone_fragment.png",
+      description: "Stillstone fragment shaken loose from the Held Colossus."
+    },
+    "Faultvein Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/faultvein_core.png",
+      description: "Fault-veined core from the Held Colossus."
+    },
+    "Pressurecore Heart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/pressurecore_heart.png",
+      description: "A pressure core heart from the Held Colossus."
+    },
+    "Mountainbound Soulstone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/mountainbound_soulstone.png",
+      description: "Rare soulstone bound to the mountain's held breath."
     },
     "Heartburrow Horn": {
       type: "material",
@@ -5937,6 +6098,119 @@ const GAME_CONFIG = {
               { item: "Distorted Core", qty: 3, source: "monster_loot" },
               { item: "Residue", qty: 2, source: "gathering_loot" }
             ]
+          },
+          {
+            id: "venomstone_ring",
+            resultItem: "Venomstone Ring",
+            resultLevel: 31,
+            ingredients: [
+              { item: "Venomstone Fang", qty: 3, source: "monster_loot" },
+              { item: "Mineral Venom Sac", qty: 2, source: "monster_loot" },
+              { item: "Coilwarden Core", qty: 1, source: "monster_loot" },
+              { item: "Petrified Scale", qty: 4, source: "monster_loot" },
+              { item: "Petrify Gland", qty: 5, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" },
+              { item: "Earth Residue", qty: 8, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "granitehorn_ramplate",
+            resultItem: "Granitehorn Ramplate",
+            resultLevel: 31,
+            ingredients: [
+              { item: "Granite Horn Fragment", qty: 4, source: "monster_loot" },
+              { item: "Breaker Hide Plate", qty: 4, source: "monster_loot" },
+              { item: "Faultline Hoof", qty: 2, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 6, source: "monster_loot" },
+              { item: "Stone Skin", qty: 8, source: "monster_loot" },
+              { item: "Defense Core", qty: 2, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 10, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "breakers_horn_bracers",
+            resultItem: "Breaker's Horn Bracers",
+            resultLevel: 31,
+            ingredients: [
+              { item: "Granite Horn Fragment", qty: 3, source: "monster_loot" },
+              { item: "Faultline Hoof", qty: 3, source: "monster_loot" },
+              { item: "Hornbreaker Core", qty: 1, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 5, source: "monster_loot" },
+              { item: "Stone Claw", qty: 6, source: "monster_loot" },
+              { item: "Strength Core", qty: 2, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "colossus_stoneplate",
+            resultItem: "Colossus Stoneplate",
+            resultLevel: 32,
+            ingredients: [
+              { item: "Colossus Plate Shard", qty: 5, source: "monster_loot" },
+              { item: "Stillstone Fragment", qty: 4, source: "monster_loot" },
+              { item: "Faultvein Core", qty: 2, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 12, source: "monster_loot" },
+              { item: "Stone Skin", qty: 10, source: "monster_loot" },
+              { item: "Bulwark Core", qty: 2, source: "monster_loot" },
+              { item: "Earth Essence", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "stillstone_helm",
+            resultItem: "Stillstone Helm",
+            resultLevel: 32,
+            ingredients: [
+              { item: "Stillstone Fragment", qty: 5, source: "monster_loot" },
+              { item: "Colossus Plate Shard", qty: 3, source: "monster_loot" },
+              { item: "Pressurecore Heart", qty: 1, source: "monster_loot" },
+              { item: "Stone Scale", qty: 8, source: "monster_loot" },
+              { item: "Dense Bone", qty: 6, source: "gathering_loot" },
+              { item: "Stable Core", qty: 2, source: "gathering_loot" },
+              { item: "Earth Residue", qty: 10, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "faultvein_pants",
+            resultItem: "Faultvein Pants",
+            resultLevel: 33,
+            ingredients: [
+              { item: "Faultvein Core", qty: 3, source: "monster_loot" },
+              { item: "Stillstone Fragment", qty: 4, source: "monster_loot" },
+              { item: "Colossus Plate Shard", qty: 3, source: "monster_loot" },
+              { item: "Stone Skin", qty: 8, source: "monster_loot" },
+              { item: "Dense Fur", qty: 6, source: "monster_loot" },
+              { item: "Defense Core", qty: 2, source: "monster_loot" },
+              { item: "Cliff Moss", qty: 10, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "mountainheart_maul",
+            resultItem: "Mountainheart Maul",
+            resultLevel: 33,
+            ingredients: [
+              { item: "Mountainbound Soulstone", qty: 1, source: "monster_loot" },
+              { item: "Pressurecore Heart", qty: 2, source: "monster_loot" },
+              { item: "Faultvein Core", qty: 4, source: "monster_loot" },
+              { item: "Colossus Plate Shard", qty: 4, source: "monster_loot" },
+              { item: "Granite Horn Fragment", qty: 3, source: "monster_loot" },
+              { item: "Ibex Horn", qty: 6, source: "monster_loot" },
+              { item: "Strength Core", qty: 3, source: "monster_loot" },
+              { item: "Hardened Stone", qty: 14, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "pressurecore_amulet",
+            resultItem: "Pressurecore Amulet",
+            resultLevel: 33,
+            ingredients: [
+              { item: "Pressurecore Heart", qty: 2, source: "monster_loot" },
+              { item: "Mountainbound Soulstone", qty: 1, source: "monster_loot" },
+              { item: "Stillstone Fragment", qty: 4, source: "monster_loot" },
+              { item: "Faultvein Core", qty: 2, source: "monster_loot" },
+              { item: "Coilwarden Core", qty: 1, source: "monster_loot" },
+              { item: "Stable Core", qty: 2, source: "gathering_loot" },
+              { item: "Earth Essence", qty: 8, source: "monster_loot" }
+            ]
           }]
       },
       {
@@ -6263,6 +6537,8 @@ const GAME_CONFIG = {
     Bramblehorn: 3,
     Fangroot: 3,
     Gaiahide: 4,
+    Granitehorn: 2,
+    "Held Colossus": 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -6328,6 +6604,14 @@ const GAME_CONFIG = {
       2: { VIT: 12, HP: 120, "Phys Resist": 4 },
       3: { VIT: 20, STR: 12, HP: 220, "Phys Resist": 6, "Status Resist": 4 },
       4: { STA: 1, VIT: 28, STR: 18, HP: 340, "Phys Resist": 8, "Status Resist": 6 }
+    },
+    Granitehorn: {
+      2: { STR: 14, HP: 140, "Phys Damage": 4, "Phys Resist": 4 }
+    },
+    "Held Colossus": {
+      2: { VIT: 16, HP: 180, "Phys Resist": 5 },
+      3: { VIT: 26, STR: 14, HP: 320, "Phys Resist": 8, "Status Resist": 5 },
+      4: { STA: 1, VIT: 36, STR: 22, HP: 480, "Phys Resist": 10, "Magic Resist": 6, "Status Resist": 7 }
     },
     "Channeler Set": {
       2: { INT: 2 },

@@ -11,8 +11,10 @@ import {
   validateAndResolveSkill,
   initCombatResources,
   tickSkillCooldowns,
-  skillTargetMode
+  skillTargetMode,
+  getSkillDef
 } from "./skills.js";
+import { tryProcGranitehornPhysResDown } from "./set_procs.js";
 import { ensureClassState } from "./class_state.js";
 import { applyClassSkillOnHit } from "./class_skills.js";
 import {
@@ -476,6 +478,10 @@ export function processCombatAction(session, action, actingUserId = null) {
         st,
         `${member.name} uses ${label} on ${foe.name} for ${dmg} damage${hit.crit ? " (critical hit!)" : ""}.`
       );
+      const skDef = getSkillDef(skillName);
+      const dmgKind = skDef?.damageKind === "magic" ? "magic" : "physical";
+      const graniteLog = tryProcGranitehornPhysResDown(actorPlayer?.equipment, foe, rng, dmgKind);
+      if (graniteLog) appendLog(st, graniteLog);
       if (hit.crit) {
         const dm = tryDuelistMomentumOnCrit(st, actor, rng, member);
         if (dm) appendLog(st, dm);
@@ -532,6 +538,8 @@ export function processCombatAction(session, action, actingUserId = null) {
         st,
         `${member.name} attacks ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
       );
+      const graniteLog = tryProcGranitehornPhysResDown(actorPlayer?.equipment, foe, rng, "physical");
+      if (graniteLog) appendLog(st, graniteLog);
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     markCoopHeroActedIfNeeded(member, session);

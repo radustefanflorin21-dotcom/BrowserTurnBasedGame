@@ -10,6 +10,7 @@ import { trySecondBreath } from "./combat_passives.js";
 import { getFoeEffectiveAttack, getFoeOutgoingDamageMult } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
 import { isFoeStunned } from "./status.js";
+import { tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
 
 function countEquippedSetPieces(equipment, setName) {
   const want = typeof setName === "string" ? setName.trim() : "";
@@ -128,8 +129,18 @@ export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, pla
   const shielded = absorbDamageWithShield(st, raw);
   const dmg = resolveIncomingToMember(shielded.damage, member);
   member.hp = Math.max(0, member.hp - dmg);
-  if (member.kind === "hero" && dmg > 0) {
-    tryProcThornbackGraveguardBleed(player?.equipment, foe, dmg, rng);
+  let heldColossusLog = null;
+  if (dmg > 0) {
+    if (member.kind === "hero") {
+      tryProcThornbackGraveguardBleed(player?.equipment, foe, dmg, rng);
+    }
+    const equipment =
+      member.kind === "hero"
+        ? player?.equipment
+        : typeof member.companionSlotIndex === "number"
+          ? player?.companions?.[member.companionSlotIndex]?.equipment
+          : null;
+    heldColossusLog = tryProcHeldColossusCrippleOnHit(equipment, foe, rng, dmg);
   }
   syncHeroHp(st);
   let secondBreathLog = null;
@@ -141,7 +152,7 @@ export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, pla
     const rip = tryRiposteAfterHit(st, foe, member, player);
     if (rip?.log) riposteLog = rip.log;
   }
-  return { dmg, shieldLog: shielded.log, evaded: false, riposteLog, secondBreathLog };
+  return { dmg, shieldLog: shielded.log, evaded: false, riposteLog, secondBreathLog, heldColossusLog };
 }
 
 export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits) {
@@ -181,6 +192,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       appendLog(`${foe.name} ${verb} ${member.name} for ${res.dmg} damage.`);
       if (res.riposteLog) appendLog(res.riposteLog);
       if (res.secondBreathLog) appendLog(res.secondBreathLog);
+      if (res.heldColossusLog) appendLog(res.heldColossusLog);
     },
     log(line) {
       appendLog(line);

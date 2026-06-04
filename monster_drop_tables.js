@@ -264,27 +264,27 @@
     },
     "Petrified Coilwarden": {
       materials: [
-        { name: "Petrified Coil Fragment", dropRate: 70 },
-        { name: "Stone Scale", dropRate: 55 },
-        { name: "Petrify Gland", dropRate: 35 },
-        { name: "Control Core", dropRate: 15 }
+        { name: "Petrified Scale", dropRate: 70 },
+        { name: "Venomstone Fang", dropRate: 55 },
+        { name: "Mineral Venom Sac", dropRate: 35 },
+        { name: "Coilwarden Core", dropRate: 15 }
       ]
     },
     "Granitehorn Breaker": {
       materials: [
-        { name: "Granitehorn Splinter", dropRate: 70 },
-        { name: "Ibex Horn", dropRate: 55 },
-        { name: "Hardened Stone", dropRate: 35 },
-        { name: "Strength Core", dropRate: 15 }
+        { name: "Granite Horn Fragment", dropRate: 70 },
+        { name: "Breaker Hide Plate", dropRate: 55 },
+        { name: "Faultline Hoof", dropRate: 35 },
+        { name: "Hornbreaker Core", dropRate: 15 }
       ]
     },
     "The Held Colossus": {
       materials: [
-        { name: "Stillstone Heart", dropRate: 100 },
-        { name: "Hardened Stone", dropRate: 75 },
-        { name: "Stone Scale", dropRate: 45 },
-        { name: "Predator Core", dropRate: 25 },
-        { name: "Pressure Core", dropRate: 8 }
+        { name: "Colossus Plate Shard", dropRate: 100 },
+        { name: "Stillstone Fragment", dropRate: 75 },
+        { name: "Faultvein Core", dropRate: 45 },
+        { name: "Pressurecore Heart", dropRate: 25 },
+        { name: "Mountainbound Soulstone", dropRate: 8 }
       ]
     },
     "Desert Thornback Crawler": {
