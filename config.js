@@ -7374,7 +7374,8 @@ const GAME_CONFIG = {
       "37,43": "Assets/Biomes/Paradise North/boat_paradise_north.png",
       "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png",
       "35,33": "Assets/Biomes/The misery of life/The Withered Maw/the_withered_maw_entrance.png",
-      "32,70": "Assets/Biomes/The held breath/The Stonevein Sanctum/stonevein_entrance.png"
+      "32,70": "Assets/Biomes/The held breath/The Stonevein Sanctum/stonevein_entrance.png",
+      "23,30": "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_frostroot_nursery_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -7498,9 +7499,9 @@ const GAME_CONFIG = {
             id: "elowen_snowbud",
             label: "Elowen Snowbud",
             editable: true,
-            leftPct: 50,
-            topPct: 50,
-            scalePct: 80,
+            leftPct: 51.50669642857143,
+            topPct: 61.49455878873906,
+            scalePct: 64,
             image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/elowen_snowbud.png",
             text: "Elowen listens to the nursery's lullaby.",
             dungeonEntrance: "frostroot_nursery"

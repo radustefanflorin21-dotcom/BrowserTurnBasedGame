@@ -11864,6 +11864,14 @@ function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
     if (frac > 0.35) return Math.min(2, stems.length - 1);
     return Math.min(3, stems.length - 1);
   }
+  const sleepingChild =
+    co.foes && co.foes.find((f) => f && f.name === "The Sleeping Child of Winter" && f.hp > 0);
+  if (sleepingChild && sleepingChild.maxHp > 0) {
+    const frac = sleepingChild.hp / sleepingChild.maxHp;
+    if (frac > 0.7) return Math.min(1, stems.length - 1);
+    if (frac > 0.35) return Math.min(2, stems.length - 1);
+    return Math.min(3, stems.length - 1);
+  }
   return Math.min(1, stems.length - 1);
 }
 
