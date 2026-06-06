@@ -12,8 +12,8 @@
       "attack": "Assets/Character/male_character.png"
     },
     "baseLayout": {
-      "offsetXPct": 11.566826474173666,
-      "offsetYPct": -4.0486297112605,
+      "offsetXPct": 16.51776313597144,
+      "offsetYPct": -1.3827301800059506,
       "rotDeg": 0,
       "scalePct": 124
     },
@@ -71,10 +71,10 @@
         "scalePct": 64
       },
       "chest_robe": {
-        "offsetXPct": 7.518376474173667,
-        "offsetYPct": -24.3869,
+        "offsetXPct": 15.8968,
+        "offsetYPct": -5.34494,
         "rotDeg": 0,
-        "scalePct": 74
+        "scalePct": 110
       },
       "amulet": {
         "offsetXPct": 1.1566791337815001,
@@ -87,6 +87,12 @@
         "offsetYPct": -38.170161732437,
         "rotDeg": 12,
         "scalePct": 15
+      },
+      "bracelet_wristband": {
+        "offsetXPct": -78.17452192799762,
+        "offsetYPct": -35.5043,
+        "rotDeg": -1,
+        "scalePct": 36
       },
       "feet": {
         "offsetXPct": 2.3133735258263335,
@@ -101,10 +107,10 @@
         "scalePct": 52
       },
       "head_veil": {
-        "offsetXPct": 2.3133532370868335,
-        "offsetYPct": -34.3868,
+        "offsetXPct": 3.0750361440047604,
+        "offsetYPct": -23.34246578399286,
         "rotDeg": 0,
-        "scalePct": 62
+        "scalePct": 74
       },
       "legs": {
         "offsetXPct": 6.9399664741736675,
@@ -205,6 +211,12 @@
         "offsetYPct": -27.50667060398691,
         "rotDeg": 12,
         "scalePct": 9
+      },
+      "bracelet_wristband": {
+        "offsetXPct": -81.60220699196667,
+        "offsetYPct": -27.50667060398691,
+        "rotDeg": 12,
+        "scalePct": 12
       },
       "chest": {
         "offsetXPct": 4.09083,

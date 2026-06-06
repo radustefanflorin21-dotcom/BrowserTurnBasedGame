@@ -10,7 +10,7 @@ import { trySecondBreath } from "./combat_passives.js";
 import { getFoeEffectiveAttack, getFoeOutgoingDamageMult } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
 import { isFoeStunned } from "./status.js";
-import { tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
+import { tryProcFrosthornCrippleOnHit, tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
 
 function countEquippedSetPieces(equipment, setName) {
   const want = typeof setName === "string" ? setName.trim() : "";
@@ -141,6 +141,8 @@ export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, pla
           ? player?.companions?.[member.companionSlotIndex]?.equipment
           : null;
     heldColossusLog = tryProcHeldColossusCrippleOnHit(equipment, foe, rng, dmg);
+    const frosthornLog = tryProcFrosthornCrippleOnHit(equipment, foe, rng, dmg, "physical");
+    if (frosthornLog) heldColossusLog = heldColossusLog || frosthornLog;
   }
   syncHeroHp(st);
   let secondBreathLog = null;

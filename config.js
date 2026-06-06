@@ -378,7 +378,56 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/winter_guardian.png",
       possibleLevels: [29, 30, 31],
-      possibleMoods: ["berserk"]}, 
+      possibleMoods: ["berserk"]},
+    {
+      name: "Whitebark Matron",
+      combatScript: "whitebark_matron",
+      combatRole: "support",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/whitebark_matron.png",
+      possibleLevels: [30],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 26, dex: 47, vit: 84, int: 105 },
+      baseHp: 729
+    },
+    {
+      name: "Frosthorn Bulwark",
+      combatScript: "frosthorn_bulwark",
+      combatRole: "tank",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/frosthorn_bulwark.png",
+      possibleLevels: [31],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 7,
+      baseStats: { str: 34, dex: 16, vit: 86, int: 20 },
+      baseHp: 1024
+    },
+    {
+      name: "The Sleeping Child of Winter",
+      combatScript: "sleeping_child_of_winter",
+      combatRole: "support",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_sleeping_child_of_winter.png",
+      possibleLevels: [32],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 8,
+      baseStats: { str: 34, dex: 61, vit: 109, int: 136 },
+      baseHp: 2544
+    },
+    {
+      name: "Frostroot Seedling",
+      combatScript: "frostroot_seedling",
+      combatRole: "support",
+      spawnRarity: "rare",
+      image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/frostroot_seedling.png",
+      possibleLevels: [26],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 6,
+      baseStats: { str: 8, dex: 18, vit: 24, int: 30 },
+      baseHp: 180
+    },
     {
       name: "Dust Carver",
       combatScript: "dust_carver",
@@ -1068,6 +1117,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/stonevein_key.png",
       description: "A fault-scored key for the sealed descent into the Stonevein Sanctum.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Frostroot Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/frostroot_key.png",
+      description: "A winter-marked key that parts the frozen roots of the Frostroot Nursery.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -2952,6 +3009,123 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { VIT: 24, STR: 20, HP: 240, "Status Resist": 8, "Phys Resist": 6 }
     },
+    "Whitebark Grace Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "epic",
+      itemLevel: 31,
+      image: "Assets/Equips/whitebark_grace_amulet.png",
+      description: "A grace amulet woven from whitebark prayer and winter mend.",
+      set: "",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 24, VIT: 18, HEAL: 8, "Magic Resist": 6, "Status Resist": 5, HP: 160 }
+    },
+    "Frosthorn Warplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest_armor",
+      rarity: "epic",
+      itemLevel: 31,
+      image: "Assets/Equips/frosthorn_warplate.png",
+      description: "Icehide warplate from the Frosthorn Bulwark's frozen guard.",
+      set: "Frosthorn",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 25, STR: 16, HP: 280, "Phys Resist": 8, "Magic Resist": 6 }
+    },
+    "Bulwark Frost Bracers": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "wristband",
+      rarity: "epic",
+      itemLevel: 31,
+      image: "Assets/Equips/bulwark_frost_bracers.png",
+      description: "Frost-braced vambraces that answer every heavy blow with cold.",
+      set: "Frosthorn",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 22, STR: 14, HP: 220, "Status Resist": 6, "Phys Resist": 6, ACC: 4 }
+    },
+    "Frosthoof Greaves": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "boots",
+      rarity: "epic",
+      itemLevel: 32,
+      image: "Assets/Equips/frosthoof_greaves.png",
+      description: "Hoof-scored greaves that anchor the wearer against winter stagger.",
+      set: "Frosthorn",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 20, STR: 15, HP: 180, "Phys Resist": 5, "Magic Resist": 4, "Status Resist": 4 }
+    },
+    "Child's Frost Veil": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "veil",
+      rarity: "epic",
+      itemLevel: 32,
+      image: "Assets/Equips/childs_frost_veil.png",
+      description: "A lullaby veil woven from scraps of the sleeping child's frost.",
+      set: "Sleeping Winter",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 30, VIT: 20, HEAL: 8, "Magic Damage": 7, ACC: 6 }
+    },
+    "Cradlewood Robe": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "robe",
+      rarity: "epic",
+      itemLevel: 32,
+      image: "Assets/Equips/cradlewood_robe.png",
+      description: "A cradlewood robe that hums with innocent winter warmth.",
+      set: "Sleeping Winter",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, INT: 24, HP: 320, "Magic Resist": 9, "Status Resist": 7 }
+    },
+    "Innocent Winter Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "epic",
+      itemLevel: 33,
+      image: "Assets/Equips/innocent_winter_pants.png",
+      description: "Soft winter legwraps that let the wearer slip through still air.",
+      set: "Sleeping Winter",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 26, INT: 22, HP: 260, EVA: 5, "Magic Resist": 6, "Status Resist": 5 }
+    },
+    "Lullaby Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "epic",
+      itemLevel: 33,
+      image: "Assets/Equips/lullaby_staff.png",
+      description: "A two-handed staff that sings frost into every mend and curse.",
+      set: "Sleeping Winter",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 34, VIT: 18, "Magic Damage": 10, HEAL: 7, ACC: 7, Crit: 4 }
+    },
+    "Frozen Heartseed Ring": {
+      type: "armor",
+      slot: "ring",
+      equipCategory: "ring",
+      rarity: "epic",
+      itemLevel: 33,
+      image: "Assets/Equips/frozen_heartseed_ring.png",
+      description: "A ring holding a frozen heartseed from the innocent winter.",
+      set: "",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 25, VIT: 18, HP: 200, HEAL: 6, "Magic Resist": 6, "Status Resist": 5 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -3960,6 +4134,174 @@ const GAME_CONFIG = {
       image: "Assets/Resources/mountainbound_soulstone.png",
       description: "Rare soulstone bound to the mountain's held breath."
     },
+    "Soft Pine Fur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/soft_pine_fur.png",
+      description: "Soft fur shed by a Pinebound Fawn."
+    },
+    "Frost Berry": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frost_berry.png",
+      description: "A frost-sweet berry from the innocence pines."
+    },
+    "Gentle Antler Chip": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/gentle_antler_chip.png",
+      description: "A gentle antler chip from a Pinebound Fawn."
+    },
+    "Grace Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/grace_core.png",
+      description: "A grace core from a Pinebound Fawn."
+    },
+    "Frozen Needle": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_needle.png",
+      description: "Frozen needles from a fallen pinecone."
+    },
+    "Ice Sap Shell": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ice_sap_shell.png",
+      description: "An ice-sapped shell from a Frozen Pinecone."
+    },
+    "Frostbite Seed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frostbite_seed.png",
+      description: "A frostbite seed from a Frozen Pinecone."
+    },
+    "Ice Tusk Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ice_tusk_fragment.png",
+      description: "A chipped ice tusk from an Ice-Tusked Boar."
+    },
+    "Frosthide Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frosthide_plate.png",
+      description: "Frosthide plate stripped from an Ice-Tusked Boar."
+    },
+    "Cold Rage Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/cold_rage_core.png",
+      description: "A cold rage core from an Ice-Tusked Boar."
+    },
+    "Barkskin Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/barkskin_shard.png",
+      description: "A barkskin shard from a Barkhide Spriggan."
+    },
+    "Nature Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/nature_core.png",
+      description: "A nature core from a Barkhide Spriggan."
+    },
+    "Guardian Iceplate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/guardian_iceplate.png",
+      description: "Iceplate shed by a Winter Guardian."
+    },
+    "Frozen Bark Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_bark_core.png",
+      description: "A frozen bark core from a Winter Guardian."
+    },
+    "Winter Ward Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/winter_ward_fragment.png",
+      description: "A ward fragment from a Winter Guardian."
+    },
+    "Whitebark Antler": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/whitebark_antler.png",
+      description: "A whitebark antler from the Matron."
+    },
+    "Matron Rootcloth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/matron_rootcloth.png",
+      description: "Rootcloth woven by the Whitebark Matron."
+    },
+    "Frozen Mend Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_mend_core.png",
+      description: "A mend core from the Whitebark Matron."
+    },
+    "Whitebark Heartseed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/whitebark_heartseed.png",
+      description: "A rare heartseed from the Whitebark Matron."
+    },
+    "Frosthorn Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frosthorn_fragment.png",
+      description: "A frosthorn fragment from the Bulwark."
+    },
+    "Bulwark Icehide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bulwark_icehide.png",
+      description: "Bulwark icehide stripped from the Frosthorn Bulwark."
+    },
+    "Frozen Tusk Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_tusk_core.png",
+      description: "A frozen tusk core from the Frosthorn Bulwark."
+    },
+    "Frosthorn Soulplate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frosthorn_soulplate.png",
+      description: "A soulplate torn from the Frosthorn Bulwark."
+    },
+    "Frost Veil Scrap": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frost_veil_scrap.png",
+      description: "A scrap of frost veil shaken loose from the Sleeping Child."
+    },
+    "Sleeping Root Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/sleeping_root_fragment.png",
+      description: "A sleeping root fragment from the innocent winter."
+    },
+    "Innocent Winter Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/innocent_winter_core.png",
+      description: "An innocent winter core from the sleeping child."
+    },
+    "Frozen Heartseed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_heartseed.png",
+      description: "A frozen heartseed from the Sleeping Child of Winter."
+    },
+    "Lullaby Soulcore": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/lullaby_soulcore.png",
+      description: "A rare lullaby soulcore from the Sleeping Child of Winter."
+    },
     "Heartburrow Horn": {
       type: "material",
       value: 5,
@@ -4649,7 +4991,11 @@ const GAME_CONFIG = {
     "The Dune Mourner": ["undead", "elemental"],
     "Petrified Coilwarden": ["construct", "stone"],
     "Granitehorn Breaker": ["beast", "stone"],
-    "The Held Colossus": ["construct", "stone"]
+    "The Held Colossus": ["construct", "stone"],
+    "Whitebark Matron": ["beast", "nature", "elemental"],
+    "Frosthorn Bulwark": ["beast", "elemental"],
+    "The Sleeping Child of Winter": ["construct", "elemental", "nature"],
+    "Frostroot Seedling": ["nature", "elemental"]
   },
 
   crafting: {
@@ -5672,6 +6018,21 @@ const GAME_CONFIG = {
             ]
           },
           {
+            id: "frostroot_key",
+            resultItem: "Frostroot Key",
+            resultLevel: 28,
+            ingredients: [
+              { item: "Soft Pine Fur", qty: 6, source: "monster_loot" },
+              { item: "Frost Berry", qty: 5, source: "monster_loot" },
+              { item: "Frozen Needle", qty: 6, source: "monster_loot" },
+              { item: "Ice Sap Shell", qty: 5, source: "monster_loot" },
+              { item: "Ice Tusk Fragment", qty: 4, source: "monster_loot" },
+              { item: "Ancient Seed", qty: 5, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "monster_loot" },
+              { item: "Winter Ward Fragment", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
             id: "stonecaller",
             resultItem: "Stonecaller",
             resultLevel: 30,
@@ -6211,6 +6572,133 @@ const GAME_CONFIG = {
               { item: "Stable Core", qty: 2, source: "gathering_loot" },
               { item: "Earth Essence", qty: 8, source: "monster_loot" }
             ]
+          },
+          {
+            id: "whitebark_grace_amulet",
+            resultItem: "Whitebark Grace Amulet",
+            resultLevel: 31,
+            ingredients: [
+              { item: "Whitebark Antler", qty: 3, source: "monster_loot" },
+              { item: "Frozen Mend Core", qty: 2, source: "monster_loot" },
+              { item: "Whitebark Heartseed", qty: 1, source: "monster_loot" },
+              { item: "Ancient Seed", qty: 8, source: "monster_loot" },
+              { item: "Living Fiber", qty: 8, source: "monster_loot" },
+              { item: "Frost Berry", qty: 6, source: "monster_loot" },
+              { item: "Nature Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "frosthorn_warplate",
+            resultItem: "Frosthorn Warplate",
+            resultLevel: 31,
+            ingredients: [
+              { item: "Frosthorn Fragment", qty: 4, source: "monster_loot" },
+              { item: "Bulwark Icehide", qty: 4, source: "monster_loot" },
+              { item: "Frozen Tusk Core", qty: 2, source: "monster_loot" },
+              { item: "Ice Tusk Fragment", qty: 6, source: "monster_loot" },
+              { item: "Frosthide Plate", qty: 8, source: "monster_loot" },
+              { item: "Endurance Core", qty: 2, source: "monster_loot" },
+              { item: "Guardian Iceplate", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "bulwark_frost_bracers",
+            resultItem: "Bulwark Frost Bracers",
+            resultLevel: 31,
+            ingredients: [
+              { item: "Frosthorn Fragment", qty: 3, source: "monster_loot" },
+              { item: "Bulwark Icehide", qty: 3, source: "monster_loot" },
+              { item: "Frosthorn Soulplate", qty: 1, source: "monster_loot" },
+              { item: "Ice Tusk Fragment", qty: 5, source: "monster_loot" },
+              { item: "Frozen Bark Core", qty: 5, source: "monster_loot" },
+              { item: "Winter Ward Fragment", qty: 4, source: "monster_loot" },
+              { item: "Titan Core", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "frosthoof_greaves",
+            resultItem: "Frosthoof Greaves",
+            resultLevel: 32,
+            ingredients: [
+              { item: "Frosthorn Fragment", qty: 3, source: "monster_loot" },
+              { item: "Frozen Tusk Core", qty: 2, source: "monster_loot" },
+              { item: "Bulwark Icehide", qty: 2, source: "monster_loot" },
+              { item: "Ice Tusk Fragment", qty: 6, source: "monster_loot" },
+              { item: "Frosthide Plate", qty: 6, source: "monster_loot" },
+              { item: "Guardian Iceplate", qty: 5, source: "monster_loot" },
+              { item: "Endurance Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "childs_frost_veil",
+            resultItem: "Child's Frost Veil",
+            resultLevel: 32,
+            ingredients: [
+              { item: "Frost Veil Scrap", qty: 5, source: "monster_loot" },
+              { item: "Sleeping Root Fragment", qty: 4, source: "monster_loot" },
+              { item: "Innocent Winter Core", qty: 2, source: "monster_loot" },
+              { item: "Matron Rootcloth", qty: 3, source: "monster_loot" },
+              { item: "Ancient Seed", qty: 10, source: "monster_loot" },
+              { item: "Living Fiber", qty: 10, source: "monster_loot" },
+              { item: "Frost Berry", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "cradlewood_robe",
+            resultItem: "Cradlewood Robe",
+            resultLevel: 32,
+            ingredients: [
+              { item: "Sleeping Root Fragment", qty: 5, source: "monster_loot" },
+              { item: "Frost Veil Scrap", qty: 3, source: "monster_loot" },
+              { item: "Frozen Heartseed", qty: 1, source: "monster_loot" },
+              { item: "Whitebark Antler", qty: 3, source: "monster_loot" },
+              { item: "Guardian Iceplate", qty: 8, source: "monster_loot" },
+              { item: "Frozen Bark Core", qty: 6, source: "monster_loot" },
+              { item: "Nature Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "innocent_winter_pants",
+            resultItem: "Innocent Winter Pants",
+            resultLevel: 33,
+            ingredients: [
+              { item: "Innocent Winter Core", qty: 3, source: "monster_loot" },
+              { item: "Sleeping Root Fragment", qty: 4, source: "monster_loot" },
+              { item: "Frost Veil Scrap", qty: 3, source: "monster_loot" },
+              { item: "Matron Rootcloth", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 10, source: "monster_loot" },
+              { item: "Frosthide Plate", qty: 6, source: "monster_loot" },
+              { item: "Winter Ward Fragment", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "lullaby_staff",
+            resultItem: "Lullaby Staff",
+            resultLevel: 33,
+            ingredients: [
+              { item: "Lullaby Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Frozen Heartseed", qty: 2, source: "monster_loot" },
+              { item: "Innocent Winter Core", qty: 4, source: "monster_loot" },
+              { item: "Sleeping Root Fragment", qty: 4, source: "monster_loot" },
+              { item: "Whitebark Heartseed", qty: 2, source: "monster_loot" },
+              { item: "Frozen Needle", qty: 8, source: "monster_loot" },
+              { item: "Ice Sap Shell", qty: 8, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "frozen_heartseed_ring",
+            resultItem: "Frozen Heartseed Ring",
+            resultLevel: 33,
+            ingredients: [
+              { item: "Frozen Heartseed", qty: 2, source: "monster_loot" },
+              { item: "Lullaby Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Innocent Winter Core", qty: 2, source: "monster_loot" },
+              { item: "Whitebark Heartseed", qty: 1, source: "monster_loot" },
+              { item: "Frostbite Seed", qty: 8, source: "monster_loot" },
+              { item: "Ancient Seed", qty: 8, source: "monster_loot" },
+              { item: "Nature Core", qty: 2, source: "monster_loot" }
+            ]
           }]
       },
       {
@@ -6538,7 +7026,9 @@ const GAME_CONFIG = {
     Fangroot: 3,
     Gaiahide: 4,
     Granitehorn: 2,
+    Frosthorn: 3,
     "Held Colossus": 4,
+    "Sleeping Winter": 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -6607,6 +7097,15 @@ const GAME_CONFIG = {
     },
     Granitehorn: {
       2: { STR: 14, HP: 140, "Phys Damage": 4, "Phys Resist": 4 }
+    },
+    Frosthorn: {
+      2: { VIT: 14, HP: 150, "Phys Resist": 4, "Magic Resist": 4 },
+      3: { VIT: 22, STR: 12, HP: 260, "Phys Resist": 6, "Magic Resist": 5, "Status Resist": 4 }
+    },
+    "Sleeping Winter": {
+      2: { INT: 16, VIT: 10, HP: 160, HEAL: 4 },
+      3: { INT: 26, VIT: 18, HP: 300, HEAL: 7, "Magic Resist": 5 },
+      4: { STA: 1, INT: 36, VIT: 26, HP: 460, HEAL: 9, "Magic Damage": 7, ACC: 6 }
     },
     "Held Colossus": {
       2: { VIT: 16, HP: 180, "Phys Resist": 5 },
@@ -6986,6 +7485,25 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/The held breath/The Stonevein Sanctum/brannock_stonewhisper.png",
             text: "Brannock listens to the stone breathe.",
             dungeonEntrance: "stonevein_sanctum"
+          }
+        ]
+      },
+      "23,30": {
+        kind: "scene",
+        title: "Innocence of North — Frostroot Nursery",
+        description: "Frozen roots arch over a snow-soft path. Elowen keeps watch with a blue lantern.",
+        elements: [
+          {
+            type: "npc",
+            id: "elowen_snowbud",
+            label: "Elowen Snowbud",
+            editable: true,
+            leftPct: 50,
+            topPct: 50,
+            scalePct: 80,
+            image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/elowen_snowbud.png",
+            text: "Elowen listens to the nursery's lullaby.",
+            dungeonEntrance: "frostroot_nursery"
           }
         ]
       },
@@ -7505,6 +8023,122 @@ const GAME_CONFIG = {
                 moodId: "berserk",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/The held breath/The Stonevein Sanctum/the_held_colossus.png"
+              }
+            ]
+          }
+        ]
+      },
+      frostroot_nursery: {
+        name: "The Frostroot Nursery",
+        keyItem: "Frostroot Key",
+        entrance: { x: 23, y: 30 },
+        assetBase: "Assets/Biomes/Innocence of North/The Frostroot Nursery",
+        frostrootSnare: true,
+        winterStillness: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Pinebound Fawn", level: 22, moodId: "berserk" },
+              { name: "Pinebound Fawn", level: 22, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 22, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 22, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 23, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 23, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Pinebound Fawn", level: 23, moodId: "berserk" },
+              { name: "Pinebound Fawn", level: 23, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 23, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 23, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 24, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 24, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 24, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText: "Frostroot Snare: every 3 rounds, frozen roots may Cripple a random fighter.",
+            enemies: [
+              { name: "Frozen Pinecone", level: 25, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 25, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 25, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 25, moodId: "berserk" },
+              { name: "Pinebound Fawn", level: 24, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 25, moodId: "berserk" },
+              { name: "Winter Guardian", level: 27, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText: "Frostroot Snare and Winter Stillness thicken the whitebark nursery air.",
+            enemies: [
+              { name: "Pinebound Fawn", level: 26, moodId: "berserk" },
+              { name: "Pinebound Fawn", level: 26, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 26, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 26, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 26, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 27, moodId: "berserk" },
+              { name: "Winter Guardian", level: 28, moodId: "berserk" },
+              {
+                name: "Whitebark Matron",
+                level: 30,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Innocence of North/The Frostroot Nursery/whitebark_matron.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText: "Frostroot Snare and Winter Stillness continue across the ice-tusk crossing.",
+            enemies: [
+              { name: "Ice-Tusked Boar", level: 28, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 28, moodId: "berserk" },
+              { name: "Winter Guardian", level: 29, moodId: "berserk" },
+              { name: "Winter Guardian", level: 29, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 27, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 27, moodId: "berserk" },
+              { name: "Pinebound Fawn", level: 26, moodId: "berserk" },
+              {
+                name: "Frosthorn Bulwark",
+                level: 31,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/Innocence of North/The Frostroot Nursery/frosthorn_bulwark.png"
+              }
+            ]
+          },
+          {
+            bg: "6",
+            bgPhaseStems: ["6", "6_1", "6_2", "6_3"],
+            modifierText:
+              "Frostroot Snare and Winter Stillness continue. The Sleeping Child of Winter stirs beneath the frost.",
+            enemies: [
+              { name: "Pinebound Fawn", level: 27, moodId: "berserk" },
+              { name: "Frozen Pinecone", level: 27, moodId: "berserk" },
+              { name: "Ice-Tusked Boar", level: 28, moodId: "berserk" },
+              { name: "Barkhide Spriggan", level: 28, moodId: "berserk" },
+              { name: "Winter Guardian", level: 29, moodId: "berserk" },
+              {
+                name: "Whitebark Matron",
+                level: 30,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Innocence of North/The Frostroot Nursery/whitebark_matron.png"
+              },
+              {
+                name: "Frosthorn Bulwark",
+                level: 31,
+                moodId: "berserk",
+                portraitImage: "Assets/Biomes/Innocence of North/The Frostroot Nursery/frosthorn_bulwark.png"
+              },
+              {
+                name: "The Sleeping Child of Winter",
+                level: 32,
+                moodId: "steady",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_sleeping_child_of_winter.png"
               }
             ]
           }

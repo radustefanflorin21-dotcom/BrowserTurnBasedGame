@@ -58,7 +58,11 @@ const MONSTER_ROLE_BY_SCRIPT_ID = {
   stormwake_leviathan: "bruiser",
   petrified_coilwarden: "controller",
   granitehorn_breaker: "bruiser",
-  held_colossus: "bruiser"
+  held_colossus: "bruiser",
+  whitebark_matron: "support",
+  frosthorn_bulwark: "tank",
+  sleeping_child_of_winter: "support",
+  frostroot_seedling: "support"
 };
 
 function inferMonsterCombatRole(scriptId) {

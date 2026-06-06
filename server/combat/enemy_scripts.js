@@ -737,6 +737,118 @@ const SCRIPT_HANDLERS = {
     return true;
   },
 
+  whitebark_matron(foe, st, ctx) {
+    const member = ctx.pickTarget("controller");
+    const intv = foe.int || 20;
+    if (ctx.ready("frozen_prayer")) {
+      ctx.setCd("frozen_prayer", 4);
+      for (const ally of (st.foes || []).filter((f) => f && f.hp > 0 && f.uid !== foe.uid)) {
+        if (!ally.combat) ally.combat = { skillCd: {}, actCount: 0 };
+        ally.combat.healReceivedBonusPct = Math.max(ally.combat.healReceivedBonusPct || 0, 8);
+        ally.combat.healReceivedBonusTurns = Math.max(ally.combat.healReceivedBonusTurns || 0, 2);
+        ally.combat.magicResBonusPct = Math.max(ally.combat.magicResBonusPct || 0, 5);
+        ally.combat.magicResBonusTurns = Math.max(ally.combat.magicResBonusTurns || 0, 2);
+      }
+      ctx.log(`${foe.name} chants Frozen Prayer.`);
+      return true;
+    }
+    if (ctx.ready("whitebark_mend")) {
+      ctx.setCd("whitebark_mend", 3);
+      const target = lowestHpAlly(st, foe.uid);
+      if (target) {
+        const bonus = 1 + (target.combat?.healReceivedBonusPct || 0) / 100;
+        const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.8 * bonus));
+        target.hp = Math.min(target.maxHp, target.hp + amt);
+        ctx.log(`${foe.name} Whitebark Mends ${target.name} for ${amt}.`);
+      } else {
+        ctx.healSelf(0.8);
+        ctx.log(`${foe.name} Whitebark Mends itself.`);
+      }
+      return true;
+    }
+    if (ctx.ready("frostroot_bind")) {
+      ctx.setCd("frostroot_bind", 3);
+      ctx.hit(member, Math.max(1, Math.floor(intv * 0.45 * ctx.outMult)), "Frostroot Binds");
+      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "prays-strikes");
+    return true;
+  },
+
+  frosthorn_bulwark(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    if (ctx.ready("tuskbreaker_slam")) {
+      ctx.setCd("tuskbreaker_slam", 2);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.9 * ctx.outMult)), "Tuskbreaker Slam crushes");
+      if (ctx.rng.chance(0.4)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ctx.ready("frozen_guard")) {
+      ctx.setCd("frozen_guard", 3);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Frozen Guard.`);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.5 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  frostroot_seedling(foe, st, ctx) {
+    const member = ctx.pickTarget("support");
+    if (ctx.ready("seedling_mend")) {
+      ctx.setCd("seedling_mend", 3);
+      const target = lowestHpAlly(st, foe.uid);
+      if (target) {
+        const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.5));
+        target.hp = Math.min(target.maxHp, target.hp + amt);
+        ctx.log(`${foe.name} Seedling Mends ${target.name} for ${amt}.`);
+      } else {
+        ctx.healSelf(0.5);
+      }
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.int || 20) * 0.3 * ctx.outMult)), "Frost Needles");
+    return true;
+  },
+
+  sleeping_child_of_winter(foe, st, ctx) {
+    const member = ctx.pickTarget("mage");
+    const hpFrac = ctx.foeHpFrac();
+    const intv = foe.int || 20;
+    if (hpFrac <= 0.7 && !foe.combat.winterPhase2) {
+      foe.combat.winterPhase2 = true;
+      foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
+      foe.combat.healReceivedBonusPct = (foe.combat.healReceivedBonusPct || 0) + 8;
+      ctx.log(`${foe.name} wakes the forest.`);
+      spawnReinforcement(st, "Pinebound Fawn", ctx.rng);
+      spawnReinforcement(st, "Frozen Pinecone", ctx.rng);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.winterPhase3) {
+      foe.combat.winterPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      ctx.log(`${foe.name} opens its eyes.`);
+      return true;
+    }
+    const magicMult = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    if (ctx.ready("lullaby_of_snow")) {
+      ctx.setCd("lullaby_of_snow", 3);
+      const dmg = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Lullaby of Snow drifts over");
+      return true;
+    }
+    if (ctx.ready("innocent_grasp")) {
+      ctx.setCd("innocent_grasp", 2);
+      ctx.hit(member, Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * magicMult)), "Innocent Grasp holds");
+      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.4 * ctx.outMult * magicMult)), "winter-touches");
+    return true;
+  },
+
   gorilla(foe, st, ctx) {
     const member = ctx.pickTarget("bruiser");
     foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;

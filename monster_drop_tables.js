@@ -287,6 +287,55 @@
         { name: "Mountainbound Soulstone", dropRate: 8 }
       ]
     },
+    "Pinebound Fawn": {
+      materials: [
+        { name: "Soft Pine Fur", dropRate: 70 },
+        { name: "Frost Berry", dropRate: 55 },
+        { name: "Gentle Antler Chip", dropRate: 35 },
+        { name: "Grace Core", dropRate: 15 }
+      ]
+    },
+    "Frozen Pinecone": {
+      materials: [
+        { name: "Frozen Needle", dropRate: 70 },
+        { name: "Ice Sap Shell", dropRate: 55 },
+        { name: "Frostbite Seed", dropRate: 35 },
+        { name: "Control Core", dropRate: 15 }
+      ]
+    },
+    "Ice-Tusked Boar": {
+      materials: [
+        { name: "Ice Tusk Fragment", dropRate: 70 },
+        { name: "Frosthide Plate", dropRate: 55 },
+        { name: "Cold Rage Core", dropRate: 35 },
+        { name: "Endurance Core", dropRate: 15 }
+      ]
+    },
+    "Whitebark Matron": {
+      materials: [
+        { name: "Whitebark Antler", dropRate: 70 },
+        { name: "Matron Rootcloth", dropRate: 55 },
+        { name: "Frozen Mend Core", dropRate: 35 },
+        { name: "Whitebark Heartseed", dropRate: 15 }
+      ]
+    },
+    "Frosthorn Bulwark": {
+      materials: [
+        { name: "Frosthorn Fragment", dropRate: 70 },
+        { name: "Bulwark Icehide", dropRate: 55 },
+        { name: "Frozen Tusk Core", dropRate: 35 },
+        { name: "Frosthorn Soulplate", dropRate: 15 }
+      ]
+    },
+    "The Sleeping Child of Winter": {
+      materials: [
+        { name: "Frost Veil Scrap", dropRate: 100 },
+        { name: "Sleeping Root Fragment", dropRate: 75 },
+        { name: "Innocent Winter Core", dropRate: 45 },
+        { name: "Frozen Heartseed", dropRate: 25 },
+        { name: "Lullaby Soulcore", dropRate: 8 }
+      ]
+    },
     "Desert Thornback Crawler": {
       materials: [
         { name: "Spiked Shell", dropRate: 37.5 },
@@ -543,8 +592,10 @@
       { name: "Antler Piece", dropRate: 12, condition: "extractor" }
     ],
     "Barkhide Spriggan": [
-      { name: "Living Fiber", dropRate: 15, condition: "harvester" },
-      { name: "Ancient Seed", dropRate: 6, condition: "harvester" }
+      { name: "Ancient Seed", dropRate: 70 },
+      { name: "Living Fiber", dropRate: 55 },
+      { name: "Barkskin Shard", dropRate: 35 },
+      { name: "Nature Core", dropRate: 15 }
     ],
     "Burrow Hare": [{ name: "Root Fiber", dropRate: 26, condition: "harvester" }, { name: "Raw Hide", dropRate: 29, condition: "skinner" }],
 
@@ -597,7 +648,12 @@
     ],
     "Remnant of Rust": [{ name: "Shadow Dust", dropRate: 10, condition: "harvester" }],
 
-    "Winter Guardian": [{ name: "Titan Core", dropRate: 4.5, condition: "extractor" }],
+    "Winter Guardian": [
+      { name: "Guardian Iceplate", dropRate: 70 },
+      { name: "Frozen Bark Core", dropRate: 55 },
+      { name: "Winter Ward Fragment", dropRate: 35 },
+      { name: "Titan Core", dropRate: 15 }
+    ],
     "Wavebreaker Idol": [{ name: "Titan Core", dropRate: 7, condition: "extractor" }]
   };
 

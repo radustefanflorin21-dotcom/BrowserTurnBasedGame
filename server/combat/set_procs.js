@@ -32,6 +32,14 @@ export function applyFoeCrippleFromSet(foe, turns) {
   foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, Math.max(1, Math.floor(turns)));
 }
 
+export function applyFoeAccuracyDown(foe, pct, turns) {
+  if (!foe) return;
+  ensureFoeCombat(foe);
+  const c = foe.combat;
+  c.accDownPct = Math.max(c.accDownPct || 0, Math.max(0, pct));
+  c.accDownTurns = Math.max(c.accDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
 /**
  * Granitehorn 2pc: physical hits may lower foe phys resist.
  * @returns {string|null} log line
@@ -56,4 +64,29 @@ export function tryProcHeldColossusCrippleOnHit(equipment, foe, rng, damageTaken
   if (!rng?.chance?.(15)) return null;
   applyFoeCrippleFromSet(foe, 1);
   return `${foe.name} is crippled by stillstone backlash (+1 stamina per action).`;
+}
+
+/**
+ * Frosthorn 3pc: when struck by physical damage, may cripple the attacker.
+ * @returns {string|null} log line
+ */
+export function tryProcFrosthornCrippleOnHit(equipment, foe, rng, damageTaken, damageKind) {
+  if (!foe || foe.hp <= 0) return null;
+  if (!damageTaken || damageTaken <= 0 || damageKind !== "physical") return null;
+  if (countEquippedSetPieces(equipment, "Frosthorn") < 3) return null;
+  if (!rng?.chance?.(0.12)) return null;
+  applyFoeCrippleFromSet(foe, 1);
+  return `${foe.name} is crippled by frosthorn backlash (+1 stamina per action).`;
+}
+
+/**
+ * Sleeping Winter 4pc: when applying cripple, may lower foe accuracy.
+ * @returns {string|null} log line
+ */
+export function tryProcSleepingWinterAccuracyOnCripple(equipment, foe, rng) {
+  if (!foe || foe.hp <= 0) return null;
+  if (countEquippedSetPieces(equipment, "Sleeping Winter") < 4) return null;
+  if (!rng?.chance?.(0.2)) return null;
+  applyFoeAccuracyDown(foe, 6, 1);
+  return `${foe.name}'s accuracy falters (Sleeping Winter).`;
 }

@@ -2690,6 +2690,19 @@ function applyFoeCrippleFromSet(foe, turns) {
   foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, t);
 }
 
+function applyFoeAccuracyDown(foe, pct, turns) {
+  if (!foe) return;
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  const t = Math.max(1, Math.floor(turns));
+  foe.combat.accDownPct = Math.max(foe.combat.accDownPct || 0, Math.max(0, pct));
+  foe.combat.accDownTurns = Math.max(foe.combat.accDownTurns || 0, t);
+}
+
+function applyPlayerInflictedCrippleToFoe(st, equipment, foe, turns) {
+  applyFoeCrippleFromSet(foe, turns);
+  tryProcSleepingWinterAccuracyOnCripple(st, equipment, foe);
+}
+
 function tryProcGranitehornPhysResDown(st, equipment, foe, damageKind) {
   if (!foe || foe.hp <= 0 || damageKind !== "physical") return;
   if (countEquippedSetPieces(equipment, "Granitehorn") < 2) return;
@@ -2705,6 +2718,23 @@ function tryProcHeldColossusCrippleOnHit(st, member, actor, attackerFoe, damageT
   if (Math.random() >= 0.15) return;
   applyFoeCrippleFromSet(attackerFoe, 1);
   appendFightLog(`${attackerFoe.name} is crippled by stillstone backlash (+1 stamina per action).`);
+}
+
+function tryProcFrosthornCrippleOnHit(st, member, actor, attackerFoe, damageTaken, damageKind) {
+  if (!attackerFoe || attackerFoe.hp <= 0 || !damageTaken || damageTaken <= 0 || damageKind !== "physical") return;
+  const equipment = getEquipmentForCombatMember(member, actor);
+  if (!equipment || countEquippedSetPieces(equipment, "Frosthorn") < 3) return;
+  if (Math.random() >= 0.12) return;
+  applyFoeCrippleFromSet(attackerFoe, 1);
+  appendFightLog(`${attackerFoe.name} is crippled by frosthorn backlash (+1 stamina per action).`);
+}
+
+function tryProcSleepingWinterAccuracyOnCripple(st, equipment, foe) {
+  if (!foe || foe.hp <= 0) return;
+  if (!equipment || countEquippedSetPieces(equipment, "Sleeping Winter") < 4) return;
+  if (Math.random() >= 0.2) return;
+  applyFoeAccuracyDown(foe, 6, 1);
+  appendFightLog(`${foe.name}'s accuracy falters (Sleeping Winter).`);
 }
 
 function sumEquippedBonusStatsFromEquipment(equipment) {
@@ -3142,6 +3172,7 @@ function getItemEquipCategory(def) {
     category === "shield" ||
     category === "amulet" ||
     category === "bracelet" ||
+    category === "wristband" ||
     category === "ring" ||
     category === "chest_armor" ||
     category === "robe" ||
@@ -3173,7 +3204,7 @@ function getAllowedEquipSlotsForDef(def) {
   }
   if (category === "shield") return ["offhand"];
   if (category === "amulet") return ["amulet"];
-  if (category === "bracelet") return ["bracelet"];
+  if (category === "bracelet" || category === "wristband") return ["bracelet"];
   if (category === "ring") return ["ring1", "ring2"];
   if (category === "chest_armor" || category === "robe") return ["chest"];
   if (category === "veil") return ["head"];
@@ -3238,6 +3269,7 @@ function getPortraitArmorLayoutKeyForSlot(slotId, itemName) {
   const category = getItemEquipCategory(getItemDef(itemName));
   if (slotId === "chest" && category === "robe") return "chest_robe";
   if (slotId === "head" && category === "veil") return "head_veil";
+  if (slotId === "bracelet" && category === "wristband") return "bracelet_wristband";
   return slotId;
 }
 
@@ -3509,7 +3541,7 @@ function isPortraitNoWeaponSlot(slotId) {
 function isPortraitFineScaleSlot(slotId) {
   const k = String(slotId || "");
   if (isPortraitNoWeaponSlot(k)) return true;
-  return k === "ring1" || k === "ring2" || k === "bracelet";
+  return k === "ring1" || k === "ring2" || k === "bracelet" || k === "bracelet_wristband";
 }
 
 function getPortraitLayoutScaleMin(slotId) {
@@ -3847,7 +3879,8 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
       : getPortraitEquipLayout(layoutKey, owner);
     const style = `transform: translate(${layout.offsetXPct}%, ${layout.offsetYPct}%) rotate(${layout.rotDeg}deg) scale(${layout.scalePct / 100});`;
     const backCls = slotId === "weapon" ? " portrait-equip-layer--back" : "";
-    const layerClassId = slotId === "weapon" ? "mainhand" : slotId;
+    const layerClassId =
+      slotId === "weapon" ? "mainhand" : layoutKey === "bracelet_wristband" ? "wristband" : slotId;
     const legacyWeaponClass = slotId === "weapon" ? " portrait-equip-layer--weapon" : "";
     const layoutTypeClass =
       layoutKey === "male_no_helm" || layoutKey === "female_no_helm" ? " portrait-equip-layer--no-helm" : "";
@@ -5166,6 +5199,30 @@ function isDungeonFallingStoneCombat(st) {
   return isDungeonMechanicCombat(st, "fallingStone");
 }
 
+function isDungeonFrostrootSnareCombat(st) {
+  return isDungeonMechanicCombat(st, "frostrootSnare");
+}
+
+function isDungeonWinterStillnessCombat(st) {
+  return isDungeonMechanicCombat(st, "winterStillness");
+}
+
+function isSleepingChildPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) =>
+      f &&
+      f.name === "The Sleeping Child of Winter" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function getDungeonWinterStillnessInterval(st) {
+  return isSleepingChildPhase3Active(st) ? 3 : 4;
+}
+
 function isHeldColossusPhase3Active(st) {
   if (!st || !Array.isArray(st.foes)) return false;
   return st.foes.some(
@@ -5491,6 +5548,49 @@ function applyDungeonFallingStoneIfDue(st, round) {
   tryPartyMemberStun(st, pick, 0.15);
 }
 
+function applyDungeonFrostrootSnareIfDue(st, round) {
+  if (!isDungeonFrostrootSnareCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 2) return;
+  if (round % 3 !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    applyPartyMemberCripple(st, pick, 1);
+    appendFightLog(`Frostroot Snare cripples ${pick.name || "a fighter"} (+1 stamina per action).`);
+  }
+}
+
+function applyDungeonWinterStillnessIfDue(st, round) {
+  if (!isDungeonWinterStillnessCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 3) return;
+  const interval = getDungeonWinterStillnessInterval(st);
+  if (round % interval !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.3) {
+    applyPartyMemberBlind(st, pick, 6, 1);
+    appendFightLog(`Winter Stillness dulls ${pick.name || "a fighter"} (−6% accuracy).`);
+  }
+}
+
+function applyFrostrootBossSeedlingsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "frostroot_nursery") return;
+  const def = getDungeonDef("frostroot_nursery");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  if (round !== 8 && round !== 12) return;
+  if (summonDungeonReinforcement(st, "Frostroot Seedling")) {
+    appendFightLog("Frozen roots split—a Frostroot Seedling crawls into the fight!");
+  }
+}
+
 function applyWitheredMawBossReinforcementsIfDue(st, round) {
   const ctx = st && st.worldMapContext;
   if (!ctx || ctx.dungeonId !== "withered_maw") return;
@@ -5509,8 +5609,11 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyDungeonStarvationPressureIfDue(st, round);
   applyDungeonPressureCracksIfDue(st, round);
   applyDungeonFallingStoneIfDue(st, round);
+  applyDungeonFrostrootSnareIfDue(st, round);
+  applyDungeonWinterStillnessIfDue(st, round);
   applyRootwarrenBossReinforcementsIfDue(st, round);
   applyWitheredMawBossReinforcementsIfDue(st, round);
+  applyFrostrootBossSeedlingsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -5732,6 +5835,7 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     if (srcFoeHit && effectiveTaken > 0) {
       tryProcThornbackGraveguardBleed(st, srcFoeHit, effectiveTaken);
       tryProcHeldColossusCrippleOnHit(st, m, null, srcFoeHit, effectiveTaken);
+      tryProcFrosthornCrippleOnHit(st, m, null, srcFoeHit, effectiveTaken, "physical");
     }
     if (cls.id === "vanguard") {
       const csVg = ensurePlayerClassCombatState(st);
@@ -5762,6 +5866,7 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     if (srcFoeComp && taken > 0) {
       playFoeStrikeOnAlly(srcFoeComp, m.uid, taken, false);
       tryProcHeldColossusCrippleOnHit(st, m, null, srcFoeComp, taken);
+      tryProcFrosthornCrippleOnHit(st, m, null, srcFoeComp, taken, "physical");
     }
   }
   syncCombatPartyHeroMirror(st);
@@ -5846,6 +5951,10 @@ function tickEnemySkillCooldownsEndOfTurn(foe) {
   if (typeof foe.combat.physResBonusTurns === "number" && foe.combat.physResBonusTurns > 0) {
     foe.combat.physResBonusTurns -= 1;
     if (foe.combat.physResBonusTurns <= 0) foe.combat.physResBonusPct = 0;
+  }
+  if (typeof foe.combat.magicResBonusTurns === "number" && foe.combat.magicResBonusTurns > 0) {
+    foe.combat.magicResBonusTurns -= 1;
+    if (foe.combat.magicResBonusTurns <= 0) foe.combat.magicResBonusPct = 0;
   }
   if (typeof foe.combat.statusResBonusTurns === "number" && foe.combat.statusResBonusTurns > 0) {
     foe.combat.statusResBonusTurns -= 1;
@@ -6013,6 +6122,8 @@ function tickPlayerTurnEndBuffs(st) {
     decFoeTurnPct("magDmgDownTurns", "magDmgDownPct");
     decFoeTurnPct("bothDmgDownTurns", "bothDmgDownPct");
     decFoeTurnPct("physResDownTurns", "physResDownPct");
+    decFoeTurnPct("accDownTurns", "accDownPct");
+    decFoeTurnPct("healReceivedBonusTurns", "healReceivedBonusPct");
     decFoeTurnPct("magResDownTurns", "magResDownPct");
     decFoeTurnPct("bothResDownTurns", "bothResDownPct");
     decFoeTurnPct("evaDownTurns", "evasionDownPct");
@@ -6150,6 +6261,28 @@ function healLowestHpFractionAlly(st, healer, pctOfMax) {
   const amt = Math.max(1, Math.floor(target.maxHp * pctOfMax));
   target.hp = Math.min(target.maxHp, target.hp + amt);
   appendFightLog(`${healer.name} heals ${target.name} for ${amt}.`);
+  return true;
+}
+
+function healLowestHpAllyByHealerVit(st, healer, vitMult) {
+  const allies = st.foes.filter((f) => f.hp > 0 && f.uid !== healer.uid);
+  if (!allies.length) return false;
+  const target = allies.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+  if (!target.combat) initFoeCombatRuntime(target);
+  const bonus = 1 + (target.combat.healReceivedBonusPct || 0) / 100;
+  const amt = Math.max(1, Math.floor((healer.vit || 20) * vitMult * bonus));
+  target.hp = Math.min(target.maxHp, target.hp + amt);
+  appendFightLog(`${healer.name} heals ${target.name} for ${amt}.`);
+  return true;
+}
+
+function buffAllLivingFoeAllies(st, buffer, buffFn) {
+  const allies = st.foes.filter((f) => f && f.hp > 0 && f.uid !== buffer.uid);
+  if (!allies.length) return false;
+  allies.forEach((target) => {
+    if (!target.combat) initFoeCombatRuntime(target);
+    buffFn(target);
+  });
   return true;
 }
 function buffAllAlliesEcho(st, buffer, turns) {
@@ -8709,6 +8842,227 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     return true;
   }
 
+  if (scriptId === "whitebark_matron") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "controller");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const intv = foe.int || 20;
+    if (ready("frozen_prayer")) {
+      setCd("frozen_prayer", 4);
+      buffAllLivingFoeAllies(st, foe, (target) => {
+        target.combat.healReceivedBonusPct = Math.max(target.combat.healReceivedBonusPct || 0, 8);
+        target.combat.healReceivedBonusTurns = Math.max(target.combat.healReceivedBonusTurns || 0, 2);
+        target.combat.magicResBonusPct = Math.max(target.combat.magicResBonusPct || 0, 5);
+        target.combat.magicResBonusTurns = Math.max(target.combat.magicResBonusTurns || 0, 2);
+      });
+      appendFightLog(`${foe.name} chants Frozen Prayer over her nursery.`);
+      return true;
+    }
+    if (ready("whitebark_mend")) {
+      setCd("whitebark_mend", 3);
+      if (healLowestHpAllyByHealerVit(st, foe, 0.8)) {
+        const healed = st.foes
+          .filter((f) => f && f.hp > 0 && f.uid !== foe.uid)
+          .reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b), null);
+        if (healed && healed.combat) {
+          healed.combat.magicResBonusPct = Math.max(healed.combat.magicResBonusPct || 0, 6);
+          healed.combat.magicResBonusTurns = Math.max(healed.combat.magicResBonusTurns || 0, 2);
+        }
+      } else {
+        const heal = Math.max(1, Math.floor((foe.vit || 20) * 0.8));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        appendFightLog(`${foe.name} Whitebark Mends itself for ${heal}.`);
+      }
+      return true;
+    }
+    if (ready("snowveil_grace")) {
+      const allies = st.foes.filter((f) => f && f.uid !== foe.uid && f.hp > 0);
+      if (allies.length) {
+        setCd("snowveil_grace", 3);
+        const target = allies.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+        if (!target.combat) initFoeCombatRuntime(target);
+        target.combat.evadeNextChance = Math.max(target.combat.evadeNextChance || 0, 0.12);
+        target.combat.statusResBonusPct = Math.max(target.combat.statusResBonusPct || 0, 6);
+        target.combat.statusResBonusTurns = Math.max(target.combat.statusResBonusTurns || 0, 1);
+        appendFightLog(`${foe.name} grants Snowveil Grace to ${target.name}.`);
+        return true;
+      }
+    }
+    if (ready("frostroot_bind")) {
+      setCd("frostroot_bind", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Frostroot Binds you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.35 * outMult)), foe.name, "prays-strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "frosthorn_bulwark") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("icehorn_challenge")) {
+      setCd("icehorn_challenge", 4);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.55) applyMonsterTauntOnPlayer(st, foe, 1);
+      }
+      setFoeMitigation(foe, 1, 0.88);
+      appendFightLog(`${foe.name} issues Icehorn Challenge.`);
+      return true;
+    }
+    if (ready("frozen_guard")) {
+      setCd("frozen_guard", 3);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Frozen Guard.`);
+      return true;
+    }
+    if (ready("tuskbreaker_slam")) {
+      setCd("tuskbreaker_slam", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.9 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Tuskbreaker Slam crushes you", { partyUid });
+      if (Math.random() < 0.4) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ready("frost_stagger")) {
+      setCd("frost_stagger", 4);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.75 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Frost Stagger rocks you", { partyUid });
+      tryPartyMemberStun(st, member, 0.16);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.str || 20) * 0.5 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "frostroot_seedling") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "support");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("seedling_mend")) {
+      setCd("seedling_mend", 3);
+      if (!healLowestHpAllyByHealerVit(st, foe, 0.5)) {
+        const heal = Math.max(1, Math.floor((foe.vit || 20) * 0.5));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        appendFightLog(`${foe.name} Seedling Mends itself for ${heal}.`);
+      }
+      return true;
+    }
+    if (ready("frost_needle")) {
+      setCd("frost_needle", 2);
+      const hit = Math.max(1, Math.floor((foe.int || 20) * 0.3 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Frost Needles you", { partyUid });
+      if (Math.random() < 0.3) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.int || 20) * 0.25 * outMult)), foe.name, "pokes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "sleeping_child_of_winter") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const intv = foe.int || 20;
+    if (hpFrac <= 0.7 && !foe.combat.winterPhase2) {
+      foe.combat.winterPhase2 = true;
+      foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
+      foe.combat.healReceivedBonusPct = (foe.combat.healReceivedBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} wakes the forest—winter guardians answer.`);
+      summonDungeonReinforcement(st, "Pinebound Fawn");
+      summonDungeonReinforcement(st, "Frozen Pinecone");
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.winterPhase3) {
+      foe.combat.winterPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} opens its eyes—Winter Stillness quickens.`);
+      return true;
+    }
+    const magicMult = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accMult = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    if (foe.combat.winterPhase3 && ready("frozen_heart_pulse")) {
+      setCd("frozen_heart_pulse", 5);
+      const dmg = Math.max(1, Math.floor(intv * 0.55 * outMult * magicMult * accMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Frozen Heart Pulse washes over you", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        tryPartyMemberStun(st, m, 0.18);
+      }
+      return true;
+    }
+    if (foe.combat.winterPhase2 && ready("winters_mercy")) {
+      setCd("winters_mercy", 5);
+      buffAllLivingFoeAllies(st, foe, (target) => {
+        target.combat.healReceivedBonusPct = Math.max(target.combat.healReceivedBonusPct || 0, 10);
+        target.combat.healReceivedBonusTurns = Math.max(target.combat.healReceivedBonusTurns || 0, 2);
+        target.combat.statusResBonusPct = Math.max(target.combat.statusResBonusPct || 0, 8);
+        target.combat.statusResBonusTurns = Math.max(target.combat.statusResBonusTurns || 0, 2);
+      });
+      appendFightLog(`${foe.name} sings Winter's Mercy over the nursery.`);
+      return true;
+    }
+    if (ready("lullaby_of_snow")) {
+      setCd("lullaby_of_snow", 3);
+      const dmg = Math.max(1, Math.floor(intv * 0.45 * outMult * magicMult * accMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Lullaby of Snow drifts over you", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (ready("frostroot_cradle")) {
+      setCd("frostroot_cradle", 3);
+      if (healLowestHpAllyByHealerVit(st, foe, 0.75)) {
+        const healed = st.foes
+          .filter((f) => f && f.hp > 0 && f.uid !== foe.uid)
+          .reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b), null);
+        if (healed) setFoeMitigation(healed, 2, 0.92);
+      } else {
+        const heal = Math.max(1, Math.floor((foe.vit || 20) * 0.75 * (1 + (foe.combat.healReceivedBonusPct || 0) / 100)));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        setFoeMitigation(foe, 2, 0.92);
+        appendFightLog(`${foe.name} Frostroot Cradles itself for ${heal}.`);
+      }
+      return true;
+    }
+    if (ready("shiver_bloom")) {
+      setCd("shiver_bloom", 4);
+      const dmg = Math.max(1, Math.floor(intv * 0.5 * outMult * magicMult * accMult));
+      const uids = [partyUid, ...getAdjacentPartyMemberUids(st, partyUid, 2)];
+      const seen = new Set();
+      for (const uid of uids) {
+        if (typeof uid !== "number" || seen.has(uid)) continue;
+        seen.add(uid);
+        const t = getPartyMemberByUid(st, uid);
+        dealRawDamageToPlayer(st, dmg, foe.name, "Shiver Bloom chills you", { partyUid: uid });
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, t, 8, 2);
+        if (Math.random() < 0.35) applyPartyMemberCripple(st, t, 1);
+      }
+      return true;
+    }
+    if (ready("innocent_grasp")) {
+      setCd("innocent_grasp", 2);
+      const dmg = Math.max(1, Math.floor(intv * 0.55 * outMult * magicMult * accMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Innocent Grasp holds you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    const basicMult = foe.combat.winterPhase3 ? 0.35 : 0.4;
+    const basicDmg = Math.max(1, Math.floor(intv * basicMult * outMult * magicMult * accMult));
+    if (foe.combat.winterPhase3) {
+      dealRawDamageToPlayerAdjacent(st, basicDmg, foe.name, "winter-touches", partyUid, 1, 1);
+    } else {
+      dealRawDamageToPlayer(st, basicDmg, foe.name, "winter-touches you", { partyUid });
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -10931,8 +11285,19 @@ function getColossusPhaseTransitionLogMessage(stemIndex) {
   return byStem[ix] || "The Held Colossus's domain shifts into a new phase.";
 }
 
+function getSleepingChildPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "The nursery sighs—frost roots curl as the child stirs.",
+    2: "The forest wakes—pine and ice answer the lullaby.",
+    3: "Winter opens its eyes—the innocent heart unfurls."
+  };
+  return byStem[ix] || "The Sleeping Child's domain shifts into a new phase.";
+}
+
 function getBossPhaseTransitionLogMessage(dungeonId, stemIndex) {
   if (dungeonId === "stonevein_sanctum") return getColossusPhaseTransitionLogMessage(stemIndex);
+  if (dungeonId === "frostroot_nursery") return getSleepingChildPhaseTransitionLogMessage(stemIndex);
   return getLeviathanPhaseTransitionLogMessage(stemIndex);
 }
 
@@ -10944,7 +11309,9 @@ function shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st) {
   const levi = st.foes && st.foes.find((f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0);
   if (levi) return true;
   const colossus = st.foes && st.foes.find((f) => f && f.name === "The Held Colossus" && f.hp > 0);
-  return !!colossus;
+  if (colossus) return true;
+  const sleepingChild = st.foes && st.foes.find((f) => f && f.name === "The Sleeping Child of Winter" && f.hp > 0);
+  return !!sleepingChild;
 }
 
 function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
@@ -12205,6 +12572,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "elowen_snowbud_epilogue") {
+    const fnDef = getDungeonDef("frostroot_nursery");
+    const ex =
+      fnDef && fnDef.entrance && typeof fnDef.entrance.x === "number" ? Math.floor(fnDef.entrance.x) : 23;
+    const ey =
+      fnDef && fnDef.entrance && typeof fnDef.entrance.y === "number" ? Math.floor(fnDef.entrance.y) : 30;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(50),
+        topPct: clampScenePct(50),
+        scalePct: clampSceneScalePct(80)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -12360,6 +12741,19 @@ function buildNpcLayoutExportByCoordinate() {
       const epId = "brannock_stonewhisper_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 100;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const fnDef = getDungeonDef("frostroot_nursery");
+    const fnEnt =
+      fnDef && fnDef.entrance && typeof fnDef.entrance.x === "number" && typeof fnDef.entrance.y === "number"
+        ? { x: Math.floor(fnDef.entrance.x), y: Math.floor(fnDef.entrance.y) }
+        : null;
+    if (fnEnt && x === fnEnt.x && y === fnEnt.y) {
+      const epId = "elowen_snowbud_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 80;
       if (!epDefault) {
         rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
       }
@@ -17017,6 +17411,37 @@ function openMerritRootsnifferKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("rootwarren");
 }
 
+function openElowenSnowbudEntranceDialog() {
+  const def = getDungeonDef("frostroot_nursery");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Frostroot Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Elowen Snowbud</p>
+      <p class="npc-dialog-body">So the forest called to you too. Poor thing. It still sings like a lullaby, but now it puts teeth in the snow.</p>
+      <p class="npc-dialog-body">Give me the Frostroot Key, and I will open the nursery path. Step softly. Everything inside is trying to protect something… even when it hurts you.</p>
+      <p class="npc-dialog-actions-label">Action options</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="frostroot_nursery">Use the Frostroot Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="frostroot_nursery">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Elowen Snowbud</p>
+    <p class="npc-dialog-body">No Frostroot Key? Then the nursery will not open. The roots only part for those carrying winter's mark.</p>
+    <p class="npc-dialog-body">That is a kindness, truly. The snow in there remembers every footstep… and not all of them came back.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="frostroot_nursery">I'll return with the key</button>
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="frostroot_nursery">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
 function openOldVarroEntranceDialog() {
   const def = getDungeonDef("withered_maw");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Withered Maw Key";
@@ -17139,6 +17564,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openOldVarroEntranceDialog();
     return;
   }
+  if (id === "frostroot_nursery") {
+    openElowenSnowbudEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -17163,7 +17592,9 @@ function openDungeonKeyAcceptedDialog(dungeonId) {
       ? "The roots peel back with a wet sigh. Something vast shifts in the dark below."
       : isWitheredMaw
         ? "Old Varro pries the sand aside. Heat rolls up from the Maw below."
-        : "The key turns by itself. Thunder exhales from the gap ahead.";
+        : id === "frostroot_nursery"
+          ? "Elowen touches the frozen arch. The roots peel aside with a soft, mournful sigh."
+          : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -17324,6 +17755,21 @@ function openDungeonEpilogueDialog(dungeonId) {
     showModalHtml(html, { npcBubble: true });
     return;
   }
+  if (id === "frostroot_nursery") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Elowen Snowbud</p>
+    <p class="npc-dialog-body">The song has changed. Softer now. Less afraid.</p>
+    <p class="npc-dialog-body">You found the child beneath the frost, didn't you? Poor little winter. It only wanted the world to stay still.</p>
+    <p class="npc-dialog-body">Come. I will guide you back before the roots forget you are a guest.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Take me out</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">I'll stay a little longer</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
   const def = getDungeonDef(id);
   const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
   const html = `<div class="npc-dialog-bubble">
@@ -17438,6 +17884,35 @@ function buildDungeonEpilogueSceneHtml() {
       return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. Brannock listens to stone that finally stopped screaming.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    if (dungeonId === "frostroot_nursery") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "elowen_snowbud");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Elowen Snowbud", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Elowen Snowbud" aria-label="Elowen Snowbud"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "elowen_snowbud_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Elowen listens to a lullaby that finally stopped trembling.</p>
     <div class="${actionsClass}">
       ${btn}
     </div>
@@ -19898,7 +20373,7 @@ function getCraftingProfessionIdForRecipe(recipe) {
   if (def.type === "consumable" || String(def.category || "").trim().toLowerCase() === "key") return "provisioner";
   if (def.type === "weapon") return "weapon_smith";
   const cat = getItemEquipCategory(def);
-  if (cat === "ring" || cat === "amulet" || cat === "bracelet") return "jeweller";
+  if (cat === "ring" || cat === "amulet" || cat === "bracelet" || cat === "wristband") return "jeweller";
   return "armor_smith";
 }
 

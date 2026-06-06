@@ -139,6 +139,39 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     }
   }
 
+  if (def.frostrootSnare && roomIndex >= 2 && round % 3 === 0) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    if (living.length) {
+      const pick = living[Math.floor(rng.next() * living.length)];
+      if (rng.chance(0.35)) {
+        applyPartyMemberCripple(st, pick, 1);
+        log(`Frostroot Snare cripples ${pick.name || "a fighter"} (+1 stamina per skill).`);
+      }
+    }
+  }
+
+  if (def.winterStillness && roomIndex >= 3) {
+    const sleepingChildPhase3 = (st.foes || []).some(
+      (f) =>
+        f &&
+        f.name === "The Sleeping Child of Winter" &&
+        f.hp > 0 &&
+        f.maxHp > 0 &&
+        f.hp / f.maxHp <= 0.35
+    );
+    const interval = sleepingChildPhase3 ? 3 : 4;
+    if (round % interval === 0) {
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      if (living.length) {
+        const pick = living[Math.floor(rng.next() * living.length)];
+        if (rng.chance(0.3)) {
+          applyPartyMemberBlind(st, pick, 6, 1);
+          log(`Winter Stillness dulls ${pick.name || "a fighter"} (−6% accuracy).`);
+        }
+      }
+    }
+  }
+
   if (dungeonId === "rootwarren" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
     if (round === 8 || round === 12) {
       if (spawnReinforcement(st, "Burrow Hare", rng)) {
@@ -151,6 +184,14 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (round === 7 || round === 11) {
       if (spawnMirageRemnantUncapped(st, rng)) {
         log("The sand shimmers — a Mirage Remnant claws its way into the fight!");
+      }
+    }
+  }
+
+  if (dungeonId === "frostroot_nursery" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
+    if (round === 8 || round === 12) {
+      if (spawnReinforcement(st, "Frostroot Seedling", rng)) {
+        log("Frozen roots split — a Frostroot Seedling crawls into the fight!");
       }
     }
   }

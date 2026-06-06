@@ -1100,7 +1100,7 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 40%;
   left: 30%;
   top: 4%;
-  z-index: 3;
+  z-index: 5;
 }
 
 .portrait-equip-layer--amulet {
@@ -1124,6 +1124,14 @@ body.edit-mode-on .portrait-stack--editing-scale {
   height: 34%;
   left: 54%;
   top: 36%;
+  z-index: 3;
+}
+
+.portrait-equip-layer--wristband {
+  width: 38%;
+  height: 38%;
+  left: 52%;
+  top: 34%;
   z-index: 3;
 }
 
