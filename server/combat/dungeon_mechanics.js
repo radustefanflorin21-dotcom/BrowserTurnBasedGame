@@ -5,7 +5,7 @@
 import { loadGameConfig, getEnemyDefByName } from "../load_game_config.js";
 import { buildFoeFromUnit } from "./formulas.js";
 import { initFoeCombatRuntime } from "./enemy_ai.js";
-import { applyPartyMemberBlind, applyPartyMemberCripple } from "./status.js";
+import { applyPartyMemberBlind, applyPartyMemberCripple, ensureCombatStatus } from "./status.js";
 
 function getDungeonDef(dungeonId) {
   const cfg = loadGameConfig();
@@ -192,6 +192,59 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (round === 8 || round === 12) {
       if (spawnReinforcement(st, "Frostroot Seedling", rng)) {
         log("Frozen roots split — a Frostroot Seedling crawls into the fight!");
+      }
+    }
+  }
+
+  if (def.rustCloud && roomIndex >= 2 && round % 3 === 0) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    if (living.length) {
+      const pick = living[Math.floor(rng.next() * living.length)];
+      if (rng.chance(0.35)) {
+        ensureCombatStatus(st);
+        st.status.playerPhysDamageDownPct = Math.max(st.status.playerPhysDamageDownPct || 0, 6);
+        st.status.playerPhysDamageDownTurns = Math.max(st.status.playerPhysDamageDownTurns || 0, 1);
+        log(`Rust Cloud weakens ${pick.name || "a fighter"} (−6% physical damage).`);
+      }
+    }
+  }
+
+  if (def.warEcho && roomIndex >= 3) {
+    const warmasterPhase3 = (st.foes || []).some(
+      (f) =>
+        f &&
+        f.name === "The Last Warmaster" &&
+        f.hp > 0 &&
+        f.maxHp > 0 &&
+        f.hp / f.maxHp <= 0.35
+    );
+    const interval = warmasterPhase3 ? 3 : 4;
+    if (round % interval === 0) {
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      if (living.length) {
+        const pick = living[Math.floor(rng.next() * living.length)];
+        if (rng.chance(0.3)) {
+          applyPartyMemberBlind(st, pick, 6, 1);
+          log(`War Echo dulls ${pick.name || "a fighter"} (−6% accuracy).`);
+        }
+      }
+    }
+  }
+
+  if (dungeonId === "rustfallen_bastion" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
+    const warmasterPhase3 = (st.foes || []).some(
+      (f) =>
+        f &&
+        f.name === "The Last Warmaster" &&
+        f.hp > 0 &&
+        f.maxHp > 0 &&
+        f.hp / f.maxHp <= 0.35
+    );
+    const scheduled = round === 8 || round === 12;
+    const phasePulse = warmasterPhase3 && round % 3 === 0;
+    if (scheduled || phasePulse) {
+      if (spawnReinforcement(st, "Fallen Echo", rng)) {
+        log("Ash stirs — a Fallen Echo answers the Warmaster's command!");
       }
     }
   }

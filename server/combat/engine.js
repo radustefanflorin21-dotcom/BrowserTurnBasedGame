@@ -14,7 +14,7 @@ import {
   skillTargetMode,
   getSkillDef
 } from "./skills.js";
-import { tryProcGranitehornPhysResDown } from "./set_procs.js";
+import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit } from "./set_procs.js";
 import { ensureClassState } from "./class_state.js";
 import { applyClassSkillOnHit } from "./class_skills.js";
 import {
@@ -482,6 +482,8 @@ export function processCombatAction(session, action, actingUserId = null) {
       const dmgKind = skDef?.damageKind === "magic" ? "magic" : "physical";
       const graniteLog = tryProcGranitehornPhysResDown(actorPlayer?.equipment, foe, rng, dmgKind);
       if (graniteLog) appendLog(st, graniteLog);
+      const warmasterLog = tryProcWarmasterBothDmgDownOnHit(actorPlayer?.equipment, foe, rng, dmgKind);
+      if (warmasterLog) appendLog(st, warmasterLog);
       if (hit.crit) {
         const dm = tryDuelistMomentumOnCrit(st, actor, rng, member);
         if (dm) appendLog(st, dm);
@@ -540,6 +542,8 @@ export function processCombatAction(session, action, actingUserId = null) {
       );
       const graniteLog = tryProcGranitehornPhysResDown(actorPlayer?.equipment, foe, rng, "physical");
       if (graniteLog) appendLog(st, graniteLog);
+      const warmasterLog = tryProcWarmasterBothDmgDownOnHit(actorPlayer?.equipment, foe, rng, "physical");
+      if (warmasterLog) appendLog(st, warmasterLog);
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     markCoopHeroActedIfNeeded(member, session);

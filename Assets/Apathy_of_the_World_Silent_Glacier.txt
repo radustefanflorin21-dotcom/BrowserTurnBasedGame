@@ -1,0 +1,250 @@
+DUNGEON: THE SILENT GLACIER
+REGION: Apathy of the World
+RECOMMENDED LEVEL: 48-55
+ROOMS: 6
+DUNGEON TYPE: Group dungeon
+KEY: Silent Glacier Key
+KEY CONSUMED ON ENTRY: Yes
+MAIN THEMES: deep frost, silence, emotional emptiness, evasion, poison/frostbite pressure, stun, mitigation, cold attrition.
+
+============================================================
+1. ENTRANCE NPC
+============================================================
+NPC NAME: Maera Stillvoice
+ROLE: Dungeon entrance NPC
+LOCATION: Apathy of the World, beside a frozen crevasse covered by pale blue mist.
+
+NPC VISUAL DESCRIPTION:
+Maera Stillvoice is a quiet arctic guide wrapped in layered white furs, gray cloth, and frost-covered leather. Her lips and eyelashes are pale with cold, and she speaks very little. She carries a bone lantern filled with blue flame and a long ice pick. Her expression is calm in a frightening way, as if fear froze out of her years ago.
+
+NPC DIALOGUE - HAS KEY:
+"The glacier is listening. It does not hate. It does not hunger. It simply waits until you stop moving. Give me the Silent Glacier Key, and I will open the crevasse. Do not waste warmth inside."
+
+NPC DIALOGUE - NO KEY:
+"No key. No passage. That is mercy. The glacier keeps what enters without purpose. Bring the Silent Glacier Key if you still wish to be remembered by no one."
+
+NPC DIALOGUE - AFTER BOSS:
+"The silence cracked. I heard it. Come back now, before it closes around your name."
+
+============================================================
+2. KEY
+============================================================
+KEY NAME: Silent Glacier Key
+TYPE: Dungeon key
+PROFESSION: Provisioner
+REQUIRED CRAFTING LEVEL: 50
+RECIPE SLOTS: 8
+
+KEY RECIPE:
+1. Icebound Fur x6
+2. Frost Fang x5
+3. Crystal Scale x5
+4. Frozen Venom Sac x4
+5. Glacier Shell x4
+6. Whiteout Thread x5
+7. Hollow Ice Essence x4
+8. Absolute Zero Core x2
+
+KEY VISUAL DESCRIPTION:
+A pale silver-blue key made from frozen bone and clear glacial crystal. Its handle is circular like a frozen eye, and its teeth look like icicles. It gives off no warmth or glow, only a faint cold mist, making it feel empty and silent.
+
+============================================================
+3. DUNGEON MECHANICS
+============================================================
+MECHANIC: Numbing Silence
+Starts in Room 3. Every 3 rounds, one random player has a 35% chance to receive Accuracy down -6% for 1 turn.
+
+MECHANIC: Frozen Joints
+Starts in Room 4. Every 4 rounds, one random player has a 30% chance to receive Cripple for 1 turn.
+
+BOSS ROOM MECHANIC: Ice Reflections
+Room 6 only:
+- Round 8: summon 1 Frost Reflection
+- Round 12: summon 1 Frost Reflection
+Do not summon if 8 enemies are already alive.
+
+============================================================
+4. ROOM STRUCTURES
+============================================================
+ROOM 1: White Silence Entry
+Enemies: Icy Mink x2, Icy Serpent x2, Glacier Turtoise x1, Frozen Stalker x1
+Total enemies: 6
+Visuals: A narrow glacier tunnel of blue-white ice, with muffled sound and faint frost mist.
+
+ROOM 2: The Glassed Burrow
+Enemies: Icy Mink x2, Icy Serpent x2, Glacier Turtoise x2, Frozen Stalker x1
+Total enemies: 7
+Visuals: Ice caves full of frozen animal tunnels, smooth glassy walls, and trapped bubbles.
+
+ROOM 3: Whiteout Hunting Ground
+Enemies: Frozen Stalker x2, Icy Mink x2, Icy Serpent x1, Glacier Turtoise x1, Frost Skitter x1
+Total enemies: 7
+Visuals: A wide snow-filled chamber where visibility fades into mist. Shadows move behind ice walls.
+
+ROOM 4: Crystal Nerve Web
+Elite room 1.
+Enemies: Frost Skitter x2, Icy Serpent x2, Glacier Turtoise x1, Icy Mink x1, Frozen Stalker x1, Crystal Webmother x1
+Total enemies: 8
+Visuals: A chamber filled with fine ice webs, crystal threads, frozen cocoons, and faint blue nerve-like light.
+
+ROOM 5: The Hollow Shell Crossing
+Elite room 2.
+Enemies: Glacier Turtoise x2, Frozen Stalker x2, Frost Skitter x1, Icy Serpent x1, Icy Mink x1, Glacial Shellwarden x1
+Total enemies: 8
+Visuals: A frozen bridge through huge turtle-shell-like ice formations and hollow glacier domes.
+
+ROOM 6: The Empty Eye
+Boss room.
+Enemies: Icy Mink x1, Icy Serpent x1, Glacier Turtoise x1, Frozen Stalker x1, Frost Skitter x1, Crystal Webmother x1, Glacial Shellwarden x1, The Apathy Below x1
+Total enemies: 8
+Visuals: A circular glacier chamber with a dark frozen lake at the center, reflecting the ceiling like an empty eye.
+
+BOSS ROOM PHASE VISUALS:
+Phase 1 - Still Surface: The lake is calm, ice blue, and silent.
+Phase 2 - The Ice Remembers: At 70% HP, cracks spread under the lake and pale reflections appear.
+Phase 3 - Nothing Answers: At 35% HP, the room dims, frost mist thickens, and the lake becomes black and mirrorlike.
+
+============================================================
+5. ELITE AND BOSS MONSTERS
+============================================================
+ELITE 1: CRYSTAL WEBMOTHER
+Level: 52
+Rarity: Epic Elite
+Role: Controller
+Stamina: 7
+HP: 1420
+Stats: STR 34, DEX 82, VIT 82, INT 132
+
+Visual Description:
+A huge frost spider-like creature made of glassy ice, white fur, and crystal nerves. Its legs are long and thin but armored with ice edges. Its abdomen glows faintly with frozen blue light. It should feel precise, alien, and coldly intelligent.
+
+Skills:
+- Ice Web: Cooldown 2. Magical INT x 50%. 45% Cripple chance for 2 turns.
+- Crystal Nerves: Cooldown 4. Self gains Evasion +15% and Status resist +8% for 2 turns.
+- Absolute Thread: Cooldown 4. Single target. Magical INT x 45%. 18% Stun chance for 1 turn.
+- Frost Poison: Cooldown 3. Magical INT x 45%. 45% Poison chance, 12% damage per turn for 3 turns.
+- Basic: Magical INT x 35%, accuracy 90%, crit 2%.
+
+ELITE 2: GLACIAL SHELLWARDEN
+Level: 53
+Rarity: Epic Elite
+Role: Tank
+Stamina: 7
+HP: 1780
+Stats: STR 58, DEX 26, VIT 150, INT 42
+
+Visual Description:
+A gigantic glacial tortoise with a shell like a frozen cathedral dome. Its shell is layered with blue ice plates, white frost, and dark stone trapped inside. It moves slowly, leaving deep tracks in snow and ice.
+
+Skills:
+- Glacier Shell: Cooldown 3. Self gains Phys resist +10% and Magic resist +10% for 2 turns.
+- Shell Challenge: Cooldown 4. All players. 55% Taunt chance for 1 turn. Self gains Damage reduction 12% for 1 turn.
+- Slow Crush: Cooldown 2. Physical STR x 90%. 40% Cripple chance for 1 turn.
+- Icequake Step: Cooldown 4. Target + 1 adjacent. Physical STR x 65%. 16% Stun chance for 1 turn.
+- Basic: Physical STR x 50%, accuracy 88%, crit 2%.
+
+BOSS: THE APATHY BELOW
+Level: 55
+Rarity: Myth Boss
+Role: Controller/Tank
+Stamina: 8
+HP: 5400
+Stats: STR 88, DEX 70, VIT 150, INT 150
+
+Visual Description:
+A vast frozen spirit emerging from a black glacial lake. Its upper body is humanoid but faceless, made of translucent ice, frozen roots, and dark water trapped inside. It should feel empty rather than angry. Its eyes are barely visible, like pale lights far beneath ice.
+
+Boss Phases:
+Phase 1 - Still Surface, 100%-70%: normal rotation.
+Phase 2 - The Ice Remembers, 70%: gains Magic resist +8% and Status resist +8%, summons 1 Icy Serpent and 1 Frost Skitter.
+Phase 3 - Nothing Answers, 35%: gains Accuracy +8%, Numbing Silence triggers every 2 rounds, and basic attacks hit target + 1 adjacent.
+
+Boss Skills:
+- Hollow Frost: Cooldown 3. All players. Magical INT x 45%. 45% Accuracy down -8% for 2 turns.
+- Empty Grasp: Cooldown 2. Single target magical INT x 60%. 40% Cripple chance for 2 turns.
+- Black Ice Shell: Cooldown 4. Self gains Damage reduction 16% and Status resist +8% for 2 turns.
+- Memory Freeze: Cooldown 5, Phase 2+. Single target. Magical INT x 55%. 20% Stun chance for 1 turn.
+- Frozen Reflection: Cooldown 4. Target + 2 adjacent. Magical INT x 50%. 40% Magic damage down -8% for 2 turns.
+- Absolute Silence: Cooldown 5, Phase 3 only. All players. Magical INT x 55%. 18% Stun chance for 1 turn.
+- Basic: Magical INT x 40%. Phase 3 target + 1 adjacent at INT x 35%.
+
+BOSS SUMMON: FROST REFLECTION
+Level: 48
+Role: Controller summon
+HP: 320
+Stats: STR 18, DEX 42, VIT 40, INT 70
+Skills: Reflection Shard magical INT x 35%. 30% Accuracy down for 1 turn. Vanish Ice gives Evasion +12% for 1 turn.
+
+============================================================
+6. ELITE/BOSS RESOURCE DROPS
+============================================================
+Crystal Webmother: Crystal Webstrand 70%, Frozen Nerve Thread 55%, Absolute Thread Core 35%, Webmother Iceheart 15%
+Glacial Shellwarden: Glacial Shellplate 70%, Heavy Frosthide 55%, Shellwarden Core 35%, Glacier Bulwark Heart 15%
+The Apathy Below: Black Ice Veil 100%, Empty Lake Fragment 75%, Apathy Core 45%, Stillwater Heart 25%, Silent Soulglass 8%
+
+============================================================
+7. EQUIPMENT AND RECIPES
+============================================================
+STRUCTURE:
+- Crystal Webmother: 1 non-set item
+- Glacial Shellwarden: 2-piece set
+- The Apathy Below: 4-piece boss set + 1 non-set item
+
+NON-SET ITEM: Webmother Iceheart Ring
+Type: Ring
+Level: 53
+Stats: INT +36, DEX +22, Accuracy % +8, Evasion % +7, Magic dmg % +7
+Recipe: Webmother Iceheart x1, Absolute Thread Core x2, Crystal Webstrand x3, Frozen Nerve Thread x4, Frozen Venom Sac x4, Crystal Scale x8, Absolute Zero Core x2
+
+SHELLWARDEN SET ITEM 1: Glacial Shellplate
+Type: Chest
+Level: 53
+Stats: VIT +42, STR +24, HP +520, Phys resist % +10, Magic resist % +8
+Recipe: Glacial Shellplate x4, Heavy Frosthide x4, Shellwarden Core x2, Glacier Shell x8, Icebound Fur x8, Hollow Ice Essence x6, Absolute Zero Core x2
+
+SHELLWARDEN SET ITEM 2: Shellwarden Greaves
+Type: Feet
+Level: 53
+Stats: VIT +36, STR +22, HP +360, Phys resist % +8, Status resist % +7
+Recipe: Heavy Frosthide x4, Glacial Shellplate x3, Glacier Bulwark Heart x1, Glacier Shell x8, Frost Fang x8, Crystal Scale x6, Hollow Ice Essence x4
+
+SHELLWARDEN SET BONUS:
+2 pieces: VIT +24, HP +300, Phys resist % +6, Magic resist % +5.
+2-piece status effect: When hit by a physical attack, 15% chance to apply Cripple on attacker for 1 turn.
+
+APATHY SET ITEM 1: Black Ice Veil
+Type: Head, Veil
+Level: 54
+Stats: INT +42, VIT +28, Magic dmg % +9, Accuracy % +8, Magic resist % +7
+Recipe: Black Ice Veil x5, Empty Lake Fragment x4, Apathy Core x2, Crystal Webstrand x3, Whiteout Thread x10, Hollow Ice Essence x8, Absolute Zero Core x3
+
+APATHY SET ITEM 2: Stillwater Robe
+Type: Chest, Robe
+Level: 54
+Stats: VIT +42, INT +34, HP +520, Magic resist % +10, Status resist % +8
+Recipe: Empty Lake Fragment x5, Black Ice Veil x3, Stillwater Heart x1, Glacial Shellplate x3, Icebound Fur x10, Crystal Scale x8, Hollow Ice Essence x8
+
+APATHY SET ITEM 3: Empty Lake Pants
+Type: Legs
+Level: 55
+Stats: VIT +34, INT +32, HP +400, Evasion % +6, Magic resist % +7, Status resist % +7
+Recipe: Apathy Core x3, Empty Lake Fragment x4, Black Ice Veil x3, Frozen Nerve Thread x4, Whiteout Thread x10, Glacier Shell x6, Absolute Zero Core x2
+
+APATHY SET ITEM 4: Silent Soul Staff
+Type: Weapon, Two-handed Staff
+Level: 55
+Stats: INT +48, VIT +26, Magic dmg % +12, Accuracy % +8, Critical % +5
+Recipe: Silent Soulglass x1, Stillwater Heart x2, Apathy Core x4, Empty Lake Fragment x4, Webmother Iceheart x2, Crystal Scale x10, Hollow Ice Essence x8, Absolute Zero Core x3
+
+APATHY SET BONUSES:
+2 pieces: INT +24, VIT +14, HP +260, Magic dmg % +5.
+3 pieces: INT +38, VIT +24, HP +460, Magic dmg % +8, Magic resist % +6.
+4 pieces: INT +54, VIT +34, HP +660, Magic dmg % +11, Accuracy % +7, Status resist % +7, Stamina +1.
+4-piece status effect: When applying Accuracy down, 20% chance to also apply Cripple for 1 turn.
+Higher tier bonuses replace lower tier bonuses.
+
+NON-SET BOSS ITEM: Stillwater Heart Amulet
+Type: Amulet
+Level: 55
+Stats: INT +34, VIT +26, HP +300, Magic resist % +7, Status resist % +7
+Recipe: Stillwater Heart x2, Silent Soulglass x1, Apathy Core x2, Webmother Iceheart x1, Whiteout Thread x8, Hollow Ice Essence x8, Absolute Zero Core x2

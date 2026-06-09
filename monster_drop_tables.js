@@ -474,21 +474,71 @@
         { name: "Nature Essence", dropRate: 3 }
       ]
     },
+    "Ash Horror": {
+      materials: [
+        { name: "Ash Residue", dropRate: 70 },
+        { name: "Smothered Cinder", dropRate: 55 },
+        { name: "Decay Fragment", dropRate: 35 },
+        { name: "Ash Horror Core", dropRate: 15 }
+      ]
+    },
+    "Cinder Husk": {
+      materials: [
+        { name: "Ashen Cloth", dropRate: 70 },
+        { name: "Cinder Husk Plate", dropRate: 55 },
+        { name: "Grave Fortitude Core", dropRate: 35 },
+        { name: "Husk Core", dropRate: 15 }
+      ]
+    },
+    "Ash Skulker": {
+      materials: [
+        { name: "Shadow Dust", dropRate: 70 },
+        { name: "Skulker Fang", dropRate: 55 },
+        { name: "Smokehide Strip", dropRate: 35 },
+        { name: "Ambush Core", dropRate: 15 }
+      ]
+    },
     "Faded War Wraith": {
       gear: [{ w: 0.9, item: "Wraithcall Scepter" }, { w: 0.8, item: "Soul Echo Amulet" }],
       materials: [
-        { name: "Soul Fragment", dropRate: 32.5 },
-        { name: "Shadow Residue", dropRate: 20 },
-        { name: "Wraith Core", dropRate: 7.5 },
-        { name: "Shadow Essence", dropRate: 3 }
+        { name: "Soul Fragment", dropRate: 70 },
+        { name: "Faded Banner Thread", dropRate: 55 },
+        { name: "Shadow Residue", dropRate: 35 },
+        { name: "Wraith Core", dropRate: 15 },
+        { name: "Shadow Essence", dropRate: 8 }
       ]
     },
     "Remnant of Rust": {
       materials: [
-        { name: "Rusted Metal", dropRate: 40 },
-        { name: "Corroded Gear", dropRate: 20 },
-        { name: "Control Core", dropRate: 7.5 },
-        { name: "Metal Essence", dropRate: 2.5 }
+        { name: "Rusted Metal", dropRate: 70 },
+        { name: "Corroded Gear", dropRate: 55 },
+        { name: "Control Core", dropRate: 35 },
+        { name: "Metal Essence", dropRate: 15 }
+      ]
+    },
+    "Rustbound Marshal": {
+      materials: [
+        { name: "Marshal Rustplate", dropRate: 70 },
+        { name: "Corroded Chainlink", dropRate: 55 },
+        { name: "Command Core", dropRate: 35 },
+        { name: "Rustbound Heart", dropRate: 15 }
+      ]
+    },
+    "Bannerless Wraithlord": {
+      materials: [
+        { name: "Torn Warbanner", dropRate: 70 },
+        { name: "Wraith Ashcloth", dropRate: 55 },
+        { name: "Haunting Sigil", dropRate: 35 },
+        { name: "Bannerless Soulcore", dropRate: 15 }
+      ]
+    },
+    "The Last Warmaster": {
+      materials: [
+        { name: "Warmaster Plate Shard", dropRate: 100 },
+        { name: "Broken Command Blade", dropRate: 75 },
+        { name: "Last Order Core", dropRate: 45 },
+        { name: "Wargrave Ember", dropRate: 25 },
+        { name: "Eternal Battle Soul", dropRate: 8 }
       ]
     },
     "Ash Lizard": {
@@ -624,7 +674,6 @@
       { name: "Ash Scale", dropRate: 12, condition: "skinner" },
       { name: "Burnt Hide", dropRate: 11, condition: "skinner" }
     ],
-    "Ash Horror": [{ name: "Ash Residue", dropRate: 10, condition: "harvester" }],
     "Ember Scuttler": [{ name: "Ember Fragment", dropRate: 9, condition: "extractor" }],
     "Cinder Stalker": [{ name: "Ember Dust", dropRate: 8, condition: "harvester" }],
     "Magma Boar": [
@@ -646,7 +695,6 @@
       { name: "Shadow Residue", dropRate: 9, condition: "harvester" },
       { name: "Spirit Core", dropRate: 8, condition: "extractor" }
     ],
-    "Remnant of Rust": [{ name: "Shadow Dust", dropRate: 10, condition: "harvester" }],
 
     "Winter Guardian": [
       { name: "Guardian Iceplate", dropRate: 70 },

@@ -193,6 +193,9 @@
       case "blind":
         set("blindTurns", deb.accDown, t);
         foe.combat.blindAccDownPct = Math.max(foe.combat.blindAccDownPct || 0, deb.accDown || 0);
+        if (typeof tryProcBannerlessMagResOnAccuracyDebuff === "function" && typeof player !== "undefined") {
+          tryProcBannerlessMagResOnAccuracyDebuff(st, player.equipment, foe);
+        }
         break;
       case "cripple":
         foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, t);

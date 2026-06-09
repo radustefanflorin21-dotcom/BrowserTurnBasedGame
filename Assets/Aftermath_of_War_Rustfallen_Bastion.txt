@@ -1,0 +1,253 @@
+DUNGEON: THE RUSTFALLEN BASTION
+REGION: Aftermath of War
+RECOMMENDED LEVEL: 36-43
+ROOMS: 6
+DUNGEON TYPE: Group dungeon
+KEY: Rustfallen Key
+KEY CONSUMED ON ENTRY: Yes
+MAIN THEMES: ruined battlefield, rust, ash, ghosts, old weapons, armor corrosion, damage suppression, summons, war echoes.
+
+============================================================
+1. ENTRANCE NPC
+============================================================
+NPC NAME: Captain Ilyra Voss
+ROLE: Dungeon entrance NPC
+LOCATION: Aftermath of War, beside a collapsed fortress gate half-buried in ash and broken weapons.
+
+NPC VISUAL DESCRIPTION:
+Captain Ilyra Voss is a battle-worn veteran wearing dented half-plate, a torn red-gray cloak, and a cracked officer's gorget. She is not undead, but she looks haunted by everything around her. Her hair is tied back roughly, her face is scarred, and her eyes are tired but alert. She carries an old sword with a broken tip, more symbol than weapon, and keeps a bundle of rusted dog tags at her belt.
+
+NPC DIALOGUE - HAS KEY:
+"That key opens a grave that should have stayed shut. The Bastion still thinks the war is happening. If you enter, it will draft you into a battle that ended years ago. Hand me the Rustfallen Key, and I will open the gate."
+Options:
+- Use Rustfallen Key: consumes key and enters dungeon.
+- Leave: closes dialogue.
+
+NPC DIALOGUE - NO KEY:
+"No Rustfallen Key, no entry. Good. That place has enough dead heroes. Bring the key if you insist on becoming another bad idea in armor."
+
+NPC DIALOGUE - AFTER BOSS:
+"The marching stopped. For the first time, the Bastion is silent. You ended something old in there. Come back to the living side of the gate."
+
+============================================================
+2. KEY
+============================================================
+KEY NAME: Rustfallen Key
+TYPE: Dungeon key
+PROFESSION: Provisioner
+REQUIRED CRAFTING LEVEL: 38
+RECIPE SLOTS: 8
+
+KEY RECIPE:
+1. Rusted Plate Scrap x6
+2. Ashen Cloth x5
+3. Wraith Dust x6
+4. Broken Spearhead x5
+5. Warbone Fragment x4
+6. Corroded Core x4
+7. Faded Banner Thread x4
+8. Fallen Echo Core x2
+
+KEY VISUAL DESCRIPTION:
+A black iron key eaten by rust, wrapped in a strip of faded battlefield cloth. Its teeth are shaped like broken spearheads, and a small ghostly ember glows inside the handle. The key should look recovered from a mass grave, ancient and cursed rather than ornate.
+
+============================================================
+3. DUNGEON MECHANICS
+============================================================
+MECHANIC: Rust Cloud
+Starts in Room 3. Every 3 rounds, one random player has a 35% chance to receive Phys damage down -6% for 1 turn.
+
+MECHANIC: War Echo
+Starts in Room 4. Every 4 rounds, one random player has a 30% chance to receive Accuracy down -6% for 1 turn.
+
+BOSS ROOM MECHANIC: Fallen Reinforcements
+Room 6 only:
+- Round 8: summon 1 Fallen Echo
+- Round 12: summon 1 Fallen Echo
+Do not summon if there are already 8 enemies alive.
+
+============================================================
+4. ROOM STRUCTURES
+============================================================
+ROOM 1: Ashen Gatehouse
+Enemies: Ash Horror x2, Cinder Husk x2, Ash Skulker x1, Remnant of Rust x1
+Total enemies: 6
+Visuals: A ruined gatehouse filled with ash drifts, broken shields, rusted chains, and collapsed stone. Faint red light leaks through cracks in the walls. The air feels smoky and old.
+
+ROOM 2: The Broken Barracks
+Enemies: Ash Horror x2, Cinder Husk x2, Ash Skulker x2, Remnant of Rust x1
+Total enemies: 7
+Visuals: A collapsed soldiers' barracks with rotted bunks, torn banners, smashed helmets, and ghostly silhouettes burned into the walls. Ash lies over everything like snow.
+
+ROOM 3: Rustmarch Yard
+Enemies: Remnant of Rust x2, Ash Skulker x2, Cinder Husk x1, Ash Horror x1, Faded War Wraith x1
+Total enemies: 7
+Visuals: A wide courtyard of cracked stone, rusted weapons, old siege debris, and piles of armor. The ground is stained dark from ancient battles. The room should feel like a battlefield that never fully ended.
+
+ROOM 4: The Corroded Armory
+Elite room 1.
+Enemies: Remnant of Rust x2, Cinder Husk x2, Ash Horror x1, Ash Skulker x1, Faded War Wraith x1, Rustbound Marshal x1
+Total enemies: 8
+Visuals: A long armory filled with rusted blades, broken shields, armor racks, and chains. Some weapons tremble on the walls as if remembering combat. Orange rust dust floats in the air.
+
+ROOM 5: The Wraith Parade
+Elite room 2.
+Enemies: Faded War Wraith x2, Remnant of Rust x2, Ash Skulker x1, Ash Horror x1, Cinder Husk x1, Bannerless Wraithlord x1
+Total enemies: 8
+Visuals: A ceremonial war hall where torn banners hang from high pillars. Ghostly footprints march across the dusty floor. Old drums, broken standards, and skeletal horses line the sides.
+
+ROOM 6: The Last Command
+Boss room.
+Enemies: Ash Horror x1, Cinder Husk x1, Ash Skulker x1, Remnant of Rust x1, Faded War Wraith x1, Rustbound Marshal x1, Bannerless Wraithlord x1, The Last Warmaster x1
+Total enemies: 8
+Visuals: A ruined command chamber with a cracked war table at the center. Broken maps, rusted swords, and fallen banners surround a throne-like command seat. The walls are covered with old battle plans and burn marks.
+
+BOSS ROOM PHASE VISUALS:
+Phase 1 - Orders Remembered: The room is dim, with ghostly whispers and faint marching echoes.
+Phase 2 - The War Returns: At 70% HP, spectral banners rise, weapons rattle, and fallen soldiers appear from ash.
+Phase 3 - No Surrender: At 35% HP, the chamber burns with red ghost-light, rust storms swirl, and the floor shakes with marching dead.
+
+============================================================
+5. ELITE AND BOSS MONSTERS
+============================================================
+ELITE 1: RUSTBOUND MARSHAL
+Level: 40
+Rarity: Epic Elite
+Role: Controller/Tank
+Stamina: 7
+HP: 1050
+Stats: STR 62, DEX 36, VIT 82, INT 58
+
+Visual Description:
+A heavily armored undead commander fused with rusted plate and broken chains. Its helmet has no visible face, only a dim ember glow inside. Rust flakes fall from it as it moves. It carries a corroded command blade and looks like a walking piece of ruined military authority.
+
+Skills:
+- Corrode Command: Cooldown 3. All players. Base accuracy 88%. 45% chance Both damage down -6% for 2 turns.
+- Rusted Guard: Cooldown 4. Self gains Phys resist +10% and Status resist +6% for 2 turns.
+- Marshal's Cleave: Cooldown 2. Physical STR x 85%, target + 1 adjacent. 40% chance Phys resist down -6% for 2 turns.
+- Chain Order: Cooldown 4. Single target. Base accuracy 86%. 45% chance Cripple for 2 turns.
+- Basic: Physical STR x 55%, accuracy 88%, crit 3%.
+
+ELITE 2: BANNERLESS WRAITHLORD
+Level: 41
+Rarity: Epic Elite
+Role: Summoner/Mage
+Stamina: 7
+HP: 940
+Stats: STR 22, DEX 44, VIT 64, INT 112
+
+Visual Description:
+A floating war ghost wrapped in shredded banners and spectral armor fragments. Its body is mostly smoke and ash, with a hollow helm and glowing pale eyes. Torn flags drift from its back like broken wings. It should feel tragic, commanding, and dangerous.
+
+Skills:
+- Call Fallen: Cooldown 4. Summons 1 Fallen Echo if enemy count allows.
+- Soul Chill: Cooldown 3. All players. Magical INT x 40%. 40% chance Accuracy down -6% for 2 turns.
+- Banner Curse: Cooldown 3. Single target. 45% chance Magic resist down -8% for 2 turns.
+- Haunting Bolt: Cooldown 2. Magical INT x 60%, accuracy 86%, crit 3%. 35% chance Status resist down -5% for 2 turns.
+- Basic: Magical INT x 35%, accuracy 90%, crit 2%.
+
+BOSS: THE LAST WARMASTER
+Level: 43
+Rarity: Myth Boss
+Role: Bruiser/Summoner
+Stamina: 8
+HP: 3700
+Stats: STR 118, DEX 54, VIT 108, INT 72
+
+Visual Description:
+A towering undead general in shattered black armor, covered in rust, ash, and spectral red light. A broken crown-like helm sits on its head, and a massive two-handed sword is chained to its wrist. Its body is partly physical and partly ghostly, as if the war refuses to let it die.
+
+Boss Phases:
+Phase 1 - Orders Remembered, 100%-70%: normal rotation.
+Phase 2 - The War Returns, 70%: gains Phys resist +8% and summons 1 Remnant of Rust and 1 Faded War Wraith.
+Phase 3 - No Surrender, 35%: gains Phys dmg +10%, Accuracy +8%, and Fallen Reinforcements trigger every 3 rounds.
+
+Boss Skills:
+- Commanding Ruin: Cooldown 3. All players. Base accuracy 86%. 45% chance Both damage down -8% for 2 turns.
+- Warmaster's Execution: Cooldown 2. Physical STR x 105%. +20% final damage if target below 40% HP.
+- Ruststorm Slash: Cooldown 4. Target + 2 adjacent. Physical STR x 70%. 40% chance Phys resist down -8% for 2 turns.
+- Raise the Fallen: Cooldown 5. Summons 1 Fallen Echo, max 3 active.
+- No Retreat: Cooldown 4. Self gains Phys dmg +8% and Status resist +8% for 2 turns.
+- Final Order: Cooldown 5, Phase 3 only. All players. Physical STR x 55%. 18% chance Stun for 1 turn.
+- Basic: Physical STR x 65%, accuracy 88%, crit 4%. Phase 3 hits target + 1 adjacent at STR x 55%.
+
+BOSS SUMMON: FALLEN ECHO
+Level: 36
+Role: Summon bruiser
+HP: 260
+Stats: STR 44, DEX 26, VIT 36, INT 18
+Skills: Echo Strike physical STR x 45%. Broken March has 30% chance Cripple for 1 turn.
+
+============================================================
+6. ELITE/BOSS RESOURCE DROPS
+============================================================
+Rustbound Marshal: Marshal Rustplate 70%, Corroded Chainlink 55%, Command Core 35%, Rustbound Heart 15%
+Bannerless Wraithlord: Torn Warbanner 70%, Wraith Ashcloth 55%, Haunting Sigil 35%, Bannerless Soulcore 15%
+The Last Warmaster: Warmaster Blackplate 100%, Broken Command Blade 75%, Last Order Core 45%, Wargrave Ember 25%, Eternal Battle Soul 8%
+
+============================================================
+7. EQUIPMENT AND RECIPES
+============================================================
+STRUCTURE:
+- Rustbound Marshal: 1 non-set item
+- Bannerless Wraithlord: 2-piece set
+- Last Warmaster: 4-piece boss set + 1 non-set item
+
+NON-SET ITEM: Rustbound Command Ring
+Type: Ring
+Level: 41
+Stats: VIT +24, STR +18, HP +220, Status resist % +7, Phys resist % +6
+Recipe: Rustbound Heart x1, Command Core x2, Marshal Rustplate x3, Corroded Chainlink x4, Rusted Plate Scrap x8, Warbone Fragment x6, Corroded Core x2
+
+BANNERLESS SET ITEM 1: Wraithbanner Hood
+Type: Head
+Level: 41
+Stats: INT +30, VIT +18, Magic dmg % +8, Accuracy % +6, Magic resist % +6
+Recipe: Torn Warbanner x4, Wraith Ashcloth x4, Haunting Sigil x2, Ashen Cloth x8, Wraith Dust x8, Faded Banner Thread x6, Fallen Echo Core x2
+
+BANNERLESS SET ITEM 2: Ash-Wrapped Bracers
+Type: Bracelet
+Level: 41
+Stats: INT +28, DEX +18, Accuracy % +7, Magic dmg % +7, Status resist % +5
+Recipe: Wraith Ashcloth x4, Torn Warbanner x3, Bannerless Soulcore x1, Wraith Dust x8, Broken Spearhead x6, Faded Banner Thread x6, Corroded Core x2
+
+BANNERLESS SET BONUS:
+2 pieces: INT +18, DEX +10, Accuracy % +5, Magic dmg % +5, Magic resist % +4.
+2-piece status effect: When applying Accuracy down, 15% chance to also apply Magic resist down -5% for 1 turn.
+
+WARMASTER SET ITEM 1: Warmaster Blackplate
+Type: Chest
+Level: 42
+Stats: STR +36, VIT +28, HP +400, Phys resist % +9, Phys dmg % +8
+Recipe: Warmaster Blackplate x5, Broken Command Blade x4, Last Order Core x2, Marshal Rustplate x3, Rusted Plate Scrap x10, Warbone Fragment x8, Corroded Core x3
+
+WARMASTER SET ITEM 2: Crownless War Helm
+Type: Head
+Level: 42
+Stats: STR +30, VIT +24, HP +300, Status resist % +7, Accuracy % +6
+Recipe: Broken Command Blade x4, Warmaster Blackplate x3, Wargrave Ember x1, Torn Warbanner x3, Dense Warbone x8, Ashen Cloth x8, Fallen Echo Core x2
+
+WARMASTER SET ITEM 3: Ashmarch Greaves
+Type: Feet
+Level: 43
+Stats: STR +28, VIT +24, HP +280, Phys resist % +7, Magic resist % +5
+Recipe: Last Order Core x3, Warmaster Blackplate x3, Broken Command Blade x3, Corroded Chainlink x4, Rusted Plate Scrap x10, Ashen Cloth x8, Corroded Core x2
+
+WARMASTER SET ITEM 4: Last Command Greatsword
+Type: Weapon, Two-handed Sword
+Level: 43
+Stats: STR +40, VIT +20, Phys dmg % +11, Accuracy % +7, Critical % +5
+Recipe: Eternal Battle Soul x1, Wargrave Ember x2, Last Order Core x4, Broken Command Blade x5, Marshal Rustplate x3, Broken Spearhead x10, Corroded Core x3
+
+WARMASTER SET BONUSES:
+2 pieces: STR +20, VIT +12, HP +200, Phys dmg % +5.
+3 pieces: STR +32, VIT +20, HP +360, Phys dmg % +8, Phys resist % +5.
+4 pieces: STR +44, VIT +30, HP +540, Phys dmg % +10, Accuracy % +6, Status resist % +6, Stamina +1.
+4-piece status effect: Physical attacks have 20% chance to apply Both damage down -5% for 1 turn.
+Higher tier bonuses replace lower tier bonuses.
+
+NON-SET BOSS ITEM: Wargrave Ember Amulet
+Type: Amulet
+Level: 43
+Stats: STR +28, VIT +22, HP +260, Phys dmg % +7, Status resist % +6
+Recipe: Wargrave Ember x2, Eternal Battle Soul x1, Last Order Core x2, Rustbound Heart x1, Wraith Dust x8, Faded Banner Thread x8, Fallen Echo Core x2

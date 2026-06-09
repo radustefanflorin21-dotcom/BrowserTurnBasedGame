@@ -429,6 +429,55 @@ const GAME_CONFIG = {
       baseHp: 180
     },
     {
+      name: "Fallen Echo",
+      combatScript: "fallen_echo",
+      combatRole: "bruiser",
+      spawnRarity: "rare",
+      image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/fallen_echo.png",
+      possibleLevels: [36],
+      possibleMoods: ["berserk"],
+      staminaPerTurn: 6,
+      baseStats: { str: 44, dex: 26, vit: 36, int: 18 },
+      baseHp: 260
+    },
+    {
+      name: "Rustbound Marshal",
+      combatScript: "rustbound_marshal",
+      combatRole: "controller",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/rustbound_marshal.png",
+      possibleLevels: [40],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 62, dex: 36, vit: 82, int: 58 },
+      baseHp: 1050
+    },
+    {
+      name: "Bannerless Wraithlord",
+      combatScript: "bannerless_wraithlord",
+      combatRole: "summoner",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/bannerless_wraithlord.png",
+      possibleLevels: [41],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 22, dex: 44, vit: 64, int: 112 },
+      baseHp: 940
+    },
+    {
+      name: "The Last Warmaster",
+      combatScript: "the_last_warmaster",
+      combatRole: "bruiser",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_last_warmaster.png",
+      possibleLevels: [43],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 8,
+      baseStats: { str: 118, dex: 54, vit: 108, int: 72 },
+      baseHp: 3700
+    },
+    {
       name: "Dust Carver",
       combatScript: "dust_carver",
       combatRole: "assassin",
@@ -1125,6 +1174,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/frostroot_key.png",
       description: "A winter-marked key that parts the frozen roots of the Frostroot Nursery.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rustfallen Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/rustfallen_key.png",
+      description: "A rust-eaten key that opens the grave of the Rustfallen Bastion.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -3126,6 +3183,110 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 25, VIT: 18, HP: 200, HEAL: 6, "Magic Resist": 6, "Status Resist": 5 }
     },
+    "Rustbound Command Ring": {
+      type: "armor",
+      slot: "ring",
+      equipCategory: "ring",
+      rarity: "epic",
+      itemLevel: 41,
+      image: "Assets/Equips/rustbound_command_ring.png",
+      description: "A heavy iron command ring from a rustbound battlefield officer.",
+      set: "",
+      build: "VIT_STR",
+      bonusSkills: [],
+      bonusStats: { VIT: 24, STR: 18, HP: 220, "Status Resist": 7, "Phys Resist": 6 }
+    },
+    "Wraithbanner Hood": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "veil",
+      rarity: "epic",
+      itemLevel: 41,
+      image: "Assets/Equips/wraithbanner_hood.png",
+      description: "A hood woven from shredded ghost-banners and ash-stained wrappings.",
+      set: "Bannerless",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 30, VIT: 18, "Magic Damage": 8, ACC: 6, "Magic Resist": 6 }
+    },
+    "Ash-Wrapped Bracers": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "wristband",
+      rarity: "epic",
+      itemLevel: 41,
+      image: "Assets/Equips/ash_wrapped_bracers.png",
+      description: "Spectral bracers wrapped in ashcloth and torn military ribbons.",
+      set: "Bannerless",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 28, DEX: 18, ACC: 7, "Magic Damage": 7, "Status Resist": 5 }
+    },
+    "Warmaster Blackplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest",
+      rarity: "epic",
+      itemLevel: 42,
+      image: "Assets/Equips/warmaster_blackplate.png",
+      description: "A brutal black chestplate from a battlefield tyrant's shattered command armor.",
+      set: "Warmaster",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 36, VIT: 28, HP: 400, "Phys Resist": 9, "Phys Damage": 8 }
+    },
+    "Crownless War Helm": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helm",
+      rarity: "epic",
+      itemLevel: 42,
+      image: "Assets/Equips/crownless_war_helm.png",
+      description: "A broken crown-like war helm with jagged black plates and rusted cheek guards.",
+      set: "Warmaster",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 30, VIT: 24, HP: 300, "Status Resist": 7, ACC: 6 }
+    },
+    "Ashmarch Greaves": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "boots",
+      rarity: "epic",
+      itemLevel: 43,
+      image: "Assets/Equips/ashmarch_greaves.png",
+      description: "Heavy battlefield greaves built to march through ash and burning ruins.",
+      set: "Warmaster",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 28, VIT: 24, HP: 280, "Phys Resist": 7, "Magic Resist": 5 }
+    },
+    "Last Command Greatsword": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "greatsword",
+      rarity: "epic",
+      itemLevel: 43,
+      image: "Assets/Equips/last_command_greatsword.png",
+      description: "A huge broken-edged greatsword chained near the hilt, glowing with red command fire.",
+      set: "Warmaster",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 40, VIT: 20, "Phys Damage": 11, ACC: 7, Crit: 5 }
+    },
+    "Wargrave Ember Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "epic",
+      itemLevel: 43,
+      image: "Assets/Equips/wargrave_ember_amulet.png",
+      description: "A dark amulet holding a small ember from the final battlefield.",
+      set: "",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 28, VIT: 22, HP: 260, "Phys Damage": 7, "Status Resist": 6 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -4302,6 +4463,156 @@ const GAME_CONFIG = {
       image: "Assets/Resources/lullaby_soulcore.png",
       description: "A rare lullaby soulcore from the Sleeping Child of Winter."
     },
+    "Smothered Cinder": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/smothered_cinder.png",
+      description: "A smothered cinder clinging to an Ash Horror."
+    },
+    "Decay Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/decay_fragment.png",
+      description: "A decay fragment shed by an Ash Horror."
+    },
+    "Ash Horror Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ash_horror_core.png",
+      description: "A dense core from an Ash Horror."
+    },
+    "Ashen Cloth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ashen_cloth.png",
+      description: "Ash-stained cloth stripped from a Cinder Husk."
+    },
+    "Cinder Husk Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/cinder_husk_plate.png",
+      description: "A corroded plate from a Cinder Husk."
+    },
+    "Grave Fortitude Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/grave_fortitude_core.png",
+      description: "A grave fortitude core from a Cinder Husk."
+    },
+    "Husk Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/husk_core.png",
+      description: "A rare husk core from a Cinder Husk."
+    },
+    "Shadow Dust": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/shadow_dust.png",
+      description: "Shadow dust shaken loose from an Ash Skulker."
+    },
+    "Skulker Fang": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/skulker_fang.png",
+      description: "A fang from an Ash Skulker."
+    },
+    "Smokehide Strip": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/smokehide_strip.png",
+      description: "A smokehide strip from an Ash Skulker."
+    },
+    "Ambush Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ambush_core.png",
+      description: "An ambush core from an Ash Skulker."
+    },
+    "Faded Banner Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/faded_banner_thread.png",
+      description: "Faded thread from a war banner carried by a Faded War Wraith."
+    },
+    "Marshal Rustplate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/marshal_rustplate.png",
+      description: "Rustplate stripped from the Rustbound Marshal."
+    },
+    "Corroded Chainlink": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/corroded_chainlink.png",
+      description: "Corroded chainlink from the Rustbound Marshal."
+    },
+    "Command Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/command_core.png",
+      description: "A command core from the Rustbound Marshal."
+    },
+    "Rustbound Heart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/rustbound_heart.png",
+      description: "A rare rustbound heart from the Marshal."
+    },
+    "Torn Warbanner": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/torn_warbanner.png",
+      description: "A torn warbanner from the Bannerless Wraithlord."
+    },
+    "Wraith Ashcloth": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/wraith_ashcloth.png",
+      description: "Ashcloth woven by the Bannerless Wraithlord."
+    },
+    "Haunting Sigil": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/haunting_sigil.png",
+      description: "A haunting sigil from the Bannerless Wraithlord."
+    },
+    "Bannerless Soulcore": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bannerless_soulcore.png",
+      description: "A rare soulcore from the Bannerless Wraithlord."
+    },
+    "Warmaster Plate Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/warmaster_plate_shard.png",
+      description: "A blackplate shard torn from the Last Warmaster."
+    },
+    "Broken Command Blade": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/broken_command_blade.png",
+      description: "A broken command blade from the Last Warmaster."
+    },
+    "Last Order Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/last_order_core.png",
+      description: "A last order core from the Warmaster."
+    },
+    "Wargrave Ember": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/wargrave_ember.png",
+      description: "A wargrave ember from the final battlefield."
+    },
+    "Eternal Battle Soul": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/eternal_battle_soul.png",
+      description: "A rare eternal battle soul from the Last Warmaster."
+    },
     "Heartburrow Horn": {
       type: "material",
       value: 5,
@@ -4995,7 +5306,11 @@ const GAME_CONFIG = {
     "Whitebark Matron": ["beast", "nature", "elemental"],
     "Frosthorn Bulwark": ["beast", "elemental"],
     "The Sleeping Child of Winter": ["construct", "elemental", "nature"],
-    "Frostroot Seedling": ["nature", "elemental"]
+    "Frostroot Seedling": ["nature", "elemental"],
+    "Fallen Echo": ["undead", "elemental"],
+    "Rustbound Marshal": ["undead", "construct"],
+    "Bannerless Wraithlord": ["undead", "elemental"],
+    "The Last Warmaster": ["undead", "construct"]
   },
 
   crafting: {
@@ -6699,6 +7014,21 @@ const GAME_CONFIG = {
               { item: "Ancient Seed", qty: 8, source: "monster_loot" },
               { item: "Nature Core", qty: 2, source: "monster_loot" }
             ]
+          },
+          {
+            id: "rustfallen_key",
+            resultItem: "Rustfallen Key",
+            resultLevel: 38,
+            ingredients: [
+              { item: "Ash Residue", qty: 6, source: "monster_loot" },
+              { item: "Ashen Cloth", qty: 5, source: "monster_loot" },
+              { item: "Shadow Dust", qty: 6, source: "monster_loot" },
+              { item: "Rusted Metal", qty: 5, source: "monster_loot" },
+              { item: "Corroded Gear", qty: 4, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 4, source: "monster_loot" },
+              { item: "Faded Banner Thread", qty: 4, source: "monster_loot" },
+              { item: "Wraith Core", qty: 2, source: "monster_loot" }
+            ]
           }]
       },
       {
@@ -6706,6 +7036,119 @@ const GAME_CONFIG = {
         minLevel: 41,
         maxLevel: 99,
         recipes: [
+          {
+            id: "rustbound_command_ring",
+            resultItem: "Rustbound Command Ring",
+            resultLevel: 41,
+            ingredients: [
+              { item: "Rustbound Heart", qty: 1, source: "monster_loot" },
+              { item: "Command Core", qty: 2, source: "monster_loot" },
+              { item: "Marshal Rustplate", qty: 3, source: "monster_loot" },
+              { item: "Corroded Chainlink", qty: 4, source: "monster_loot" },
+              { item: "Rusted Metal", qty: 8, source: "monster_loot" },
+              { item: "Corroded Gear", qty: 6, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "wraithbanner_hood",
+            resultItem: "Wraithbanner Hood",
+            resultLevel: 41,
+            ingredients: [
+              { item: "Torn Warbanner", qty: 4, source: "monster_loot" },
+              { item: "Wraith Ashcloth", qty: 4, source: "monster_loot" },
+              { item: "Haunting Sigil", qty: 2, source: "monster_loot" },
+              { item: "Ashen Cloth", qty: 8, source: "monster_loot" },
+              { item: "Faded Banner Thread", qty: 8, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 6, source: "monster_loot" },
+              { item: "Wraith Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "ash_wrapped_bracers",
+            resultItem: "Ash-Wrapped Bracers",
+            resultLevel: 41,
+            ingredients: [
+              { item: "Wraith Ashcloth", qty: 4, source: "monster_loot" },
+              { item: "Torn Warbanner", qty: 3, source: "monster_loot" },
+              { item: "Bannerless Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Shadow Dust", qty: 8, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 8, source: "monster_loot" },
+              { item: "Faded Banner Thread", qty: 6, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "warmaster_blackplate",
+            resultItem: "Warmaster Blackplate",
+            resultLevel: 42,
+            ingredients: [
+              { item: "Warmaster Plate Shard", qty: 5, source: "monster_loot" },
+              { item: "Broken Command Blade", qty: 4, source: "monster_loot" },
+              { item: "Last Order Core", qty: 2, source: "monster_loot" },
+              { item: "Marshal Rustplate", qty: 3, source: "monster_loot" },
+              { item: "Rusted Metal", qty: 10, source: "monster_loot" },
+              { item: "Cinder Husk Plate", qty: 8, source: "monster_loot" },
+              { item: "Metal Essence", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "crownless_war_helm",
+            resultItem: "Crownless War Helm",
+            resultLevel: 42,
+            ingredients: [
+              { item: "Broken Command Blade", qty: 4, source: "monster_loot" },
+              { item: "Warmaster Plate Shard", qty: 3, source: "monster_loot" },
+              { item: "Wargrave Ember", qty: 1, source: "monster_loot" },
+              { item: "Torn Warbanner", qty: 3, source: "monster_loot" },
+              { item: "Cinder Husk Plate", qty: 8, source: "monster_loot" },
+              { item: "Grave Fortitude Core", qty: 2, source: "monster_loot" },
+              { item: "Ashen Cloth", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "ashmarch_greaves",
+            resultItem: "Ashmarch Greaves",
+            resultLevel: 43,
+            ingredients: [
+              { item: "Last Order Core", qty: 3, source: "monster_loot" },
+              { item: "Warmaster Plate Shard", qty: 3, source: "monster_loot" },
+              { item: "Broken Command Blade", qty: 3, source: "monster_loot" },
+              { item: "Corroded Chainlink", qty: 4, source: "monster_loot" },
+              { item: "Rusted Metal", qty: 10, source: "monster_loot" },
+              { item: "Smokehide Strip", qty: 6, source: "monster_loot" },
+              { item: "Corroded Gear", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "last_command_greatsword",
+            resultItem: "Last Command Greatsword",
+            resultLevel: 43,
+            ingredients: [
+              { item: "Eternal Battle Soul", qty: 1, source: "monster_loot" },
+              { item: "Wargrave Ember", qty: 2, source: "monster_loot" },
+              { item: "Last Order Core", qty: 4, source: "monster_loot" },
+              { item: "Broken Command Blade", qty: 5, source: "monster_loot" },
+              { item: "Marshal Rustplate", qty: 3, source: "monster_loot" },
+              { item: "Skulker Fang", qty: 8, source: "monster_loot" },
+              { item: "Metal Essence", qty: 3, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "wargrave_ember_amulet",
+            resultItem: "Wargrave Ember Amulet",
+            resultLevel: 43,
+            ingredients: [
+              { item: "Wargrave Ember", qty: 2, source: "monster_loot" },
+              { item: "Eternal Battle Soul", qty: 1, source: "monster_loot" },
+              { item: "Last Order Core", qty: 2, source: "monster_loot" },
+              { item: "Rustbound Heart", qty: 1, source: "monster_loot" },
+              { item: "Soul Fragment", qty: 8, source: "monster_loot" },
+              { item: "Shadow Residue", qty: 6, source: "monster_loot" },
+              { item: "Wraith Core", qty: 2, source: "monster_loot" }
+            ]
+          },
           {
             id: "ashmaw_cleaver",
             resultItem: "Ashmaw Cleaver",
@@ -7029,6 +7472,8 @@ const GAME_CONFIG = {
     Frosthorn: 3,
     "Held Colossus": 4,
     "Sleeping Winter": 4,
+    Bannerless: 2,
+    Warmaster: 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -7106,6 +7551,14 @@ const GAME_CONFIG = {
       2: { INT: 16, VIT: 10, HP: 160, HEAL: 4 },
       3: { INT: 26, VIT: 18, HP: 300, HEAL: 7, "Magic Resist": 5 },
       4: { STA: 1, INT: 36, VIT: 26, HP: 460, HEAL: 9, "Magic Damage": 7, ACC: 6 }
+    },
+    Bannerless: {
+      2: { INT: 18, DEX: 10, ACC: 5, "Magic Damage": 5, "Magic Resist": 4 }
+    },
+    Warmaster: {
+      2: { STR: 20, VIT: 12, HP: 200, "Phys Damage": 5 },
+      3: { STR: 32, VIT: 20, HP: 360, "Phys Damage": 8, "Phys Resist": 5 },
+      4: { STA: 1, STR: 44, VIT: 30, HP: 540, "Phys Damage": 10, ACC: 6, "Status Resist": 6 }
     },
     "Held Colossus": {
       2: { VIT: 16, HP: 180, "Phys Resist": 5 },
@@ -7375,7 +7828,8 @@ const GAME_CONFIG = {
       "22,66": "Assets/Biomes/Skin of Gaia/Rootwarren/rootwaren_entrance.png",
       "35,33": "Assets/Biomes/The misery of life/The Withered Maw/the_withered_maw_entrance.png",
       "32,70": "Assets/Biomes/The held breath/The Stonevein Sanctum/stonevein_entrance.png",
-      "23,30": "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_frostroot_nursery_entrance.png"
+      "23,30": "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_frostroot_nursery_entrance.png",
+      "45,21": "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_rustfallen_bastion_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -7505,6 +7959,25 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/elowen_snowbud.png",
             text: "Elowen listens to the nursery's lullaby.",
             dungeonEntrance: "frostroot_nursery"
+          }
+        ]
+      },
+      "45,21": {
+        kind: "scene",
+        title: "Aftermath of War — Rustfallen Bastion",
+        description: "A collapsed fortress gate half-buried in ash, rusted weapons, and broken armor.",
+        elements: [
+          {
+            type: "npc",
+            id: "captain_ilyra_voss",
+            label: "Captain Ilyra Voss",
+            editable: true,
+            leftPct: 50,
+            topPct: 58,
+            scalePct: 72,
+            image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/captain_ilyra_voss.png",
+            text: "Captain Ilyra Voss keeps watch beside the rusted gate.",
+            dungeonEntrance: "rustfallen_bastion"
           }
         ]
       },
@@ -8140,6 +8613,122 @@ const GAME_CONFIG = {
                 moodId: "steady",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_sleeping_child_of_winter.png"
+              }
+            ]
+          }
+        ]
+      },
+      rustfallen_bastion: {
+        name: "The Rustfallen Bastion",
+        keyItem: "Rustfallen Key",
+        entrance: { x: 45, y: 21 },
+        assetBase: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion",
+        rustCloud: true,
+        warEcho: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Ash Horror", level: 36, moodId: "berserk" },
+              { name: "Ash Horror", level: 36, moodId: "berserk" },
+              { name: "Cinder Husk", level: 36, moodId: "berserk" },
+              { name: "Cinder Husk", level: 36, moodId: "berserk" },
+              { name: "Ash Skulker", level: 37, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 37, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Ash Horror", level: 37, moodId: "berserk" },
+              { name: "Ash Horror", level: 37, moodId: "berserk" },
+              { name: "Cinder Husk", level: 37, moodId: "berserk" },
+              { name: "Cinder Husk", level: 37, moodId: "berserk" },
+              { name: "Ash Skulker", level: 38, moodId: "berserk" },
+              { name: "Ash Skulker", level: 38, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 38, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText: "Rust Cloud: every 3 rounds, ash may weaken a random fighter's physical damage.",
+            enemies: [
+              { name: "Remnant of Rust", level: 38, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 38, moodId: "berserk" },
+              { name: "Ash Skulker", level: 38, moodId: "berserk" },
+              { name: "Ash Skulker", level: 39, moodId: "berserk" },
+              { name: "Cinder Husk", level: 39, moodId: "berserk" },
+              { name: "Ash Horror", level: 38, moodId: "berserk" },
+              { name: "Faded War Wraith", level: 39, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText: "Rust Cloud and War Echo thicken the corroded armory air.",
+            enemies: [
+              { name: "Remnant of Rust", level: 39, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 39, moodId: "berserk" },
+              { name: "Cinder Husk", level: 40, moodId: "berserk" },
+              { name: "Cinder Husk", level: 40, moodId: "berserk" },
+              { name: "Ash Horror", level: 39, moodId: "berserk" },
+              { name: "Ash Skulker", level: 40, moodId: "berserk" },
+              { name: "Faded War Wraith", level: 40, moodId: "berserk" },
+              {
+                name: "Rustbound Marshal",
+                level: 40,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/rustbound_marshal.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText: "Rust Cloud and War Echo continue across the wraith parade hall.",
+            enemies: [
+              { name: "Faded War Wraith", level: 41, moodId: "berserk" },
+              { name: "Faded War Wraith", level: 41, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 40, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 40, moodId: "berserk" },
+              { name: "Ash Skulker", level: 41, moodId: "berserk" },
+              { name: "Ash Horror", level: 40, moodId: "berserk" },
+              { name: "Cinder Husk", level: 41, moodId: "berserk" },
+              {
+                name: "Bannerless Wraithlord",
+                level: 41,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/bannerless_wraithlord.png"
+              }
+            ]
+          },
+          {
+            bg: "6",
+            bgPhaseStems: ["6", "6_1", "6_2", "6_3"],
+            modifierText:
+              "Rust Cloud and War Echo continue. Fallen reinforcements may answer the Last Warmaster's command.",
+            enemies: [
+              { name: "Ash Horror", level: 41, moodId: "berserk" },
+              { name: "Cinder Husk", level: 41, moodId: "berserk" },
+              { name: "Ash Skulker", level: 41, moodId: "berserk" },
+              { name: "Remnant of Rust", level: 41, moodId: "berserk" },
+              { name: "Faded War Wraith", level: 41, moodId: "berserk" },
+              {
+                name: "Rustbound Marshal",
+                level: 40,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/rustbound_marshal.png"
+              },
+              {
+                name: "Bannerless Wraithlord",
+                level: 41,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/bannerless_wraithlord.png"
+              },
+              {
+                name: "The Last Warmaster",
+                level: 43,
+                moodId: "steady",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_last_warmaster.png"
               }
             ]
           }

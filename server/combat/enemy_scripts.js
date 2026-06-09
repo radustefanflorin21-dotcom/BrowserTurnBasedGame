@@ -849,6 +849,155 @@ const SCRIPT_HANDLERS = {
     return true;
   },
 
+  fallen_echo(foe, st, ctx) {
+    const member = ctx.pickTarget("bruiser");
+    if (ctx.ready("echo_strike")) {
+      ctx.setCd("echo_strike", 2);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.45 * ctx.outMult)), "Echo Strike hits");
+      return true;
+    }
+    if (ctx.ready("broken_march")) {
+      ctx.setCd("broken_march", 3);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.4 * ctx.outMult)), "Broken March staggers");
+      if (ctx.rng.chance(0.3)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.45 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  rustbound_marshal(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    if (ctx.ready("corrode_command")) {
+      ctx.setCd("corrode_command", 3);
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        if (ctx.rng.chance(0.45)) {
+          ensureCombatStatus(st);
+          st.status.playerPhysDamageDownPct = Math.max(st.status.playerPhysDamageDownPct || 0, 6);
+          st.status.playerMagicDamageDownPct = Math.max(st.status.playerMagicDamageDownPct || 0, 6);
+          st.status.playerPhysDamageDownTurns = Math.max(st.status.playerPhysDamageDownTurns || 0, 2);
+          st.status.playerMagicDamageDownTurns = Math.max(st.status.playerMagicDamageDownTurns || 0, 2);
+        }
+      }
+      ctx.log(`${foe.name} issues Corrode Command.`);
+      return true;
+    }
+    if (ctx.ready("rusted_guard")) {
+      ctx.setCd("rusted_guard", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Rusted Guard.`);
+      return true;
+    }
+    if (ctx.ready("marshals_cleave")) {
+      ctx.setCd("marshals_cleave", 2);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.85 * ctx.outMult)), "Marshal's Cleave cuts");
+      return true;
+    }
+    if (ctx.ready("chain_order")) {
+      ctx.setCd("chain_order", 4);
+      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.55 * ctx.outMult)), "Chain Order binds");
+      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.55 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  bannerless_wraithlord(foe, st, ctx) {
+    const member = ctx.pickTarget("mage");
+    const intv = foe.int || 20;
+    const livingFoes = (st.foes || []).filter((f) => f && f.hp > 0).length;
+    if (ctx.ready("call_fallen") && livingFoes < 8) {
+      ctx.setCd("call_fallen", 4);
+      spawnReinforcement(st, "Fallen Echo", ctx.rng);
+      return true;
+    }
+    if (ctx.ready("soul_chill")) {
+      ctx.setCd("soul_chill", 3);
+      const dmg = Math.max(1, Math.floor(intv * 0.4 * ctx.outMult));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Soul Chill washes over");
+      return true;
+    }
+    if (ctx.ready("banner_curse")) {
+      ctx.setCd("banner_curse", 3);
+      ctx.hit(member, Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "Banner Curse haunts");
+      return true;
+    }
+    if (ctx.ready("haunting_bolt")) {
+      ctx.setCd("haunting_bolt", 2);
+      ctx.hit(member, Math.max(1, Math.floor(intv * 0.6 * ctx.outMult)), "Haunting Bolt strikes");
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "chills");
+    return true;
+  },
+
+  the_last_warmaster(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const hpFrac = ctx.foeHpFrac();
+    const strv = foe.str || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    if (hpFrac <= 0.7 && !foe.combat.warmasterPhase2) {
+      foe.combat.warmasterPhase2 = true;
+      foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
+      ctx.log(`${foe.name} enters The War Returns.`);
+      spawnReinforcement(st, "Remnant of Rust", ctx.rng);
+      spawnReinforcement(st, "Faded War Wraith", ctx.rng);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.warmasterPhase3) {
+      foe.combat.warmasterPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      ctx.log(`${foe.name} enters No Surrender.`);
+      return true;
+    }
+    const fallenCount = (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Fallen Echo").length;
+    if (ctx.ready("raise_the_fallen") && fallenCount < 3 && (st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
+      ctx.setCd("raise_the_fallen", 5);
+      spawnReinforcement(st, "Fallen Echo", ctx.rng);
+      return true;
+    }
+    if (ctx.ready("commanding_ruin")) {
+      ctx.setCd("commanding_ruin", 3);
+      ctx.log(`${foe.name} unleashes Commanding Ruin.`);
+      return true;
+    }
+    if (ctx.ready("warmasters_execution")) {
+      ctx.setCd("warmasters_execution", 2);
+      let hit = Math.max(1, Math.floor(strv * 1.05 * ctx.outMult * dmgBonus));
+      if (member.maxHp > 0 && member.hp / member.maxHp < 0.4) hit = Math.max(1, Math.floor(hit * 1.2));
+      ctx.hit(member, hit, "Warmaster's Execution falls");
+      return true;
+    }
+    if (ctx.ready("ruststorm_slash")) {
+      ctx.setCd("ruststorm_slash", 4);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 0.7 * ctx.outMult * dmgBonus)), "Ruststorm Slash tears through");
+      return true;
+    }
+    if (ctx.ready("no_retreat")) {
+      ctx.setCd("no_retreat", 4);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 8);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} declares No Retreat.`);
+      return true;
+    }
+    if (foe.combat.warmasterPhase3 && ctx.ready("final_order")) {
+      ctx.setCd("final_order", 5);
+      const hit = Math.max(1, Math.floor(strv * 0.55 * ctx.outMult * dmgBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, hit, "Final Order shakes the chamber");
+      return true;
+    }
+    const basicMult = foe.combat.warmasterPhase3 ? 0.55 : 0.65;
+    ctx.hit(member, Math.max(1, Math.floor(strv * basicMult * ctx.outMult * dmgBonus)), "strikes");
+    return true;
+  },
+
   gorilla(foe, st, ctx) {
     const member = ctx.pickTarget("bruiser");
     foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;

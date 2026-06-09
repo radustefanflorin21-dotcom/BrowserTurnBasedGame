@@ -90,3 +90,35 @@ export function tryProcSleepingWinterAccuracyOnCripple(equipment, foe, rng) {
   applyFoeAccuracyDown(foe, 6, 1);
   return `${foe.name}'s accuracy falters (Sleeping Winter).`;
 }
+
+export function applyFoeMagResDown(foe, pct, turns) {
+  if (!foe) return;
+  ensureFoeCombat(foe);
+  const c = foe.combat;
+  c.magResDownPct = Math.max(c.magResDownPct || 0, Math.max(0, pct));
+  c.magResDownTurns = Math.max(c.magResDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+export function applyFoeBothDmgDown(foe, pct, turns) {
+  if (!foe) return;
+  ensureFoeCombat(foe);
+  const c = foe.combat;
+  c.bothDmgDownPct = Math.max(c.bothDmgDownPct || 0, Math.max(0, pct));
+  c.bothDmgDownTurns = Math.max(c.bothDmgDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+export function tryProcBannerlessMagResOnAccuracyDebuff(equipment, foe, rng) {
+  if (!foe || foe.hp <= 0) return null;
+  if (countEquippedSetPieces(equipment, "Bannerless") < 2) return null;
+  if (!rng?.chance?.(0.15)) return null;
+  applyFoeMagResDown(foe, 5, 1);
+  return `${foe.name}'s magic resist falters (Bannerless).`;
+}
+
+export function tryProcWarmasterBothDmgDownOnHit(equipment, foe, rng, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return null;
+  if (countEquippedSetPieces(equipment, "Warmaster") < 4) return null;
+  if (!rng?.chance?.(0.2)) return null;
+  applyFoeBothDmgDown(foe, 5, 1);
+  return `${foe.name} is suppressed by war echo (Warmaster).`;
+}

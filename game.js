@@ -2737,6 +2737,22 @@ function tryProcSleepingWinterAccuracyOnCripple(st, equipment, foe) {
   appendFightLog(`${foe.name}'s accuracy falters (Sleeping Winter).`);
 }
 
+function tryProcBannerlessMagResOnAccuracyDebuff(st, equipment, foe) {
+  if (!foe || foe.hp <= 0) return;
+  if (!equipment || countEquippedSetPieces(equipment, "Bannerless") < 2) return;
+  if (Math.random() >= 0.15) return;
+  applyFoeMagResDown(foe, 5, 1);
+  appendFightLog(`${foe.name}'s magic resist falters (Bannerless).`);
+}
+
+function tryProcWarmasterBothDmgDownOnHit(st, equipment, foe, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return;
+  if (!equipment || countEquippedSetPieces(equipment, "Warmaster") < 4) return;
+  if (Math.random() >= 0.2) return;
+  applyFoeBothDmgDown(foe, 5, 1);
+  appendFightLog(`${foe.name} is suppressed by war echo (Warmaster).`);
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -4716,6 +4732,54 @@ function applyPlayerSuppressedDamageDownBoth(st, pct, turns) {
   s.playerMagicDamageDownTurns = Math.max(s.playerMagicDamageDownTurns || 0, t);
 }
 
+function applyPartyMemberPhysDamageDown(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerPhysDamageDownPct = Math.max(st.status.playerPhysDamageDownPct || 0, p);
+    st.status.playerPhysDamageDownTurns = Math.max(st.status.playerPhysDamageDownTurns || 0, t);
+    return;
+  }
+  member.physDamageDownPct = Math.max(member.physDamageDownPct || 0, p);
+  member.physDamageDownTurns = Math.max(member.physDamageDownTurns || 0, t);
+}
+
+function applyPartyMemberSuppressedDamageDownBoth(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    applyPlayerSuppressedDamageDownBoth(st, p, t);
+    return;
+  }
+  member.physDamageDownPct = Math.max(member.physDamageDownPct || 0, p);
+  member.physDamageDownTurns = Math.max(member.physDamageDownTurns || 0, t);
+  member.magicDamageDownPct = Math.max(member.magicDamageDownPct || 0, p);
+  member.magicDamageDownTurns = Math.max(member.magicDamageDownTurns || 0, t);
+}
+
+function applyFoeMagResDown(foe, pct, turns) {
+  if (!foe) return;
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  const t = Math.max(1, Math.floor(turns));
+  foe.combat.magResDownPct = Math.max(foe.combat.magResDownPct || 0, Math.max(0, pct));
+  foe.combat.magResDownTurns = Math.max(foe.combat.magResDownTurns || 0, t);
+}
+
+function applyFoeBothDmgDown(foe, pct, turns) {
+  if (!foe) return;
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  const t = Math.max(1, Math.floor(turns));
+  foe.combat.bothDmgDownPct = Math.max(foe.combat.bothDmgDownPct || 0, Math.max(0, pct));
+  foe.combat.bothDmgDownTurns = Math.max(foe.combat.bothDmgDownTurns || 0, t);
+}
+
+function countLivingFoesNamed(st, name) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === name).length;
+}
+
 /**
  * +1 turn on active debuffs (Terror Pulse, Tidal Surge). Each field is capped at {@link PLAYER_DEBUFF_EXTEND_CAP_TURNS} after extension.
  */
@@ -5207,6 +5271,30 @@ function isDungeonWinterStillnessCombat(st) {
   return isDungeonMechanicCombat(st, "winterStillness");
 }
 
+function isDungeonRustCloudCombat(st) {
+  return isDungeonMechanicCombat(st, "rustCloud");
+}
+
+function isDungeonWarEchoCombat(st) {
+  return isDungeonMechanicCombat(st, "warEcho");
+}
+
+function isLastWarmasterPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) =>
+      f &&
+      f.name === "The Last Warmaster" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function getDungeonWarEchoInterval(st) {
+  return isLastWarmasterPhase3Active(st) ? 3 : 4;
+}
+
 function isSleepingChildPhase3Active(st) {
   if (!st || !Array.isArray(st.foes)) return false;
   return st.foes.some(
@@ -5591,6 +5679,52 @@ function applyFrostrootBossSeedlingsIfDue(st, round) {
   }
 }
 
+function applyDungeonRustCloudIfDue(st, round) {
+  if (!isDungeonRustCloudCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 2) return;
+  if (round % 3 !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    applyPartyMemberPhysDamageDown(st, pick, 6, 1);
+    appendFightLog(`Rust Cloud weakens ${pick.name || "a fighter"} (−6% physical damage).`);
+  }
+}
+
+function applyDungeonWarEchoIfDue(st, round) {
+  if (!isDungeonWarEchoCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 3) return;
+  const interval = getDungeonWarEchoInterval(st);
+  if (round % interval !== 0) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.3) {
+    applyPartyMemberBlind(st, pick, 6, 1);
+    appendFightLog(`War Echo dulls ${pick.name || "a fighter"} (−6% accuracy).`);
+  }
+}
+
+function applyRustfallenBossReinforcementsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "rustfallen_bastion") return;
+  const def = getDungeonDef("rustfallen_bastion");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  const phase3 = isLastWarmasterPhase3Active(st);
+  const scheduled = round === 8 || round === 12;
+  const phasePulse = phase3 && round % 3 === 0;
+  if (!scheduled && !phasePulse) return;
+  if (summonDungeonReinforcement(st, "Fallen Echo")) {
+    appendFightLog("Ash stirs—a Fallen Echo answers the Warmaster's command!");
+  }
+}
+
 function applyWitheredMawBossReinforcementsIfDue(st, round) {
   const ctx = st && st.worldMapContext;
   if (!ctx || ctx.dungeonId !== "withered_maw") return;
@@ -5614,6 +5748,9 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyRootwarrenBossReinforcementsIfDue(st, round);
   applyWitheredMawBossReinforcementsIfDue(st, round);
   applyFrostrootBossSeedlingsIfDue(st, round);
+  applyDungeonRustCloudIfDue(st, round);
+  applyDungeonWarEchoIfDue(st, round);
+  applyRustfallenBossReinforcementsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -7475,10 +7612,10 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     // Role (config): summoner.
     const targetUid = pickPartyTargetForMonsterTargetRule(st, "weakest");
     const partyUid = typeof targetUid === "number" ? targetUid : null;
-    const hasFallen = st.foes.some((f) => f.name === "Fallen Echo");
+    const fallenCount = countLivingFoesNamed(st, "Fallen Echo");
 
     // 3) Summoner priority: summon first.
-    if (!hasFallen && ready("call_fallen")) {
+    if (fallenCount < 1 && ready("call_fallen") && (st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
       setCd("call_fallen", 4);
       summonCombatMinion(st, foe, "Fallen Echo", 0.14, 0.2);
       return true;
@@ -9059,6 +9196,186 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       dealRawDamageToPlayerAdjacent(st, basicDmg, foe.name, "winter-touches", partyUid, 1, 1);
     } else {
       dealRawDamageToPlayer(st, basicDmg, foe.name, "winter-touches you", { partyUid });
+    }
+    return true;
+  }
+
+  if (scriptId === "fallen_echo") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "bruiser");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("echo_strike")) {
+      setCd("echo_strike", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.45 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Echo Strike hits you", { partyUid });
+      return true;
+    }
+    if (ready("broken_march")) {
+      setCd("broken_march", 3);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.4 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Broken March staggers you", { partyUid });
+      if (Math.random() < 0.3) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.str || 20) * 0.45 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "rustbound_marshal") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    if (ready("corrode_command")) {
+      setCd("corrode_command", 3);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberSuppressedDamageDownBoth(st, m, 6, 2);
+      }
+      appendFightLog(`${foe.name} issues Corrode Command.`);
+      return true;
+    }
+    if (ready("rusted_guard")) {
+      setCd("rusted_guard", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Rusted Guard.`);
+      return true;
+    }
+    if (ready("marshals_cleave")) {
+      setCd("marshals_cleave", 2);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.85 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Marshal's Cleave cuts", partyUid, 1, 1);
+      if (Math.random() < 0.4) applyPartyMemberIncomingDamageUp(st, member, 6, 2);
+      return true;
+    }
+    if (ready("chain_order")) {
+      setCd("chain_order", 4);
+      const hit = Math.max(1, Math.floor((foe.str || 20) * 0.55 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Chain Order binds you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.str || 20) * 0.55 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "bannerless_wraithlord") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const intv = foe.int || 20;
+    const livingFoes = (st.foes || []).filter((f) => f && f.hp > 0).length;
+    if (ready("call_fallen") && livingFoes < 8) {
+      setCd("call_fallen", 4);
+      summonDungeonReinforcement(st, "Fallen Echo");
+      return true;
+    }
+    if (ready("soul_chill")) {
+      setCd("soul_chill", 3);
+      const dmg = Math.max(1, Math.floor(intv * 0.4 * outMult));
+      dealRawDamageToPlayer(st, dmg, foe.name, "Soul Chill washes over you", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.4) applyPartyMemberBlind(st, m, 6, 2);
+      }
+      return true;
+    }
+    if (ready("banner_curse")) {
+      setCd("banner_curse", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.35 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Banner Curse haunts you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ready("haunting_bolt")) {
+      setCd("haunting_bolt", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.6 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Haunting Bolt strikes you", { partyUid });
+      if (Math.random() < 0.35) applyPartyMemberStatusResistDown(st, member, 5, 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.35 * outMult)), foe.name, "chills you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "the_last_warmaster") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const strv = foe.str || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    if (hpFrac <= 0.7 && !foe.combat.warmasterPhase2) {
+      foe.combat.warmasterPhase2 = true;
+      foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} enters The War Returns (+resist).`);
+      summonDungeonReinforcement(st, "Remnant of Rust");
+      summonDungeonReinforcement(st, "Faded War Wraith");
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.warmasterPhase3) {
+      foe.combat.warmasterPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} enters No Surrender—Fallen reinforcements quicken.`);
+      return true;
+    }
+    const fallenCount = countLivingFoesNamed(st, "Fallen Echo");
+    if (ready("raise_the_fallen") && fallenCount < 3 && (st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
+      setCd("raise_the_fallen", 5);
+      summonDungeonReinforcement(st, "Fallen Echo");
+      return true;
+    }
+    if (ready("commanding_ruin")) {
+      setCd("commanding_ruin", 3);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberSuppressedDamageDownBoth(st, m, 8, 2);
+      }
+      appendFightLog(`${foe.name} unleashes Commanding Ruin.`);
+      return true;
+    }
+    if (ready("warmasters_execution")) {
+      setCd("warmasters_execution", 2);
+      let hit = Math.max(1, Math.floor(strv * 1.05 * outMult * dmgBonus * accBonus));
+      const tgt = getPartyMemberByUid(st, partyUid);
+      if (tgt && tgt.maxHp > 0 && tgt.hp / tgt.maxHp < 0.4) hit = Math.max(1, Math.floor(hit * 1.2));
+      dealRawDamageToPlayer(st, hit, foe.name, "Warmaster's Execution falls on you", { partyUid });
+      return true;
+    }
+    if (ready("ruststorm_slash")) {
+      setCd("ruststorm_slash", 4);
+      const hit = Math.max(1, Math.floor(strv * 0.7 * outMult * dmgBonus * accBonus));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Ruststorm Slash tears through", partyUid, 2, 1);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.4) applyPartyMemberIncomingDamageUp(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (ready("no_retreat")) {
+      setCd("no_retreat", 4);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 8);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} declares No Retreat.`);
+      return true;
+    }
+    if (foe.combat.warmasterPhase3 && ready("final_order")) {
+      setCd("final_order", 5);
+      const hit = Math.max(1, Math.floor(strv * 0.55 * outMult * dmgBonus * accBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Final Order shakes the chamber", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        tryPartyMemberStun(st, m, 0.18);
+      }
+      return true;
+    }
+    const basicMult = foe.combat.warmasterPhase3 ? 0.55 : 0.65;
+    const basicHit = Math.max(1, Math.floor(strv * basicMult * outMult * dmgBonus * accBonus));
+    if (foe.combat.warmasterPhase3) {
+      dealRawDamageToPlayerAdjacent(st, basicHit, foe.name, "strikes", partyUid, 1, 1);
+    } else {
+      dealRawDamageToPlayer(st, basicHit, foe.name, "strikes you", { partyUid });
     }
     return true;
   }
@@ -11295,9 +11612,20 @@ function getSleepingChildPhaseTransitionLogMessage(stemIndex) {
   return byStem[ix] || "The Sleeping Child's domain shifts into a new phase.";
 }
 
+function getLastWarmasterPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "Ghostly whispers rise—the war table glows beneath the ash.",
+    2: "Spectral banners rise—weapons rattle as fallen soldiers stir.",
+    3: "Red ghost-light burns—the command chamber relives the final battle."
+  };
+  return byStem[ix] || "The Last Warmaster's domain shifts into a new phase.";
+}
+
 function getBossPhaseTransitionLogMessage(dungeonId, stemIndex) {
   if (dungeonId === "stonevein_sanctum") return getColossusPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "frostroot_nursery") return getSleepingChildPhaseTransitionLogMessage(stemIndex);
+  if (dungeonId === "rustfallen_bastion") return getLastWarmasterPhaseTransitionLogMessage(stemIndex);
   return getLeviathanPhaseTransitionLogMessage(stemIndex);
 }
 
@@ -11311,7 +11639,9 @@ function shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st) {
   const colossus = st.foes && st.foes.find((f) => f && f.name === "The Held Colossus" && f.hp > 0);
   if (colossus) return true;
   const sleepingChild = st.foes && st.foes.find((f) => f && f.name === "The Sleeping Child of Winter" && f.hp > 0);
-  return !!sleepingChild;
+  if (sleepingChild) return true;
+  const warmaster = st.foes && st.foes.find((f) => f && f.name === "The Last Warmaster" && f.hp > 0);
+  return !!warmaster;
 }
 
 function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
@@ -11868,6 +12198,13 @@ function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
     co.foes && co.foes.find((f) => f && f.name === "The Sleeping Child of Winter" && f.hp > 0);
   if (sleepingChild && sleepingChild.maxHp > 0) {
     const frac = sleepingChild.hp / sleepingChild.maxHp;
+    if (frac > 0.7) return Math.min(1, stems.length - 1);
+    if (frac > 0.35) return Math.min(2, stems.length - 1);
+    return Math.min(3, stems.length - 1);
+  }
+  const warmaster = co.foes && co.foes.find((f) => f && f.name === "The Last Warmaster" && f.hp > 0);
+  if (warmaster && warmaster.maxHp > 0) {
+    const frac = warmaster.hp / warmaster.maxHp;
     if (frac > 0.7) return Math.min(1, stems.length - 1);
     if (frac > 0.35) return Math.min(2, stems.length - 1);
     return Math.min(3, stems.length - 1);
@@ -12594,6 +12931,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "captain_ilyra_voss_epilogue") {
+    const rbDef = getDungeonDef("rustfallen_bastion");
+    const ex =
+      rbDef && rbDef.entrance && typeof rbDef.entrance.x === "number" ? Math.floor(rbDef.entrance.x) : 45;
+    const ey =
+      rbDef && rbDef.entrance && typeof rbDef.entrance.y === "number" ? Math.floor(rbDef.entrance.y) : 21;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(71.37276785714286),
+        topPct: clampScenePct(66.79382540809084),
+        scalePct: clampSceneScalePct(104)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -12762,6 +13113,19 @@ function buildNpcLayoutExportByCoordinate() {
       const epId = "elowen_snowbud_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 50 && epPos.topPct === 50 && epPos.scalePct === 80;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const rbDef = getDungeonDef("rustfallen_bastion");
+    const rbEnt =
+      rbDef && rbDef.entrance && typeof rbDef.entrance.x === "number" && typeof rbDef.entrance.y === "number"
+        ? { x: Math.floor(rbDef.entrance.x), y: Math.floor(rbDef.entrance.y) }
+        : null;
+    if (rbEnt && x === rbEnt.x && y === rbEnt.y) {
+      const epId = "captain_ilyra_voss_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 71.37276785714286 && epPos.topPct === 66.79382540809084 && epPos.scalePct === 104;
       if (!epDefault) {
         rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
       }
@@ -16894,6 +17258,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
       if (member.kind === "hero") applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
       applyReflectDamageToPartyHero(st, dmg, foe);
       if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+      if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
       }
@@ -16970,6 +17335,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
   if (member.kind === "hero") applyPlayerClassSkillOnHit(st, skillName, foe, dmg, !!res.crit);
   applyReflectDamageToPartyHero(st, dmg, foe);
   if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+  if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (foe.combat && foe.combat.script === "tusk_boar") {
     foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
   }
@@ -17419,6 +17785,36 @@ function openMerritRootsnifferKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("rootwarren");
 }
 
+function openCaptainIlyraVossEntranceDialog() {
+  const def = getDungeonDef("rustfallen_bastion");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Rustfallen Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Captain Ilyra Voss</p>
+      <p class="npc-dialog-body">That key opens a grave that should have stayed shut. The Bastion still thinks the war is happening. If you enter, it will draft you into a battle that ended years ago.</p>
+      <p class="npc-dialog-body">Hand me the Rustfallen Key, and I will open the gate.</p>
+      <p class="npc-dialog-actions-label">Action options</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="rustfallen_bastion">Use the Rustfallen Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="rustfallen_bastion">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Captain Ilyra Voss</p>
+    <p class="npc-dialog-body">No Rustfallen Key, no entry. Good. That place has enough dead heroes.</p>
+    <p class="npc-dialog-body">Bring the key if you insist on becoming another bad idea in armor.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="rustfallen_bastion">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
 function openElowenSnowbudEntranceDialog() {
   const def = getDungeonDef("frostroot_nursery");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Frostroot Key";
@@ -17576,6 +17972,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openElowenSnowbudEntranceDialog();
     return;
   }
+  if (id === "rustfallen_bastion") {
+    openCaptainIlyraVossEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -17602,7 +18002,9 @@ function openDungeonKeyAcceptedDialog(dungeonId) {
         ? "Old Varro pries the sand aside. Heat rolls up from the Maw below."
         : id === "frostroot_nursery"
           ? "Elowen touches the frozen arch. The roots peel aside with a soft, mournful sigh."
-          : "The key turns by itself. Thunder exhales from the gap ahead.";
+          : id === "rustfallen_bastion"
+            ? "Captain Ilyra turns the rusted key. The gate exhales ash and old marching echoes."
+            : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -17778,6 +18180,20 @@ function openDungeonEpilogueDialog(dungeonId) {
     showModalHtml(html, { npcBubble: true });
     return;
   }
+  if (id === "rustfallen_bastion") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Captain Ilyra Voss</p>
+    <p class="npc-dialog-body">The marching stopped. For the first time, the Bastion is silent.</p>
+    <p class="npc-dialog-body">You ended something old in there. Come back to the living side of the gate.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Leave the bastion</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay a moment</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
   const def = getDungeonDef(id);
   const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
   const html = `<div class="npc-dialog-bubble">
@@ -17921,6 +18337,35 @@ function buildDungeonEpilogueSceneHtml() {
       return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. Elowen listens to a lullaby that finally stopped trembling.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    if (dungeonId === "rustfallen_bastion") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "captain_ilyra_voss");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Captain Ilyra Voss", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Captain Ilyra Voss" aria-label="Captain Ilyra Voss"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "captain_ilyra_voss_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Captain Ilyra stands guard as the marching finally stops.</p>
     <div class="${actionsClass}">
       ${btn}
     </div>

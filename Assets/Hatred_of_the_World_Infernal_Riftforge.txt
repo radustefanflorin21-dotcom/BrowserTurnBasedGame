@@ -1,0 +1,250 @@
+DUNGEON: THE INFERNAL RIFTFORGE
+REGION: Hatred of the World
+RECOMMENDED LEVEL: 48-55
+ROOMS: 6
+DUNGEON TYPE: Group dungeon
+KEY: Riftforge Key
+KEY CONSUMED ON ENTRY: Yes
+MAIN THEMES: lava, volcanic rage, burn, reflect, armor melt, physical burst, destructive boss phases.
+
+============================================================
+1. ENTRANCE NPC
+============================================================
+NPC NAME: Kael Ashbrand
+ROLE: Dungeon entrance NPC
+LOCATION: Hatred of the World, beside a cracked obsidian forge gate pouring smoke and orange light.
+
+NPC VISUAL DESCRIPTION:
+Kael Ashbrand is a burned but stubborn forge exile wearing soot-black leather, cracked metal plates, and a hood scorched at the edges. His arms are wrapped in heat-resistant cloth and old chain. One side of his face is marked by healed burn scars, and his eyes reflect firelight. He carries a heavy iron hammer and a ring of blackened keys.
+
+NPC DIALOGUE - HAS KEY:
+"That gate is not locked to keep us out. It is locked because something inside still wants to finish burning the world. Give me the Riftforge Key, and I will open it. Quickly. The metal gets angry when it waits."
+
+NPC DIALOGUE - NO KEY:
+"No Riftforge Key? Then keep your eyebrows and walk away. The forge only opens for fire-marked steel, and fools with empty hands become smoke."
+
+NPC DIALOGUE - AFTER BOSS:
+"The forge roared, then choked. You broke its hatred for now. Come out before the mountain remembers how to breathe fire."
+
+============================================================
+2. KEY
+============================================================
+KEY NAME: Riftforge Key
+TYPE: Dungeon key
+PROFESSION: Provisioner
+REQUIRED CRAFTING LEVEL: 50
+RECIPE SLOTS: 8
+
+KEY RECIPE:
+1. Ash Scale x6
+2. Ember Fang x5
+3. Heat Core x4
+4. Cinder Thread x5
+5. Magma Hide x4
+6. Lava Resin x5
+7. Scorch Essence x4
+8. Inferno Core x2
+
+KEY VISUAL DESCRIPTION:
+A black obsidian-and-iron key glowing with cracks of molten orange light. The handle is shaped like a rough flame ring, and the teeth resemble jagged volcanic glass. Heat shimmer surrounds it, and tiny sparks fall from it like embers.
+
+============================================================
+3. DUNGEON MECHANICS
+============================================================
+MECHANIC: Heat Surge
+Starts in Room 3. Every 3 rounds, one random player has a 35% chance to receive Burn for 2 turns. Burn deals 10% of the triggering heat damage equivalent per turn.
+
+MECHANIC: Molten Floor
+Starts in Room 4. Every 4 rounds, one random player has 30% chance to receive Fragile for 1 turn, causing them to take extra flat damage from incoming hits.
+
+BOSS ROOM MECHANIC: Forge Eruptions
+Room 6 only:
+- Round 8: summon 1 Ember Forgeling
+- Round 12: summon 1 Ember Forgeling
+Do not summon if 8 enemies are already alive.
+
+============================================================
+4. ROOM STRUCTURES
+============================================================
+ROOM 1: Ashen Intake
+Enemies: Ash Lizard x2, Cinder Stalker x2, Ember Scuttler x1, Magma Boar x1
+Total enemies: 6
+Visuals: A black volcanic tunnel with vents of smoke, cooling lava rivers, and glowing ash on the floor.
+
+ROOM 2: The Burning Chainworks
+Enemies: Ash Lizard x2, Cinder Stalker x2, Ember Scuttler x2, Magma Boar x1
+Total enemies: 7
+Visuals: A ruined forge hall full of hanging chains, molten hooks, and red-orange light reflected on black stone.
+
+ROOM 3: Scuttler Furnace
+Enemies: Ember Scuttler x2, Ash Lizard x2, Cinder Stalker x1, Magma Boar x1, Lava Basilisk x1
+Total enemies: 7
+Visuals: A furnace chamber of broken pipes, lava pools, and metal plates heated red-hot.
+
+ROOM 4: Basilisk Kiln
+Elite room 1.
+Enemies: Lava Basilisk x2, Ember Scuttler x2, Ash Lizard x1, Cinder Stalker x1, Magma Boar x1, Molten Oracle x1
+Total enemies: 8
+Visuals: A circular kiln full of petrified molten statues and fire-lit smoke. The walls look glazed by repeated heat.
+
+ROOM 5: The Rage Anvil
+Elite room 2.
+Enemies: Magma Boar x2, Cinder Stalker x2, Lava Basilisk x1, Ember Scuttler x1, Ash Lizard x1, Ashmaw Titan x1
+Total enemies: 8
+Visuals: A giant anvil platform above lava, cracked by impacts. Huge hammer marks and splashes of molten metal cover the floor.
+
+ROOM 6: The World-Hate Forge
+Boss room.
+Enemies: Ash Lizard x1, Cinder Stalker x1, Ember Scuttler x1, Magma Boar x1, Lava Basilisk x1, Molten Oracle x1, Ashmaw Titan x1, The Riftforge Tyrant x1
+Total enemies: 8
+Visuals: A colossal volcanic forge built around a lava rift. Chains, obsidian pillars, molten channels, and a furnace-heart dominate the arena.
+
+BOSS ROOM PHASE VISUALS:
+Phase 1 - Banked Hatred: Lava glows low, chains hang still, forge-heart pulses slowly.
+Phase 2 - Furnace Unchained: At 70% HP, chains snap, lava channels overflow, sparks storm through the room.
+Phase 3 - Worldfire: At 35% HP, the rift tears open, the forge-heart burns white-orange, and the arena looks close to melting.
+
+============================================================
+5. ELITE AND BOSS MONSTERS
+============================================================
+ELITE 1: MOLTEN ORACLE
+Level: 52
+Rarity: Epic Elite
+Role: Controller/Mage
+Stamina: 7
+HP: 1450
+Stats: STR 32, DEX 60, VIT 82, INT 150
+
+Visual Description:
+A lava basilisk prophet with molten eyes, black glass scales, and a crown of burning stone horns. Its body is long and low, but its head is raised like a priest of fire. Lava glows under its cracked hide.
+
+Skills:
+- Inferno Gaze: Cooldown 2. Magical INT x 60%. 45% Burn chance, 12% dealt damage per turn, 3 turns.
+- Petrifying Heat: Cooldown 4. Magical INT x 45%. 18% Stun chance, 1 turn.
+- Melt Defenses: Cooldown 3. Single target. 45% Both resists down -8% for 2 turns.
+- Ember Prophecy: Cooldown 4. All allies gain Magic dmg +8% for 2 turns.
+- Basic: Magical INT x 40%, accuracy 90%, crit 3%.
+
+ELITE 2: ASHMAW TITAN
+Level: 53
+Rarity: Epic Elite
+Role: Bruiser
+Stamina: 7
+HP: 1650
+Stats: STR 150, DEX 54, VIT 96, INT 35
+
+Visual Description:
+A towering magma boar/titan hybrid with cracked black armor plates and lava glowing between them. Its tusks are molten stone, its shoulders are huge, and every breath releases sparks and ash.
+
+Skills:
+- Molten Charge: Cooldown 2. Physical STR x 110%. 40% Fragile chance, 1 turn.
+- Boiling Rage: Cooldown 3. Self gains Phys dmg +10% for 2 turns.
+- Ashbreaker Slam: Cooldown 4. Target + 1 adjacent. Physical STR x 70%. 35% Cripple chance, 1 turn.
+- Lava Armor: Cooldown 4. Self gains Phys resist +8% and reflect 10% for 2 turns.
+- Basic: Physical STR x 60%, accuracy 88%, crit 4%.
+
+BOSS: THE RIFTFORGE TYRANT
+Level: 55
+Rarity: Myth Boss
+Role: Bruiser/Controller
+Stamina: 8
+HP: 5200
+Stats: STR 170, DEX 70, VIT 135, INT 105
+
+Visual Description:
+A colossal demon-forge beast made of obsidian armor, molten veins, and living hatred. Its torso resembles a furnace, its arms are huge smithing hammers, and its head is crowned with broken volcanic horns. It should look like a boss born from lava and rage.
+
+Boss Phases:
+Phase 1 - Banked Hatred, 100%-70%: normal rotation.
+Phase 2 - Furnace Unchained, 70%: gains Phys dmg +8% and Magic dmg +8%, summons 1 Ember Scuttler and 1 Ash Lizard.
+Phase 3 - Worldfire, 35%: gains Accuracy +8%, Heat Surge triggers every 2 rounds, basic attacks hit target + 1 adjacent.
+
+Boss Skills:
+- Tyrant's Hammer: Cooldown 2. Physical STR x 105%. +15% final damage if target is Fragile.
+- Riftflame Breath: Cooldown 3. All players. Magical INT x 45%. 45% Burn chance for 2 turns.
+- Molten Sentence: Cooldown 4. Single target. 45% Both damage down -8% for 2 turns and 35% Fatigue for 1 turn.
+- Forgehide: Cooldown 4. Self gains Damage reduction 15% and Status resist +8% for 2 turns.
+- Worldfire Eruption: Cooldown 5, Phase 2+. Target + 2 adjacent. Hybrid damage STR x 45% + INT x 35%. 40% Burn chance.
+- Hatred Unbound: Cooldown 5, Phase 3 only. All players. Magical INT x 55%. 18% Stun chance for 1 turn.
+- Basic: Physical STR x 65%. Phase 3 target + 1 adjacent at STR x 55%.
+
+BOSS SUMMON: EMBER FORGELING
+Level: 48
+Role: Bruiser summon
+HP: 320
+Stats: STR 64, DEX 36, VIT 42, INT 24
+Skills: Ember Punch physical STR x 45%. Spark Spray 30% Burn chance for 1 turn.
+
+============================================================
+6. ELITE/BOSS RESOURCE DROPS
+============================================================
+Molten Oracle: Oracle Ember Eye 70%, Molten Sheen Scale 55%, Petrifying Heat Core 35%, Oracle Inferno Core 15%
+Ashmaw Titan: Ashmaw Plate 70%, Molten Tusk Shard 55%, Boiling Rage Core 35%, Ashmaw Titan Heart 15%
+The Riftforge Tyrant: Tyrant Obsidian Plate 100%, Riftflame Horn 75%, Worldfire Core 45%, Hatred Furnace Heart 25%, Infernal Soulbrand 8%
+
+============================================================
+7. EQUIPMENT AND RECIPES
+============================================================
+STRUCTURE:
+- Molten Oracle: 1 non-set item
+- Ashmaw Titan: 2-piece set
+- Riftforge Tyrant: 4-piece boss set + 1 non-set item
+
+NON-SET ITEM: Oracle Ember Eye Amulet
+Type: Amulet
+Level: 53
+Stats: INT +36, DEX +20, Magic dmg % +9, Accuracy % +8, Status resist % +6
+Recipe: Oracle Inferno Core x1, Petrifying Heat Core x2, Oracle Ember Eye x3, Molten Sheen Scale x4, Heat Core x4, Scorch Essence x8, Inferno Core x2
+
+ASHMAW SET ITEM 1: Ashmaw Warplate
+Type: Chest
+Level: 53
+Stats: STR +40, VIT +30, HP +460, Phys resist % +9, Phys dmg % +9
+Recipe: Ashmaw Plate x4, Molten Tusk Shard x4, Boiling Rage Core x2, Magma Hide x8, Lava Resin x8, Heat Core x4, Inferno Core x2
+
+ASHMAW SET ITEM 2: Molten Tusk Bracers
+Type: Bracelet
+Level: 53
+Stats: STR +38, DEX +20, Phys dmg % +10, Accuracy % +7, Critical % +5
+Recipe: Molten Tusk Shard x4, Ashmaw Plate x3, Ashmaw Titan Heart x1, Ember Fang x8, Ash Scale x8, Scorch Essence x6, Heat Core x4
+
+ASHMAW SET BONUS:
+2 pieces: STR +24, VIT +14, HP +260, Phys dmg % +6, Phys resist % +5.
+2-piece status effect: Physical attacks have 15% chance to apply Fragile for 1 turn.
+
+TYRANT SET ITEM 1: Tyrant Obsidian Plate
+Type: Chest
+Level: 54
+Stats: STR +44, VIT +34, HP +520, Phys resist % +10, Magic resist % +6
+Recipe: Tyrant Obsidian Plate x5, Riftflame Horn x4, Worldfire Core x2, Ashmaw Plate x3, Magma Hide x10, Lava Resin x8, Inferno Core x3
+
+TYRANT SET ITEM 2: Riftflame Crown
+Type: Head
+Level: 54
+Stats: INT +36, STR +24, Magic dmg % +8, Accuracy % +7, Status resist % +6
+Recipe: Riftflame Horn x5, Tyrant Obsidian Plate x3, Hatred Furnace Heart x1, Oracle Ember Eye x3, Ash Scale x10, Cinder Thread x8, Scorch Essence x8
+
+TYRANT SET ITEM 3: Worldfire Greaves
+Type: Feet
+Level: 55
+Stats: STR +34, VIT +28, HP +340, Phys resist % +7, Status resist % +6
+Recipe: Worldfire Core x3, Tyrant Obsidian Plate x3, Riftflame Horn x3, Ashmaw Plate x3, Magma Hide x8, Lava Resin x10, Heat Core x4
+
+TYRANT SET ITEM 4: Furnacecleaver
+Type: Weapon, Two-handed Axe
+Level: 55
+Stats: STR +48, VIT +24, Phys dmg % +12, Accuracy % +8, Critical % +5
+Recipe: Infernal Soulbrand x1, Hatred Furnace Heart x2, Worldfire Core x4, Riftflame Horn x5, Molten Tusk Shard x4, Ember Fang x10, Inferno Core x3
+
+TYRANT SET BONUSES:
+2 pieces: STR +24, VIT +14, HP +260, Phys dmg % +5.
+3 pieces: STR +38, VIT +24, HP +440, Phys dmg % +9, Phys resist % +6.
+4 pieces: STR +52, VIT +34, HP +640, Phys dmg % +11, Magic resist % +7, Status resist % +7, Stamina +1.
+4-piece status effect: When applying Burn, 20% chance to also apply Both resists down -5% for 1 turn.
+Higher tier bonuses replace lower tier bonuses.
+
+NON-SET BOSS ITEM: Hatred Furnace Ring
+Type: Ring
+Level: 55
+Stats: STR +32, INT +24, Phys dmg % +7, Magic dmg % +6, Accuracy % +6
+Recipe: Hatred Furnace Heart x2, Infernal Soulbrand x1, Worldfire Core x2, Oracle Inferno Core x1, Lava Resin x8, Scorch Essence x8, Inferno Core x2

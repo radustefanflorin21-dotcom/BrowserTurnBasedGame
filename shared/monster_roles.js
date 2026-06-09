@@ -62,7 +62,11 @@ const MONSTER_ROLE_BY_SCRIPT_ID = {
   whitebark_matron: "support",
   frosthorn_bulwark: "tank",
   sleeping_child_of_winter: "support",
-  frostroot_seedling: "support"
+  frostroot_seedling: "support",
+  fallen_echo: "bruiser",
+  rustbound_marshal: "controller",
+  bannerless_wraithlord: "summoner",
+  the_last_warmaster: "bruiser"
 };
 
 function inferMonsterCombatRole(scriptId) {
