@@ -87,9 +87,20 @@
     syncParticipantCountFromPayload(data);
   }
 
+  function resolveSelectedFoeUid(prevState, serverState, foes) {
+    const alive = (foes || []).filter((f) => f && f.hp > 0);
+    if (!alive.length) return null;
+    const pick = (uid) => {
+      const n = Number(uid);
+      return Number.isFinite(n) && alive.some((f) => f.uid === n) ? n : null;
+    };
+    return pick(serverState?.selectedUid) ?? pick(prevState?.selectedUid) ?? alive[0].uid;
+  }
+
   function applyServerStateToCombat(serverState, region, mob, worldMapContext, extra = {}) {
     const st = serverState;
     const prevParticipants = combatState?.participants;
+    const prevSelectedUid = combatState?.selectedUid;
     combatState = {
       region: region || null,
       mob: mob || null,
@@ -118,7 +129,11 @@
           : Array.isArray(prevParticipants)
             ? prevParticipants.slice()
             : [],
-      selectedUid: st.selectedUid,
+      selectedUid: resolveSelectedFoeUid(
+        prevSelectedUid != null ? { selectedUid: prevSelectedUid } : null,
+        st,
+        st.foes
+      ),
       selectedAllyUid: st.selectedAllyUid,
       activePartyUid: st.activePartyUid,
       fightLog: Array.isArray(st.fightLog) ? st.fightLog.slice() : [],

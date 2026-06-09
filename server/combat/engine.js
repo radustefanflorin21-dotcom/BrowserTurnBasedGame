@@ -63,6 +63,20 @@ function cloneState(st) {
   return JSON.parse(JSON.stringify(st));
 }
 
+function resolveActionTargetUid(action, fallback) {
+  const n = Number(action?.targetUid);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function setSelectedFoeUid(st, uid) {
+  const n = Number(uid);
+  if (!Number.isFinite(n)) return false;
+  const foe = (st.foes || []).find((f) => f && f.uid === n && f.hp > 0);
+  if (!foe) return false;
+  st.selectedUid = foe.uid;
+  return true;
+}
+
 function appendLog(st, line) {
   st.fightLog.push(String(line));
 }
@@ -440,14 +454,14 @@ export function processCombatAction(session, action, actingUserId = null) {
       throw err;
     }
     const mode = skillTargetMode(skillName);
-    const targetUid =
-      typeof action.targetUid === "number"
-        ? action.targetUid
-        : mode === "ally"
-          ? st.selectedAllyUid
-          : mode === "enemy"
-            ? st.selectedUid
-            : member.uid;
+    const targetUid = Number.isFinite(Number(action.targetUid))
+      ? Number(action.targetUid)
+      : mode === "ally"
+        ? st.selectedAllyUid
+        : mode === "enemy"
+          ? st.selectedUid
+          : member.uid;
+    if (mode === "enemy") setSelectedFoeUid(st, targetUid);
     const resolved = validateAndResolveSkill(st, member, actor, skillName, targetUid, rng);
     if (!resolved.ok) {
       appendLog(st, resolved.error || "Skill failed.");
@@ -521,15 +535,13 @@ export function processCombatAction(session, action, actingUserId = null) {
       err.status = 400;
       throw err;
     }
-    const targetUid =
-      typeof action.targetUid === "number" ? action.targetUid : st.selectedUid;
-    const foe = st.foes.find((f) => f.uid === targetUid && f.hp > 0);
-    if (!foe) {
+    const targetUid = resolveActionTargetUid(action, st.selectedUid);
+    if (!setSelectedFoeUid(st, targetUid)) {
       const err = new Error("Invalid target.");
       err.status = 400;
       throw err;
     }
-    st.selectedUid = foe.uid;
+    const foe = st.foes.find((f) => f.uid === st.selectedUid && f.hp > 0);
     const res = resolveOutgoingAttack(actor, foe, rng, st, member);
     let dmg = 0;
     if (res.missed) {

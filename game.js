@@ -15186,9 +15186,11 @@ function ensureCombatTarget() {
   if (!combatState) return;
   const alive = combatState.foes.filter((f) => f.hp > 0);
   if (!alive.length) return;
-  const sel = combatState.selectedUid;
-  if (sel == null || !alive.some((f) => f.uid === sel)) {
+  const sel = Number(combatState.selectedUid);
+  if (!Number.isFinite(sel) || !alive.some((f) => f.uid === sel)) {
     combatState.selectedUid = alive[0].uid;
+  } else {
+    combatState.selectedUid = sel;
   }
 }
 
