@@ -3,6 +3,10 @@
  */
 
 import { loadGameConfig } from "../load_game_config.js";
+import {
+  applyDungeonCombatDefeat,
+  applyDungeonCombatVictory
+} from "./dungeon.js";
 import { loadWorldMapData } from "../load_world_map.js";
 
 function deepClone(obj) {
@@ -250,11 +254,9 @@ export function applyCombatWorldMapOutcome(player, combatState, result) {
 
   if (result.victory) {
     if (typeof wmc.dungeonId === "string" && wmc.dungeonId.trim()) {
-      player.worldMap.dungeonPostCombat = {
-        dungeonId: wmc.dungeonId.trim(),
-        roomIndex: typeof wmc.roomIndex === "number" ? wmc.roomIndex : 0,
-        victory: true
-      };
+      const dungeonId = wmc.dungeonId.trim();
+      const roomIndex = typeof wmc.roomIndex === "number" ? wmc.roomIndex : 0;
+      applyDungeonCombatVictory(player, dungeonId, roomIndex);
       return;
     }
     if (typeof wmc.x === "number" && typeof wmc.y === "number") {
@@ -276,9 +278,6 @@ export function applyCombatWorldMapOutcome(player, combatState, result) {
   }
 
   if (typeof wmc.dungeonId === "string" && wmc.dungeonId.trim()) {
-    player.worldMap.dungeonPostCombat = {
-      dungeonId: wmc.dungeonId.trim(),
-      defeat: true
-    };
+    applyDungeonCombatDefeat(player, wmc.dungeonId.trim());
   }
 }

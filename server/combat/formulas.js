@@ -26,7 +26,7 @@ function emptyEquipment() {
   return Object.fromEntries(EQUIP_SLOTS.map((id) => [id, null]));
 }
 
-function sumEquippedBonusStats(equipment) {
+export function sumEquippedBonusStats(equipment) {
   const out = {};
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
   EQUIP_SLOTS.forEach((slot) => {

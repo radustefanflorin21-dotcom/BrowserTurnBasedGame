@@ -4,12 +4,15 @@ import { getEnemyDefByName } from "../load_game_config.js";
 import {
   applyPartyMemberBlind,
   applyPartyMemberCripple,
+  applyPartyMemberIncomingDamageUp,
+  applyPartyMemberSuppressedDamageDownBoth,
   applyPlayerAccuracyDown,
   applyPlayerBleed,
   applyPlayerPoison,
   applyPlayerBurn,
   extendPlayerDebuffDurations,
-  ensureCombatStatus
+  ensureCombatStatus,
+  tryPartyMemberStun
 } from "./status.js";
 import { spawnMirageRemnantUncapped, spawnReinforcement } from "./dungeon_mechanics.js";
 
@@ -458,7 +461,7 @@ const SCRIPT_HANDLERS = {
     }
     if (ctx.ready("thorn_challenge")) {
       ctx.setCd("thorn_challenge", 4);
-      if (ctx.rng.chance(0.55)) {
+      if (ctx.rng.chance(55)) {
         foe.combat.tauntPlayerTurns = Math.max(foe.combat.tauntPlayerTurns || 0, 1);
       }
       setFoeMitigation(foe, 1, 0.88);
@@ -476,7 +479,7 @@ const SCRIPT_HANDLERS = {
       ctx.setCd("bone_impale", 2);
       const hit = Math.max(1, Math.floor((foe.str || 20) * 0.85 * ctx.outMult));
       ctx.hit(member, hit, "Bone Impales");
-      if (ctx.rng.chance(0.45)) applyPlayerBleed(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+      if (ctx.rng.chance(45)) applyPlayerBleed(st, Math.max(1, Math.floor(hit * 0.12)), 2);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.45 * ctx.outMult)), "strikes");
@@ -494,14 +497,14 @@ const SCRIPT_HANDLERS = {
     }
     if (ctx.ready("thirsting_haze")) {
       ctx.setCd("thirsting_haze", 3);
-      rollBlindAll(st, ctx, 0.5, 8, 2);
+      rollBlindAll(st, ctx, 50, 8, 2);
       ctx.log(`${foe.name} spreads Thirsting Haze.`);
       return true;
     }
     if (ctx.ready("mirage_lock")) {
       ctx.setCd("mirage_lock", 4);
       const dur = isMemberBlinded(st, member) ? 3 : 2;
-      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, dur);
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, dur);
       ctx.log(`${foe.name} locks ${member?.name || "a fighter"} in mirage sand.`);
       return true;
     }
@@ -509,7 +512,7 @@ const SCRIPT_HANDLERS = {
       ctx.setCd("false_wound", 2);
       const hit = Math.max(1, Math.floor((foe.int || 20) * 0.55 * ctx.outMult));
       ctx.hit(member, hit, "False Wounds");
-      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor((foe.int || 20) * 0.4 * ctx.outMult)), "mirage-strikes");
@@ -526,7 +529,7 @@ const SCRIPT_HANDLERS = {
     }
     const hit = Math.max(1, Math.floor((foe.int || 20) * 0.35 * ctx.outMult));
     ctx.hit(member, hit, "Mirage Scratches");
-    if (ctx.rng.chance(0.35)) applyPartyMemberBlind(st, member, 5, 1);
+    if (ctx.rng.chance(35)) applyPartyMemberBlind(st, member, 5, 1);
     return true;
   },
 
@@ -545,7 +548,7 @@ const SCRIPT_HANDLERS = {
       foe.combat.dunePhase3 = true;
       foe.combat.duneAccuracyBonusPct = (foe.combat.duneAccuracyBonusPct || 0) + 8;
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        if (ctx.rng.chance(0.35)) applyPartyMemberCripple(st, m, 1);
+        if (ctx.rng.chance(35)) applyPartyMemberCripple(st, m, 1);
       }
       ctx.log(`${foe.name} enters Nothing Left — starvation pulses through the party.`);
       return true;
@@ -578,22 +581,22 @@ const SCRIPT_HANDLERS = {
       const dmg = Math.max(1, Math.floor(intv * 0.5 * ctx.outMult * magicMult * accMult));
       for (const t of targets) {
         ctx.hit(t, dmg, "Mirage Burials");
-        if (ctx.rng.chance(0.45)) applyPartyMemberBlind(st, t, 8, 2);
-        if (ctx.rng.chance(0.4)) applyPartyMemberCripple(st, t, 1);
+        if (ctx.rng.chance(45)) applyPartyMemberBlind(st, t, 8, 2);
+        if (ctx.rng.chance(40)) applyPartyMemberCripple(st, t, 1);
       }
       return true;
     }
     if (ctx.ready("withering_cry")) {
       ctx.setCd("withering_cry", 3);
-      rollBlindAll(st, ctx, 0.5, 8, 2);
+      rollBlindAll(st, ctx, 50, 8, 2);
       const dmg = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult * accMult));
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Withering Cries at");
       return true;
     }
     if (ctx.ready("drought_curse")) {
       ctx.setCd("drought_curse", 4);
-      if (ctx.rng.chance(0.55)) applyPartyMemberCripple(st, member, 2);
-      if (ctx.rng.chance(0.4)) applyPartyMemberBlind(st, member, 6, 2);
+      if (ctx.rng.chance(55)) applyPartyMemberCripple(st, member, 2);
+      if (ctx.rng.chance(40)) applyPartyMemberBlind(st, member, 6, 2);
       ctx.log(`${foe.name} curses ${member?.name || "a fighter"} with drought.`);
       return true;
     }
@@ -625,7 +628,7 @@ const SCRIPT_HANDLERS = {
       ctx.setCd("petrifying_stare", 4);
       const hit = Math.max(1, Math.floor(intv * 0.5 * ctx.outMult));
       ctx.hit(member, hit, "Petrifying Stare locks onto");
-      if (ctx.rng.chance(0.2)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(20)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     if (ctx.ready("stone_venom")) {
@@ -639,12 +642,12 @@ const SCRIPT_HANDLERS = {
       ctx.setCd("crushing_coil", 3);
       const hit = Math.max(1, Math.floor((foe.str || 20) * 0.8 * ctx.outMult));
       ctx.hit(member, hit, "Crushing Coil constricts");
-      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
       return true;
     }
     if (ctx.ready("mineral_haze")) {
       ctx.setCd("mineral_haze", 4);
-      rollBlindAll(st, ctx, 0.45, 8, 2);
+      rollBlindAll(st, ctx, 45, 8, 2);
       ctx.log(`${foe.name} spreads Mineral Haze.`);
       return true;
     }
@@ -662,7 +665,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("staggering_headbutt")) {
       ctx.setCd("staggering_headbutt", 3);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.85 * ctx.outMult)), "Staggering Headbutt rocks");
-      if (ctx.rng.chance(0.18)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(18)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     if (ctx.ready("stonehide_rage")) {
@@ -677,7 +680,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("faultline_kick")) {
       ctx.setCd("faultline_kick", 3);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.65 * ctx.outMult)), "Faultline Kick strikes");
-      if (ctx.rng.chance(0.35)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(35)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.6 * ctx.outMult)), "strikes");
@@ -706,7 +709,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("colossus_slam")) {
       ctx.setCd("colossus_slam", 2);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 1.1 * ctx.outMult)), "Colossus Slam crushes");
-      if (ctx.rng.chance(0.4)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(40)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     if (ctx.ready("faultquake")) {
@@ -729,7 +732,7 @@ const SCRIPT_HANDLERS = {
     if (foe.combat.colossusPhase2 && ctx.ready("stillness_crush")) {
       ctx.setCd("stillness_crush", 5);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 1.25 * ctx.outMult)), "Stillness Crush shatters");
-      if (ctx.rng.chance(0.2)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(20)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     const basicMult = foe.combat.colossusPhase3 ? 0.55 : 0.65;
@@ -769,7 +772,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("frostroot_bind")) {
       ctx.setCd("frostroot_bind", 3);
       ctx.hit(member, Math.max(1, Math.floor(intv * 0.45 * ctx.outMult)), "Frostroot Binds");
-      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "prays-strikes");
@@ -781,7 +784,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("tuskbreaker_slam")) {
       ctx.setCd("tuskbreaker_slam", 2);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.9 * ctx.outMult)), "Tuskbreaker Slam crushes");
-      if (ctx.rng.chance(0.4)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(40)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     if (ctx.ready("frozen_guard")) {
@@ -842,7 +845,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("innocent_grasp")) {
       ctx.setCd("innocent_grasp", 2);
       ctx.hit(member, Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * magicMult)), "Innocent Grasp holds");
-      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor(intv * 0.4 * ctx.outMult * magicMult)), "winter-touches");
@@ -859,7 +862,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("broken_march")) {
       ctx.setCd("broken_march", 3);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.4 * ctx.outMult)), "Broken March staggers");
-      if (ctx.rng.chance(0.3)) applyPartyMemberCripple(st, member, 1);
+      if (ctx.rng.chance(30)) applyPartyMemberCripple(st, member, 1);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.45 * ctx.outMult)), "strikes");
@@ -871,7 +874,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("corrode_command")) {
       ctx.setCd("corrode_command", 3);
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        if (ctx.rng.chance(0.45)) {
+        if (ctx.rng.chance(45)) {
           ensureCombatStatus(st);
           st.status.playerPhysDamageDownPct = Math.max(st.status.playerPhysDamageDownPct || 0, 6);
           st.status.playerMagicDamageDownPct = Math.max(st.status.playerMagicDamageDownPct || 0, 6);
@@ -899,7 +902,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("chain_order")) {
       ctx.setCd("chain_order", 4);
       ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.55 * ctx.outMult)), "Chain Order binds");
-      if (ctx.rng.chance(0.45)) applyPartyMemberCripple(st, member, 2);
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 0.55 * ctx.outMult)), "strikes");
@@ -940,6 +943,7 @@ const SCRIPT_HANDLERS = {
     const hpFrac = ctx.foeHpFrac();
     const strv = foe.str || 20;
     const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
     if (hpFrac <= 0.7 && !foe.combat.warmasterPhase2) {
       foe.combat.warmasterPhase2 = true;
       foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
@@ -963,19 +967,26 @@ const SCRIPT_HANDLERS = {
     }
     if (ctx.ready("commanding_ruin")) {
       ctx.setCd("commanding_ruin", 3);
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        if (ctx.rng.chance(45)) applyPartyMemberSuppressedDamageDownBoth(st, m, 8, 2);
+      }
       ctx.log(`${foe.name} unleashes Commanding Ruin.`);
       return true;
     }
     if (ctx.ready("warmasters_execution")) {
       ctx.setCd("warmasters_execution", 2);
-      let hit = Math.max(1, Math.floor(strv * 1.05 * ctx.outMult * dmgBonus));
+      let hit = Math.max(1, Math.floor(strv * 1.05 * ctx.outMult * dmgBonus * accBonus));
       if (member.maxHp > 0 && member.hp / member.maxHp < 0.4) hit = Math.max(1, Math.floor(hit * 1.2));
       ctx.hit(member, hit, "Warmaster's Execution falls");
       return true;
     }
     if (ctx.ready("ruststorm_slash")) {
       ctx.setCd("ruststorm_slash", 4);
-      ctx.hit(member, Math.max(1, Math.floor(strv * 0.7 * ctx.outMult * dmgBonus)), "Ruststorm Slash tears through");
+      const hit = Math.max(1, Math.floor(strv * 0.7 * ctx.outMult * dmgBonus * accBonus));
+      ctx.hitAdjacent(member, hit, "Ruststorm Slash tears through", 2, 1);
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        if (ctx.rng.chance(40)) applyPartyMemberIncomingDamageUp(st, m, 8, 2);
+      }
       return true;
     }
     if (ctx.ready("no_retreat")) {
@@ -989,12 +1000,217 @@ const SCRIPT_HANDLERS = {
     }
     if (foe.combat.warmasterPhase3 && ctx.ready("final_order")) {
       ctx.setCd("final_order", 5);
-      const hit = Math.max(1, Math.floor(strv * 0.55 * ctx.outMult * dmgBonus));
-      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, hit, "Final Order shakes the chamber");
+      const hit = Math.max(1, Math.floor(strv * 0.55 * ctx.outMult * dmgBonus * accBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Final Order shakes the chamber");
+        tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
+      }
       return true;
     }
     const basicMult = foe.combat.warmasterPhase3 ? 0.55 : 0.65;
-    ctx.hit(member, Math.max(1, Math.floor(strv * basicMult * ctx.outMult * dmgBonus)), "strikes");
+    const basicHit = Math.max(1, Math.floor(strv * basicMult * ctx.outMult * dmgBonus * accBonus));
+    if (foe.combat.warmasterPhase3) {
+      ctx.hitAdjacent(member, basicHit, "strikes", 1, 1);
+    } else {
+      ctx.hit(member, basicHit, "strikes");
+    }
+    return true;
+  },
+
+  verdant_sprout(foe, st, ctx) {
+    const member = ctx.pickTarget("support");
+    if (ctx.ready("sprout_mend")) {
+      ctx.setCd("sprout_mend", 3);
+      const target = lowestHpAlly(st, foe.uid);
+      if (target) {
+        const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.45));
+        target.hp = Math.min(target.maxHp, target.hp + amt);
+        ctx.log(`${foe.name} Sprout Mends ${target.name} for ${amt}.`);
+      } else {
+        ctx.healSelf(0.45);
+      }
+      return true;
+    }
+    const intv = foe.int || 20;
+    const hit = Math.max(1, Math.floor(intv * 0.3 * ctx.outMult));
+    ctx.hit(member, hit, "Thorn Flick pricks");
+    if (ctx.rng.chance(30)) applyPlayerPoison(st, Math.max(1, Math.floor(hit * 0.12)), 1);
+    return true;
+  },
+
+  verdant_bloomseer(foe, st, ctx) {
+    const member = ctx.pickTarget("mage");
+    const intv = foe.int || 20;
+    if (ctx.ready("bloom_mend")) {
+      ctx.setCd("bloom_mend", 3);
+      const target = lowestHpAlly(st, foe.uid);
+      if (target) {
+        const wasLow = target.maxHp > 0 && target.hp / target.maxHp < 0.35;
+        const bonus = 1 + (target.combat?.healReceivedBonusPct || 0) / 100;
+        const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.85 * bonus));
+        target.hp = Math.min(target.maxHp, target.hp + amt);
+        if (wasLow) {
+          if (!target.combat) target.combat = { skillCd: {}, actCount: 0 };
+          target.combat.healReceivedBonusPct = Math.max(target.combat.healReceivedBonusPct || 0, 8);
+          target.combat.healReceivedBonusTurns = Math.max(target.combat.healReceivedBonusTurns || 0, 2);
+        }
+        ctx.log(`${foe.name} Bloom Mends ${target.name} for ${amt}.`);
+      }
+      return true;
+    }
+    if (ctx.ready("pollen_blind")) {
+      ctx.setCd("pollen_blind", 3);
+      rollBlindAll(st, ctx, 45, 8, 2);
+      ctx.log(`${foe.name} scatters Pollen Blind.`);
+      return true;
+    }
+    if (ctx.ready("thorned_bloom")) {
+      ctx.setCd("thorned_bloom", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.5 * ctx.outMult));
+      ctx.hit(member, hit, "Thorned Bloom strikes");
+      if (ctx.rng.chance(45)) applyPlayerPoison(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+      return true;
+    }
+    if (ctx.ready("greenward_song")) {
+      ctx.setCd("greenward_song", 4);
+      for (const ally of (st.foes || []).filter((f) => f && f.hp > 0 && f.uid !== foe.uid)) {
+        if (!ally.combat) ally.combat = { skillCd: {}, actCount: 0 };
+        ally.combat.magicResBonusPct = Math.max(ally.combat.magicResBonusPct || 0, 6);
+        ally.combat.statusResBonusPct = Math.max(ally.combat.statusResBonusPct || 0, 5);
+        ally.combat.magicResBonusTurns = Math.max(ally.combat.magicResBonusTurns || 0, 2);
+        ally.combat.statusResBonusTurns = Math.max(ally.combat.statusResBonusTurns || 0, 2);
+      }
+      ctx.log(`${foe.name} sings Greenward Song.`);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  primordial_silverback(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const strv = foe.str || 20;
+    if (ctx.ready("canopy_breaker")) {
+      ctx.setCd("canopy_breaker", 2);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 1.05 * ctx.outMult)), "Canopy Breaker smashes");
+      if (ctx.rng.chance(40)) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ctx.ready("ground_roar")) {
+      ctx.setCd("ground_roar", 3);
+      const hit = Math.max(1, Math.floor(strv * 0.65 * ctx.outMult));
+      ctx.hitAdjacent(member, hit, "Ground Roar shakes", 1, 1);
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        if (ctx.rng.chance(35)) applyPartyMemberCripple(st, m, 1);
+      }
+      return true;
+    }
+    if (ctx.ready("primal_guard")) {
+      ctx.setCd("primal_guard", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 8);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 8);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Primal Guard.`);
+      return true;
+    }
+    if (ctx.ready("rootknuckle_slam")) {
+      ctx.setCd("rootknuckle_slam", 4);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 0.85 * ctx.outMult)), "Rootknuckle Slam crushes");
+      tryPartyMemberStun(st, member, ctx.rng, 0.18, ctx.player, ctx.log);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(strv * 0.6 * ctx.outMult)), "strikes");
+    return true;
+  },
+
+  the_heartbloom_ancient(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const hpFrac = ctx.foeHpFrac();
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    if (hpFrac <= 0.7 && !foe.combat.heartbloomPhase2) {
+      foe.combat.heartbloomPhase2 = true;
+      foe.combat.healReceivedBonusPct = (foe.combat.healReceivedBonusPct || 0) + 8;
+      foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
+      ctx.log(`${foe.name} enters The Jungle Closes.`);
+      spawnReinforcement(st, "Canopy Screecher", ctx.rng);
+      spawnReinforcement(st, "Jungle Stag", ctx.rng);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.heartbloomPhase3) {
+      foe.combat.heartbloomPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      ctx.log(`${foe.name} enters Gaia's Pulse.`);
+      return true;
+    }
+    if (ctx.ready("heartroot_pulse")) {
+      ctx.setCd("heartroot_pulse", 3);
+      for (const ally of (st.foes || []).filter((f) => f && f.hp > 0)) {
+        const bonus = 1 + (ally.combat?.healReceivedBonusPct || 0) / 100;
+        const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.55 * bonus));
+        ally.hp = Math.min(ally.maxHp, ally.hp + amt);
+        if (!ally.combat) ally.combat = { skillCd: {}, actCount: 0 };
+        ally.combat.statusResBonusPct = Math.max(ally.combat.statusResBonusPct || 0, 5);
+        ally.combat.statusResBonusTurns = Math.max(ally.combat.statusResBonusTurns || 0, 1);
+      }
+      ctx.log(`${foe.name} pulses Heartroot mend.`);
+      return true;
+    }
+    if (ctx.ready("vinecrush")) {
+      ctx.setCd("vinecrush", 2);
+      let hit = Math.max(1, Math.floor(strv * 1.0 * ctx.outMult * dmgBonus * accBonus));
+      const crippled =
+        (member.crippleTurns || 0) > 0 ||
+        (member.kind === "hero" && (st.status?.playerCrippleTurns || 0) > 0);
+      if (crippled) hit = Math.max(1, Math.floor(hit * 1.15));
+      ctx.hit(member, hit, "Vinecrush slams");
+      return true;
+    }
+    if (ctx.ready("sporefall")) {
+      ctx.setCd("sporefall", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * dmgBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Sporefall rains");
+        if (ctx.rng.chance(45)) applyPlayerPoison(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+        if (ctx.rng.chance(35)) applyPartyMemberBlind(st, m, 6, 1);
+      }
+      return true;
+    }
+    if (ctx.ready("ancient_barkskin")) {
+      ctx.setCd("ancient_barkskin", 4);
+      setFoeMitigation(foe, 2, 0.85);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} hardens Ancient Barkskin.`);
+      return true;
+    }
+    if (foe.combat.heartbloomPhase2 && ctx.ready("blooming_rupture")) {
+      ctx.setCd("blooming_rupture", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * dmgBonus));
+      ctx.hitAdjacent(member, hit, "Blooming Rupture bursts", 2, 1);
+      if (ctx.rng.chance(40)) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (foe.combat.heartbloomPhase3 && ctx.ready("gaia_heartbreak")) {
+      ctx.setCd("gaia_heartbreak", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * dmgBonus * accBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Gaia Heartbreak shatters");
+        tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
+      }
+      return true;
+    }
+    const basicMult = foe.combat.heartbloomPhase3 ? 0.55 : 0.65;
+    const basicHit = Math.max(1, Math.floor(strv * basicMult * ctx.outMult * dmgBonus * accBonus));
+    if (foe.combat.heartbloomPhase3) {
+      ctx.hitAdjacent(member, basicHit, "strikes", 1, 1);
+    } else {
+      ctx.hit(member, basicHit, "strikes");
+    }
     return true;
   },
 

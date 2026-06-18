@@ -216,6 +216,9 @@
             : Math.max(1, combatActorStr(combatActor()));
         const tick = Math.max(1, Math.floor((ref * (deb.dotPct || 10)) / 100));
         foe.combat[dmgKey] = Math.max(foe.combat[dmgKey] || 0, tick);
+        if (dotKey === "poison" && typeof tryProcHeartbloomMagResOnPoison === "function" && typeof player !== "undefined") {
+          tryProcHeartbloomMagResOnPoison(st, player.equipment, foe);
+        }
         break;
       }
       case "allyPressure":

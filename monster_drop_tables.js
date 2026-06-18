@@ -448,8 +448,15 @@
         { name: "Nature Essence", dropRate: 2.5 }
       ]
     },
+    "Canopy Screecher": {
+      materials: [
+        { name: "Screech Feather", dropRate: 37.5 },
+        { name: "Echo Beak", dropRate: 20 },
+        { name: "Resonance Core", dropRate: 7.5 },
+        { name: "Nature Essence", dropRate: 3 }
+      ]
+    },
     "Greenleaf Fox": {
-      gear: [{ w: 1.3, item: "Foxfang Blade" }, { w: 1.2, item: "Swiftbrush Boots" }, { w: 1.2, item: "Greenleaf Vest" }],
       materials: [
         { name: "Fox Fang", dropRate: 37.5 },
         { name: "Forest Fur", dropRate: 20 },
@@ -539,6 +546,31 @@
         { name: "Last Order Core", dropRate: 45 },
         { name: "Wargrave Ember", dropRate: 25 },
         { name: "Eternal Battle Soul", dropRate: 8 }
+      ]
+    },
+    "Verdant Bloomseer": {
+      materials: [
+        { name: "Bloomseer Petal", dropRate: 70 },
+        { name: "Pollen-Sap Thread", dropRate: 55 },
+        { name: "Verdant Mend Core", dropRate: 35 },
+        { name: "Bloomseer Heartseed", dropRate: 15 }
+      ]
+    },
+    "Primordial Silverback": {
+      materials: [
+        { name: "Silverback Barkplate Scrap", dropRate: 70 },
+        { name: "Rootknuckle Bone", dropRate: 55 },
+        { name: "Primal Vine Core", dropRate: 35 },
+        { name: "Silverback Titan Heart", dropRate: 15 }
+      ]
+    },
+    "The Heartbloom Ancient": {
+      materials: [
+        { name: "Ancient Heartbloom Petal", dropRate: 100 },
+        { name: "Gaia Rootheart Fragment", dropRate: 75 },
+        { name: "Living Canopy Core", dropRate: 45 },
+        { name: "Heartbloom Sapstone", dropRate: 25 },
+        { name: "Gaia Soulseed", dropRate: 8 }
       ]
     },
     "Ash Lizard": {
@@ -635,6 +667,10 @@
     "Leafdart Squirrel": [
       { name: "Plant Fiber", dropRate: 20, condition: "harvester" },
       { name: "Seeds", dropRate: 22, condition: "harvester" }
+    ],
+    "Canopy Screecher": [
+      { name: "Canopy Feather", dropRate: 18, condition: "harvester" },
+      { name: "Bright Seeds", dropRate: 12, condition: "harvester" }
     ],
     "Jungle Stag": [
       { name: "Growth Seed", dropRate: 13, condition: "harvester" },

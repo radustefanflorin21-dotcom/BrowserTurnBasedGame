@@ -1,4 +1,4 @@
-import { totalStat } from "./formulas.js";
+import { totalStat, sumEquippedBonusStats } from "./formulas.js";
 import {
   getSanctuaryDamageReductionPct,
   tickClassStateEndOfRound,
@@ -11,6 +11,10 @@ import {
   incrementPlagueStacks,
   tickUnbrokenStacks
 } from "./combat_passives.js";
+import {
+  tryProcBannerlessMagResOnAccuracyDebuff,
+  tryProcHeartbloomMagResOnPoison
+} from "./set_procs.js";
 
 const CAPS = { accuracyDown: 40, damageDown: 35 };
 
@@ -34,9 +38,114 @@ export function ensureCombatStatus(st) {
       playerFragileTurns: 0,
       playerEvasionUpPct: 0,
       playerEvasionUpTurns: 0,
-      playerStaminaCostUpTurns: 0
+      playerStaminaCostUpTurns: 0,
+      playerStunTurns: 0,
+      playerIncomingDamageUpPct: 0,
+      playerIncomingDamageUpTurns: 0
     };
   }
+}
+
+function statusResistPctFromStrAndVit(str, vit) {
+  return Math.floor(Math.max(0, Number(str) || 0) / 10) + Math.floor(Math.max(0, Number(vit) || 0) / 10);
+}
+
+function getActorStatusResistGear(actor) {
+  if (!actor?.equipment) return 0;
+  const gear = sumEquippedBonusStats(actor.equipment);
+  return gear.statusResist || 0;
+}
+
+export function getPlayerStatusResistPct(st, player) {
+  ensureCombatStatus(st);
+  const actor = player || heroActorFromPlayer(st, player);
+  const str = totalStat(actor, "str");
+  const vit = totalStat(actor, "vit");
+  let down = 0;
+  if ((st.status.playerStatusResistDownTurns || 0) > 0) {
+    down = Math.max(0, Math.min(CAPS.accuracyDown, Number(st.status.playerStatusResistDownPct) || 0));
+  }
+  return Math.max(0, Math.min(90, statusResistPctFromStrAndVit(str, vit) + getActorStatusResistGear(actor) - down));
+}
+
+export function getMemberStatusResistPct(st, member, player) {
+  if (!member) return 0;
+  if (member.kind === "hero") return getPlayerStatusResistPct(st, player);
+  const str = typeof member.str === "number" ? member.str : 10;
+  const vit = typeof member.vit === "number" ? member.vit : 10;
+  let down = 0;
+  if ((member.statusResistDownTurns || 0) > 0) {
+    down = Math.max(0, Math.min(CAPS.accuracyDown, Number(member.statusResistDownPct) || 0));
+  }
+  return Math.max(0, Math.min(90, statusResistPctFromStrAndVit(str, vit) - down));
+}
+
+export function getMemberIncomingDamageUpPct(st, member) {
+  if (!member) return 0;
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    if ((st.status.playerIncomingDamageUpTurns || 0) <= 0) return 0;
+    return Math.max(0, Math.min(50, Number(st.status.playerIncomingDamageUpPct) || 0));
+  }
+  if ((member.incomingDamageUpTurns || 0) <= 0) return 0;
+  return Math.max(0, Math.min(50, Number(member.incomingDamageUpPct) || 0));
+}
+
+export function applyPartyMemberIncomingDamageUp(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(50, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerIncomingDamageUpPct = Math.max(st.status.playerIncomingDamageUpPct || 0, p);
+    st.status.playerIncomingDamageUpTurns = Math.max(st.status.playerIncomingDamageUpTurns || 0, t);
+    return;
+  }
+  member.incomingDamageUpPct = Math.max(member.incomingDamageUpPct || 0, p);
+  member.incomingDamageUpTurns = Math.max(member.incomingDamageUpTurns || 0, t);
+}
+
+export function applyPartyMemberSuppressedDamageDownBoth(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(CAPS.damageDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerPhysDamageDownPct = Math.max(st.status.playerPhysDamageDownPct || 0, p);
+    st.status.playerPhysDamageDownTurns = Math.max(st.status.playerPhysDamageDownTurns || 0, t);
+    st.status.playerMagicDamageDownPct = Math.max(st.status.playerMagicDamageDownPct || 0, p);
+    st.status.playerMagicDamageDownTurns = Math.max(st.status.playerMagicDamageDownTurns || 0, t);
+    return;
+  }
+  member.physDamageDownPct = Math.max(member.physDamageDownPct || 0, p);
+  member.physDamageDownTurns = Math.max(member.physDamageDownTurns || 0, t);
+  member.magicDamageDownPct = Math.max(member.magicDamageDownPct || 0, p);
+  member.magicDamageDownTurns = Math.max(member.magicDamageDownTurns || 0, t);
+}
+
+/** @returns {string|null} log line if stunned */
+export function tryPartyMemberStun(st, member, rng, chance, player, appendLog) {
+  if (!member || !rng) return null;
+  const p = Math.min(1, Math.max(0, chance));
+  const resist = getMemberStatusResistPct(st, member, player) / 100;
+  const finalP = p * (1 - resist);
+  if (finalP < 1 && !rng.chance(finalP * 100)) return null;
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerStunTurns = (st.status.playerStunTurns || 0) + 1;
+    const line = "You are stunned!";
+    if (appendLog) appendLog(line);
+    return line;
+  }
+  member.crippleTurns = Math.max(member.crippleTurns || 0, 1);
+  const line = `${member.name || "A companion"} is struck senseless (+1 stamina per action).`;
+  if (appendLog) appendLog(line);
+  return line;
+}
+
+export function isHeroStunned(st) {
+  ensureCombatStatus(st);
+  return (st.status.playerStunTurns || 0) > 0;
 }
 
 function heroMember(st) {
@@ -120,7 +229,7 @@ function debuffLandPct(actor, foe, baseChance) {
 }
 
 /** @returns {string|null} log line if applied */
-export function tryRollFoeDebuff(st, foe, deb, actor, rng) {
+export function tryRollFoeDebuff(st, foe, deb, actor, rng, extraLogs) {
   if (!deb || typeof deb.chance !== "number") return null;
   if (!rng.chance(debuffLandPct(actor, foe, deb.chance))) return null;
   ensureFoeCombat(foe);
@@ -153,10 +262,13 @@ export function tryRollFoeDebuff(st, foe, deb, actor, rng) {
       c.evaDownTurns = Math.max(c.evaDownTurns || 0, t);
       c.evasionDownPct = Math.max(c.evasionDownPct || 0, deb.value || 0);
       return `${name}'s evasion drops.`;
-    case "blind":
+    case "blind": {
       c.blindTurns = Math.max(c.blindTurns || 0, t);
       c.blindAccDownPct = Math.max(c.blindAccDownPct || 0, deb.accDown || 0);
+      const bannerlessLog = tryProcBannerlessMagResOnAccuracyDebuff(actor?.equipment, foe, rng);
+      if (bannerlessLog && Array.isArray(extraLogs)) extraLogs.push(bannerlessLog);
       return `${name} is blinded.`;
+    }
     case "stun":
       c.staggerLockedTurns = Math.max(c.staggerLockedTurns || 0, t);
       return `${name} is stunned!`;
@@ -202,6 +314,10 @@ export function tryRollFoeDebuff(st, foe, deb, actor, rng) {
         tick += getPlagueEnginePoisonBonus(st, actor);
       }
       c[dmgKey] = Math.max(c[dmgKey] || 0, tick);
+      if (dotKey === "poison") {
+        const heartbloomLog = tryProcHeartbloomMagResOnPoison(actor?.equipment, foe, rng);
+        if (heartbloomLog && Array.isArray(extraLogs)) extraLogs.push(heartbloomLog);
+      }
       return `${name} suffers ${dotKey}.`;
     }
     default:
@@ -223,6 +339,7 @@ export function extendPlayerDebuffDurations(st, extraTurns) {
   bump("playerEvasionUpTurns");
   bump("playerFragileTurns");
   bump("playerStaminaCostUpTurns");
+  bump("playerIncomingDamageUpTurns");
   if (s.playerBleed?.turns > 0) s.playerBleed.turns += n;
   if (s.playerPoison?.turns > 0) s.playerPoison.turns += n;
   if (s.playerBurn?.turns > 0) s.playerBurn.turns += n;
@@ -377,12 +494,30 @@ export function tickPlayerDefenseAfterEnemyPhase(st) {
 }
 
 export function tickPlayerTurnEndBuffs(st) {
+  ensureCombatStatus(st);
+  const s = st.status;
+  if ((s.playerIncomingDamageUpTurns || 0) > 0) {
+    s.playerIncomingDamageUpTurns -= 1;
+    if (s.playerIncomingDamageUpTurns <= 0) s.playerIncomingDamageUpPct = 0;
+  }
   (st.party || []).forEach((m) => {
     if (!m) return;
     if (typeof m.crippleTurns === "number" && m.crippleTurns > 0) m.crippleTurns -= 1;
     if (typeof m.outgoingAccuracyDownTurns === "number" && m.outgoingAccuracyDownTurns > 0) {
       m.outgoingAccuracyDownTurns -= 1;
       if (m.outgoingAccuracyDownTurns <= 0) m.outgoingAccuracyDownPct = 0;
+    }
+    if (typeof m.incomingDamageUpTurns === "number" && m.incomingDamageUpTurns > 0) {
+      m.incomingDamageUpTurns -= 1;
+      if (m.incomingDamageUpTurns <= 0) m.incomingDamageUpPct = 0;
+    }
+    if (typeof m.physDamageDownTurns === "number" && m.physDamageDownTurns > 0) {
+      m.physDamageDownTurns -= 1;
+      if (m.physDamageDownTurns <= 0) m.physDamageDownPct = 0;
+    }
+    if (typeof m.magicDamageDownTurns === "number" && m.magicDamageDownTurns > 0) {
+      m.magicDamageDownTurns -= 1;
+      if (m.magicDamageDownTurns <= 0) m.magicDamageDownPct = 0;
     }
   });
   tickPlayerDebuffsBeforeEnemyPhase(st);

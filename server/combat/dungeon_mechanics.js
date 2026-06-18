@@ -68,6 +68,30 @@ function incrementGlobalCombatRound(st) {
  * @param {object} rng
  * @param {(line: string) => void} log
  */
+function pickJungleBloomHealTarget(st) {
+  const living = (st.foes || []).filter((f) => f && f.hp > 0);
+  if (!living.length) return null;
+  const nonBoss = living.filter((f) => !f.isBoss && f.name !== "The Heartbloom Ancient");
+  const pool = nonBoss.length ? nonBoss : living;
+  return pool.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+}
+
+function isHeartbloomAncientPhase3(st) {
+  return (st.foes || []).some(
+    (f) =>
+      f &&
+      f.name === "The Heartbloom Ancient" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function isVerdantDeepFinalRoom(st, def) {
+  const roomIndex = typeof st.worldMapContext?.roomIndex === "number" ? st.worldMapContext.roomIndex : 0;
+  return Array.isArray(def?.rooms) && roomIndex === def.rooms.length - 1;
+}
+
 export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
   if (!st?.worldMapContext || typeof st.worldMapContext.dungeonId !== "string") return;
   const dungeonId = st.worldMapContext.dungeonId.trim();
@@ -245,6 +269,39 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (scheduled || phasePulse) {
       if (spawnReinforcement(st, "Fallen Echo", rng)) {
         log("Ash stirs — a Fallen Echo answers the Warmaster's command!");
+      }
+    }
+  }
+
+  if (def.overgrowthSnare) {
+    const phase3BossSnare = dungeonId === "verdant_deep" && isVerdantDeepFinalRoom(st, def) && isHeartbloomAncientPhase3(st);
+    const interval = phase3BossSnare ? 2 : 3;
+    const due = phase3BossSnare ? round % interval === 0 : roomIndex >= 2 && round % interval === 0;
+    if (due) {
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      if (living.length) {
+        const pick = living[Math.floor(rng.next() * living.length)];
+        if (rng.chance(0.35)) {
+          applyPartyMemberCripple(st, pick, 1);
+          log(`Overgrowth Snare cripples ${pick.name || "a fighter"} (+1 stamina per action).`);
+        }
+      }
+    }
+  }
+
+  if (def.jungleBloom && roomIndex >= 3 && round % 4 === 0) {
+    const target = pickJungleBloomHealTarget(st);
+    if (target) {
+      const amt = Math.max(1, Math.floor(target.maxHp * 0.05));
+      target.hp = Math.min(target.maxHp, target.hp + amt);
+      log(`Jungle Bloom mends ${target.name} for ${amt}.`);
+    }
+  }
+
+  if (dungeonId === "verdant_deep" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
+    if (round === 8 || round === 12) {
+      if (spawnReinforcement(st, "Verdant Sprout", rng)) {
+        log("Roots split — a Verdant Sprout crawls into the fight!");
       }
     }
   }

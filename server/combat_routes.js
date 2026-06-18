@@ -19,6 +19,10 @@ import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./combat/broad
 import { publicParticipantsList } from "./combat/coop.js";
 import { preparePlayerForCombat } from "./combat/player_prep.js";
 import { applyCombatWorldMapOutcome } from "./progression/world_map.js";
+import {
+  resolveAuthoritativeDungeonEncounter,
+  syncPresenceDungeonRun
+} from "./progression/dungeon.js";
 import { setSharedDefeat } from "./presence/map_cells.js";
 import { broadcastMapCellToTile } from "./presence/hub.js";
 import { createRequire } from "node:module";
@@ -162,15 +166,16 @@ export function registerCombatRoutes(app) {
         return;
       }
       snapshotCombatStart(req.user.id, idx, playerCopy);
+      const resolvedEncounter = resolveAuthoritativeDungeonEncounter(playerCopy, encounter || {});
       const session = startCoopSession(req.user.id, {
         player: playerCopy,
         slotIndex: idx,
-        encounter: encounter || {},
+        encounter: resolvedEncounter,
         rngSeed
       });
       notifyPartyOfFight(session, {
         region: req.body?.region || null,
-        mob: encounter?.units ? { units: encounter.units } : encounter
+        mob: resolvedEncounter?.units ? { units: resolvedEncounter.units } : resolvedEncounter
       });
       res.json({
         sessionId: session.sessionId,
@@ -279,8 +284,9 @@ export function registerCombatRoutes(app) {
         if (victoryResult) applyWorldMapVictory(session, victoryResult);
         for (const [userId, result] of Object.entries(coopResults)) {
           const part = session.participants.get(Number(userId)) || session.participants.get(userId);
-          if (part?.player && result?.victory) {
+          if (part?.player) {
             applyCombatWorldMapOutcome(part.player, session.state, result);
+            syncPresenceDungeonRun(Number(userId), part.player);
           }
         }
         const rosters = await persistCoopResults(session, out.participantResults);
@@ -308,6 +314,7 @@ export function registerCombatRoutes(app) {
 
       if (out.finished && out.result) {
         applyCombatWorldMapOutcome(session.player, session.state, out.result);
+        syncPresenceDungeonRun(req.user.id, session.player);
         applyWorldMapVictory(session, out.result);
         const rosterPayload = await persistCoopResults(session, {
           [req.user.id]: out.result

@@ -14,7 +14,7 @@ import {
   skillTargetMode,
   getSkillDef
 } from "./skills.js";
-import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit } from "./set_procs.js";
+import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit, tryProcSilverbackPhysResDownOnHit } from "./set_procs.js";
 import { ensureClassState } from "./class_state.js";
 import { applyClassSkillOnHit } from "./class_skills.js";
 import {
@@ -31,7 +31,8 @@ import {
   tickFoeDebuffs,
   tickFoeDots,
   tickPlayerDefenseAfterEnemyPhase,
-  tickPlayerTurnEndBuffs
+  tickPlayerTurnEndBuffs,
+  isHeroStunned
 } from "./status.js";
 import {
   getPlayerForMember,
@@ -179,6 +180,19 @@ function runEnemyPhase(st, player, rng, enemyHits, session = null) {
   if (firstHero) syncGlobalStaminaFromMember(st, firstHero);
   ensureCombatStatus(st);
   tickEffectsAtStartOfPlayerTurn(st, player, (line) => appendLog(st, line));
+  const stunnedHero = (st.party || []).find((m) => m?.kind === "hero" && m.hp > 0);
+  if (stunnedHero && isHeroStunned(st)) {
+    st.status.playerStunTurns = Math.max(0, (st.status.playerStunTurns || 0) - 1);
+    appendLog(st, "You are stunned and lose your turn!");
+    (st.party || []).forEach((m) => {
+      if (m) m.acted = true;
+    });
+    tickFoeDots(st, (line) => appendLog(st, line));
+    tickPlayerTurnEndBuffs(st);
+    tickPlayerDefenseAfterEnemyPhase(st);
+    if (!isPartyAlive(st)) return { outcome: "defeat" };
+    return runEnemyPhase(st, player, rng, enemyHits, session);
+  }
   if (st.selectedUid == null || !st.foes.some((f) => f.uid === st.selectedUid && f.hp > 0)) {
     const firstFoe = st.foes.find((f) => f.hp > 0);
     st.selectedUid = firstFoe ? firstFoe.uid : null;
@@ -498,6 +512,8 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (graniteLog) appendLog(st, graniteLog);
       const warmasterLog = tryProcWarmasterBothDmgDownOnHit(actorPlayer?.equipment, foe, rng, dmgKind);
       if (warmasterLog) appendLog(st, warmasterLog);
+      const silverbackLog = tryProcSilverbackPhysResDownOnHit(actorPlayer?.equipment, foe, rng, dmgKind);
+      if (silverbackLog) appendLog(st, silverbackLog);
       if (hit.crit) {
         const dm = tryDuelistMomentumOnCrit(st, actor, rng, member);
         if (dm) appendLog(st, dm);
@@ -556,6 +572,8 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (graniteLog) appendLog(st, graniteLog);
       const warmasterLog = tryProcWarmasterBothDmgDownOnHit(actorPlayer?.equipment, foe, rng, "physical");
       if (warmasterLog) appendLog(st, warmasterLog);
+      const silverbackLog = tryProcSilverbackPhysResDownOnHit(actorPlayer?.equipment, foe, rng, "physical");
+      if (silverbackLog) appendLog(st, silverbackLog);
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     markCoopHeroActedIfNeeded(member, session);

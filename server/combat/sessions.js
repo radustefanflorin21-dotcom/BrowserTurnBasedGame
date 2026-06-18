@@ -14,6 +14,7 @@ import { preparePlayerForCombat } from "./player_prep.js";
 import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./broadcast.js";
 import { getPartyMemberIds, notifyPartyFightStarted } from "../presence/party.js";
 import { applyCombatWorldMapOutcome } from "../progression/world_map.js";
+import { syncPresenceDungeonRun } from "../progression/dungeon.js";
 import { setSharedDefeat } from "../presence/map_cells.js";
 
 const sessions = new Map();
@@ -257,8 +258,9 @@ async function finalizeCoopVictoryFromOut(session, out) {
   if (victoryResult) applyWorldMapVictory(session, victoryResult);
   for (const [userId, result] of Object.entries(coopResults)) {
     const part = session.participants.get(Number(userId)) || session.participants.get(userId);
-    if (part?.player && result?.victory) {
+    if (part?.player) {
       applyCombatWorldMapOutcome(part.player, session.state, result);
+      syncPresenceDungeonRun(Number(userId), part.player);
     }
   }
   const rosters = await persistCoopResults(session, coopResults);

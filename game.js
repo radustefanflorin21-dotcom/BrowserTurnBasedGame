@@ -2753,6 +2753,22 @@ function tryProcWarmasterBothDmgDownOnHit(st, equipment, foe, damageKind) {
   appendFightLog(`${foe.name} is suppressed by war echo (Warmaster).`);
 }
 
+function tryProcSilverbackPhysResDownOnHit(st, equipment, foe, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return;
+  if (!equipment || countEquippedSetPieces(equipment, "Silverback") < 2) return;
+  if (Math.random() >= 0.15) return;
+  applyFoePhysResDown(foe, 5, 2);
+  appendFightLog(`${foe.name}'s physical resist falters (Silverback).`);
+}
+
+function tryProcHeartbloomMagResOnPoison(st, equipment, foe) {
+  if (!foe || foe.hp <= 0) return;
+  if (!equipment || countEquippedSetPieces(equipment, "Heartbloom") < 4) return;
+  if (Math.random() >= 0.2) return;
+  applyFoeMagResDown(foe, 6, 1);
+  appendFightLog(`${foe.name}'s magic resist falters (Heartbloom).`);
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -5279,6 +5295,14 @@ function isDungeonWarEchoCombat(st) {
   return isDungeonMechanicCombat(st, "warEcho");
 }
 
+function isDungeonOvergrowthSnareCombat(st) {
+  return isDungeonMechanicCombat(st, "overgrowthSnare");
+}
+
+function isDungeonJungleBloomCombat(st) {
+  return isDungeonMechanicCombat(st, "jungleBloom");
+}
+
 function isLastWarmasterPhase3Active(st) {
   if (!st || !Array.isArray(st.foes)) return false;
   return st.foes.some(
@@ -5293,6 +5317,26 @@ function isLastWarmasterPhase3Active(st) {
 
 function getDungeonWarEchoInterval(st) {
   return isLastWarmasterPhase3Active(st) ? 3 : 4;
+}
+
+function isHeartbloomAncientPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) =>
+      f &&
+      f.name === "The Heartbloom Ancient" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function isVerdantDeepFinalRoom(st) {
+  const ctx = st?.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "verdant_deep") return false;
+  const def = getDungeonDef("verdant_deep");
+  if (!def || !Array.isArray(def.rooms)) return false;
+  return ctx.roomIndex === def.rooms.length - 1;
 }
 
 function isSleepingChildPhase3Active(st) {
@@ -5636,6 +5680,47 @@ function applyDungeonFallingStoneIfDue(st, round) {
   tryPartyMemberStun(st, pick, 0.15);
 }
 
+function pickJungleBloomHealTarget(st) {
+  const living = (st.foes || []).filter((f) => f && f.hp > 0);
+  if (!living.length) return null;
+  const nonBoss = living.filter((f) => !f.isBoss && f.name !== "The Heartbloom Ancient");
+  const pool = nonBoss.length ? nonBoss : living;
+  return pool.reduce((a, b) => (a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b));
+}
+
+function applyDungeonOvergrowthSnareIfDue(st, round) {
+  if (!isDungeonOvergrowthSnareCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  const phase3BossSnare = isVerdantDeepFinalRoom(st) && isHeartbloomAncientPhase3Active(st);
+  if (phase3BossSnare) {
+    if (round % 2 !== 0) return;
+  } else {
+    if (roomIndex < 2) return;
+    if (round % 3 !== 0) return;
+  }
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    applyPartyMemberCripple(st, pick, 1);
+    appendFightLog(`Overgrowth Snare cripples ${pick.name || "a fighter"} (+1 stamina per action).`);
+  }
+}
+
+function applyDungeonJungleBloomIfDue(st, round) {
+  if (!isDungeonJungleBloomCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 3) return;
+  if (round % 4 !== 0) return;
+  const target = pickJungleBloomHealTarget(st);
+  if (!target) return;
+  const amt = Math.max(1, Math.floor(target.maxHp * 0.05));
+  target.hp = Math.min(target.maxHp, target.hp + amt);
+  appendFightLog(`Jungle Bloom mends ${target.name} for ${amt}.`);
+}
+
 function applyDungeonFrostrootSnareIfDue(st, round) {
   if (!isDungeonFrostrootSnareCombat(st)) return;
   const ctx = st.worldMapContext;
@@ -5710,6 +5795,18 @@ function applyDungeonWarEchoIfDue(st, round) {
   }
 }
 
+function applyVerdantDeepBossReinforcementsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "verdant_deep") return;
+  const def = getDungeonDef("verdant_deep");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  if (round !== 8 && round !== 12) return;
+  if (summonDungeonReinforcement(st, "Verdant Sprout")) {
+    appendFightLog("Roots split—a Verdant Sprout crawls into the fight!");
+  }
+}
+
 function applyRustfallenBossReinforcementsIfDue(st, round) {
   const ctx = st && st.worldMapContext;
   if (!ctx || ctx.dungeonId !== "rustfallen_bastion") return;
@@ -5744,6 +5841,8 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyDungeonPressureCracksIfDue(st, round);
   applyDungeonFallingStoneIfDue(st, round);
   applyDungeonFrostrootSnareIfDue(st, round);
+  applyDungeonOvergrowthSnareIfDue(st, round);
+  applyDungeonJungleBloomIfDue(st, round);
   applyDungeonWinterStillnessIfDue(st, round);
   applyRootwarrenBossReinforcementsIfDue(st, round);
   applyWitheredMawBossReinforcementsIfDue(st, round);
@@ -5751,6 +5850,7 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyDungeonRustCloudIfDue(st, round);
   applyDungeonWarEchoIfDue(st, round);
   applyRustfallenBossReinforcementsIfDue(st, round);
+  applyVerdantDeepBossReinforcementsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -9380,6 +9480,209 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     return true;
   }
 
+  if (scriptId === "verdant_sprout") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "support");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    if (ready("sprout_mend")) {
+      setCd("sprout_mend", 3);
+      if (!healLowestHpAllyByHealerVit(st, foe, 0.45)) {
+        const heal = Math.max(1, Math.floor((foe.vit || 20) * 0.45));
+        foe.hp = Math.min(foe.maxHp, foe.hp + heal);
+        appendFightLog(`${foe.name} Sprout Mends itself for ${heal}.`);
+      }
+      return true;
+    }
+    const intv = foe.int || 20;
+    const hit = Math.max(1, Math.floor(intv * 0.3 * outMult));
+    dealRawDamageToPlayer(st, hit, foe.name, "Thorn Flick pricks you", { partyUid });
+    if (Math.random() < 0.3) applyPoisonToPlayer(st, Math.max(1, Math.floor(hit * 0.12)), 1);
+    return true;
+  }
+
+  if (scriptId === "verdant_bloomseer") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const intv = foe.int || 20;
+    if (ready("bloom_mend")) {
+      setCd("bloom_mend", 3);
+      const mendAllies = (st.foes || []).filter((f) => f && f.hp > 0 && f.uid !== foe.uid);
+      if (mendAllies.length) {
+        const mendTarget = mendAllies.reduce((a, b) =>
+          a.hp / Math.max(1, a.maxHp) <= b.hp / Math.max(1, b.maxHp) ? a : b
+        );
+        const wasLow = mendTarget.maxHp > 0 && mendTarget.hp / mendTarget.maxHp < 0.35;
+        if (healLowestHpAllyByHealerVit(st, foe, 0.85) && wasLow) {
+          if (!mendTarget.combat) initFoeCombatRuntime(mendTarget);
+          mendTarget.combat.healReceivedBonusPct = Math.max(mendTarget.combat.healReceivedBonusPct || 0, 8);
+          mendTarget.combat.healReceivedBonusTurns = Math.max(mendTarget.combat.healReceivedBonusTurns || 0, 2);
+        }
+      }
+      return true;
+    }
+    if (ready("pollen_blind")) {
+      setCd("pollen_blind", 3);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+      }
+      appendFightLog(`${foe.name} scatters Pollen Blind.`);
+      return true;
+    }
+    if (ready("thorned_bloom")) {
+      setCd("thorned_bloom", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.5 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Thorned Bloom strikes you", { partyUid });
+      if (Math.random() < 0.45) applyPoisonToPlayer(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+      return true;
+    }
+    if (ready("greenward_song")) {
+      setCd("greenward_song", 4);
+      buffAllLivingFoeAllies(st, foe, (target) => {
+        target.combat.magicResBonusPct = Math.max(target.combat.magicResBonusPct || 0, 6);
+        target.combat.statusResBonusPct = Math.max(target.combat.statusResBonusPct || 0, 5);
+        target.combat.magicResBonusTurns = Math.max(target.combat.magicResBonusTurns || 0, 2);
+        target.combat.statusResBonusTurns = Math.max(target.combat.statusResBonusTurns || 0, 2);
+      });
+      appendFightLog(`${foe.name} sings Greenward Song.`);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.35 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "primordial_silverback") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const strv = foe.str || 20;
+    if (ready("canopy_breaker")) {
+      setCd("canopy_breaker", 2);
+      const hit = Math.max(1, Math.floor(strv * 1.05 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Canopy Breaker smashes you", { partyUid });
+      if (Math.random() < 0.4) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ready("ground_roar")) {
+      setCd("ground_roar", 3);
+      const hit = Math.max(1, Math.floor(strv * 0.65 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Ground Roar shakes", partyUid, 1, 1);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.35) applyPartyMemberCripple(st, m, 1);
+      }
+      return true;
+    }
+    if (ready("primal_guard")) {
+      setCd("primal_guard", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 8);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 8);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Primal Guard.`);
+      return true;
+    }
+    if (ready("rootknuckle_slam")) {
+      setCd("rootknuckle_slam", 4);
+      const hit = Math.max(1, Math.floor(strv * 0.85 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Rootknuckle Slam crushes you", { partyUid });
+      tryPartyMemberStun(st, member, 0.18);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.6 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "the_heartbloom_ancient") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    if (hpFrac <= 0.7 && !foe.combat.heartbloomPhase2) {
+      foe.combat.heartbloomPhase2 = true;
+      foe.combat.healReceivedBonusPct = (foe.combat.healReceivedBonusPct || 0) + 8;
+      foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} enters The Jungle Closes.`);
+      summonDungeonReinforcement(st, "Canopy Screecher");
+      summonDungeonReinforcement(st, "Jungle Stag");
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.heartbloomPhase3) {
+      foe.combat.heartbloomPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} enters Gaia's Pulse—overgrowth quickens.`);
+      return true;
+    }
+    if (ready("heartroot_pulse")) {
+      setCd("heartroot_pulse", 3);
+      for (const ally of (st.foes || []).filter((f) => f && f.hp > 0)) {
+        const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.55 * (1 + (ally.combat?.healReceivedBonusPct || 0) / 100)));
+        ally.hp = Math.min(ally.maxHp, ally.hp + amt);
+        if (!ally.combat) initFoeCombatRuntime(ally);
+        ally.combat.statusResBonusPct = Math.max(ally.combat.statusResBonusPct || 0, 5);
+        ally.combat.statusResBonusTurns = Math.max(ally.combat.statusResBonusTurns || 0, 1);
+      }
+      appendFightLog(`${foe.name} pulses Heartroot mend through its allies.`);
+      return true;
+    }
+    if (ready("vinecrush")) {
+      setCd("vinecrush", 2);
+      let hit = Math.max(1, Math.floor(strv * 1.0 * outMult * dmgBonus * accBonus));
+      const crippled =
+        member &&
+        ((member.crippleTurns || 0) > 0 ||
+          (member.kind === "hero" && (st.status?.playerCrippleTurns || 0) > 0));
+      if (crippled) hit = Math.max(1, Math.floor(hit * 1.15));
+      dealRawDamageToPlayer(st, hit, foe.name, "Vinecrush slams you", { partyUid });
+      return true;
+    }
+    if (ready("sporefall")) {
+      setCd("sporefall", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * outMult * dmgBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Sporefall rains on you", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPoisonToPlayer(st, Math.max(1, Math.floor(hit * 0.12)), 2);
+        if (Math.random() < 0.35) applyPartyMemberBlind(st, m, 6, 1);
+      }
+      return true;
+    }
+    if (ready("ancient_barkskin")) {
+      setCd("ancient_barkskin", 4);
+      setFoeMitigation(foe, 2, 0.85);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} hardens Ancient Barkskin.`);
+      return true;
+    }
+    if (foe.combat.heartbloomPhase2 && ready("blooming_rupture")) {
+      setCd("blooming_rupture", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * outMult * dmgBonus));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Blooming Rupture bursts", partyUid, 2, 1);
+      if (Math.random() < 0.4) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (foe.combat.heartbloomPhase3 && ready("gaia_heartbreak")) {
+      setCd("gaia_heartbreak", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * outMult * dmgBonus * accBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Gaia Heartbreak shatters the air", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        tryPartyMemberStun(st, m, 0.18);
+      }
+      return true;
+    }
+    const basicMult = foe.combat.heartbloomPhase3 ? 0.55 : 0.65;
+    const basicHit = Math.max(1, Math.floor(strv * basicMult * outMult * dmgBonus * accBonus));
+    if (foe.combat.heartbloomPhase3) {
+      dealRawDamageToPlayerAdjacent(st, basicHit, foe.name, "strikes", partyUid, 1, 1);
+    } else {
+      dealRawDamageToPlayer(st, basicHit, foe.name, "strikes you", { partyUid });
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -11622,10 +11925,21 @@ function getLastWarmasterPhaseTransitionLogMessage(stemIndex) {
   return byStem[ix] || "The Last Warmaster's domain shifts into a new phase.";
 }
 
+function getHeartbloomAncientPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "Pollen drifts peacefully—the heart-flower glows beneath the moss.",
+    2: "Roots rise and flowers open—the jungle closes around the cradle.",
+    3: "The heart-flower cracks open—Gaia's pulse storms through the deep."
+  };
+  return byStem[ix] || "The Heartbloom Ancient's domain shifts into a new phase.";
+}
+
 function getBossPhaseTransitionLogMessage(dungeonId, stemIndex) {
   if (dungeonId === "stonevein_sanctum") return getColossusPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "frostroot_nursery") return getSleepingChildPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "rustfallen_bastion") return getLastWarmasterPhaseTransitionLogMessage(stemIndex);
+  if (dungeonId === "verdant_deep") return getHeartbloomAncientPhaseTransitionLogMessage(stemIndex);
   return getLeviathanPhaseTransitionLogMessage(stemIndex);
 }
 
@@ -11641,7 +11955,9 @@ function shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st) {
   const sleepingChild = st.foes && st.foes.find((f) => f && f.name === "The Sleeping Child of Winter" && f.hp > 0);
   if (sleepingChild) return true;
   const warmaster = st.foes && st.foes.find((f) => f && f.name === "The Last Warmaster" && f.hp > 0);
-  return !!warmaster;
+  if (warmaster) return true;
+  const heartbloom = st.foes && st.foes.find((f) => f && f.name === "The Heartbloom Ancient" && f.hp > 0);
+  return !!heartbloom;
 }
 
 function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
@@ -12180,34 +12496,23 @@ function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
     typeof ctx.roomIndex === "number" &&
     ctx.roomIndex === roomIndex;
   if (!inThisRoomFight) return 0;
-  const levi = co.foes && co.foes.find((f) => f && f.name === "The Stormwake Leviathan" && f.hp > 0);
-  if (levi && levi.maxHp > 0) {
-    const frac = levi.hp / levi.maxHp;
-    if (frac > 0.7) return Math.min(1, stems.length - 1);
-    if (frac > 0.3) return Math.min(2, stems.length - 1);
-    return Math.min(3, stems.length - 1);
-  }
-  const colossus = co.foes && co.foes.find((f) => f && f.name === "The Held Colossus" && f.hp > 0);
-  if (colossus && colossus.maxHp > 0) {
-    const frac = colossus.hp / colossus.maxHp;
-    if (frac > 0.7) return Math.min(1, stems.length - 1);
-    if (frac > 0.35) return Math.min(2, stems.length - 1);
-    return Math.min(3, stems.length - 1);
-  }
-  const sleepingChild =
-    co.foes && co.foes.find((f) => f && f.name === "The Sleeping Child of Winter" && f.hp > 0);
-  if (sleepingChild && sleepingChild.maxHp > 0) {
-    const frac = sleepingChild.hp / sleepingChild.maxHp;
-    if (frac > 0.7) return Math.min(1, stems.length - 1);
-    if (frac > 0.35) return Math.min(2, stems.length - 1);
-    return Math.min(3, stems.length - 1);
-  }
-  const warmaster = co.foes && co.foes.find((f) => f && f.name === "The Last Warmaster" && f.hp > 0);
-  if (warmaster && warmaster.maxHp > 0) {
-    const frac = warmaster.hp / warmaster.maxHp;
-    if (frac > 0.7) return Math.min(1, stems.length - 1);
-    if (frac > 0.35) return Math.min(2, stems.length - 1);
-    return Math.min(3, stems.length - 1);
+
+  const bossPhaseRules = [
+    { name: "The Stormwake Leviathan", thresholds: [0.7, 0.3] },
+    { name: "The Held Colossus", thresholds: [0.7, 0.35] },
+    { name: "The Sleeping Child of Winter", thresholds: [0.7, 0.35] },
+    { name: "The Last Warmaster", thresholds: [0.7, 0.35] },
+    { name: "The Heartbloom Ancient", thresholds: [0.7, 0.35] }
+  ];
+  for (const rule of bossPhaseRules) {
+    const boss = co.foes && co.foes.find((f) => f && f.name === rule.name && f.hp > 0);
+    if (boss && boss.maxHp > 0) {
+      const frac = boss.hp / boss.maxHp;
+      const [t1, t2] = rule.thresholds;
+      if (frac > t1) return Math.min(1, stems.length - 1);
+      if (frac > t2) return Math.min(2, stems.length - 1);
+      return Math.min(3, stems.length - 1);
+    }
   }
   return Math.min(1, stems.length - 1);
 }
@@ -12945,6 +13250,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "nali_rootwatcher_epilogue") {
+    const vdDef = getDungeonDef("verdant_deep");
+    const ex =
+      vdDef && vdDef.entrance && typeof vdDef.entrance.x === "number" ? Math.floor(vdDef.entrance.x) : 9;
+    const ey =
+      vdDef && vdDef.entrance && typeof vdDef.entrance.y === "number" ? Math.floor(vdDef.entrance.y) : 74;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(48),
+        topPct: clampScenePct(62),
+        scalePct: clampSceneScalePct(72)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -13126,6 +13445,19 @@ function buildNpcLayoutExportByCoordinate() {
       const epId = "captain_ilyra_voss_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 71.37276785714286 && epPos.topPct === 66.79382540809084 && epPos.scalePct === 104;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const vdDef = getDungeonDef("verdant_deep");
+    const vdEnt =
+      vdDef && vdDef.entrance && typeof vdDef.entrance.x === "number" && typeof vdDef.entrance.y === "number"
+        ? { x: Math.floor(vdDef.entrance.x), y: Math.floor(vdDef.entrance.y) }
+        : null;
+    if (vdEnt && x === vdEnt.x && y === vdEnt.y) {
+      const epId = "nali_rootwatcher_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 48 && epPos.topPct === 62 && epPos.scalePct === 72;
       if (!epDefault) {
         rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
       }
@@ -16363,6 +16695,9 @@ function applyServerFightResult(result) {
     const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
     recordMonsterKillsFromNames(killedNamesAll);
     applyWorldMapVictoryFromCombatState(st);
+    if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
+      publishPresenceDungeonLocation();
+    }
     showFightResults(true, result);
   } else {
     if (
@@ -17261,6 +17596,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
       applyReflectDamageToPartyHero(st, dmg, foe);
       if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+      if (dmg > 0) tryProcSilverbackPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
       }
@@ -17338,6 +17674,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
   applyReflectDamageToPartyHero(st, dmg, foe);
   if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+  if (dmg > 0) tryProcSilverbackPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (foe.combat && foe.combat.script === "tusk_boar") {
     foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
   }
@@ -17783,10 +18120,6 @@ function openMerritRootsnifferEntranceDialog() {
   showModalHtml(html, { npcBubble: true });
 }
 
-function openMerritRootsnifferKeyAcceptedDialog() {
-  openDungeonKeyAcceptedDialog("rootwarren");
-}
-
 function openCaptainIlyraVossEntranceDialog() {
   const def = getDungeonDef("rustfallen_bastion");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Rustfallen Key";
@@ -17812,6 +18145,40 @@ function openCaptainIlyraVossEntranceDialog() {
     <p class="npc-dialog-actions-label">Action options</p>
     <div class="npc-dialog-actions">
       <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="rustfallen_bastion">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
+function openMerritRootsnifferKeyAcceptedDialog() {
+  openDungeonKeyAcceptedDialog("rootwarren");
+}
+
+function openNaliRootwatcherEntranceDialog() {
+  const def = getDungeonDef("verdant_deep");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Verdant Deep Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Nali Rootwatcher</p>
+      <p class="npc-dialog-body">The roots below are older than the trees above. They remember every wound Gaia ever took. If you carry the Verdant Deep Key, I can open the vine seal.</p>
+      <p class="npc-dialog-body">Step carefully. The jungle does not hate you, but it may still decide to swallow you.</p>
+      <p class="npc-dialog-actions-label">Action options</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="verdant_deep">Use the Verdant Deep Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="verdant_deep">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nali Rootwatcher</p>
+    <p class="npc-dialog-body">No key? Then the vines will not part. They only open for those carrying a living mark of the jungle.</p>
+    <p class="npc-dialog-body">Bring me a Verdant Deep Key, and try not to bleed on the flowers while finding one. They get excited.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="verdant_deep">Leave</button>
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
@@ -17978,6 +18345,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openCaptainIlyraVossEntranceDialog();
     return;
   }
+  if (id === "verdant_deep") {
+    openNaliRootwatcherEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -18006,7 +18377,9 @@ function openDungeonKeyAcceptedDialog(dungeonId) {
           ? "Elowen touches the frozen arch. The roots peel aside with a soft, mournful sigh."
           : id === "rustfallen_bastion"
             ? "Captain Ilyra turns the rusted key. The gate exhales ash and old marching echoes."
-            : "The key turns by itself. Thunder exhales from the gap ahead.";
+            : id === "verdant_deep"
+              ? "Nali parts the vine seal. Warm sap breath rolls up from the Verdant Deep."
+              : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -18196,6 +18569,20 @@ function openDungeonEpilogueDialog(dungeonId) {
     showModalHtml(html, { npcBubble: true });
     return;
   }
+  if (id === "verdant_deep") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Nali Rootwatcher</p>
+    <p class="npc-dialog-body">The deep roots are quiet… quieter than I have ever heard them. You faced the old bloom and came back.</p>
+    <p class="npc-dialog-body">Come, before the jungle decides it misses you.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Take me out</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">I will stay longer</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
   const def = getDungeonDef(id);
   const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "Dungeon";
   const html = `<div class="npc-dialog-bubble">
@@ -18373,6 +18760,35 @@ function buildDungeonEpilogueSceneHtml() {
     </div>
   </div>`;
     }
+    if (dungeonId === "verdant_deep") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "nali_rootwatcher");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Nali Rootwatcher", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Nali Rootwatcher" aria-label="Nali Rootwatcher"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "nali_rootwatcher_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The last chamber is quiet. Nali listens as the deep roots finally still.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
     return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. The entrance waits behind you.</p>
@@ -18538,15 +18954,20 @@ function closeFightOverlay() {
     const def = getDungeonDef(dungeonPost.dungeonId);
     const run = getActiveDungeonRun();
     if (def && run && run.id === dungeonPost.dungeonId) {
-      const nextRoom = dungeonPost.roomIndex + 1;
-      if (nextRoom < def.rooms.length) {
-        run.roomIndex = nextRoom;
-        save();
-        render();
-        return;
+      const foughtRoom = typeof dungeonPost.roomIndex === "number" ? dungeonPost.roomIndex : 0;
+      if (run.roomIndex <= foughtRoom) {
+        const nextRoom = foughtRoom + 1;
+        if (nextRoom < def.rooms.length) {
+          run.roomIndex = nextRoom;
+        } else {
+          run.epilogue = true;
+        }
       }
-      run.epilogue = true;
-      save();
+      save({ flush: true });
+      if (typeof persistCharacterRoster === "function") {
+        void persistCharacterRoster();
+      }
+      publishPresenceDungeonLocation();
       render();
       return;
     }

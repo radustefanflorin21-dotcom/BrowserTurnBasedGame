@@ -478,6 +478,55 @@ const GAME_CONFIG = {
       baseHp: 3700
     },
     {
+      name: "Verdant Sprout",
+      combatScript: "verdant_sprout",
+      combatRole: "support",
+      spawnRarity: "rare",
+      image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/verdant_sprout.png",
+      possibleLevels: [36],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 6,
+      baseStats: { str: 14, dex: 26, vit: 34, int: 42 },
+      baseHp: 240
+    },
+    {
+      name: "Verdant Bloomseer",
+      combatScript: "verdant_bloomseer",
+      combatRole: "support",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/verdant_bloomseer.png",
+      possibleLevels: [40],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 24, dex: 52, vit: 74, int: 112 },
+      baseHp: 980
+    },
+    {
+      name: "Primordial Silverback",
+      combatScript: "primordial_silverback",
+      combatRole: "bruiser",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/primordial_silverback.png",
+      possibleLevels: [41],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 92, dex: 40, vit: 70, int: 22 },
+      baseHp: 1080
+    },
+    {
+      name: "The Heartbloom Ancient",
+      combatScript: "the_heartbloom_ancient",
+      combatRole: "support",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_heartbloom_ancient.png",
+      possibleLevels: [43],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 8,
+      baseStats: { str: 78, dex: 60, vit: 112, int: 126 },
+      baseHp: 3600
+    },
+    {
       name: "Dust Carver",
       combatScript: "dust_carver",
       combatRole: "assassin",
@@ -1182,6 +1231,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/rustfallen_key.png",
       description: "A rust-eaten key that opens the grave of the Rustfallen Bastion.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Verdant Deep Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/verdant_deep_key.png",
+      description: "A living vine key that parts the seal into the Verdant Deep.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -3287,6 +3344,110 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { STR: 28, VIT: 22, HP: 260, "Phys Damage": 7, "Status Resist": 6 }
     },
+    "Bloomseer Heart Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "epic",
+      itemLevel: 41,
+      image: "Assets/Equips/bloomseer_heart_amulet.png",
+      description: "A heartseed amulet pulsing with jungle mend magic.",
+      set: "",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 30, VIT: 22, HEAL: 8, "Magic Resist": 7, "Status Resist": 6, HP: 220 }
+    },
+    "Silverback Barkplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest",
+      rarity: "epic",
+      itemLevel: 41,
+      image: "Assets/Equips/silverback_barkplate.png",
+      description: "Bark-armor plates grown on a primal jungle titan.",
+      set: "Silverback",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 32, VIT: 24, HP: 340, "Phys Resist": 8, "Phys Damage": 7 }
+    },
+    "Rootknuckle Bracers": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "wristband",
+      rarity: "epic",
+      itemLevel: 41,
+      image: "Assets/Equips/rootknuckle_bracers.png",
+      description: "Root-knuckle bracers from a primordial silverback.",
+      set: "Silverback",
+      build: "STR_DEX",
+      bonusSkills: [],
+      bonusStats: { STR: 30, DEX: 16, "Phys Damage": 8, ACC: 6, Crit: 5 }
+    },
+    "Heartbloom Crown": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helm",
+      rarity: "epic",
+      itemLevel: 42,
+      image: "Assets/Equips/heartbloom_crown.png",
+      description: "A crown of ancient heartbloom petals and living vines.",
+      set: "Heartbloom",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 34, VIT: 22, HEAL: 8, "Magic Damage": 7, ACC: 6 }
+    },
+    "Gaiaheart Robe": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "robe",
+      rarity: "epic",
+      itemLevel: 42,
+      image: "Assets/Equips/gaiaheart_robe.png",
+      description: "A robe woven from Gaia rootheart fibers and living moss.",
+      set: "Heartbloom",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 34, INT: 28, HP: 380, "Magic Resist": 9, "Status Resist": 7 }
+    },
+    "Living Canopy Pants": {
+      type: "armor",
+      slot: "legs",
+      equipCategory: "leg_armor",
+      rarity: "epic",
+      itemLevel: 43,
+      image: "Assets/Equips/living_canopy_pants.png",
+      description: "Canopy-woven leg armor that moves like living leaves.",
+      set: "Heartbloom",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 28, INT: 26, HP: 300, EVA: 5, "Magic Resist": 6, "Status Resist": 5 }
+    },
+    "Gaia Lull Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "epic",
+      itemLevel: 43,
+      image: "Assets/Equips/gaia_lull_staff.png",
+      description: "A two-handed staff that hums with Gaia's sleeping heart.",
+      set: "Heartbloom",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 38, VIT: 20, "Magic Damage": 10, HEAL: 8, ACC: 7, Crit: 4 }
+    },
+    "Heartbloom Sapstone Ring": {
+      type: "armor",
+      slot: "ring",
+      equipCategory: "ring",
+      rarity: "epic",
+      itemLevel: 43,
+      image: "Assets/Equips/heartbloom_sapstone_ring.png",
+      description: "A ring holding crystallized heartbloom sap from the deep roots.",
+      set: "",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 29, VIT: 20, HP: 220, HEAL: 6, "Magic Resist": 6, "Status Resist": 5 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -3479,11 +3640,23 @@ const GAME_CONFIG = {
       image: "Assets/Resources/burnt_hide.png",
       description: "Burnt Hide used in crafting and loot."
     },
+    "Bright Seeds": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bright_seeds.png",
+      description: "Luminous canopy seeds shaken loose from high branches."
+    },
     "Carapace Fragment": {
       type: "material",
       value: 5,
       image: "Assets/Resources/carapace_fragment.png",
       description: "Carapace Fragment used in crafting and loot."
+    },
+    "Canopy Feather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/canopy_feather.png",
+      description: "A bright feather from a canopy screecher."
     },
     "Charged Core": {
       type: "material",
@@ -3634,6 +3807,12 @@ const GAME_CONFIG = {
       value: 5,
       image: "Assets/Resources/echo_fragment.png",
       description: "Echo Fragment used in crafting and loot."
+    },
+    "Echo Beak": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/echo_beak.png",
+      description: "A hollow beak fragment from a canopy screecher."
     },
     "Elastic Tendon": {
       type: "material",
@@ -4613,6 +4792,84 @@ const GAME_CONFIG = {
       image: "Assets/Resources/eternal_battle_soul.png",
       description: "A rare eternal battle soul from the Last Warmaster."
     },
+    "Bloomseer Petal": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bloomseer_petal.png",
+      description: "A luminous petal from the Verdant Bloomseer."
+    },
+    "Pollen-Sap Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/pollen_sap_thread.png",
+      description: "Pollen-sap thread gathered from the Bloomseer."
+    },
+    "Verdant Mend Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/verdant_mend_core.png",
+      description: "A mending core from the Verdant Bloomseer."
+    },
+    "Bloomseer Heartseed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/bloomseer_heartseed.png",
+      description: "A rare heartseed from the Verdant Bloomseer."
+    },
+    "Silverback Barkplate Scrap": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/silverback_barkplate.png",
+      description: "Barkplate stripped from a Primordial Silverback."
+    },
+    "Rootknuckle Bone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/rootknuckle_bone.png",
+      description: "A dense root-knuckle bone from the Primordial Silverback."
+    },
+    "Primal Vine Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/primal_vine_core.png",
+      description: "A primal vine core from the Silverback."
+    },
+    "Silverback Titan Heart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/silverback_titan_heart.png",
+      description: "A rare titan heart from the Primordial Silverback."
+    },
+    "Ancient Heartbloom Petal": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/ancient_heartbloom_petal.png",
+      description: "An ancient petal from the Heartbloom Ancient."
+    },
+    "Gaia Rootheart Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/gaia_rootheart_fragment.png",
+      description: "A fragment of Gaia's rootheart from the deep."
+    },
+    "Living Canopy Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/living_canopy_core.png",
+      description: "A living canopy core from the Heartbloom cradle."
+    },
+    "Heartbloom Sapstone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/heartbloom_sapstone.png",
+      description: "Crystallized heartbloom sap from the ancient bloom."
+    },
+    "Gaia Soulseed": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/gaia_soulseed.png",
+      description: "A rare Gaia soulseed from the Heartbloom Ancient."
+    },
     "Heartburrow Horn": {
       type: "material",
       value: 5,
@@ -4684,6 +4941,12 @@ const GAME_CONFIG = {
       value: 5,
       image: "Assets/Resources/scaled_skin.png",
       description: "Scaled Skin used in crafting and loot."
+    },
+    "Screech Feather": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/screech_feather.png",
+      description: "A resonant feather shed by a canopy screecher."
     },
     "Seeds": {
       type: "material",
@@ -5310,7 +5573,11 @@ const GAME_CONFIG = {
     "Fallen Echo": ["undead", "elemental"],
     "Rustbound Marshal": ["undead", "construct"],
     "Bannerless Wraithlord": ["undead", "elemental"],
-    "The Last Warmaster": ["undead", "construct"]
+    "The Last Warmaster": ["undead", "construct"],
+    "Verdant Sprout": ["nature", "plant"],
+    "Verdant Bloomseer": ["beast", "nature"],
+    "Primordial Silverback": ["beast", "nature"],
+    "The Heartbloom Ancient": ["beast", "nature", "plant"]
   },
 
   crafting: {
@@ -7029,6 +7296,21 @@ const GAME_CONFIG = {
               { item: "Faded Banner Thread", qty: 4, source: "monster_loot" },
               { item: "Wraith Core", qty: 2, source: "monster_loot" }
             ]
+          },
+          {
+            id: "verdant_deep_key",
+            resultItem: "Verdant Deep Key",
+            resultLevel: 38,
+            ingredients: [
+              { item: "Dart Spine", qty: 6, source: "monster_loot" },
+              { item: "Screech Feather", qty: 5, source: "monster_loot" },
+              { item: "Fox Fang", qty: 5, source: "monster_loot" },
+              { item: "Antler Piece", qty: 4, source: "monster_loot" },
+              { item: "Thick Bone", qty: 4, source: "monster_loot" },
+              { item: "Plant Fiber", qty: 5, source: "gathering_loot" },
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Nature Essence", qty: 2, source: "monster_loot" }
+            ]
           }]
       },
       {
@@ -7147,6 +7429,119 @@ const GAME_CONFIG = {
               { item: "Soul Fragment", qty: 8, source: "monster_loot" },
               { item: "Shadow Residue", qty: 6, source: "monster_loot" },
               { item: "Wraith Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "bloomseer_heart_amulet",
+            resultItem: "Bloomseer Heart Amulet",
+            resultLevel: 41,
+            ingredients: [
+              { item: "Bloomseer Heartseed", qty: 1, source: "monster_loot" },
+              { item: "Verdant Mend Core", qty: 2, source: "monster_loot" },
+              { item: "Bloomseer Petal", qty: 3, source: "monster_loot" },
+              { item: "Pollen-Sap Thread", qty: 4, source: "monster_loot" },
+              { item: "Growth Seed", qty: 8, source: "gathering_loot" },
+              { item: "Spirit Seed", qty: 5, source: "gathering_loot" },
+              { item: "Support Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "silverback_barkplate",
+            resultItem: "Silverback Barkplate",
+            resultLevel: 41,
+            ingredients: [
+              { item: "Silverback Barkplate Scrap", qty: 4, source: "monster_loot" },
+              { item: "Rootknuckle Bone", qty: 3, source: "monster_loot" },
+              { item: "Primal Vine Core", qty: 2, source: "monster_loot" },
+              { item: "Thick Bone", qty: 8, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 8, source: "monster_loot" },
+              { item: "Jungle Fiber", qty: 6, source: "gathering_loot" },
+              { item: "Rage Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "rootknuckle_bracers",
+            resultItem: "Rootknuckle Bracers",
+            resultLevel: 41,
+            ingredients: [
+              { item: "Rootknuckle Bone", qty: 4, source: "monster_loot" },
+              { item: "Silverback Barkplate Scrap", qty: 3, source: "monster_loot" },
+              { item: "Silverback Titan Heart", qty: 1, source: "monster_loot" },
+              { item: "Thick Bone", qty: 6, source: "monster_loot" },
+              { item: "Reinforced Bone", qty: 3, source: "gathering_loot" },
+              { item: "Dart Spine", qty: 8, source: "monster_loot" },
+              { item: "Agility Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "heartbloom_crown",
+            resultItem: "Heartbloom Crown",
+            resultLevel: 42,
+            ingredients: [
+              { item: "Ancient Heartbloom Petal", qty: 5, source: "monster_loot" },
+              { item: "Gaia Rootheart Fragment", qty: 4, source: "monster_loot" },
+              { item: "Living Canopy Core", qty: 2, source: "monster_loot" },
+              { item: "Bloomseer Petal", qty: 3, source: "monster_loot" },
+              { item: "Pollen-Sap Thread", qty: 4, source: "monster_loot" },
+              { item: "Growth Seed", qty: 10, source: "gathering_loot" },
+              { item: "Bright Seeds", qty: 8, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "gaiaheart_robe",
+            resultItem: "Gaiaheart Robe",
+            resultLevel: 42,
+            ingredients: [
+              { item: "Gaia Rootheart Fragment", qty: 5, source: "monster_loot" },
+              { item: "Ancient Heartbloom Petal", qty: 3, source: "monster_loot" },
+              { item: "Heartbloom Sapstone", qty: 1, source: "monster_loot" },
+              { item: "Silverback Barkplate Scrap", qty: 3, source: "monster_loot" },
+              { item: "Bark Fragment", qty: 10, source: "monster_loot" },
+              { item: "Plant Fiber", qty: 8, source: "gathering_loot" },
+              { item: "Nature Essence", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "living_canopy_pants",
+            resultItem: "Living Canopy Pants",
+            resultLevel: 43,
+            ingredients: [
+              { item: "Living Canopy Core", qty: 3, source: "monster_loot" },
+              { item: "Gaia Rootheart Fragment", qty: 4, source: "monster_loot" },
+              { item: "Ancient Heartbloom Petal", qty: 3, source: "monster_loot" },
+              { item: "Pollen-Sap Thread", qty: 4, source: "monster_loot" },
+              { item: "Forest Fur", qty: 8, source: "monster_loot" },
+              { item: "Canopy Feather", qty: 6, source: "gathering_loot" },
+              { item: "Spirit Seed", qty: 5, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "gaia_lull_staff",
+            resultItem: "Gaia Lull Staff",
+            resultLevel: 43,
+            ingredients: [
+              { item: "Gaia Soulseed", qty: 1, source: "monster_loot" },
+              { item: "Heartbloom Sapstone", qty: 2, source: "monster_loot" },
+              { item: "Living Canopy Core", qty: 4, source: "monster_loot" },
+              { item: "Gaia Rootheart Fragment", qty: 4, source: "monster_loot" },
+              { item: "Bloomseer Heartseed", qty: 2, source: "monster_loot" },
+              { item: "Echo Beak", qty: 8, source: "monster_loot" },
+              { item: "Resonance Core", qty: 3, source: "monster_loot" },
+              { item: "Nature Essence", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "heartbloom_sapstone_ring",
+            resultItem: "Heartbloom Sapstone Ring",
+            resultLevel: 43,
+            ingredients: [
+              { item: "Heartbloom Sapstone", qty: 2, source: "monster_loot" },
+              { item: "Gaia Soulseed", qty: 1, source: "monster_loot" },
+              { item: "Living Canopy Core", qty: 2, source: "monster_loot" },
+              { item: "Bloomseer Heartseed", qty: 1, source: "monster_loot" },
+              { item: "Bright Seeds", qty: 8, source: "gathering_loot" },
+              { item: "Seeds", qty: 8, source: "gathering_loot" },
+              { item: "Nature Essence", qty: 3, source: "monster_loot" }
             ]
           },
           {
@@ -7474,6 +7869,8 @@ const GAME_CONFIG = {
     "Sleeping Winter": 4,
     Bannerless: 2,
     Warmaster: 4,
+    Silverback: 2,
+    Heartbloom: 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -7559,6 +7956,14 @@ const GAME_CONFIG = {
       2: { STR: 20, VIT: 12, HP: 200, "Phys Damage": 5 },
       3: { STR: 32, VIT: 20, HP: 360, "Phys Damage": 8, "Phys Resist": 5 },
       4: { STA: 1, STR: 44, VIT: 30, HP: 540, "Phys Damage": 10, ACC: 6, "Status Resist": 6 }
+    },
+    Silverback: {
+      2: { STR: 18, VIT: 12, HP: 200, "Phys Damage": 5, "Phys Resist": 4 }
+    },
+    Heartbloom: {
+      2: { INT: 18, VIT: 12, HP: 180, HEAL: 4 },
+      3: { INT: 30, VIT: 20, HP: 340, HEAL: 7, "Magic Resist": 5 },
+      4: { STA: 1, INT: 42, VIT: 30, HP: 520, HEAL: 9, "Magic Damage": 7, ACC: 6 }
     },
     "Held Colossus": {
       2: { VIT: 16, HP: 180, "Phys Resist": 5 },
@@ -7829,7 +8234,8 @@ const GAME_CONFIG = {
       "35,33": "Assets/Biomes/The misery of life/The Withered Maw/the_withered_maw_entrance.png",
       "32,70": "Assets/Biomes/The held breath/The Stonevein Sanctum/stonevein_entrance.png",
       "23,30": "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_frostroot_nursery_entrance.png",
-      "45,21": "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_rustfallen_bastion_entrance.png"
+      "45,21": "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_rustfallen_bastion_entrance.png",
+      "9,74": "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_verdant_deep_entrance.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -7978,6 +8384,25 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/captain_ilyra_voss.png",
             text: "Captain Ilyra Voss keeps watch beside the rusted gate.",
             dungeonEntrance: "rustfallen_bastion"
+          }
+        ]
+      },
+      "9,74": {
+        kind: "scene",
+        title: "Heart of Gaia — The Verdant Deep",
+        description: "An overgrown jungle fissure surrounded by giant leaves and glowing vines.",
+        elements: [
+          {
+            type: "npc",
+            id: "nali_rootwatcher",
+            label: "Nali Rootwatcher",
+            editable: true,
+            leftPct: 48,
+            topPct: 62,
+            scalePct: 72,
+            image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/nali_rootwatcher.png",
+            text: "Nali Rootwatcher listens to the vines.",
+            dungeonEntrance: "verdant_deep"
           }
         ]
       },
@@ -8729,6 +9154,123 @@ const GAME_CONFIG = {
                 moodId: "steady",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_last_warmaster.png"
+              }
+            ]
+          }
+        ]
+      },
+      verdant_deep: {
+        name: "The Verdant Deep",
+        keyItem: "Verdant Deep Key",
+        entrance: { x: 9, y: 74 },
+        assetBase: "Assets/Biomes/Heart of Gaia/The Verdant Deep",
+        overgrowthSnare: true,
+        jungleBloom: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Leafdart Squirrel", level: 36, moodId: "berserk" },
+              { name: "Leafdart Squirrel", level: 36, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 36, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 36, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 36, moodId: "berserk" },
+              { name: "Jungle Stag", level: 36, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Leafdart Squirrel", level: 37, moodId: "berserk" },
+              { name: "Leafdart Squirrel", level: 37, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 37, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 37, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 37, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 37, moodId: "berserk" },
+              { name: "Jungle Stag", level: 37, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText:
+              "Overgrowth Snare: every 3 rounds, vines may cripple a random fighter (+1 stamina per action).",
+            enemies: [
+              { name: "Greenleaf Fox", level: 38, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 38, moodId: "berserk" },
+              { name: "Leafdart Squirrel", level: 38, moodId: "berserk" },
+              { name: "Leafdart Squirrel", level: 38, moodId: "berserk" },
+              { name: "Jungle Stag", level: 39, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 38, moodId: "berserk" },
+              { name: "Gorilla", level: 39, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText: "Overgrowth Snare and Jungle Bloom thicken the sacred chamber air.",
+            enemies: [
+              { name: "Jungle Stag", level: 39, moodId: "berserk" },
+              { name: "Jungle Stag", level: 40, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 39, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 40, moodId: "berserk" },
+              { name: "Leafdart Squirrel", level: 39, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 40, moodId: "berserk" },
+              { name: "Gorilla", level: 40, moodId: "berserk" },
+              {
+                name: "Verdant Bloomseer",
+                level: 40,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Heart of Gaia/The Verdant Deep/verdant_bloomseer.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText: "Overgrowth Snare and Jungle Bloom continue across the primal canopy gate.",
+            enemies: [
+              { name: "Gorilla", level: 40, moodId: "berserk" },
+              { name: "Gorilla", level: 41, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 40, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 41, moodId: "berserk" },
+              { name: "Jungle Stag", level: 41, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 40, moodId: "berserk" },
+              { name: "Leafdart Squirrel", level: 41, moodId: "berserk" },
+              {
+                name: "Primordial Silverback",
+                level: 41,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Heart of Gaia/The Verdant Deep/primordial_silverback.png"
+              }
+            ]
+          },
+          {
+            bg: "6",
+            bgPhaseStems: ["6", "6_1", "6_2", "6_3"],
+            modifierText:
+              "Overgrowth Snare and Jungle Bloom continue. Root reinforcements may answer if the cradle fight lingers.",
+            enemies: [
+              { name: "Leafdart Squirrel", level: 41, moodId: "berserk" },
+              { name: "Canopy Screecher", level: 41, moodId: "berserk" },
+              { name: "Greenleaf Fox", level: 41, moodId: "berserk" },
+              { name: "Jungle Stag", level: 41, moodId: "berserk" },
+              { name: "Gorilla", level: 41, moodId: "berserk" },
+              {
+                name: "Verdant Bloomseer",
+                level: 40,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Heart of Gaia/The Verdant Deep/verdant_bloomseer.png"
+              },
+              {
+                name: "Primordial Silverback",
+                level: 41,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Heart of Gaia/The Verdant Deep/primordial_silverback.png"
+              },
+              {
+                name: "The Heartbloom Ancient",
+                level: 43,
+                moodId: "steady",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_heartbloom_ancient.png"
               }
             ]
           }

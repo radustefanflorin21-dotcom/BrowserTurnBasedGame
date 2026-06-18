@@ -1,11 +1,9 @@
 DUNGEON: THE VERDANT DEEP
 REGION: Heart of Gaia
-RECOMMENDED LEVEL: 36-43
 ROOMS: 6
-DUNGEON TYPE: Group dungeon
 KEY: Verdant Deep Key
 KEY CONSUMED ON ENTRY: Yes
-MAIN THEMES: jungle growth, healing pressure, poison, bleed, evasion, living vines, ancient green magic.
+Entrance: 9,74
 
 ============================================================
 1. ENTRANCE NPC
@@ -42,14 +40,14 @@ REQUIRED CRAFTING LEVEL: 38
 RECIPE SLOTS: 8
 
 KEY RECIPE:
-1. Jungle Feather x6
-2. Greenleaf Pelt x5
-3. Living Vine x6
-4. Sap Crystal x5
-5. Primate Bone x4
-6. Heartwood Seed x5
-7. Wild Bloom Essence x4
-8. Ancient Growth Core x2
+1. Dart Spine x6
+2. Screech Feather x5
+3. Fox Fang x5
+4. Antler Piece x4
+5. Thick Bone x4
+6. Plant Fiber x5
+7. Growth Seed x4
+8. Nature Essence x2
 
 KEY VISUAL DESCRIPTION:
 The Verdant Deep Key looks like a living vine grown into the shape of a key. Its handle is a loop of twisted green stems wrapped around a glowing seed. The shaft is dark heartwood with small leaves growing from it, and the teeth are made from thorn tips and polished animal bone. Faint golden-green sap pulses inside the wood, and tiny roots move slowly along the surface.
@@ -73,35 +71,35 @@ Do not summon if there are already 8 enemies alive.
 4. ROOM STRUCTURES
 ============================================================
 ROOM 1: Moss-Covered Descent
-Enemies: Greenleaf Squirrel x2, Greenleaf Parrot x2, Greenleaf Fox x1, Jungle Stag x1
+Enemies: Leafdart Squirrel x2, Canopy Screecher x2, Greenleaf Fox x1, Jungle Stag x1
 Total enemies: 6
 Visuals: A damp jungle tunnel descending through mossy stone and thick roots. Shafts of green light enter from holes above. Bright insects, wet leaves, and glowing sap drops cover the walls. It should feel alive and humid, but not yet hostile.
 
 ROOM 2: Canopy Rootbridge
-Enemies: Greenleaf Squirrel x2, Greenleaf Parrot x2, Greenleaf Fox x2, Jungle Stag x1
+Enemies: Leafdart Squirrel x2, Canopy Screecher x2, Greenleaf Fox x2, Jungle Stag x1
 Total enemies: 7
 Visuals: A suspended natural bridge made from enormous roots, crossing a shadowed jungle ravine. Vines hang from above, tropical flowers grow along the edges, and distant animal calls echo below. The bridge should feel beautiful but dangerous.
 
 ROOM 3: Hunter's Green
-Enemies: Greenleaf Fox x2, Greenleaf Squirrel x2, Jungle Stag x1, Greenleaf Parrot x1, Gorilla x1
+Enemies: Greenleaf Fox x2, Leafdart Squirrel x2, Jungle Stag x1, Canopy Screecher x1, Gorilla x1
 Total enemies: 7
 Visuals: A wide clearing filled with clawed trees, trampled flowers, and broken branches. The ground is soft and covered in footprints. The room feels like a predator gathering place, with hanging vines forming natural ambush points.
 
 ROOM 4: The Blooming Watch
 Elite room 1.
-Enemies: Jungle Stag x2, Greenleaf Parrot x2, Greenleaf Squirrel x1, Greenleaf Fox x1, Gorilla x1, Verdant Bloomseer x1
+Enemies: Jungle Stag x2, Canopy Screecher x2, Leafdart Squirrel x1, Greenleaf Fox x1, Gorilla x1, Verdant Bloomseer x1
 Total enemies: 8
 Visuals: A sacred jungle chamber with massive flowers blooming from ancient roots. Pools of glowing green sap reflect hanging vines. The air is full of pollen and drifting golden spores. This room should feel magical and healing-focused.
 
 ROOM 5: Primal Canopy Gate
 Elite room 2.
-Enemies: Gorilla x2, Greenleaf Fox x2, Jungle Stag x1, Greenleaf Parrot x1, Greenleaf Squirrel x1, Primordial Silverback x1
+Enemies: Gorilla x2, Greenleaf Fox x2, Jungle Stag x1, Canopy Screecher x1, Leafdart Squirrel x1, Primordial Silverback x1
 Total enemies: 8
 Visuals: A heavy gate of bent trees, cracked stone, and vine-covered bones. Huge handprints mark the walls. Broken trunks and crushed roots show where something massive has forced its way through many times.
 
 ROOM 6: Heartbloom Cradle
 Boss room.
-Enemies: Greenleaf Squirrel x1, Greenleaf Parrot x1, Greenleaf Fox x1, Jungle Stag x1, Gorilla x1, Verdant Bloomseer x1, Primordial Silverback x1, The Heartbloom Ancient x1
+Enemies: Leafdart Squirrel x1, Canopy Screecher x1, Greenleaf Fox x1, Jungle Stag x1, Gorilla x1, Verdant Bloomseer x1, Primordial Silverback x1, The Heartbloom Ancient x1
 Total enemies: 8
 Visuals: A huge underground jungle cathedral centered around a glowing heart-shaped flower grown from ancient roots. The floor is covered in moss, flowers, and pulsing vine veins. The ceiling is hidden by leaves and roots. This is the living heart of the dungeon.
 
@@ -162,7 +160,7 @@ A colossal ancient tree-beast grown around a glowing heart-shaped flower. Its bo
 
 Boss Phases:
 Phase 1 - Sleeping Bloom, 100%-70% HP: normal rotation.
-Phase 2 - The Jungle Closes, triggers at 70% HP: boss gains Healing received +8% and Magic resist +8% permanently. Summons 1 Greenleaf Parrot and 1 Jungle Stag.
+Phase 2 - The Jungle Closes, triggers at 70% HP: boss gains Healing received +8% and Magic resist +8% permanently. Summons 1 Canopy Screecher and 1 Jungle Stag.
 Phase 3 - Gaia's Pulse, triggers at 35% HP: boss gains Magic dmg +10% and Accuracy +8% permanently. Overgrowth Snare triggers every 2 rounds instead of every 3. Basic attacks hit target + 1 adjacent.
 
 Boss Skills:
@@ -182,14 +180,59 @@ Stats: STR 14, DEX 26, VIT 34, INT 42
 Skills: Sprout Mend heals lowest ally VIT x 45%, cooldown 3. Thorn Flick magical INT x 30%, 30% Poison chance for 1 turn.
 
 ============================================================
-6. ELITE/BOSS RESOURCE DROPS
+6. NORMAL MONSTER RESOURCE DROPS
+============================================================
+Leafdart Squirrel:
+- Dart Spine 35%
+- Bark Fragment 20%
+- Agility Core 7.5%
+- Nature Essence 2.5%
+- Plant Fiber 20% (Harvester)
+- Seeds 22% (Harvester)
+
+Canopy Screecher:
+- Screech Feather 37.5%
+- Echo Beak 20%
+- Resonance Core 7.5%
+- Nature Essence 3%
+- Canopy Feather 18% (Harvester)
+- Bright Seeds 12% (Harvester)
+
+Greenleaf Fox:
+- Fox Fang 37.5%
+- Forest Fur 20%
+- Assassin Core 9%
+- Nature Essence 3%
+- Forest Fur 19% (Skinner)
+
+Jungle Stag:
+- Antler Piece 37.5%
+- Bark Fragment 20%
+- Support Core 7.5%
+- Nature Essence 3%
+- Growth Seed 13% (Harvester)
+- Spirit Seed 9% (Harvester)
+- Antler Piece 12% (Extractor)
+
+Gorilla:
+- Thick Bone 40%
+- Muscle Fiber 22.5%
+- Rage Core 9%
+- Primal Essence 3%
+- Jungle Fiber 11% (Harvester)
+- Muscle Fiber 12% (Skinner)
+- Heavy Bone 11% (Extractor)
+- Reinforced Bone 5% (Extractor)
+
+============================================================
+7. ELITE/BOSS RESOURCE DROPS
 ============================================================
 Verdant Bloomseer: Bloomseer Petal 70%, Pollen-Sap Thread 55%, Verdant Mend Core 35%, Bloomseer Heartseed 15%
 Primordial Silverback: Silverback Barkplate 70%, Rootknuckle Bone 55%, Primal Vine Core 35%, Silverback Titan Heart 15%
 The Heartbloom Ancient: Ancient Heartbloom Petal 100%, Gaia Rootheart Fragment 75%, Living Canopy Core 45%, Heartbloom Sapstone 25%, Gaia Soulseed 8%
 
 ============================================================
-7. EQUIPMENT AND RECIPES
+8. EQUIPMENT AND RECIPES
 ============================================================
 EQUIPMENT STRUCTURE:
 - Verdant Bloomseer: 1 non-set item
@@ -200,19 +243,19 @@ NON-SET ITEM: Bloomseer Heart Amulet
 Type: Amulet
 Level: 41
 Stats: INT +30, VIT +22, Healing % +8, Magic resist % +7, Status resist % +6, HP +220
-Recipe: Bloomseer Heartseed x1, Verdant Mend Core x2, Bloomseer Petal x3, Pollen-Sap Thread x4, Heartwood Seed x8, Wild Bloom Essence x6, Ancient Growth Core x2
+Recipe: Bloomseer Heartseed x1, Verdant Mend Core x2, Bloomseer Petal x3, Pollen-Sap Thread x4, Growth Seed x8, Spirit Seed x5, Support Core x2
 
 SILVERBACK SET ITEM 1: Silverback Barkplate
 Type: Chest
 Level: 41
 Stats: STR +32, VIT +24, HP +340, Phys resist % +8, Phys dmg % +7
-Recipe: Silverback Barkplate x4, Rootknuckle Bone x3, Primal Vine Core x2, Primate Bone x8, Greenleaf Pelt x8, Living Vine x6, Ancient Growth Core x2
+Recipe: Silverback Barkplate x4, Rootknuckle Bone x3, Primal Vine Core x2, Thick Bone x8, Muscle Fiber x8, Jungle Fiber x6, Rage Core x2
 
 SILVERBACK SET ITEM 2: Rootknuckle Bracers
 Type: Bracelet
 Level: 41
 Stats: STR +30, DEX +16, Phys dmg % +8, Accuracy % +6, Critical % +5
-Recipe: Rootknuckle Bone x4, Silverback Barkplate x3, Silverback Titan Heart x1, Primate Bone x6, Jungle Feather x6, Sap Crystal x6, Wild Bloom Essence x4
+Recipe: Rootknuckle Bone x4, Silverback Barkplate x3, Silverback Titan Heart x1, Thick Bone x6, Reinforced Bone x3, Dart Spine x8, Agility Core x2
 
 SILVERBACK SET BONUS:
 2 pieces: STR +18, VIT +12, HP +200, Phys dmg % +5, Phys resist % +4.
@@ -222,25 +265,25 @@ HEARTBLOOM SET ITEM 1: Heartbloom Crown
 Type: Head
 Level: 42
 Stats: INT +34, VIT +22, Healing % +8, Magic dmg % +7, Accuracy % +6
-Recipe: Ancient Heartbloom Petal x5, Gaia Rootheart Fragment x4, Living Canopy Core x2, Bloomseer Petal x3, Pollen-Sap Thread x4, Heartwood Seed x10, Wild Bloom Essence x8
+Recipe: Ancient Heartbloom Petal x5, Gaia Rootheart Fragment x4, Living Canopy Core x2, Bloomseer Petal x3, Pollen-Sap Thread x4, Growth Seed x10, Bright Seeds x8
 
 HEARTBLOOM SET ITEM 2: Gaiaheart Robe
 Type: Chest, Robe
 Level: 42
 Stats: VIT +34, INT +28, HP +380, Magic resist % +9, Status resist % +7
-Recipe: Gaia Rootheart Fragment x5, Ancient Heartbloom Petal x3, Heartbloom Sapstone x1, Silverback Barkplate x3, Living Vine x10, Sap Crystal x8, Ancient Growth Core x2
+Recipe: Gaia Rootheart Fragment x5, Ancient Heartbloom Petal x3, Heartbloom Sapstone x1, Silverback Barkplate x3, Bark Fragment x10, Plant Fiber x8, Nature Essence x3
 
 HEARTBLOOM SET ITEM 3: Living Canopy Pants
 Type: Legs
 Level: 43
 Stats: VIT +28, INT +26, HP +300, Evasion % +5, Magic resist % +6, Status resist % +5
-Recipe: Living Canopy Core x3, Gaia Rootheart Fragment x4, Ancient Heartbloom Petal x3, Pollen-Sap Thread x4, Living Vine x10, Greenleaf Pelt x6, Wild Bloom Essence x5
+Recipe: Living Canopy Core x3, Gaia Rootheart Fragment x4, Ancient Heartbloom Petal x3, Pollen-Sap Thread x4, Forest Fur x8, Canopy Feather x6, Spirit Seed x5
 
 HEARTBLOOM SET ITEM 4: Gaia Lull Staff
 Type: Weapon, Two-handed Staff
 Level: 43
 Stats: INT +38, VIT +20, Magic dmg % +10, Healing % +8, Accuracy % +7, Critical % +4
-Recipe: Gaia Soulseed x1, Heartbloom Sapstone x2, Living Canopy Core x4, Gaia Rootheart Fragment x4, Bloomseer Heartseed x2, Sap Crystal x10, Heartwood Seed x8, Ancient Growth Core x3
+Recipe: Gaia Soulseed x1, Heartbloom Sapstone x2, Living Canopy Core x4, Gaia Rootheart Fragment x4, Bloomseer Heartseed x2, Echo Beak x8, Resonance Core x3, Nature Essence x5
 
 HEARTBLOOM SET BONUSES:
 2 pieces: INT +18, VIT +12, HP +180, Healing % +4.
@@ -253,4 +296,4 @@ NON-SET BOSS ITEM: Heartbloom Sapstone Ring
 Type: Ring
 Level: 43
 Stats: INT +29, VIT +20, HP +220, Healing % +6, Magic resist % +6, Status resist % +5
-Recipe: Heartbloom Sapstone x2, Gaia Soulseed x1, Living Canopy Core x2, Bloomseer Heartseed x1, Sap Crystal x8, Heartwood Seed x8, Ancient Growth Core x2
+Recipe: Heartbloom Sapstone x2, Gaia Soulseed x1, Living Canopy Core x2, Bloomseer Heartseed x1, Bright Seeds x8, Seeds x8, Nature Essence x3

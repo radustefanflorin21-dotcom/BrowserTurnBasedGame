@@ -66,7 +66,11 @@ const MONSTER_ROLE_BY_SCRIPT_ID = {
   fallen_echo: "bruiser",
   rustbound_marshal: "controller",
   bannerless_wraithlord: "summoner",
-  the_last_warmaster: "bruiser"
+  the_last_warmaster: "bruiser",
+  verdant_sprout: "support",
+  verdant_bloomseer: "support",
+  primordial_silverback: "bruiser",
+  the_heartbloom_ancient: "bruiser"
 };
 
 function inferMonsterCombatRole(scriptId) {

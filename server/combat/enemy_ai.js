@@ -1,6 +1,6 @@
 import { getEnemyDefByName, getItemDef } from "../load_game_config.js";
 import { resolveIncomingToMember } from "./formulas.js";
-import { getPlayerDamageReductionPct, getPlayerEvasionUpPct } from "./status.js";
+import { getPlayerDamageReductionPct, getPlayerEvasionUpPct, getMemberIncomingDamageUpPct } from "./status.js";
 import {
   absorbDamageWithShield,
   applyHeroIncomingDamageModifiers,
@@ -126,6 +126,8 @@ export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, pla
     raw = applyHeroIncomingDamageModifiers(st, member, player, raw);
   }
   if (st.status?.playerFragileTurns > 0) raw = Math.floor(raw * 1.1);
+  const incUp = getMemberIncomingDamageUpPct(st, member);
+  if (incUp > 0) raw = Math.max(1, Math.floor(raw * (1 + incUp / 100)));
   const shielded = absorbDamageWithShield(st, raw);
   const dmg = resolveIncomingToMember(shielded.damage, member);
   member.hp = Math.max(0, member.hp - dmg);
@@ -157,6 +159,19 @@ export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, pla
   return { dmg, shieldLog: shielded.log, evaded: false, riposteLog, secondBreathLog, heldColossusLog };
 }
 
+function getAdjacentPartyMembers(st, centerMember, count) {
+  const living = (st.party || []).filter((m) => m && m.hp > 0);
+  const idx = living.findIndex((m) => m.uid === centerMember.uid);
+  if (idx < 0) return [];
+  const out = [];
+  for (let d = 1; d <= count && out.length < count; d++) {
+    if (idx - d >= 0) out.push(living[idx - d]);
+    if (out.length >= count) break;
+    if (idx + d < living.length) out.push(living[idx + d]);
+  }
+  return out.slice(0, count);
+}
+
 export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits) {
   const atk = getFoeEffectiveAttack(foe);
   const outMult = getFoeOutgoingDamageMult(st, foe);
@@ -166,6 +181,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
     rng,
     atk,
     outMult,
+    player,
     ready(key) {
       return !cd[key] || cd[key] <= 0;
     },
@@ -195,6 +211,17 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       if (res.riposteLog) appendLog(res.riposteLog);
       if (res.secondBreathLog) appendLog(res.secondBreathLog);
       if (res.heldColossusLog) appendLog(res.heldColossusLog);
+    },
+    hitAdjacent(centerMember, raw, verb, adjacentCount = 1, perTargetMult = 1) {
+      if (!centerMember) return;
+      const mult = typeof perTargetMult === "number" && perTargetMult > 0 ? perTargetMult : 1;
+      const targets = [centerMember, ...getAdjacentPartyMembers(st, centerMember, adjacentCount)];
+      const seen = new Set();
+      for (const m of targets) {
+        if (!m || seen.has(m.uid)) continue;
+        seen.add(m.uid);
+        this.hit(m, Math.max(1, Math.floor(raw * mult)), verb);
+      }
     },
     log(line) {
       appendLog(line);

@@ -74,7 +74,7 @@ export function tryProcFrosthornCrippleOnHit(equipment, foe, rng, damageTaken, d
   if (!foe || foe.hp <= 0) return null;
   if (!damageTaken || damageTaken <= 0 || damageKind !== "physical") return null;
   if (countEquippedSetPieces(equipment, "Frosthorn") < 3) return null;
-  if (!rng?.chance?.(0.12)) return null;
+  if (!rng?.chance?.(12)) return null;
   applyFoeCrippleFromSet(foe, 1);
   return `${foe.name} is crippled by frosthorn backlash (+1 stamina per action).`;
 }
@@ -86,7 +86,7 @@ export function tryProcFrosthornCrippleOnHit(equipment, foe, rng, damageTaken, d
 export function tryProcSleepingWinterAccuracyOnCripple(equipment, foe, rng) {
   if (!foe || foe.hp <= 0) return null;
   if (countEquippedSetPieces(equipment, "Sleeping Winter") < 4) return null;
-  if (!rng?.chance?.(0.2)) return null;
+  if (!rng?.chance?.(20)) return null;
   applyFoeAccuracyDown(foe, 6, 1);
   return `${foe.name}'s accuracy falters (Sleeping Winter).`;
 }
@@ -110,7 +110,7 @@ export function applyFoeBothDmgDown(foe, pct, turns) {
 export function tryProcBannerlessMagResOnAccuracyDebuff(equipment, foe, rng) {
   if (!foe || foe.hp <= 0) return null;
   if (countEquippedSetPieces(equipment, "Bannerless") < 2) return null;
-  if (!rng?.chance?.(0.15)) return null;
+  if (!rng?.chance?.(15)) return null;
   applyFoeMagResDown(foe, 5, 1);
   return `${foe.name}'s magic resist falters (Bannerless).`;
 }
@@ -118,7 +118,23 @@ export function tryProcBannerlessMagResOnAccuracyDebuff(equipment, foe, rng) {
 export function tryProcWarmasterBothDmgDownOnHit(equipment, foe, rng, damageKind) {
   if (!foe || foe.hp <= 0 || damageKind !== "physical") return null;
   if (countEquippedSetPieces(equipment, "Warmaster") < 4) return null;
-  if (!rng?.chance?.(0.2)) return null;
+  if (!rng?.chance?.(20)) return null;
   applyFoeBothDmgDown(foe, 5, 1);
   return `${foe.name} is suppressed by war echo (Warmaster).`;
+}
+
+export function tryProcSilverbackPhysResDownOnHit(equipment, foe, rng, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return null;
+  if (countEquippedSetPieces(equipment, "Silverback") < 2) return null;
+  if (!rng?.chance?.(15)) return null;
+  applyFoePhysResDown(foe, 5, 2);
+  return `${foe.name}'s physical resist falters (Silverback).`;
+}
+
+export function tryProcHeartbloomMagResOnPoison(equipment, foe, rng) {
+  if (!foe || foe.hp <= 0) return null;
+  if (countEquippedSetPieces(equipment, "Heartbloom") < 4) return null;
+  if (!rng?.chance?.(20)) return null;
+  applyFoeMagResDown(foe, 6, 1);
+  return `${foe.name}'s magic resist falters (Heartbloom).`;
 }

@@ -381,7 +381,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     const living = st.foes.filter((f) => f.hp > 0);
     if (!living.length) return { ok: false, error: "No enemies to taunt." };
     for (const foe of living) {
-      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
       if (msg) debuffLogs.push(msg);
     }
     setSkillCooldown(st, skillName, getSkillCooldown(def));
@@ -611,7 +611,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     if (!foe) return { ok: false, error: "Select a living enemy." };
     const res = resolveSkillHit(actor, foe, def, row || {}, rng, st, member, { skillName });
     if (!res.missed && row?.debuff) {
-      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
       if (msg) debuffLogs.push(msg);
     }
     hits.push({ foeUid: foe.uid, damage: res.missed ? 0 : res.damage, missed: res.missed, crit: res.crit });
@@ -652,15 +652,15 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
       let dmg = res.missed ? 0 : Math.max(1, Math.floor(res.damage * (0.85 + adj * 0.05)));
       hits.push({ foeUid: foe.uid, damage: dmg, missed: res.missed, crit: res.crit });
       if (!res.missed && row?.debuff) {
-        const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+        const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
         if (msg) debuffLogs.push(msg);
       }
       if (!res.missed && row?.debuff2) {
-        const msg = tryRollFoeDebuff(st, foe, row.debuff2, actor, rng);
+        const msg = tryRollFoeDebuff(st, foe, row.debuff2, actor, rng, debuffLogs);
         if (msg) debuffLogs.push(msg);
       }
       if (!res.missed && row?.debuff3) {
-        const msg = tryRollFoeDebuff(st, foe, row.debuff3, actor, rng);
+        const msg = tryRollFoeDebuff(st, foe, row.debuff3, actor, rng, debuffLogs);
         if (msg) debuffLogs.push(msg);
       }
     }
@@ -688,11 +688,11 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     if (!targets.length) return { ok: false, error: "No enemies to hit." };
     for (const foe of targets) {
       if (row?.debuff) {
-        const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+        const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
         if (msg) debuffLogs.push(msg);
       }
       if (row?.debuff2) {
-        const msg = tryRollFoeDebuff(st, foe, row.debuff2, actor, rng);
+        const msg = tryRollFoeDebuff(st, foe, row.debuff2, actor, rng, debuffLogs);
         if (msg) debuffLogs.push(msg);
       }
     }
@@ -704,7 +704,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     const living = st.foes.filter((f) => f.hp > 0);
     if (!living.length) return { ok: false, error: "No enemies to hit." };
     for (const foe of living) {
-      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
       if (msg) debuffLogs.push(msg);
     }
     setSkillCooldown(st, skillName, getSkillCooldown(def));
@@ -724,7 +724,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
       if (living.length > 2) dmg = Math.max(1, Math.floor(dmg * 0.85));
       hits.push({ foeUid: foe.uid, damage: dmg, missed: res.missed, crit: res.crit });
       if (!res.missed && row?.debuff) {
-        const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+        const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
         if (msg) debuffLogs.push(msg);
       }
     }
@@ -760,7 +760,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
       execute: pattern === "execute_skill" || pattern === "final_measure"
     });
     if (!res.missed && row?.debuff) {
-      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng);
+      const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
       if (msg) debuffLogs.push(msg);
     }
     hits.push({
