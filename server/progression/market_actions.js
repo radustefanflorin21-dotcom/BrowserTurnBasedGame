@@ -208,9 +208,9 @@ export function getMarketBrowseListings(query = {}, viewerUserId = null) {
     })
     .map((listing) => ({
       id: listing.id,
-      sellerName: listing.sellerName,
-      sellerUserId: listing.sellerUserId,
       itemDisplayName: listing.itemDisplayName,
+      tooltipItemName:
+        Array.isArray(listing.items) && listing.items[0] ? listing.items[0] : listing.itemDisplayName,
       quantity: listing.quantity,
       price: listing.price,
       category: listing.category,

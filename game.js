@@ -22130,6 +22130,27 @@ function formatMarketCategoryLabel(cat) {
   return cat || "Other";
 }
 
+function buildMarketItemThumbHtml(itemName) {
+  const name = typeof itemName === "string" ? itemName.trim() : "";
+  if (!name) {
+    return `<span class="market-item-thumb market-item-thumb--empty" aria-hidden="true"></span>`;
+  }
+  const def = getItemDef(name);
+  const img = def && typeof def.image === "string" && def.image.trim() ? def.image.trim() : "";
+  const label = escapeAttr(getItemBaseName(name) || name);
+  if (img) {
+    return `<span class="market-item-thumb" data-item-name="${escapeAttr(name)}" title="${label}" tabindex="0" role="img" aria-label="${label}"><img class="market-item-thumb__img" src="${escapeAttr(img)}" alt="" draggable="false" onerror="this.closest('.market-item-thumb').classList.add('market-item-thumb--broken')"></span>`;
+  }
+  return `<span class="market-item-thumb market-item-thumb--empty" data-item-name="${escapeAttr(name)}" title="${label}" tabindex="0" role="img" aria-label="${label}"></span>`;
+}
+
+function buildMarketListingMetaHtml(row) {
+  const parts = [formatMarketCategoryLabel(row.category)];
+  if (row.subcategory) parts.push(String(row.subcategory));
+  if (row.quantity > 1) parts.push(`×${row.quantity}`);
+  return `<span class="market-listing-meta">${escapeHtml(parts.filter(Boolean).join(" · "))}</span>`;
+}
+
 async function refreshMarketPanelData(tab) {
   if (!isOnlineGameplayMode() || activeCharacterSlotIndex == null) return;
   const gs = window.GameStorage;
@@ -22179,17 +22200,19 @@ function buildMarketBrowseHtml() {
     ? listings
         .map((row) => {
           const isOwn = !!row.isOwn;
+          const tipName = row.tooltipItemName || row.itemDisplayName || "Item";
           return `<div class="market-listing-row">
+          ${buildMarketItemThumbHtml(tipName)}
           <div class="market-listing-main">
-            <strong>${escapeHtml(row.itemDisplayName || "Item")}</strong>
-            <span class="muted">${escapeHtml(row.sellerName || "Seller")} · ${escapeHtml(formatMarketCategoryLabel(row.category))}${row.subcategory ? ` / ${escapeHtml(row.subcategory)}` : ""}</span>
+            <strong class="market-listing-title">${escapeHtml(row.itemDisplayName || "Item")}</strong>
+            ${buildMarketListingMetaHtml(row)}
           </div>
           <span class="market-listing-price">${row.price} gold</span>
           <button type="button" class="btn-secondary market-buy-btn" data-market-buy="${row.id}"${isOwn || (player.gold || 0) < row.price ? " disabled" : ""}${isOwn ? ' title="Your listing"' : ""}>Buy</button>
         </div>`;
         })
         .join("")
-    : `<p class="muted">No listings match your search.</p>`;
+    : `<p class="market-empty-msg">No listings match your search.</p>`;
   return `<div class="market-browse">
     <div class="market-toolbar">
       <input type="search" class="market-search-input" data-market-search="1" placeholder="Search items…" value="${escapeAttr(marketSearchText)}" aria-label="Search market">
@@ -22211,7 +22234,7 @@ function buildMarketSellHtml() {
     const key = g.stackable ? g.baseName : g.itemName;
     return key === marketSelectedSellKey;
   });
-  let sellForm = `<p class="muted">Select an item from your inventory to list.</p>`;
+  let sellForm = `<p class="market-empty-msg">Select an item from your inventory to list.</p>`;
   if (selected) {
     const qtyBtns = (selected.stackOptions || [{ qty: 1, available: true }])
       .map((opt) => {
@@ -22222,10 +22245,13 @@ function buildMarketSellHtml() {
       })
       .join("");
     sellForm = `<div class="market-sell-form">
-      <p><strong>${escapeHtml(selected.displayName || selected.itemName)}</strong> <span class="muted">(${selected.count} in bag)</span></p>
+      <div class="market-sell-form-head">
+        ${buildMarketItemThumbHtml(selected.itemName)}
+        <p><strong class="market-listing-title">${escapeHtml(selected.displayName || selected.itemName)}</strong> <span class="market-listing-meta">(${selected.count} in bag)</span></p>
+      </div>
       <div class="market-qty-row">${qtyBtns}</div>
       <label class="market-price-row">Price (gold): <input type="number" min="1" step="1" class="market-price-input" data-market-price-input="1" value="1"></label>
-      <p class="muted market-fee-hint">Listing fee: 2.5% (min 1 gold), deducted when listed.</p>
+      <p class="market-fee-hint">Listing fee: 2.5% (min 1 gold), deducted when listed.</p>
       <button type="button" class="btn-primary" data-market-list-submit="1" data-market-list-item="${escapeAttr(marketSelectedSellItemName || selected.itemName)}">List for sale</button>
       <button type="button" class="btn-secondary" data-market-sell-clear="1">Choose another item</button>
     </div>`;
@@ -22235,22 +22261,23 @@ function buildMarketSellHtml() {
         .map((g) => {
           const key = g.stackable ? g.baseName : g.itemName;
           const sel = key === marketSelectedSellKey ? " is-selected" : "";
-          return `<button type="button" class="market-inv-pick-btn${sel}" data-market-pick-item="${escapeAttr(key)}" data-market-pick-name="${escapeAttr(g.itemName)}">${escapeHtml(g.displayName || g.itemName)} <span class="muted">×${g.count}</span></button>`;
+          return `<button type="button" class="market-inv-pick-btn${sel}" data-market-pick-item="${escapeAttr(key)}" data-market-pick-name="${escapeAttr(g.itemName)}">${buildMarketItemThumbHtml(g.itemName)}<span class="market-inv-pick-label">${escapeHtml(g.displayName || g.itemName)} <span class="market-listing-meta">×${g.count}</span></span></button>`;
         })
         .join("")}</div>`
-    : `<p class="muted">No listable items in inventory (equipped items excluded).</p>`;
+    : `<p class="market-empty-msg">No listable items in inventory (equipped items excluded).</p>`;
   const myRows = myListings.length
     ? myListings
         .map(
-          (l) => `<div class="market-listing-row">
-          <div class="market-listing-main"><strong>${escapeHtml(l.itemDisplayName)}</strong><span class="muted">${l.price} gold · expires ${escapeHtml(String(l.expiresAt || "").slice(0, 10))}</span></div>
+          (l) => `<div class="market-listing-row market-listing-row--mine">
+          ${buildMarketItemThumbHtml(l.tooltipItemName || l.itemDisplayName)}
+          <div class="market-listing-main"><strong class="market-listing-title">${escapeHtml(l.itemDisplayName)}</strong><span class="market-listing-meta">${l.price} gold · expires ${escapeHtml(String(l.expiresAt || "").slice(0, 10))}</span></div>
           <button type="button" class="btn-secondary market-cancel-btn" data-market-cancel="${l.id}">Cancel (1% fee)</button>
         </div>`
         )
         .join("")
-    : `<p class="muted">You have no active listings.</p>`;
+    : `<p class="market-empty-msg">You have no active listings.</p>`;
   return `<div class="market-sell">
-    <p class="muted">Active listings: <strong>${active}/${max}</strong> · Your gold: <strong>${player.gold || 0}</strong></p>
+    <p class="market-sell-summary">Active listings: <strong>${active}/${max}</strong> · Your gold: <strong>${player.gold || 0}</strong></p>
     ${sellForm}
     <h3 class="market-subhead">Inventory</h3>
     ${invPick}
@@ -22265,15 +22292,15 @@ function buildMarketMailHtml() {
     ? mail
         .map(
           (m) => `<div class="market-mail-row${m.read_at ? "" : " market-mail-row--unread"}">
-          <div class="market-mail-meta"><strong>${escapeHtml(m.sender || "Auction Manager")}</strong><span class="muted">${escapeHtml(String(m.created_at || "").replace("T", " ").slice(0, 16))}</span></div>
+          <div class="market-mail-meta"><strong>${escapeHtml(m.sender || "Auction Manager")}</strong><span class="market-mail-date">${escapeHtml(String(m.created_at || "").replace("T", " ").slice(0, 16))}</span></div>
           <p class="market-mail-body">${escapeHtml(m.body || "")}</p>
         </div>`
         )
         .join("")
-    : `<p class="muted">No mail yet.</p>`;
+    : `<p class="market-empty-msg">No mail yet.</p>`;
   return `<div class="market-mail">
     <div class="market-mail-head">
-      <span class="muted">${marketUnreadMailCount > 0 ? `${marketUnreadMailCount} unread` : "All read"}</span>
+      <span class="market-mail-status">${marketUnreadMailCount > 0 ? `${marketUnreadMailCount} unread` : "All read"}</span>
       <button type="button" class="btn-secondary" data-market-mail-read-all="1">Mark all read</button>
     </div>
     <div class="market-mail-list">${rows}</div>
@@ -22283,7 +22310,7 @@ function buildMarketMailHtml() {
 function buildMarketPanelHtml() {
   const meta = getMenuPanelMeta("market");
   if (!isOnlineGameplayMode()) {
-    return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">The player market is available in online mode only. NPC vendors can still be found in the world.</p></div>`;
+    return `<div class="game-page market-panel"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead market-panel-lead">The player market is available in online mode only. NPC vendors can still be found in the world.</p></div>`;
   }
   const mailBadge = marketUnreadMailCount > 0 ? ` (${marketUnreadMailCount})` : "";
   const tabs = [
@@ -22302,7 +22329,7 @@ function buildMarketPanelHtml() {
   else body = buildMarketMailHtml();
   return `<div class="game-page market-panel">
     <h1 class="game-page-title">${escapeHtml(meta.title)}</h1>
-    <p class="game-page-lead muted">${escapeHtml(meta.lead)}</p>
+    <p class="game-page-lead market-panel-lead">${escapeHtml(meta.lead)}</p>
     <div class="market-tabs" role="tablist">${tabs}</div>
     ${body}
   </div>`;

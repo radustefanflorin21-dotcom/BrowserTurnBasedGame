@@ -51,6 +51,7 @@ export function registerMarketRoutes(app) {
         listings: listings.map((l) => ({
           id: l.id,
           itemDisplayName: l.itemDisplayName,
+          tooltipItemName: Array.isArray(l.items) && l.items[0] ? l.items[0] : l.itemDisplayName,
           quantity: l.quantity,
           price: l.price,
           category: l.category,
