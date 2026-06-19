@@ -6930,11 +6930,19 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 }
 
 .market-panel--layout .market-table .inv-cell.market-inv-cell,
-.market-panel--layout .market-sidebar-inv-grid .inv-cell.market-inv-cell {
+.market-panel--layout .market-sidebar-inv-grid .inv-cell.market-inv-cell,
+.market-panel--layout .market-inv-cell.market-sell-preview-cell {
   width: var(--market-inv-cell);
   height: var(--market-inv-cell);
   min-width: var(--market-inv-cell);
   min-height: var(--market-inv-cell);
+  flex-shrink: 0;
+}
+
+.market-sell-preview-cell .market-cell-rarity {
+  font-size: 0.35rem;
+  line-height: 1;
+  padding: 0;
 }
 
 .market-sidebar-inv-wrap .inv-grid-scroll {
