@@ -22123,6 +22123,127 @@ function calcMarketCancelFeeClient(price) {
   return Math.max(1, Math.ceil(p * 0.01));
 }
 
+function formatItemDisplayLabel(itemName) {
+  const base = getItemBaseName(itemName);
+  return base || (typeof itemName === "string" ? itemName.trim() : "") || "Item";
+}
+
+function formatItemRarityLabel(itemName) {
+  const rid = getItemInstanceRarityId(itemName);
+  if (!rid) return "";
+  const rule = ITEM_RARITY_RULES[rid];
+  return rule && rule.label ? rule.label : rid.charAt(0).toUpperCase() + rid.slice(1);
+}
+
+function formatMarketListingTitle(displayName) {
+  const raw = String(displayName || "").trim();
+  if (!raw) return "Item";
+  const stackMatch = raw.match(/^(\d+)×\s*(.+)$/i);
+  if (stackMatch) {
+    return `${stackMatch[1]}× ${formatItemDisplayLabel(stackMatch[2])}`;
+  }
+  return formatItemDisplayLabel(raw);
+}
+
+function isMarketStackableItemName(itemName) {
+  const def = getItemDef(getItemBaseName(itemName));
+  if (!def) return false;
+  if (isEquippableItemDef(def)) return false;
+  const t = String(def.type || "").trim().toLowerCase();
+  return t === "consumable" || t === "resource";
+}
+
+function getMarketEquippedItemNamesSet() {
+  const equipped = new Set();
+  const eq = player && player.equipment;
+  if (eq && typeof eq === "object") {
+    Object.values(eq).forEach((v) => {
+      if (typeof v === "string" && v.trim()) equipped.add(v);
+    });
+  }
+  if (player && Array.isArray(player.companions)) {
+    player.companions.forEach((c) => {
+      if (!c || !c.equipment) return;
+      Object.values(c.equipment).forEach((v) => {
+        if (typeof v === "string" && v.trim()) equipped.add(v);
+      });
+    });
+  }
+  return equipped;
+}
+
+function getMarketListableInventoryNames() {
+  const equipped = getMarketEquippedItemNamesSet();
+  return (Array.isArray(player.inventory) ? player.inventory : []).filter(
+    (name) => name && !equipped.has(name) && getItemDef(getItemBaseName(name))
+  );
+}
+
+function buildMarketCellRarityHtml(itemName, { show } = { show: true }) {
+  if (!show) return "";
+  const label = formatItemRarityLabel(itemName);
+  if (!label) return "";
+  const rid = getItemInstanceRarityId(itemName);
+  const color = rid && ITEM_RARITY_RULES[rid] ? ITEM_RARITY_RULES[rid].color : "";
+  const style = color ? ` style="color:${color}"` : "";
+  return `<span class="market-cell-rarity"${style}>${escapeHtml(label)}</span>`;
+}
+
+function buildMarketInvCellHtml(itemName, opts) {
+  const options = opts && typeof opts === "object" ? opts : {};
+  const name = typeof itemName === "string" ? itemName.trim() : "";
+  if (!name) return `<div class="inv-cell inv-empty" aria-hidden="true"></div>`;
+  const esc = escapeAttr(name);
+  const qty = typeof options.qty === "number" && options.qty > 1 ? options.qty : 0;
+  const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
+  const rarityHtml = buildMarketCellRarityHtml(name, { show: !!options.showRarityText });
+  const tag = options.asButton ? "button" : "span";
+  const typeAttr = options.asButton ? ' type="button"' : "";
+  const extraClass = options.extraClass ? ` ${options.extraClass}` : "";
+  const sel = options.selected ? " is-selected" : "";
+  const pickAttrs =
+    options.pickKey != null
+      ? ` data-market-pick-item="${escapeAttr(options.pickKey)}" data-market-pick-name="${esc}"`
+      : "";
+  return `<${tag}${typeAttr} class="inv-cell market-inv-cell${extraClass}${sel}" data-item-name="${esc}"${pickAttrs} tabindex="0">${invCellImg(name)}${qtyBadge}${rarityHtml}</${tag}>`;
+}
+
+function buildMarketSellInventoryGridHtml() {
+  const names = getMarketListableInventoryNames();
+  const stacks = buildInventoryStacks(names);
+  const rowCount = Math.max(1, Math.ceil(stacks.length / INV_COLS));
+  const total = Math.max(stacks.length, rowCount * INV_COLS);
+  const cells = [];
+  for (let i = 0; i < total; i++) {
+    const stack = stacks[i];
+    if (!stack) {
+      cells.push('<div class="inv-cell inv-empty" aria-hidden="true"></div>');
+      continue;
+    }
+    const name = stack.name;
+    const stackable = isMarketStackableItemName(name);
+    const pickKey = stackable ? getItemBaseName(name) : name;
+    const selected =
+      marketSelectedSellKey === pickKey &&
+      (stackable || marketSelectedSellItemName === name || !marketSelectedSellItemName);
+    cells.push(
+      buildMarketInvCellHtml(name, {
+        qty: stack.qty,
+        showRarityText: !stackable,
+        asButton: true,
+        extraClass: "market-sell-cell",
+        selected,
+        pickKey
+      })
+    );
+  }
+  return `<div class="inv-grid-wrap market-sell-inv-wrap"><div class="inv-grid-scroll"><div class="inv-grid">${cells.join("")}</div></div></div>`;
+}
+
+function buildMarketBrowseItemCellHtml(itemName) {
+  return buildMarketInvCellHtml(itemName, { extraClass: "market-browse-cell" });
+}
+
 function formatMarketCategoryLabel(cat) {
   if (cat === "equip") return "Equips";
   if (cat === "consumable") return "Consumables";
@@ -22131,17 +22252,7 @@ function formatMarketCategoryLabel(cat) {
 }
 
 function buildMarketItemThumbHtml(itemName) {
-  const name = typeof itemName === "string" ? itemName.trim() : "";
-  if (!name) {
-    return `<span class="market-item-thumb market-item-thumb--empty" aria-hidden="true"></span>`;
-  }
-  const def = getItemDef(name);
-  const img = def && typeof def.image === "string" && def.image.trim() ? def.image.trim() : "";
-  const label = escapeAttr(getItemBaseName(name) || name);
-  if (img) {
-    return `<span class="market-item-thumb" data-item-name="${escapeAttr(name)}" title="${label}" tabindex="0" role="img" aria-label="${label}"><img class="market-item-thumb__img" src="${escapeAttr(img)}" alt="" draggable="false" onerror="this.closest('.market-item-thumb').classList.add('market-item-thumb--broken')"></span>`;
-  }
-  return `<span class="market-item-thumb market-item-thumb--empty" data-item-name="${escapeAttr(name)}" title="${label}" tabindex="0" role="img" aria-label="${label}"></span>`;
+  return buildMarketBrowseItemCellHtml(itemName);
 }
 
 function buildMarketListingMetaHtml(row) {
@@ -22202,9 +22313,9 @@ function buildMarketBrowseHtml() {
           const isOwn = !!row.isOwn;
           const tipName = row.tooltipItemName || row.itemDisplayName || "Item";
           return `<div class="market-listing-row">
-          ${buildMarketItemThumbHtml(tipName)}
+          ${buildMarketBrowseItemCellHtml(tipName)}
           <div class="market-listing-main">
-            <strong class="market-listing-title">${escapeHtml(row.itemDisplayName || "Item")}</strong>
+            <strong class="market-listing-title">${escapeHtml(formatMarketListingTitle(row.itemDisplayName))}</strong>
             ${buildMarketListingMetaHtml(row)}
           </div>
           <span class="market-listing-price">${row.price} gold</span>
@@ -22234,8 +22345,15 @@ function buildMarketSellHtml() {
     const key = g.stackable ? g.baseName : g.itemName;
     return key === marketSelectedSellKey;
   });
-  let sellForm = `<p class="market-empty-msg">Select an item from your inventory to list.</p>`;
-  if (selected) {
+  const selectedItemName = marketSelectedSellItemName || (selected && selected.itemName) || "";
+  let sellForm = `<p class="market-empty-msg">Click an inventory slot below to list an item.</p>`;
+  if (selected && selectedItemName) {
+    const rarityLabel = formatItemRarityLabel(selectedItemName);
+    const rid = getItemInstanceRarityId(selectedItemName);
+    const rarityColor = rid && ITEM_RARITY_RULES[rid] ? ITEM_RARITY_RULES[rid].color : "";
+    const rarityHtml = rarityLabel
+      ? `<span class="market-rarity-text"${rarityColor ? ` style="color:${rarityColor}"` : ""}>${escapeHtml(rarityLabel)}</span>`
+      : "";
     const qtyBtns = (selected.stackOptions || [{ qty: 1, available: true }])
       .map((opt) => {
         const active = marketSelectedSellQty === opt.qty ? " is-active" : "";
@@ -22246,31 +22364,27 @@ function buildMarketSellHtml() {
       .join("");
     sellForm = `<div class="market-sell-form">
       <div class="market-sell-form-head">
-        ${buildMarketItemThumbHtml(selected.itemName)}
-        <p><strong class="market-listing-title">${escapeHtml(selected.displayName || selected.itemName)}</strong> <span class="market-listing-meta">(${selected.count} in bag)</span></p>
+        ${buildMarketInvCellHtml(selectedItemName, { showRarityText: !selected.stackable, extraClass: "market-sell-preview-cell" })}
+        <div class="market-sell-form-labels">
+          <strong class="market-listing-title">${escapeHtml(formatItemDisplayLabel(selectedItemName))}</strong>
+          ${rarityHtml}
+          <span class="market-listing-meta">(${selected.count} in bag)</span>
+        </div>
       </div>
       <div class="market-qty-row">${qtyBtns}</div>
       <label class="market-price-row">Price (gold): <input type="number" min="1" step="1" class="market-price-input" data-market-price-input="1" value="1"></label>
       <p class="market-fee-hint">Listing fee: 2.5% (min 1 gold), deducted when listed.</p>
-      <button type="button" class="btn-primary" data-market-list-submit="1" data-market-list-item="${escapeAttr(marketSelectedSellItemName || selected.itemName)}">List for sale</button>
+      <button type="button" class="btn-primary" data-market-list-submit="1" data-market-list-item="${escapeAttr(selectedItemName)}">List for sale</button>
       <button type="button" class="btn-secondary" data-market-sell-clear="1">Choose another item</button>
     </div>`;
   }
-  const invPick = listable.length
-    ? `<div class="market-inv-pick">${listable
-        .map((g) => {
-          const key = g.stackable ? g.baseName : g.itemName;
-          const sel = key === marketSelectedSellKey ? " is-selected" : "";
-          return `<button type="button" class="market-inv-pick-btn${sel}" data-market-pick-item="${escapeAttr(key)}" data-market-pick-name="${escapeAttr(g.itemName)}">${buildMarketItemThumbHtml(g.itemName)}<span class="market-inv-pick-label">${escapeHtml(g.displayName || g.itemName)} <span class="market-listing-meta">×${g.count}</span></span></button>`;
-        })
-        .join("")}</div>`
-    : `<p class="market-empty-msg">No listable items in inventory (equipped items excluded).</p>`;
+  const invGrid = buildMarketSellInventoryGridHtml();
   const myRows = myListings.length
     ? myListings
         .map(
           (l) => `<div class="market-listing-row market-listing-row--mine">
-          ${buildMarketItemThumbHtml(l.tooltipItemName || l.itemDisplayName)}
-          <div class="market-listing-main"><strong class="market-listing-title">${escapeHtml(l.itemDisplayName)}</strong><span class="market-listing-meta">${l.price} gold · expires ${escapeHtml(String(l.expiresAt || "").slice(0, 10))}</span></div>
+          ${buildMarketBrowseItemCellHtml(l.tooltipItemName || l.itemDisplayName)}
+          <div class="market-listing-main"><strong class="market-listing-title">${escapeHtml(formatMarketListingTitle(l.itemDisplayName))}</strong><span class="market-listing-meta">${l.price} gold · expires ${escapeHtml(String(l.expiresAt || "").slice(0, 10))}</span></div>
           <button type="button" class="btn-secondary market-cancel-btn" data-market-cancel="${l.id}">Cancel (1% fee)</button>
         </div>`
         )
@@ -22280,7 +22394,7 @@ function buildMarketSellHtml() {
     <p class="market-sell-summary">Active listings: <strong>${active}/${max}</strong> · Your gold: <strong>${player.gold || 0}</strong></p>
     ${sellForm}
     <h3 class="market-subhead">Inventory</h3>
-    ${invPick}
+    ${invGrid}
     <h3 class="market-subhead">Your listings</h3>
     <div class="market-listing-list">${myRows}</div>
   </div>`;

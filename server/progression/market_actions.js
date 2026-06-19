@@ -11,6 +11,7 @@ import {
   MARKET_MAX_LISTINGS,
   MARKET_LISTING_DAYS,
   MARKET_STACK_SIZES,
+  buildMarketSearchText,
   calcCancelFee,
   calcListingFee,
   getMarketItemMeta,
@@ -194,7 +195,7 @@ export function getMarketBrowseListings(query = {}, viewerUserId = null) {
   const search = typeof query.search === "string" ? query.search.trim() : "";
   const rows = db
     .prepare(
-      `SELECT * FROM market_listings WHERE expires_at > datetime('now') ORDER BY created_at DESC LIMIT 500`
+      `SELECT * FROM market_listings WHERE expires_at > datetime('now') ORDER BY created_at DESC LIMIT 2000`
     )
     .all();
   return rows
@@ -310,7 +311,10 @@ export function applyMarketList(userId, player, slotIndex, { itemName, quantity,
   const sellerName =
     typeof player.name === "string" && player.name.trim() ? player.name.trim() : "Hero";
   const displayLabel =
-    qty > 1 ? `${qty}× ${getItemBaseName(picked[0] || name)}` : picked[0] || name;
+    qty > 1
+      ? `${qty}× ${getItemBaseName(picked[0] || name)}`
+      : getItemBaseName(picked[0] || name) || picked[0] || name;
+  const searchText = buildMarketSearchText(picked[0] || name);
 
   const info = db
     .prepare(
@@ -330,7 +334,7 @@ export function applyMarketList(userId, player, slotIndex, { itemName, quantity,
       listPrice,
       meta.category,
       meta.subcategory,
-      meta.searchText,
+      searchText,
       listingExpiresSqlOffset()
     );
 

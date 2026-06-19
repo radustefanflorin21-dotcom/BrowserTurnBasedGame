@@ -61,9 +61,37 @@ export function getMarketSubcategory(def) {
 }
 
 export function buildMarketSearchText(itemName) {
-  const base = getItemBaseName(itemName);
-  const display = typeof itemName === "string" ? itemName.trim() : "";
-  return `${base} ${display}`.trim().toLowerCase();
+  const raw = typeof itemName === "string" ? itemName.trim() : "";
+  const base = getItemBaseName(raw);
+  const sep = raw.lastIndexOf("@@");
+  const rarity = sep > 0 ? raw.slice(sep + 2).trim().toLowerCase() : "";
+  const tokens = new Set();
+  if (base) {
+    tokens.add(base.toLowerCase());
+    base
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach((w) => tokens.add(w));
+  }
+  if (rarity) tokens.add(rarity);
+  return [...tokens].join(" ");
+}
+
+export function listingMatchesSearch(listing, query) {
+  const q = String(query || "")
+    .trim()
+    .toLowerCase();
+  if (!q) return true;
+  const hay = String(listing.search_text || listing.searchText || "").toLowerCase();
+  let displayRaw = String(listing.itemDisplayName || listing.item_display_name || "").trim();
+  const stackMatch = displayRaw.match(/^(\d+)×\s*(.+)$/i);
+  if (stackMatch) displayRaw = stackMatch[2];
+  const baseOnly = getItemBaseName(displayRaw).toLowerCase();
+  const combined = `${hay} ${baseOnly}`.trim();
+  if (combined.includes(q)) return true;
+  const parts = q.split(/\s+/).filter(Boolean);
+  return parts.every((part) => combined.includes(part));
 }
 
 export function getMarketItemMeta(itemName) {
@@ -75,16 +103,6 @@ export function getMarketItemMeta(itemName) {
     subcategory: getMarketSubcategory(def),
     stackable: isMarketStackableItem(def),
     searchText: buildMarketSearchText(itemName),
-    displayName: itemName
+    displayName: getItemBaseName(itemName) || itemName
   };
-}
-
-export function listingMatchesSearch(listing, query) {
-  const q = String(query || "")
-    .trim()
-    .toLowerCase();
-  if (!q) return true;
-  const parts = q.split(/\s+/).filter(Boolean);
-  const hay = String(listing.search_text || listing.searchText || "").toLowerCase();
-  return parts.every((part) => hay.includes(part));
 }
