@@ -46,6 +46,39 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_economy_events_user ON economy_events(user_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS market_listings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    seller_user_id INTEGER NOT NULL,
+    seller_slot_index INTEGER NOT NULL,
+    seller_name TEXT NOT NULL,
+    item_display_name TEXT NOT NULL,
+    items_json TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    price INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    subcategory TEXT NOT NULL,
+    search_text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_market_listings_seller ON market_listings(seller_user_id, seller_slot_index);
+  CREATE INDEX IF NOT EXISTS idx_market_listings_expires ON market_listings(expires_at);
+  CREATE INDEX IF NOT EXISTS idx_market_listings_category ON market_listings(category, subcategory);
+
+  CREATE TABLE IF NOT EXISTS player_mail (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    sender TEXT NOT NULL DEFAULT 'Auction Manager',
+    body TEXT NOT NULL,
+    read_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_player_mail_user ON player_mail(user_id, read_at);
 `);
 
 try {

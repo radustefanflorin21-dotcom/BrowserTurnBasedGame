@@ -21555,7 +21555,7 @@ function getMenuPanelMeta(kind) {
   if (kind === "market") {
     return {
       title: "Market",
-      lead: "Player auctions are coming soon. NPC vendors sell supplies for gold below."
+      lead: "Buy and sell with other players. Listing fee 2.5% · cancel fee 1% · max 20 listings · 30-day expiry."
     };
   }
   if (kind === "crafting") {
@@ -22098,39 +22098,218 @@ function buildAtlasPanelHtml() {
   </div>`;
 }
 
-function buildShopPanelHtml() {
-  const meta = getMenuPanelMeta("market");
-  const vendorIds = Object.keys(getVendorsConfig());
-  if (!vendorIds.length) {
-    return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(meta.lead)}</p></div>`;
+/** @type {"browse"|"sell"|"mail"} */
+let marketPanelTab = "browse";
+let marketBrowseCache = null;
+let marketSellCache = null;
+let marketMailCache = null;
+let marketSearchText = "";
+let marketFilterCategory = "";
+let marketFilterSubcategory = "";
+/** @type {string|null} */
+let marketSelectedSellKey = null;
+/** @type {string|null} */
+let marketSelectedSellItemName = null;
+let marketSelectedSellQty = 1;
+let marketUnreadMailCount = 0;
+
+function calcMarketListingFeeClient(price) {
+  const p = Math.max(0, Math.floor(Number(price) || 0));
+  return Math.max(1, Math.ceil(p * 0.025));
+}
+
+function calcMarketCancelFeeClient(price) {
+  const p = Math.max(0, Math.floor(Number(price) || 0));
+  return Math.max(1, Math.ceil(p * 0.01));
+}
+
+function formatMarketCategoryLabel(cat) {
+  if (cat === "equip") return "Equips";
+  if (cat === "consumable") return "Consumables";
+  if (cat === "resource") return "Resources";
+  return cat || "Other";
+}
+
+async function refreshMarketPanelData(tab) {
+  if (!isOnlineGameplayMode() || activeCharacterSlotIndex == null) return;
+  const gs = window.GameStorage;
+  if (!gs) return;
+  try {
+    if (tab === "browse" || tab === "all") {
+      marketBrowseCache = await gs.fetchMarketListings({
+        search: marketSearchText,
+        category: marketFilterCategory,
+        subcategory: marketFilterSubcategory
+      });
+    }
+    if (tab === "sell" || tab === "all") {
+      marketSellCache = await gs.fetchMyMarketListings(activeCharacterSlotIndex);
+    }
+    if (tab === "mail" || tab === "all") {
+      marketMailCache = await gs.fetchMail(50);
+      if (marketMailCache?.unreadCount != null) marketUnreadMailCount = marketMailCache.unreadCount;
+    }
+  } catch (err) {
+    console.error("market refresh:", err);
   }
-  const sections = vendorIds
-    .map((vendorId) => {
-      const vendor = getVendorDefLocal(vendorId);
-      if (!vendor) return "";
-      const rows = vendor.items
-        .map((entry) => {
-          const affordable = (player.gold || 0) >= entry.price;
-          return `<div class="vendor-row vendor-row--panel">
-          <div class="vendor-item-meta"><strong>${escapeHtml(entry.item)}</strong></div>
-          <span class="vendor-price">${entry.price} gold</span>
-          <button type="button" class="btn-secondary vendor-buy-btn" data-vendor-buy="${escapeAttr(vendor.id)}" data-vendor-item="${escapeAttr(entry.item)}"${affordable ? "" : " disabled"}>Buy</button>
+}
+
+function buildMarketBrowseHtml() {
+  const data = marketBrowseCache;
+  const listings = data && Array.isArray(data.listings) ? data.listings : [];
+  const filters = data && data.filters ? data.filters : { categories: [], subcategoriesByCategory: {} };
+  const cats = Array.isArray(filters.categories) ? filters.categories : [];
+  const subMap = filters.subcategoriesByCategory && typeof filters.subcategoriesByCategory === "object"
+    ? filters.subcategoriesByCategory
+    : {};
+  const subs = marketFilterCategory && subMap[marketFilterCategory] ? subMap[marketFilterCategory] : [];
+  const catOpts = `<option value="">All categories</option>${cats
+    .map(
+      (c) =>
+        `<option value="${escapeAttr(c)}"${marketFilterCategory === c ? " selected" : ""}>${escapeHtml(formatMarketCategoryLabel(c))}</option>`
+    )
+    .join("")}`;
+  const subOpts = `<option value="">All subcategories</option>${subs
+    .map(
+      (s) =>
+        `<option value="${escapeAttr(s)}"${marketFilterSubcategory === s ? " selected" : ""}>${escapeHtml(s)}</option>`
+    )
+    .join("")}`;
+  const rows = listings.length
+    ? listings
+        .map((row) => {
+          const isOwn = !!row.isOwn;
+          return `<div class="market-listing-row">
+          <div class="market-listing-main">
+            <strong>${escapeHtml(row.itemDisplayName || "Item")}</strong>
+            <span class="muted">${escapeHtml(row.sellerName || "Seller")} · ${escapeHtml(formatMarketCategoryLabel(row.category))}${row.subcategory ? ` / ${escapeHtml(row.subcategory)}` : ""}</span>
+          </div>
+          <span class="market-listing-price">${row.price} gold</span>
+          <button type="button" class="btn-secondary market-buy-btn" data-market-buy="${row.id}"${isOwn || (player.gold || 0) < row.price ? " disabled" : ""}${isOwn ? ' title="Your listing"' : ""}>Buy</button>
         </div>`;
         })
-        .join("");
-      return `<section class="vendor-panel-section">
-        <h2 class="vendor-panel-name">${escapeHtml(vendor.name)}</h2>
-        ${vendor.greeting ? `<p class="game-page-lead muted">${escapeHtml(vendor.greeting)}</p>` : ""}
-        <div class="vendor-list">${rows}</div>
-      </section>`;
+        .join("")
+    : `<p class="muted">No listings match your search.</p>`;
+  return `<div class="market-browse">
+    <div class="market-toolbar">
+      <input type="search" class="market-search-input" data-market-search="1" placeholder="Search items…" value="${escapeAttr(marketSearchText)}" aria-label="Search market">
+      <select class="market-filter-select" data-market-filter-category="1" aria-label="Category">${catOpts}</select>
+      <select class="market-filter-select" data-market-filter-subcategory="1" aria-label="Subcategory">${subOpts}</select>
+      <button type="button" class="btn-secondary" data-market-refresh-browse="1">Search</button>
+    </div>
+    <div class="market-listing-list">${rows}</div>
+  </div>`;
+}
+
+function buildMarketSellHtml() {
+  const data = marketSellCache;
+  const active = data && typeof data.activeCount === "number" ? data.activeCount : 0;
+  const max = data && typeof data.maxListings === "number" ? data.maxListings : 20;
+  const myListings = data && Array.isArray(data.listings) ? data.listings : [];
+  const listable = data && Array.isArray(data.listable) ? data.listable : [];
+  const selected = listable.find((g) => {
+    const key = g.stackable ? g.baseName : g.itemName;
+    return key === marketSelectedSellKey;
+  });
+  let sellForm = `<p class="muted">Select an item from your inventory to list.</p>`;
+  if (selected) {
+    const qtyBtns = (selected.stackOptions || [{ qty: 1, available: true }])
+      .map((opt) => {
+        const active = marketSelectedSellQty === opt.qty ? " is-active" : "";
+        const dis = opt.available ? "" : " disabled";
+        const cls = opt.available ? "" : " market-qty-btn--disabled";
+        return `<button type="button" class="market-qty-btn${active}${cls}" data-market-sell-qty="${opt.qty}"${dis}>${opt.qty}×</button>`;
+      })
+      .join("");
+    sellForm = `<div class="market-sell-form">
+      <p><strong>${escapeHtml(selected.displayName || selected.itemName)}</strong> <span class="muted">(${selected.count} in bag)</span></p>
+      <div class="market-qty-row">${qtyBtns}</div>
+      <label class="market-price-row">Price (gold): <input type="number" min="1" step="1" class="market-price-input" data-market-price-input="1" value="1"></label>
+      <p class="muted market-fee-hint">Listing fee: 2.5% (min 1 gold), deducted when listed.</p>
+      <button type="button" class="btn-primary" data-market-list-submit="1" data-market-list-item="${escapeAttr(marketSelectedSellItemName || selected.itemName)}">List for sale</button>
+      <button type="button" class="btn-secondary" data-market-sell-clear="1">Choose another item</button>
+    </div>`;
+  }
+  const invPick = listable.length
+    ? `<div class="market-inv-pick">${listable
+        .map((g) => {
+          const key = g.stackable ? g.baseName : g.itemName;
+          const sel = key === marketSelectedSellKey ? " is-selected" : "";
+          return `<button type="button" class="market-inv-pick-btn${sel}" data-market-pick-item="${escapeAttr(key)}" data-market-pick-name="${escapeAttr(g.itemName)}">${escapeHtml(g.displayName || g.itemName)} <span class="muted">×${g.count}</span></button>`;
+        })
+        .join("")}</div>`
+    : `<p class="muted">No listable items in inventory (equipped items excluded).</p>`;
+  const myRows = myListings.length
+    ? myListings
+        .map(
+          (l) => `<div class="market-listing-row">
+          <div class="market-listing-main"><strong>${escapeHtml(l.itemDisplayName)}</strong><span class="muted">${l.price} gold · expires ${escapeHtml(String(l.expiresAt || "").slice(0, 10))}</span></div>
+          <button type="button" class="btn-secondary market-cancel-btn" data-market-cancel="${l.id}">Cancel (1% fee)</button>
+        </div>`
+        )
+        .join("")
+    : `<p class="muted">You have no active listings.</p>`;
+  return `<div class="market-sell">
+    <p class="muted">Active listings: <strong>${active}/${max}</strong> · Your gold: <strong>${player.gold || 0}</strong></p>
+    ${sellForm}
+    <h3 class="market-subhead">Inventory</h3>
+    ${invPick}
+    <h3 class="market-subhead">Your listings</h3>
+    <div class="market-listing-list">${myRows}</div>
+  </div>`;
+}
+
+function buildMarketMailHtml() {
+  const mail = marketMailCache && Array.isArray(marketMailCache.mail) ? marketMailCache.mail : [];
+  const rows = mail.length
+    ? mail
+        .map(
+          (m) => `<div class="market-mail-row${m.read_at ? "" : " market-mail-row--unread"}">
+          <div class="market-mail-meta"><strong>${escapeHtml(m.sender || "Auction Manager")}</strong><span class="muted">${escapeHtml(String(m.created_at || "").replace("T", " ").slice(0, 16))}</span></div>
+          <p class="market-mail-body">${escapeHtml(m.body || "")}</p>
+        </div>`
+        )
+        .join("")
+    : `<p class="muted">No mail yet.</p>`;
+  return `<div class="market-mail">
+    <div class="market-mail-head">
+      <span class="muted">${marketUnreadMailCount > 0 ? `${marketUnreadMailCount} unread` : "All read"}</span>
+      <button type="button" class="btn-secondary" data-market-mail-read-all="1">Mark all read</button>
+    </div>
+    <div class="market-mail-list">${rows}</div>
+  </div>`;
+}
+
+function buildMarketPanelHtml() {
+  const meta = getMenuPanelMeta("market");
+  if (!isOnlineGameplayMode()) {
+    return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">The player market is available in online mode only. NPC vendors can still be found in the world.</p></div>`;
+  }
+  const mailBadge = marketUnreadMailCount > 0 ? ` (${marketUnreadMailCount})` : "";
+  const tabs = [
+    { id: "browse", label: "Browse" },
+    { id: "sell", label: "Sell" },
+    { id: "mail", label: `Mail${mailBadge}` }
+  ]
+    .map((t) => {
+      const cls = marketPanelTab === t.id ? "market-tab is-active" : "market-tab";
+      return `<button type="button" class="${cls}" data-market-tab="${t.id}">${escapeHtml(t.label)}</button>`;
     })
     .join("");
-  return `<div class="game-page vendor-panel">
+  let body = "";
+  if (marketPanelTab === "browse") body = buildMarketBrowseHtml();
+  else if (marketPanelTab === "sell") body = buildMarketSellHtml();
+  else body = buildMarketMailHtml();
+  return `<div class="game-page market-panel">
     <h1 class="game-page-title">${escapeHtml(meta.title)}</h1>
     <p class="game-page-lead muted">${escapeHtml(meta.lead)}</p>
-    <p class="muted">Your gold: <strong>${player.gold || 0}</strong></p>
-    ${sections}
+    <div class="market-tabs" role="tablist">${tabs}</div>
+    ${body}
   </div>`;
+}
+
+function buildShopPanelHtml() {
+  return buildMarketPanelHtml();
 }
 
 function buildMenuPanelHtml(kind) {
@@ -22159,7 +22338,11 @@ function openMenuPanel(kind) {
       if (!refreshed) return;
       const title = document.getElementById("menuPanelTitle");
       if (title) title.textContent = refreshed.title;
-      renderMenuPanelContent();
+      if (kind === "market" && isOnlineGameplayMode()) {
+        void refreshMarketPanelData("all").then(() => renderMenuPanelContent());
+      } else {
+        renderMenuPanelContent();
+      }
     });
   }
   closeCharacterPanel();
@@ -22184,7 +22367,11 @@ function openMenuPanel(kind) {
   if (title) title.textContent = meta.title;
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
-  renderMenuPanelContent();
+  if (kind === "market" && isOnlineGameplayMode()) {
+    void refreshMarketPanelData("all").then(() => renderMenuPanelContent());
+  } else {
+    renderMenuPanelContent();
+  }
   renderBottomHud();
 }
 
@@ -23706,6 +23893,126 @@ function onContentClick(e) {
     if (next !== "characteristics" && next !== "professions") return;
     overviewStatsTab = next;
     render();
+    return;
+  }
+  const marketTabBtn = e.target.closest("[data-market-tab]");
+  if (marketTabBtn && marketTabBtn.dataset.marketTab) {
+    marketPanelTab = marketTabBtn.dataset.marketTab;
+    void refreshMarketPanelData(marketPanelTab).then(() => renderMenuPanelContent());
+    return;
+  }
+  const marketRefreshBrowse = e.target.closest("[data-market-refresh-browse]");
+  if (marketRefreshBrowse) {
+    const searchEl = document.querySelector("[data-market-search]");
+    const catEl = document.querySelector("[data-market-filter-category]");
+    const subEl = document.querySelector("[data-market-filter-subcategory]");
+    marketSearchText = searchEl && typeof searchEl.value === "string" ? searchEl.value.trim() : "";
+    marketFilterCategory = catEl && typeof catEl.value === "string" ? catEl.value.trim() : "";
+    marketFilterSubcategory = subEl && typeof subEl.value === "string" ? subEl.value.trim() : "";
+    void refreshMarketPanelData("browse").then(() => renderMenuPanelContent());
+    return;
+  }
+  const marketPick = e.target.closest("[data-market-pick-item]");
+  if (marketPick && marketPick.dataset.marketPickItem) {
+    marketSelectedSellKey = marketPick.dataset.marketPickItem;
+    marketSelectedSellItemName = marketPick.dataset.marketPickName || marketPick.dataset.marketPickItem;
+    marketSelectedSellQty = 1;
+    renderMenuPanelContent();
+    return;
+  }
+  const marketQtyBtn = e.target.closest("[data-market-sell-qty]");
+  if (marketQtyBtn && marketQtyBtn.dataset.marketSellQty && !marketQtyBtn.disabled) {
+    marketSelectedSellQty = Math.max(1, Math.floor(Number(marketQtyBtn.dataset.marketSellQty) || 1));
+    renderMenuPanelContent();
+    return;
+  }
+  if (e.target.closest("[data-market-sell-clear]")) {
+    marketSelectedSellKey = null;
+    marketSelectedSellItemName = null;
+    marketSelectedSellQty = 1;
+    renderMenuPanelContent();
+    return;
+  }
+  const marketListSubmit = e.target.closest("[data-market-list-submit]");
+  if (marketListSubmit && marketListSubmit.dataset.marketListItem) {
+    const priceEl = document.querySelector("[data-market-price-input]");
+    const price = priceEl ? Math.max(1, Math.floor(Number(priceEl.value) || 0)) : 0;
+    const itemName = marketListSubmit.dataset.marketListItem;
+    if (activeCharacterSlotIndex == null || !window.GameStorage?.marketList) return;
+    void (async () => {
+      try {
+        const body = await window.GameStorage.marketList({
+          slotIndex: activeCharacterSlotIndex,
+          itemName,
+          quantity: marketSelectedSellQty,
+          price
+        });
+        await applyOnlineActionResponse(body);
+        marketSelectedSellKey = null;
+        marketSelectedSellItemName = null;
+        marketSelectedSellQty = 1;
+        await refreshMarketPanelData("all");
+        renderMenuPanelContent();
+        render();
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not list item.");
+      }
+    })();
+    return;
+  }
+  const marketBuyBtn = e.target.closest("[data-market-buy]");
+  if (marketBuyBtn && marketBuyBtn.dataset.marketBuy && !marketBuyBtn.disabled) {
+    const listingId = Number(marketBuyBtn.dataset.marketBuy);
+    if (!Number.isFinite(listingId) || activeCharacterSlotIndex == null || !window.GameStorage?.marketBuy) return;
+    void (async () => {
+      try {
+        const body = await window.GameStorage.marketBuy({
+          slotIndex: activeCharacterSlotIndex,
+          listingId
+        });
+        await applyOnlineActionResponse(body);
+        if (body?.unreadMail != null) marketUnreadMailCount = body.unreadMail;
+        await refreshMarketPanelData("all");
+        renderMenuPanelContent();
+        render();
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not buy item.");
+      }
+    })();
+    return;
+  }
+  const marketCancelBtn = e.target.closest("[data-market-cancel]");
+  if (marketCancelBtn && marketCancelBtn.dataset.marketCancel) {
+    const listingId = Number(marketCancelBtn.dataset.marketCancel);
+    if (!Number.isFinite(listingId) || activeCharacterSlotIndex == null || !window.GameStorage?.marketCancel) return;
+    void (async () => {
+      try {
+        const body = await window.GameStorage.marketCancel({
+          slotIndex: activeCharacterSlotIndex,
+          listingId
+        });
+        await applyOnlineActionResponse(body);
+        await refreshMarketPanelData("all");
+        renderMenuPanelContent();
+        render();
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not cancel listing.");
+      }
+    })();
+    return;
+  }
+  if (e.target.closest("[data-market-mail-read-all]")) {
+    if (!window.GameStorage?.markMailRead) return;
+    void (async () => {
+      try {
+        await window.GameStorage.markMailRead({ all: true });
+        marketUnreadMailCount = 0;
+        await refreshMarketPanelData("mail");
+        renderMenuPanelContent();
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not update mail.");
+      }
+    })();
     return;
   }
   const vendorBuyBtn = e.target.closest("[data-vendor-buy]");

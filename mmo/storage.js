@@ -333,6 +333,47 @@
     return apiFetch("/api/shop/buy", { method: "POST", body: JSON.stringify(body) });
   }
 
+  async function fetchMarketListings(query) {
+    if (!isOnlineMode()) return null;
+    const params = new URLSearchParams();
+    if (query?.search) params.set("search", query.search);
+    if (query?.category) params.set("category", query.category);
+    if (query?.subcategory) params.set("subcategory", query.subcategory);
+    const qs = params.toString();
+    return apiFetch(`/api/market/listings${qs ? `?${qs}` : ""}`, { method: "GET" });
+  }
+
+  async function fetchMyMarketListings(slotIndex) {
+    if (!isOnlineMode()) return null;
+    return apiFetch(`/api/market/my-listings?slotIndex=${encodeURIComponent(slotIndex)}`, { method: "GET" });
+  }
+
+  async function marketList(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/market/list", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function marketBuy(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/market/buy", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function marketCancel(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/market/cancel", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function fetchMail(limit) {
+    if (!isOnlineMode()) return null;
+    const q = limit != null ? `?limit=${encodeURIComponent(limit)}` : "";
+    return apiFetch(`/api/mail${q}`, { method: "GET" });
+  }
+
+  async function markMailRead(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/mail/read", { method: "POST", body: JSON.stringify(body || {}) });
+  }
+
   async function fetchMmoFeatures(force) {
     if (!isOnlineMode()) return null;
     if (cachedMmoFeatures && !force) return cachedMmoFeatures;
@@ -367,6 +408,13 @@
     worldPickup,
     fetchShopCatalog,
     shopBuy,
+    fetchMarketListings,
+    fetchMyMarketListings,
+    marketList,
+    marketBuy,
+    marketCancel,
+    fetchMail,
+    markMailRead,
     fetchMmoFeatures
   };
 })(typeof window !== "undefined" ? window : globalThis);

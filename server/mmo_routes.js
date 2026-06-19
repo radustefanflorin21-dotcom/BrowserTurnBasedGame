@@ -20,14 +20,14 @@ const MMO_FEATURES = Object.freeze({
     message: "Guild roster, permissions, and shared storage are in development."
   },
   market: {
-    status: "planned",
+    status: "live",
     title: "Market",
-    message: "Player listings and buyout auctions will route through the server. Visit NPC vendors in the world for supplies."
+    message: "Buy and sell items with other players. Listings expire after 30 days."
   },
   shop: {
     status: "live",
     title: "Vendors",
-    message: "NPC vendors sell supplies for gold. Talk to merchants in harbor scenes or open Market (B) for the catalog."
+    message: "NPC vendors sell supplies for gold. Talk to merchants in harbor scenes."
   },
   trade: {
     status: "planned",
@@ -71,10 +71,6 @@ export function registerMmoRoutes(app) {
 
   app.post("/api/arena/queue", requireAuth, (_req, res) => {
     notImplemented("arena", res);
-  });
-
-  app.post("/api/market/list", requireAuth, (_req, res) => {
-    notImplemented("market", res);
   });
 
   app.post("/api/trade/offer", requireAuth, (_req, res) => {
