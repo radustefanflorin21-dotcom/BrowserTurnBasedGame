@@ -2,9 +2,10 @@
  * Load/save roster slots for server-authoritative player actions (Phase B).
  */
 
-import { getRosterJson, upsertRosterJson } from "../db.js";
+import { getRosterJson } from "../db.js";
 import { getActiveCombatSlotsForUser } from "../combat/sessions.js";
 import { upsertSnapshot } from "./store.js";
+import { saveRosterDocument } from "./roster_save.js";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -59,11 +60,10 @@ export function loadPlayerForSlot(userId, slotIndex) {
 
 export function savePlayerForSlot(userId, roster, slotIndex, player) {
   roster.slots[slotIndex] = player;
-  upsertRosterJson(userId, JSON.stringify(roster));
   upsertSnapshot(userId, slotIndex, player, null);
-  return roster;
+  return saveRosterDocument(userId, roster);
 }
 
-export function actionRosterResponse(roster) {
-  return { ok: true, roster };
+export function actionRosterResponse(roster, revision, extra = {}) {
+  return { ok: true, roster, revision, ...extra };
 }

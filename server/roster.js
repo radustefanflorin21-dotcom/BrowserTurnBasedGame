@@ -1,8 +1,10 @@
-import { getRosterJson, upsertRosterJson } from "./db.js";
+import { getRosterJson, getRosterRevision } from "./db.js";
 import { requireAuth } from "./auth.js";
 import { getActiveCombatSlotsForUser } from "./combat/sessions.js";
 import { mergeRosterSlots } from "./progression/merge.js";
 import { getAllSnapshotsForUser, upsertSnapshot, clearPendingGrants } from "./progression/store.js";
+import { saveRosterDocument } from "./progression/roster_save.js";
+import { logEconomyEvent } from "./economy/audit.js";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const MMO_CONSTANTS = require("../shared/mmo_constants.js");
@@ -46,15 +48,34 @@ export function registerRosterRoutes(app) {
   app.get("/api/roster", requireAuth, (req, res) => {
     const raw = getRosterJson(req.user.id);
     const roster = parseRoster(raw);
-    res.json({ roster });
+    const revision = getRosterRevision(req.user.id);
+    res.json({ roster, revision });
   });
 
   app.put("/api/roster", requireAuth, (req, res) => {
     try {
-      const { roster } = req.body || {};
+      const { roster, baseRevision } = req.body || {};
       validateRosterBody(roster);
 
       const userId = req.user.id;
+      const currentRevision = getRosterRevision(userId);
+      if (baseRevision != null && Number(baseRevision) !== currentRevision) {
+        const authoritative = parseRoster(getRosterJson(userId));
+        res.status(409).json({
+          error: "Roster save conflict — your game was updated elsewhere.",
+          roster: authoritative,
+          revision: currentRevision,
+          violations: [
+            {
+              severity: "conflict",
+              code: "REVISION_MISMATCH",
+              message: `Expected revision ${baseRevision}, server has ${currentRevision}.`
+            }
+          ]
+        });
+        return;
+      }
+
       const storedRaw = getRosterJson(userId);
       const storedRoster = parseRoster(storedRaw);
       const snapshotsBySlot = getAllSnapshotsForUser(userId, SLOT_COUNT);
@@ -74,7 +95,7 @@ export function registerRosterRoutes(app) {
       });
 
       const mergedRoster = { version: MMO_CONSTANTS.ROSTER_VERSION, slots };
-      upsertRosterJson(userId, JSON.stringify(mergedRoster));
+      const { revision } = saveRosterDocument(userId, mergedRoster);
 
       slots.forEach((player, slotIndex) => {
         if (player) {
@@ -86,9 +107,18 @@ export function registerRosterRoutes(app) {
       });
 
       const warnings = violations.filter((v) => v.severity === "clamp");
+      if (warnings.length) {
+        logEconomyEvent(userId, {
+          kind: "merge_clamp",
+          slotIndex: null,
+          meta: { warnings, revision }
+        });
+      }
+
       res.json({
         ok: true,
         roster: mergedRoster,
+        revision,
         warnings: warnings.length ? warnings : undefined
       });
     } catch (err) {

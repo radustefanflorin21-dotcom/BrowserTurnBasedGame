@@ -1,7 +1,9 @@
 import { processCombatAction } from "./engine.js";
-import { getRosterJson, upsertRosterJson } from "../db.js";
+import { getRosterJson } from "../db.js";
 import { buildPendingGrantsFromCombatResult } from "../progression/snapshot.js";
 import { upsertSnapshot } from "../progression/store.js";
+import { saveRosterDocument } from "../progression/roster_save.js";
+import { logEconomyEvent } from "../economy/audit.js";
 import {
   createCoopPrepState,
   appendParticipantToState,
@@ -352,10 +354,21 @@ export async function persistPlayerToRoster(userId, slotIndex, player, combatRes
   if (slotIndex >= 0 && slotIndex < roster.slots.length) {
     roster.slots[slotIndex] = player;
   }
-  upsertRosterJson(userId, JSON.stringify(roster));
   const grants = combatResult ? buildPendingGrantsFromCombatResult(combatResult) : null;
   upsertSnapshot(userId, slotIndex, player, grants);
-  return roster;
+  const { roster: saved, revision } = saveRosterDocument(userId, roster);
+  if (combatResult) {
+    logEconomyEvent(userId, {
+      kind: combatResult.victory ? "combat_victory" : "combat_defeat",
+      slotIndex,
+      meta: {
+        gold: combatResult.gold || 0,
+        xp: combatResult.memberRewards || null,
+        items: grants?.items || []
+      }
+    });
+  }
+  return { roster: saved, revision };
 }
 
 export async function persistCoopResults(session, participantResults) {

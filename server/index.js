@@ -7,6 +7,7 @@ import { registerCombatRoutes } from "./combat_routes.js";
 import { registerDungeonRoutes } from "./dungeon_routes.js";
 import { registerPlayerRoutes } from "./player_routes.js";
 import { registerWorldRoutes } from "./world_routes.js";
+import { registerMmoRoutes } from "./mmo_routes.js";
 import { registerPresenceRoutes } from "./presence/routes.js";
 import { attachPresenceWebSocket } from "./presence/ws.js";
 import { loadGameConfig } from "./load_game_config.js";
@@ -35,8 +36,8 @@ app.get("/api/health", (_req, res) => {
   const presence = getPresenceStats();
   res.json({
     ok: true,
-    phase: 4,
-    phaseStatus: "shared_presence_chat",
+    phase: 5,
+    phaseStatus: "economy_audit_and_feature_stubs",
     database: dbPath,
     presenceOnline: presence.connected,
     ...getWorldShardInfo()
@@ -57,6 +58,7 @@ registerCombatRoutes(app);
 registerDungeonRoutes(app);
 registerPlayerRoutes(app);
 registerWorldRoutes(app);
+registerMmoRoutes(app);
 registerPresenceRoutes(app);
 
 app.use((err, _req, res, _next) => {

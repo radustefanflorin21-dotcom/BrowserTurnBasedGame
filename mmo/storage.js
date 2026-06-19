@@ -9,6 +9,19 @@
 
   const runtime = root.MMO_RUNTIME || { mode: "local", apiBaseUrl: "http://localhost:3001" };
 
+  let rosterRevision = 0;
+  let cachedMmoFeatures = null;
+
+  function setRosterRevision(revision) {
+    if (typeof revision === "number" && Number.isFinite(revision)) {
+      rosterRevision = Math.max(0, Math.floor(revision));
+    }
+  }
+
+  function getRosterRevision() {
+    return rosterRevision;
+  }
+
   function isOnlineMode() {
     return runtime.mode === "online";
   }
@@ -120,6 +133,7 @@
     async loadRosterJson() {
       const data = await apiFetch("/api/roster", { method: "GET" });
       if (!data || data.roster == null) return null;
+      if (data.revision != null) setRosterRevision(data.revision);
       const rosterJson =
         typeof data.roster === "string" ? data.roster : JSON.stringify(data.roster);
       try {
@@ -131,7 +145,11 @@
     },
     async saveRosterJson(json) {
       const roster = JSON.parse(json);
-      const data = await apiFetch("/api/roster", { method: "PUT", body: JSON.stringify({ roster }) });
+      const data = await apiFetch("/api/roster", {
+        method: "PUT",
+        body: JSON.stringify({ roster, baseRevision: rosterRevision })
+      });
+      if (data?.revision != null) setRosterRevision(data.revision);
       const warnings = data && Array.isArray(data.warnings) ? data.warnings : [];
       if (warnings.length && typeof root.showToast === "function") {
         root.showToast(
@@ -144,7 +162,7 @@
       } catch {
         /* ignore */
       }
-      return { rosterJson, warnings };
+      return { rosterJson, warnings, revision: data?.revision };
     }
   };
 
@@ -166,10 +184,14 @@
     } catch (err) {
       if (isOnlineMode() && err.status === 409 && err.body && err.body.roster) {
         const restored = JSON.stringify(err.body.roster);
+        if (err.body.revision != null) setRosterRevision(err.body.revision);
         if (typeof root.applyAuthoritativeRosterJson === "function") {
           root.applyAuthoritativeRosterJson(restored, { noRender: true });
         }
-        return { rosterJson: restored, warnings: err.body.violations || [] };
+        if (typeof root.showToast === "function") {
+          root.showToast("Your save was out of date — synced from the server.");
+        }
+        return { rosterJson: restored, warnings: err.body.violations || [], revision: err.body.revision };
       }
       throw err;
     }
@@ -300,12 +322,21 @@
     return apiFetch("/api/world/pickup", { method: "POST", body: JSON.stringify(body) });
   }
 
+  async function fetchMmoFeatures(force) {
+    if (!isOnlineMode()) return null;
+    if (cachedMmoFeatures && !force) return cachedMmoFeatures;
+    cachedMmoFeatures = await apiFetch("/api/mmo/features", { method: "GET" });
+    return cachedMmoFeatures;
+  }
+
   root.GameStorage = {
     isOnlineMode,
     getMode: () => runtime.mode,
     getApiBaseUrl,
     getAuthToken,
     getAuthEmail,
+    getRosterRevision,
+    setRosterRevision,
     loadRosterJson,
     saveRosterJson,
     validateSession,
@@ -322,6 +353,7 @@
     playerUpgradeSkill,
     playerCraft,
     worldMove,
-    worldPickup
+    worldPickup,
+    fetchMmoFeatures
   };
 })(typeof window !== "undefined" ? window : globalThis);

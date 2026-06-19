@@ -1,5 +1,6 @@
 import { requireAuth } from "./auth.js";
-import { getRosterJson, upsertRosterJson } from "./db.js";
+import { getRosterJson, getRosterRevision } from "./db.js";
+import { saveRosterDocument } from "./progression/roster_save.js";
 import { getPartyMemberIds } from "./presence/party.js";
 import { byUserId, updatePresence } from "./presence/hub.js";
 import {
@@ -113,7 +114,7 @@ export function registerDungeonRoutes(app) {
         consumeDungeonKey(pl, keyName);
         applyDungeonEnterToPlayer(pl, dungeonId, entrance);
         roster.slots[sIdx] = pl;
-        upsertRosterJson(userId, JSON.stringify(roster));
+        const { revision } = saveRosterDocument(userId, roster);
         updatePresence(userId, {
           x: entrance.x,
           y: entrance.y,
@@ -157,7 +158,8 @@ export function registerDungeonRoutes(app) {
         entered,
         skipped,
         dungeonRun: hostPlayer.worldMap.dungeonRun,
-        roster: hostRoster
+        roster: hostRoster,
+        revision: getRosterRevision(hostUserId)
       });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Failed to enter dungeon." });
@@ -199,7 +201,7 @@ export function registerDungeonRoutes(app) {
       }
 
       roster.slots[slotIndex] = player;
-      upsertRosterJson(userId, JSON.stringify(roster));
+      const { revision } = saveRosterDocument(userId, roster);
       updatePresence(userId, {
         x: leaveResult.entrance.x,
         y: leaveResult.entrance.y,
@@ -212,7 +214,8 @@ export function registerDungeonRoutes(app) {
         ok: true,
         dungeonId,
         entrance: leaveResult.entrance,
-        roster
+        roster,
+        revision
       });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Failed to leave dungeon." });

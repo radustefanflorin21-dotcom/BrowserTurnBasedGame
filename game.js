@@ -543,9 +543,30 @@ function resolveOnlineTargetFromActor(actor) {
 
 async function applyOnlineActionResponse(body, options) {
   if (!body || !body.roster) return false;
+  if (
+    body.revision != null &&
+    typeof window !== "undefined" &&
+    window.GameStorage &&
+    typeof window.GameStorage.setRosterRevision === "function"
+  ) {
+    window.GameStorage.setRosterRevision(body.revision);
+  }
   applyAuthoritativeRosterJson(JSON.stringify(body.roster), { noRender: !!(options && options.noRender) });
   if (!(options && options.noRender)) render();
   return true;
+}
+
+/** Cached server feature status for arena / market / alliance panels (Phase C). */
+let mmoFeatureCatalog = null;
+
+async function ensureMmoFeatureCatalog() {
+  if (!isOnlineGameplayMode() || !window.GameStorage?.fetchMmoFeatures) return null;
+  try {
+    mmoFeatureCatalog = await window.GameStorage.fetchMmoFeatures(false);
+  } catch {
+    mmoFeatureCatalog = null;
+  }
+  return mmoFeatureCatalog;
 }
 
 async function commitWorldMapPositionOnline(nx, ny, reason) {
@@ -1375,6 +1396,7 @@ async function startGameWithSelectedCharacter() {
   syncPlayerSessionUi();
   initPlayerSession();
   initOnlinePresence();
+  void ensureMmoFeatureCatalog();
   const resumed = await tryResumeOnlineCombat(idx);
   if (resumed) {
     setCharacterSelectScreenVisible(false);
@@ -12608,11 +12630,7 @@ async function finishLeavingDungeon(dungeonId, opts) {
     try {
       const body = await window.GameStorage.leaveDungeon(id, activeCharacterSlotIndex, opts || null);
       if (body?.roster?.slots && activeCharacterSlotIndex != null) {
-        ensureCharacterRoster();
-        characterRoster.slots = body.roster.slots;
-        while (characterRoster.slots.length < CHARACTER_SLOT_COUNT) characterRoster.slots.push(null);
-        player = characterRoster.slots[activeCharacterSlotIndex];
-        if (player) migratePlayer(player);
+        await applyOnlineActionResponse(body, { noRender: true });
       } else {
         clearDungeonRun();
         player.worldMap.x = ent.x;
@@ -12620,7 +12638,6 @@ async function finishLeavingDungeon(dungeonId, opts) {
       }
       ensureCharacterRoster();
       if (activeCharacterSlotIndex != null) characterRoster.slots[activeCharacterSlotIndex] = player;
-      save({ flush: true });
       publishPresenceDungeonLocation();
       closeModal();
       render();
@@ -21371,6 +21388,16 @@ function isMenuPanelOpen() {
 }
 
 function getMenuPanelMeta(kind) {
+  const featureKey = kind === "market" ? "market" : kind;
+  if (
+    (kind === "arena" || kind === "alliance" || kind === "market") &&
+    mmoFeatureCatalog &&
+    mmoFeatureCatalog.features &&
+    mmoFeatureCatalog.features[featureKey]
+  ) {
+    const f = mmoFeatureCatalog.features[featureKey];
+    return { title: f.title || kind, lead: f.message || "Coming soon." };
+  }
   if (kind === "arena") return { title: "Arena", lead: "To be defined later." };
   if (kind === "alliance") return { title: "Alliance", lead: "Coming soon." };
   if (kind === "market") return { title: "Market", lead: "Coming soon." };
@@ -21933,6 +21960,15 @@ function renderMenuPanelContent() {
 function openMenuPanel(kind) {
   const meta = getMenuPanelMeta(kind);
   if (!meta) return;
+  if (kind === "arena" || kind === "alliance" || kind === "market") {
+    void ensureMmoFeatureCatalog().then(() => {
+      const refreshed = getMenuPanelMeta(kind);
+      if (!refreshed) return;
+      const title = document.getElementById("menuPanelTitle");
+      if (title) title.textContent = refreshed.title;
+      renderMenuPanelContent();
+    });
+  }
   closeCharacterPanel();
   closeSkillsPanel();
   const modal = document.getElementById("menuPanelModal");

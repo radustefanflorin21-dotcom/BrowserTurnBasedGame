@@ -3,6 +3,7 @@ import { applyEquipItem, applyUnequipItem } from "./progression/equip_actions.js
 import { applyCraftRecipe } from "./progression/craft_actions.js";
 import { applySpendCharacteristicPoints } from "./progression/stat_actions.js";
 import { applyUpgradeClassSkill } from "./progression/skill_actions.js";
+import { logEconomyEvent } from "./economy/audit.js";
 import {
   actionRosterResponse,
   loadPlayerForSlot,
@@ -16,20 +17,26 @@ function parseBodyTarget(body) {
   return { target, companionSlotIndex };
 }
 
+function finishAction(req, res, slotIndex, roster, player, result, kind) {
+  logEconomyEvent(req.user.id, { kind, slotIndex, meta: result });
+  const { roster: saved, revision } = savePlayerForSlot(req.user.id, roster, slotIndex, player);
+  res.json(actionRosterResponse(saved, revision, { result }));
+}
+
 export function registerPlayerRoutes(app) {
   app.post("/api/player/equip", requireAuth, (req, res) => {
     try {
       const slotIndex = Number(req.body?.slotIndex);
       const { target, companionSlotIndex } = parseBodyTarget(req.body || {});
-      const { roster, player } = loadPlayerForSlot(req.user.id, slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
       const result = applyEquipItem(player, {
         itemName: req.body?.itemName,
         preferredSlot: req.body?.preferredSlot || null,
         target,
         companionSlotIndex
       });
-      savePlayerForSlot(req.user.id, roster, slotIndex, player);
-      res.json({ ...actionRosterResponse(roster), result });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "equip");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Equip failed." });
     }
@@ -39,14 +46,14 @@ export function registerPlayerRoutes(app) {
     try {
       const slotIndex = Number(req.body?.slotIndex);
       const { target, companionSlotIndex } = parseBodyTarget(req.body || {});
-      const { roster, player } = loadPlayerForSlot(req.user.id, slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
       const result = applyUnequipItem(player, {
         equipSlot: req.body?.equipSlot,
         target,
         companionSlotIndex
       });
-      savePlayerForSlot(req.user.id, roster, slotIndex, player);
-      res.json({ ...actionRosterResponse(roster), result });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "unequip");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Unequip failed." });
     }
@@ -56,15 +63,15 @@ export function registerPlayerRoutes(app) {
     try {
       const slotIndex = Number(req.body?.slotIndex);
       const { target, companionSlotIndex } = parseBodyTarget(req.body || {});
-      const { roster, player } = loadPlayerForSlot(req.user.id, slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
       const result = applySpendCharacteristicPoints(player, {
         statKey: req.body?.statKey,
         amount: req.body?.amount,
         target,
         companionSlotIndex
       });
-      savePlayerForSlot(req.user.id, roster, slotIndex, player);
-      res.json({ ...actionRosterResponse(roster), result });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "spend_stat");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Stat spend failed." });
     }
@@ -74,14 +81,14 @@ export function registerPlayerRoutes(app) {
     try {
       const slotIndex = Number(req.body?.slotIndex);
       const { target, companionSlotIndex } = parseBodyTarget(req.body || {});
-      const { roster, player } = loadPlayerForSlot(req.user.id, slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
       const result = applyUpgradeClassSkill(player, {
         skillName: req.body?.skillName,
         target,
         companionSlotIndex
       });
-      savePlayerForSlot(req.user.id, roster, slotIndex, player);
-      res.json({ ...actionRosterResponse(roster), result });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "upgrade_skill");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Skill upgrade failed." });
     }
@@ -95,14 +102,14 @@ export function registerPlayerRoutes(app) {
         crafterTarget === "companion" && req.body?.companionSlotIndex != null
           ? Number(req.body.companionSlotIndex)
           : null;
-      const { roster, player } = loadPlayerForSlot(req.user.id, slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
       const result = applyCraftRecipe(player, {
         recipeId: req.body?.recipeId,
         crafterTarget,
         companionSlotIndex
       });
-      savePlayerForSlot(req.user.id, roster, slotIndex, player);
-      res.json({ ...actionRosterResponse(roster), result });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "craft");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Craft failed." });
     }
