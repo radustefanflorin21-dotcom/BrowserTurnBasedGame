@@ -322,17 +322,6 @@
     return apiFetch("/api/world/pickup", { method: "POST", body: JSON.stringify(body) });
   }
 
-  async function fetchShopCatalog(vendorId) {
-    if (!isOnlineMode()) return null;
-    const q = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : "";
-    return apiFetch(`/api/shop/catalog${q}`, { method: "GET" });
-  }
-
-  async function shopBuy(body) {
-    if (!isOnlineMode()) return null;
-    return apiFetch("/api/shop/buy", { method: "POST", body: JSON.stringify(body) });
-  }
-
   async function fetchMarketListings(query) {
     if (!isOnlineMode()) return null;
     const params = new URLSearchParams();
@@ -406,8 +395,6 @@
     playerCraft,
     worldMove,
     worldPickup,
-    fetchShopCatalog,
-    shopBuy,
     fetchMarketListings,
     fetchMyMarketListings,
     marketList,

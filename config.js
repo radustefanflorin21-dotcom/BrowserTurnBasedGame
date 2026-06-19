@@ -8189,29 +8189,6 @@ const GAME_CONFIG = {
    * Optional editable: true — when Edit Mode is on in the sidebar, the object can be dragged, resized, or removed; layout is saved in player.worldMap.sceneLayout.
    * Per-coordinate overrides from the editor are stored in player.worldMap.sceneEdits (same shape as a scene cell); when present, they replace config for that coordinate.
    */
-  /**
-   * NPC vendors — sold from scene NPCs with matching `shopId`.
-   * Keys are vendor ids referenced by {@link worldMap.coordinateCells} NPC elements.
-   */
-  vendors: {
-    paradise_south_provisions: {
-      name: "Mira Tidekeeper",
-      greeting: "Salt air dries the throat. Stock up before you head to the dig or the boat.",
-      items: [
-        { item: "Small Potion", price: 12 },
-        { item: "Large Potion", price: 35 }
-      ]
-    },
-    paradise_north_provisions: {
-      name: "Corvin Stormmerchant",
-      greeting: "Northern winds chew through supplies. Buy what you need before the hollow.",
-      items: [
-        { item: "Small Potion", price: 12 },
-        { item: "Large Potion", price: 35 }
-      ]
-    }
-  },
-
   worldMap: {
     /**
      * Increment when you change biome `possibleEnemies`, mob difficulty, or mob rolling rules. Saved mob previews
@@ -8268,17 +8245,6 @@ const GAME_CONFIG = {
         description: "A small harbor with a boat ready to travel north.",
         elements: [
           {
-            type: "npc",
-            id: "mira_tidekeeper",
-            label: "Mira Tidekeeper",
-            editable: true,
-            leftPct: 62,
-            topPct: 48,
-            scalePct: 72,
-            text: "Mira Tidekeeper sells travel provisions by the harbor.",
-            shopId: "paradise_south_provisions"
-          },
-          {
             type: "boat",
             id: "boat_paradise_south",
             label: "Boat",
@@ -8295,17 +8261,6 @@ const GAME_CONFIG = {
         title: "Paradise North",
         description: "A quiet northern dock with return passage available.",
         elements: [
-          {
-            type: "npc",
-            id: "corvin_stormmerchant",
-            label: "Corvin Stormmerchant",
-            editable: true,
-            leftPct: 68,
-            topPct: 52,
-            scalePct: 72,
-            text: "Corvin Stormmerchant keeps potions for hollow-bound travelers.",
-            shopId: "paradise_north_provisions"
-          },
           {
             type: "boat",
             id: "boat_paradise_north",

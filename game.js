@@ -14391,9 +14391,6 @@ function buildAdventureSceneHtml(x, y, cfg) {
       if (typeof el.dungeonEntrance === "string" && el.dungeonEntrance.trim()) {
         payloadObj.dungeonEntrance = el.dungeonEntrance.trim();
       }
-      if (typeof el.shopId === "string" && el.shopId.trim()) {
-        payloadObj.shopId = el.shopId.trim();
-      }
       const payload = escapeAttr(JSON.stringify(payloadObj));
       const labelRaw = typeof el.label === "string" && el.label.trim() ? el.label.trim() : "NPC";
       const label = escapeHtml(labelRaw);
@@ -14581,10 +14578,6 @@ function onAdventureSceneButtonClick(e) {
   }
   if (payload.type === "dungeon_epilogue" && typeof payload.dungeonId === "string") {
     openDungeonEpilogueDialog(payload.dungeonId.trim());
-    return true;
-  }
-  if ((payload.type === "npc" || payload.type === "note") && typeof payload.shopId === "string" && payload.shopId.trim()) {
-    openVendorShopDialog(payload.shopId.trim());
     return true;
   }
   if ((payload.type === "npc" || payload.type === "note") && typeof payload.dungeonEntrance === "string" && payload.dungeonEntrance.trim()) {
@@ -18659,120 +18652,6 @@ function openHollisKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("sunken_grotto");
 }
 
-function getVendorsConfig() {
-  return GAME_CONFIG.vendors && typeof GAME_CONFIG.vendors === "object" ? GAME_CONFIG.vendors : {};
-}
-
-function getVendorDefLocal(vendorId) {
-  const id = typeof vendorId === "string" ? vendorId.trim() : "";
-  if (!id) return null;
-  const raw = getVendorsConfig()[id];
-  if (!raw || typeof raw !== "object") return null;
-  const items = Array.isArray(raw.items)
-    ? raw.items
-        .map((entry) => {
-          const item = entry && typeof entry.item === "string" ? entry.item.trim() : "";
-          const price =
-            entry && typeof entry.price === "number" && Number.isFinite(entry.price)
-              ? Math.max(0, Math.floor(entry.price))
-              : null;
-          if (!item || price == null || !getItemDef(item)) return null;
-          return { item, price };
-        })
-        .filter(Boolean)
-    : [];
-  if (!items.length) return null;
-  return {
-    id,
-    name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : id,
-    greeting: typeof raw.greeting === "string" ? raw.greeting.trim() : "",
-    items
-  };
-}
-
-function buildVendorShopModalHtml(vendor) {
-  const greeting = vendor.greeting
-    ? `<p class="npc-dialog-body">${escapeHtml(vendor.greeting)}</p>`
-    : "";
-  const rows = vendor.items
-    .map((entry) => {
-      const def = getItemDef(entry.item);
-      const img =
-        def && typeof def.image === "string" && def.image.trim()
-          ? `<img class="vendor-item-img" src="${escapeAttr(def.image)}" alt="" onerror="this.style.display='none'">`
-          : "";
-      const desc =
-        def && typeof def.description === "string" && def.description.trim()
-          ? `<span class="vendor-item-desc muted">${escapeHtml(def.description)}</span>`
-          : "";
-      const affordable = (player.gold || 0) >= entry.price;
-      return `<div class="vendor-row">
-      ${img}
-      <div class="vendor-item-meta">
-        <strong>${escapeHtml(entry.item)}</strong>
-        ${desc}
-      </div>
-      <span class="vendor-price">${entry.price} gold</span>
-      <button type="button" class="btn-secondary vendor-buy-btn" data-vendor-buy="${escapeAttr(vendor.id)}" data-vendor-item="${escapeAttr(entry.item)}"${affordable ? "" : " disabled"}>Buy</button>
-    </div>`;
-    })
-    .join("");
-  return `<div class="npc-dialog-bubble vendor-shop">
-    <p class="npc-dialog-speaker">${escapeHtml(vendor.name)}</p>
-    ${greeting}
-    <p class="npc-dialog-body muted">Your gold: <strong>${player.gold || 0}</strong></p>
-    <div class="vendor-list">${rows}</div>
-    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-vendor-close="1">Close</button></div>
-  </div>`;
-}
-
-function openVendorShopDialog(vendorId) {
-  const vendor = getVendorDefLocal(vendorId);
-  if (!vendor) {
-    showModal("This vendor is not configured.");
-    return;
-  }
-  showModalHtml(buildVendorShopModalHtml(vendor), { npcBubble: true });
-}
-
-function purchaseFromVendor(vendorId, itemName) {
-  const vendor = getVendorDefLocal(vendorId);
-  if (!vendor) {
-    showModal("This vendor is not configured.");
-    return false;
-  }
-  const name = typeof itemName === "string" ? itemName.trim() : "";
-  const listing = vendor.items.find((e) => e.item === name);
-  if (!listing) return false;
-  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.shopBuy) {
-    void (async () => {
-      try {
-        const body = await window.GameStorage.shopBuy({
-          slotIndex: activeCharacterSlotIndex,
-          vendorId,
-          itemName: name,
-          quantity: 1
-        });
-        await applyOnlineActionResponse(body);
-        openVendorShopDialog(vendorId);
-      } catch (err) {
-        showModal(err && err.message ? err.message : "Could not buy item.");
-      }
-    })();
-    return true;
-  }
-  const gold = typeof player.gold === "number" && Number.isFinite(player.gold) ? Math.max(0, Math.floor(player.gold)) : 0;
-  if (gold < listing.price) {
-    showModal(`Not enough gold (need ${listing.price}, have ${gold}).`);
-    return false;
-  }
-  player.gold = gold - listing.price;
-  player.inventory.push(name);
-  save();
-  openVendorShopDialog(vendorId);
-  return true;
-}
-
 async function beginDungeonRunFromModal(dungeonId) {
   const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
   const def = getDungeonDef(id);
@@ -22620,7 +22499,7 @@ function buildMarketMailHtml() {
 function buildMarketPanelHtml() {
   const meta = getMenuPanelMeta("market");
   if (!isOnlineGameplayMode()) {
-    return `<div class="game-page market-panel"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead market-panel-lead">The player market is available in online mode only. NPC vendors can still be found in the world.</p></div>`;
+    return `<div class="game-page market-panel"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead market-panel-lead">The player market is available in online mode only.</p></div>`;
   }
   return `<div class="game-page market-panel market-panel--layout">
     <div class="market-layout">
@@ -24365,18 +24244,6 @@ function onContentClick(e) {
         showModal(err && err.message ? err.message : "Could not update mail.");
       }
     })();
-    return;
-  }
-  const vendorBuyBtn = e.target.closest("[data-vendor-buy]");
-  if (vendorBuyBtn && vendorBuyBtn.dataset.vendorBuy && vendorBuyBtn.dataset.vendorItem) {
-    if (purchaseFromVendor(vendorBuyBtn.dataset.vendorBuy, vendorBuyBtn.dataset.vendorItem)) {
-      if (isMenuPanelOpen() && activeMenuPanel === "market") renderMenuPanelContent();
-      render();
-    }
-    return;
-  }
-  if (e.target.closest("[data-vendor-close]")) {
-    closeModal();
     return;
   }
   const craftingProfTab = e.target.closest("[data-crafting-tab]");
