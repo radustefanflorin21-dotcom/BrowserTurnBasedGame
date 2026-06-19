@@ -5,6 +5,8 @@ import { registerAuthRoutes } from "./auth.js";
 import { registerRosterRoutes } from "./roster.js";
 import { registerCombatRoutes } from "./combat_routes.js";
 import { registerDungeonRoutes } from "./dungeon_routes.js";
+import { registerPlayerRoutes } from "./player_routes.js";
+import { registerWorldRoutes } from "./world_routes.js";
 import { registerPresenceRoutes } from "./presence/routes.js";
 import { attachPresenceWebSocket } from "./presence/ws.js";
 import { loadGameConfig } from "./load_game_config.js";
@@ -53,6 +55,8 @@ registerAuthRoutes(app);
 registerRosterRoutes(app);
 registerCombatRoutes(app);
 registerDungeonRoutes(app);
+registerPlayerRoutes(app);
+registerWorldRoutes(app);
 registerPresenceRoutes(app);
 
 app.use((err, _req, res, _next) => {

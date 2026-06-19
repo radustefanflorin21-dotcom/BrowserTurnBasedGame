@@ -4,18 +4,30 @@
 
 import {
   buildPendingGrantsFromCombatResult,
-  countAllItems,
   extractEconomy,
   grantsExpired,
   isKnownItemName,
   itemInventoryCounts
 } from "./snapshot.js";
 import { mergeWorldMap } from "./world_map.js";
+import { sanitizePlayerProgressionStats } from "./stat_caps.js";
+
+const EQUIP_SLOT_IDS = [
+  "head",
+  "amulet",
+  "weapon",
+  "chest",
+  "offhand",
+  "bracelet",
+  "legs",
+  "feet",
+  "ring1",
+  "ring2"
+];
 
 const MAX_GOLD_DRIFT = 25;
 const MAX_XP_DRIFT = 50;
 const MAX_LEVEL_JUMP = 3;
-const MAX_ITEM_STACKS_ADDED_PER_SAVE = 40;
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -44,65 +56,50 @@ function inventoryFromCounts(counts) {
 
 function mergeInventoryAndEquipment(auth, incoming, grantItems, violations) {
   const authInv = itemInventoryCounts(auth?.inventory);
-  const incInv = itemInventoryCounts(incoming?.inventory);
   const grantCounts = countGrantItems(grantItems);
   const mergedInv = { ...authInv };
-  let addedStacks = 0;
-  const allNames = new Set([...Object.keys(authInv), ...Object.keys(incInv)]);
 
-  allNames.forEach((name) => {
+  Object.entries(grantCounts).forEach(([name, n]) => {
+    if (!isKnownItemName(name)) return;
+    mergedInv[name] = (mergedInv[name] || 0) + n;
+  });
+
+  const incInv = itemInventoryCounts(incoming?.inventory);
+  Object.keys(incInv).forEach((name) => {
     const authN = authInv[name] || 0;
     const incN = incInv[name] || 0;
-    if (!isKnownItemName(name)) {
-      if (incN > authN) {
-        violations.push({
-          severity: "clamp",
-          code: "UNKNOWN_ITEM",
-          message: `Removed unknown item: ${name}`
-        });
-      }
-      return;
-    }
-    const max = authN + (grantCounts[name] || 0) + 5;
-    const want = Math.max(authN, incN);
-    if (want > max) {
-      mergedInv[name] = max;
+    const grantN = grantCounts[name] || 0;
+    if (incN > authN + grantN) {
       violations.push({
         severity: "clamp",
         code: "ITEM_COUNT",
-        message: `Capped stack count for ${name}`
+        message: `Inventory change for ${name} must use server actions (equip/craft/pickup).`
       });
-    } else {
-      mergedInv[name] = want;
     }
-    addedStacks += Math.max(0, want - authN);
-  });
-
-  const authTotal = countAllItems(auth);
-  const incTotal = countAllItems(incoming);
-  Object.keys(incTotal).forEach((name) => {
-    if ((incTotal[name] || 0) > (authTotal[name] || 0) + (grantCounts[name] || 0) + 5) {
+    if (incN < authN && !grantN) {
       violations.push({
         severity: "clamp",
-        code: "ITEM_TOTAL",
-        message: `Too many copies of ${name} (inventory + equipped).`
+        code: "ITEM_REMOVE",
+        message: `Removing ${name} must use server actions.`
       });
     }
   });
 
-  if (addedStacks > MAX_ITEM_STACKS_ADDED_PER_SAVE + (grantItems?.length || 0)) {
-    violations.push({
-      severity: "clamp",
-      code: "ITEM_FLOOD",
-      message: "Too many items added since last save."
-    });
-  }
-
   const inventory = inventoryFromCounts(mergedInv);
-  const equipment = {
-    ...(auth?.equipment && typeof auth.equipment === "object" ? auth.equipment : {}),
-    ...(incoming?.equipment && typeof incoming.equipment === "object" ? incoming.equipment : {})
-  };
+  const equipment =
+    auth?.equipment && typeof auth.equipment === "object"
+      ? JSON.parse(JSON.stringify(auth.equipment))
+      : {};
+  if (incoming?.equipment && typeof incoming.equipment === "object") {
+    const changed = EQUIP_SLOT_IDS.some((slot) => incoming.equipment[slot] !== equipment[slot]);
+    if (changed) {
+      violations.push({
+        severity: "clamp",
+        code: "EQUIPMENT",
+        message: "Equipment changes must use POST /api/player/equip."
+      });
+    }
+  }
   return { inventory, equipment };
 }
 
@@ -163,6 +160,18 @@ export function mergePlayerProgression(authoritative, incoming, pendingGrants) {
   const invEq = mergeInventoryAndEquipment(authoritative, incoming, grantItems, violations);
   out.inventory = invEq.inventory;
   out.equipment = invEq.equipment;
+
+  sanitizePlayerProgressionStats(out, authoritative, violations);
+
+  if (authoritative && Array.isArray(authoritative.companions) && Array.isArray(out.companions)) {
+    authoritative.companions.forEach((authC, idx) => {
+      const outC = out.companions[idx];
+      if (!authC || !outC) return;
+      if (authC.equipment && typeof authC.equipment === "object") {
+        outC.equipment = JSON.parse(JSON.stringify(authC.equipment));
+      }
+    });
+  }
 
   if (grants?.companionXp?.length && Array.isArray(out.companions)) {
     grants.companionXp.forEach(({ slotIndex, xp }) => {

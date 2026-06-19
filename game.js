@@ -523,6 +523,59 @@ function applyAuthoritativeRosterJson(json, options) {
 }
 if (typeof window !== "undefined") window.applyAuthoritativeRosterJson = applyAuthoritativeRosterJson;
 
+function isOnlineGameplayMode() {
+  return (
+    typeof window !== "undefined" &&
+    window.GameStorage &&
+    typeof window.GameStorage.isOnlineMode === "function" &&
+    window.GameStorage.isOnlineMode()
+  );
+}
+
+function resolveOnlineTargetFromActor(actor) {
+  if (!actor || actor === player) return { target: "hero", companionSlotIndex: null };
+  if (player && Array.isArray(player.companions)) {
+    const idx = player.companions.indexOf(actor);
+    if (idx >= 0) return { target: "companion", companionSlotIndex: idx };
+  }
+  return { target: "hero", companionSlotIndex: null };
+}
+
+async function applyOnlineActionResponse(body, options) {
+  if (!body || !body.roster) return false;
+  applyAuthoritativeRosterJson(JSON.stringify(body.roster), { noRender: !!(options && options.noRender) });
+  if (!(options && options.noRender)) render();
+  return true;
+}
+
+async function commitWorldMapPositionOnline(nx, ny, reason) {
+  if (activeCharacterSlotIndex == null || !window.GameStorage?.worldMove) return false;
+  try {
+    const body = await window.GameStorage.worldMove({
+      slotIndex: activeCharacterSlotIndex,
+      x: nx,
+      y: ny,
+      reason: reason || "step"
+    });
+    await applyOnlineActionResponse(body);
+    publishOnlinePresenceNow();
+    return true;
+  } catch (err) {
+    console.error("worldMove:", err);
+    showModal(err && err.message ? err.message : "Could not move.");
+    return false;
+  }
+}
+
+async function commitWorldMapPosition(nx, ny, reason) {
+  if (isOnlineGameplayMode()) return commitWorldMapPositionOnline(nx, ny, reason);
+  player.worldMap.x = nx;
+  player.worldMap.y = ny;
+  save({ flush: true });
+  publishOnlinePresenceNow();
+  return true;
+}
+
 /** Apply server-merged world map from a saved roster JSON; keep local mob preview caches. */
 function syncPlayerWorldMapFromSavedRoster(savedJson) {
   if (!savedJson || !inGameSession || activeCharacterSlotIndex == null || !player) return;
@@ -2148,6 +2201,24 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
     showModal("Not enough skill points.");
     return false;
   }
+  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerUpgradeSkill) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.playerUpgradeSkill({
+          slotIndex: activeCharacterSlotIndex,
+          skillName,
+          ...resolveOnlineTargetFromActor(target)
+        });
+        await applyOnlineActionResponse(body);
+        const inPlace = isSkillsPanelOpen() ? refreshSkillsPanelSubpanelInPlace() : false;
+        if (!inPlace) render();
+        restoreOverviewSkillsScroll();
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not upgrade skill.");
+      }
+    })();
+    return true;
+  }
   target.classSkillLevels[skillName] = cur + 1;
   recomputeAllocPoolsFromLevel(target);
   syncPlayerClassSkillList(target);
@@ -2542,6 +2613,14 @@ function migratePlayer(p) {
   }
   if (p.worldMap.cityPortalCoords && typeof p.worldMap.cityPortalCoords === "object") delete p.worldMap.cityPortalCoords;
   if (typeof p.editMode !== "boolean") p.editMode = false;
+  if (
+    typeof window !== "undefined" &&
+    window.GameStorage &&
+    typeof window.GameStorage.isOnlineMode === "function" &&
+    window.GameStorage.isOnlineMode()
+  ) {
+    p.editMode = false;
+  }
   if (p.worldMap && p.worldMap.cells && typeof p.worldMap.cells === "object") {
     Object.keys(p.worldMap.cells).forEach((k) => {
       const c = p.worldMap.cells[k];
@@ -10008,6 +10087,22 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
   }
   const i = player.inventory.indexOf(itemName);
   if (i === -1) return false;
+  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerEquip) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.playerEquip({
+          slotIndex: activeCharacterSlotIndex,
+          itemName,
+          preferredSlot: preferredSlot || null,
+          ...resolveOnlineTargetFromActor(target)
+        });
+        await applyOnlineActionResponse(body);
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not equip item.");
+      }
+    })();
+    return true;
+  }
   const eq = target.equipment || emptyEquipment();
   const slot = pickEquipSlotForDef(def, itemName, preferredSlot, eq);
   if (!slot) return false;
@@ -10041,6 +10136,21 @@ function unequipToInventory(slotId, contextEl) {
   const eq = target.equipment || emptyEquipment();
   const name = eq[slotId];
   if (!name) return;
+  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerUnequip) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.playerUnequip({
+          slotIndex: activeCharacterSlotIndex,
+          equipSlot: slotId,
+          ...resolveOnlineTargetFromActor(target)
+        });
+        await applyOnlineActionResponse(body);
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not unequip item.");
+      }
+    })();
+    return;
+  }
   eq[slotId] = null;
   target.equipment = eq;
   player.inventory.push(name);
@@ -14022,10 +14132,17 @@ function onSceneLayoutPointerDown(e) {
 }
 
 function syncEditModeUi() {
-  const on = !!(player && player.editMode);
+  const online =
+    typeof window !== "undefined" &&
+    window.GameStorage &&
+    typeof window.GameStorage.isOnlineMode === "function" &&
+    window.GameStorage.isOnlineMode();
+  if (online && player) player.editMode = false;
+  const on = !!(player && player.editMode && !online);
   document.body.classList.toggle("edit-mode-on", on);
   const btn = document.getElementById("editModeToggle");
   if (btn) {
+    btn.hidden = online;
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     btn.classList.toggle("sidebar-edit-mode-btn--active", on);
   }
@@ -14036,6 +14153,16 @@ function syncEditModeUi() {
 }
 
 function setEditMode(on) {
+  if (
+    on &&
+    typeof window !== "undefined" &&
+    window.GameStorage &&
+    typeof window.GameStorage.isOnlineMode === "function" &&
+    window.GameStorage.isOnlineMode()
+  ) {
+    showModal("Edit mode is disabled while playing online.");
+    return;
+  }
   player.editMode = !!on;
   save();
   syncEditModeUi();
@@ -14379,15 +14506,33 @@ function onAdventureSceneButtonClick(e) {
       showModal("You cannot travel there.");
       return true;
     }
-    player.worldMap.x = tx;
-    player.worldMap.y = ty;
-    save({ flush: true });
-    render();
+    void commitWorldMapPosition(tx, ty, "door").then((ok) => {
+      if (ok) render();
+    });
     return true;
   }
   if (payload.type === "pickup" && typeof payload.itemName === "string" && payload.itemName) {
     const id = typeof payload.id === "string" ? payload.id : "pickup";
     if (payload.once !== false && isScenePickupTaken(x, y, id)) return true;
+    if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.worldPickup) {
+      void (async () => {
+        try {
+          const body = await window.GameStorage.worldPickup({
+            slotIndex: activeCharacterSlotIndex,
+            x,
+            y,
+            elementId: id,
+            itemName: payload.itemName
+          });
+          await applyOnlineActionResponse(body);
+          showModal(`You take: ${payload.itemName}.`);
+          renderAdventure();
+        } catch (err) {
+          showModal(err && err.message ? err.message : "Could not pick up item.");
+        }
+      })();
+      return true;
+    }
     player.inventory.push(payload.itemName);
     if (payload.once !== false) markScenePickupTaken(x, y, id);
     else save();
@@ -14451,10 +14596,9 @@ function beginAdventureMapFade(_dx, _dy, nx, ny) {
   const pageRoot = document.getElementById("adventurePageRoot");
   const fadeEl = document.getElementById("adventurePageScene") || pageRoot;
   if (!pageRoot || !fadeEl) {
-    player.worldMap.x = nx;
-    player.worldMap.y = ny;
-    save({ flush: true });
-    render();
+    void commitWorldMapPosition(nx, ny, "step").then((ok) => {
+      if (ok) render();
+    });
     return;
   }
 
@@ -14487,47 +14631,50 @@ function beginAdventureMapFade(_dx, _dy, nx, ny) {
     fadeEl.style.transition = "";
     fadeEl.style.opacity = "";
     fadeEl.style.filter = "";
-    player.worldMap.x = nx;
-    player.worldMap.y = ny;
-    save({ flush: true });
-    render();
+    void commitWorldMapPosition(nx, ny, "step").then((ok) => {
+      if (!ok) {
+        adventureMapFadeInFlight = false;
+        return;
+      }
+      render();
 
-    const pr = document.getElementById("adventurePageScene") || document.getElementById("adventurePageRoot");
-    if (!pr) {
-      adventureMapFadeInFlight = false;
-      return;
-    }
-    const tri = `opacity ${inOpMs}ms ${ADVENTURE_MAP_FADE_EASING}, filter ${inBlurMs}ms ${ADVENTURE_MAP_FADE_BLUR_EASING}`;
-    pr.classList.add("adventure-page--map-fade");
-    pr.style.transition = "none";
-    pr.style.opacity = "0";
-    pr.style.filter = `blur(${blur}px)`;
-    void pr.offsetHeight;
-    requestAnimationFrame(() => {
+      const pr = document.getElementById("adventurePageScene") || document.getElementById("adventurePageRoot");
+      if (!pr) {
+        adventureMapFadeInFlight = false;
+        return;
+      }
+      const tri = `opacity ${inOpMs}ms ${ADVENTURE_MAP_FADE_EASING}, filter ${inBlurMs}ms ${ADVENTURE_MAP_FADE_BLUR_EASING}`;
+      pr.classList.add("adventure-page--map-fade");
+      pr.style.transition = "none";
+      pr.style.opacity = "0";
+      pr.style.filter = `blur(${blur}px)`;
+      void pr.offsetHeight;
       requestAnimationFrame(() => {
-        pr.style.transition = tri;
-        pr.style.opacity = "1";
-        pr.style.filter = "blur(0px)";
+        requestAnimationFrame(() => {
+          pr.style.transition = tri;
+          pr.style.opacity = "1";
+          pr.style.filter = "blur(0px)";
 
-        let inFinished = false;
-        const finishIn = (e) => {
-          if (inFinished) return;
-          if (!e || e.target !== pr || !adventureMapFadeFilterPropertyOk(e.propertyName)) return;
-          inFinished = true;
-          pr.removeEventListener("transitionend", onInEnd);
-          window.clearTimeout(inFailTimer);
-          pr.style.transition = "";
-          pr.style.opacity = "";
-          pr.style.filter = "";
-          pr.classList.remove("adventure-page--map-fade");
-          adventureMapFadeInFlight = false;
-        };
-        const onInEnd = (e) => finishIn(e);
-        const inFailTimer = window.setTimeout(
-          () => finishIn({ target: pr, propertyName: "filter" }),
-          inBlurMs + 160
-        );
-        pr.addEventListener("transitionend", onInEnd);
+          let inFinished = false;
+          const finishIn = (e) => {
+            if (inFinished) return;
+            if (!e || e.target !== pr || !adventureMapFadeFilterPropertyOk(e.propertyName)) return;
+            inFinished = true;
+            pr.removeEventListener("transitionend", onInEnd);
+            window.clearTimeout(inFailTimer);
+            pr.style.transition = "";
+            pr.style.opacity = "";
+            pr.style.filter = "";
+            pr.classList.remove("adventure-page--map-fade");
+            adventureMapFadeInFlight = false;
+          };
+          const onInEnd = (e) => finishIn(e);
+          const inFailTimer = window.setTimeout(
+            () => finishIn({ target: pr, propertyName: "filter" }),
+            inBlurMs + 160
+          );
+          pr.addEventListener("transitionend", onInEnd);
+        });
       });
     });
   };
@@ -14590,6 +14737,22 @@ function moveWorldMap(dx, dy) {
   const ny = player.worldMap.y + dy;
   if (!canEnterMap(nx, ny)) return;
   if (adventureMapFadeInFlight) return;
+  if (isOnlineGameplayMode()) {
+    if (
+      currentPage === "adventure" &&
+      !player.editMode &&
+      (dx !== 0 || dy !== 0) &&
+      (dx === 0 || dy === 0) &&
+      !prefersAdventureMapReducedMotion()
+    ) {
+      beginAdventureMapFade(dx, dy, nx, ny);
+      return;
+    }
+    void commitWorldMapPosition(nx, ny, "step").then((ok) => {
+      if (ok) render();
+    });
+    return;
+  }
   if (
     currentPage === "adventure" &&
     !player.editMode &&
@@ -19083,6 +19246,22 @@ function spendCharPoints(statKey, actor, amount) {
   const budget = Math.max(0, Math.floor(Number(amount)));
   const useBudget = Math.min(budget, pool);
   if (useBudget <= 0) return 0;
+  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerSpendStat) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.playerSpendStat({
+          slotIndex: activeCharacterSlotIndex,
+          statKey,
+          amount: useBudget,
+          ...resolveOnlineTargetFromActor(target)
+        });
+        await applyOnlineActionResponse(body);
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not spend characteristic points.");
+      }
+    })();
+    return useBudget;
+  }
 
   let cur =
     typeof target[statKey] === "number" && Number.isFinite(target[statKey])
@@ -21363,6 +21542,22 @@ function craftRecipeById(recipeId) {
   if (!selectedCraftingProfIds.includes(requiredProfId)) return false;
   const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts(), tab.actor);
   if (!avail.craftable) return false;
+  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerCraft) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.playerCraft({
+          slotIndex: activeCharacterSlotIndex,
+          recipeId,
+          crafterTarget: tab.ownerKey === "hero" ? "hero" : "companion",
+          companionSlotIndex: typeof tab.companionSlotIndex === "number" ? tab.companionSlotIndex : null
+        });
+        await applyOnlineActionResponse(body);
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not craft item.");
+      }
+    })();
+    return true;
+  }
   removeIngredientsForRecipe(recipe);
   const resultBaseName = recipe.resultItem;
   const resultDef = getItemDef(resultBaseName);
@@ -22549,6 +22744,15 @@ function onDocumentKeydown(e) {
   }
   if (k === "e" && e.shiftKey) {
     e.preventDefault();
+    if (
+      typeof window !== "undefined" &&
+      window.GameStorage &&
+      typeof window.GameStorage.isOnlineMode === "function" &&
+      window.GameStorage.isOnlineMode()
+    ) {
+      showModal("Edit mode is disabled while playing online.");
+      return;
+    }
     setEditMode(!player.editMode);
     return;
   }
@@ -23721,10 +23925,9 @@ function onPortalNetworkModalClick(e) {
       return;
     }
     closeModal();
-    player.worldMap.x = x;
-    player.worldMap.y = y;
-    save({ flush: true });
-    render();
+    void commitWorldMapPosition(x, y, "boat").then((ok) => {
+      if (ok) render();
+    });
     return;
   }
   const destId = b.getAttribute("data-portal-dest-id");
@@ -23738,10 +23941,9 @@ function onPortalNetworkModalClick(e) {
     return;
   }
   closeModal();
-  player.worldMap.x = x;
-  player.worldMap.y = y;
-  save({ flush: true });
-  render();
+  void commitWorldMapPosition(x, y, "portal").then((ok) => {
+    if (ok) render();
+  });
 }
 
 function onModalDblClick(e) {

@@ -18,11 +18,8 @@ import {
 import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./combat/broadcast.js";
 import { publicParticipantsList } from "./combat/coop.js";
 import { preparePlayerForCombat } from "./combat/player_prep.js";
-import { applyCombatWorldMapOutcome } from "./progression/world_map.js";
-import {
-  resolveAuthoritativeDungeonEncounter,
-  syncPresenceDungeonRun
-} from "./progression/dungeon.js";
+import { applyCombatWorldMapOutcome, resolveAuthoritativeEncounter } from "./progression/world_map.js";
+import { syncPresenceDungeonRun } from "./progression/dungeon.js";
 import { setSharedDefeat } from "./presence/map_cells.js";
 import { broadcastMapCellToTile } from "./presence/hub.js";
 import { createRequire } from "node:module";
@@ -166,7 +163,7 @@ export function registerCombatRoutes(app) {
         return;
       }
       snapshotCombatStart(req.user.id, idx, playerCopy);
-      const resolvedEncounter = resolveAuthoritativeDungeonEncounter(playerCopy, encounter || {});
+      const resolvedEncounter = resolveAuthoritativeEncounter(playerCopy, encounter || {});
       const session = startCoopSession(req.user.id, {
         player: playerCopy,
         slotIndex: idx,

@@ -5,9 +5,15 @@
 import { loadGameConfig } from "../load_game_config.js";
 import {
   applyDungeonCombatDefeat,
-  applyDungeonCombatVictory
+  applyDungeonCombatVictory,
+  resolveAuthoritativeDungeonEncounter
 } from "./dungeon.js";
+import { isWorldMovementAllowed } from "./movement.js";
 import { loadWorldMapData } from "../load_world_map.js";
+import {
+  ensureSharedMapCellSlotRolled,
+  getSharedMapCell
+} from "../presence/map_cells.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -165,15 +171,29 @@ function mergeWorldMapPosition(authWm, incomingWm, violations) {
   }
   ix = Math.floor(ix);
   iy = Math.floor(iy);
-  if (canEnterMap(ix, iy)) {
-    return { x: ix, y: iy };
+  if (!canEnterMap(ix, iy)) {
+    violations.push({
+      severity: "clamp",
+      code: "WORLD_POSITION",
+      message: "Invalid world-map position was reverted to the last saved tile."
+    });
+    return { x: typeof ax === "number" ? ax : ix, y: typeof ay === "number" ? ay : iy };
   }
-  violations.push({
-    severity: "clamp",
-    code: "WORLD_POSITION",
-    message: "Invalid world-map position was reverted to the last saved tile."
-  });
-  return { x: typeof ax === "number" ? ax : ix, y: typeof ay === "number" ? ay : iy };
+  if (
+    typeof ax === "number" &&
+    typeof ay === "number" &&
+    Number.isFinite(ax) &&
+    Number.isFinite(ay) &&
+    !isWorldMovementAllowed(authWm, incomingWm, ix, iy, ax, ay)
+  ) {
+    violations.push({
+      severity: "clamp",
+      code: "WORLD_MOVEMENT",
+      message: "World-map movement must be one adjacent step or a valid travel destination."
+    });
+    return { x: Math.floor(ax), y: Math.floor(ay) };
+  }
+  return { x: ix, y: iy };
 }
 
 /**
@@ -286,4 +306,74 @@ export function applyCombatWorldMapOutcome(player, combatState, result) {
   if (typeof wmc.dungeonId === "string" && wmc.dungeonId.trim()) {
     applyDungeonCombatDefeat(player, wmc.dungeonId.trim());
   }
+}
+
+/**
+ * For online overworld fights, resolve enemy units from shared map cell state.
+ * @returns {object} encounter safe to pass into buildFoesFromEncounter
+ */
+export function resolveAuthoritativeOverworldEncounter(player, encounter) {
+  const enc = encounter && typeof encounter === "object" ? { ...encounter } : {};
+  const wmc =
+    enc.worldMapContext && typeof enc.worldMapContext === "object" ? { ...enc.worldMapContext } : null;
+  if (!wmc) return enc;
+  if (typeof wmc.dungeonId === "string" && wmc.dungeonId.trim()) return enc;
+  if (typeof wmc.x !== "number" || typeof wmc.y !== "number") return enc;
+
+  const x = Math.floor(wmc.x);
+  const y = Math.floor(wmc.y);
+  const setIndex = typeof wmc.setIndex === "number" ? Math.max(0, Math.floor(wmc.setIndex)) : 0;
+  const wm = player?.worldMap;
+  const px = typeof wm?.x === "number" ? Math.floor(wm.x) : NaN;
+  const py = typeof wm?.y === "number" ? Math.floor(wm.y) : NaN;
+
+  if (px !== x || py !== y) {
+    const err = new Error("You must be on this tile to start this fight.");
+    err.status = 400;
+    throw err;
+  }
+
+  const run = wm?.dungeonRun;
+  if (run && typeof run.id === "string" && run.id.trim() && !run.epilogue) {
+    const err = new Error("Leave the dungeon before starting overworld combat.");
+    err.status = 400;
+    throw err;
+  }
+
+  const slots = getEncounterSlotCountForCell(x, y);
+  if (slots <= 0 || setIndex >= slots) {
+    const err = new Error("Invalid encounter slot.");
+    err.status = 400;
+    throw err;
+  }
+
+  const rolled = ensureSharedMapCellSlotRolled(x, y, setIndex);
+  const mapCell = rolled?.mapCell || getSharedMapCell(x, y);
+  const defeated = mapCell?.defeated?.[setIndex];
+  if (defeated != null && defeated !== 0) {
+    const err = new Error("This encounter was already cleared.");
+    err.status = 400;
+    throw err;
+  }
+
+  const preview = mapCell?.mobPreviews?.[setIndex];
+  const units = preview?.units;
+  if (!Array.isArray(units) || !units.length) {
+    const err = new Error("Could not resolve overworld encounter.");
+    err.status = 400;
+    throw err;
+  }
+
+  return {
+    ...enc,
+    units: deepClone(units),
+    worldMapContext: { x, y, setIndex }
+  };
+}
+
+/** Resolve dungeon then overworld encounter payloads for online combat start. */
+export function resolveAuthoritativeEncounter(player, encounter) {
+  let enc = resolveAuthoritativeDungeonEncounter(player, encounter || {});
+  enc = resolveAuthoritativeOverworldEncounter(player, enc);
+  return enc;
 }

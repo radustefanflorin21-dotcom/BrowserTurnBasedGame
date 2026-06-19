@@ -265,6 +265,41 @@
     });
   }
 
+  async function playerEquip(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/player/equip", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function playerUnequip(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/player/unequip", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function playerSpendStat(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/player/spend-stat", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function playerUpgradeSkill(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/player/upgrade-skill", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function playerCraft(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/player/craft", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function worldMove(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/world/move", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function worldPickup(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/world/pickup", { method: "POST", body: JSON.stringify(body) });
+  }
+
   root.GameStorage = {
     isOnlineMode,
     getMode: () => runtime.mode,
@@ -280,6 +315,13 @@
     ensureSession,
     onSessionReady,
     enterDungeon,
-    leaveDungeon
+    leaveDungeon,
+    playerEquip,
+    playerUnequip,
+    playerSpendStat,
+    playerUpgradeSkill,
+    playerCraft,
+    worldMove,
+    worldPickup
   };
 })(typeof window !== "undefined" ? window : globalThis);
