@@ -22321,11 +22321,26 @@ function buildMarketItemThumbHtml(itemName) {
   return buildMarketBrowseItemCellHtml(itemName);
 }
 
-function buildMarketListingMetaHtml(row) {
-  const parts = [formatMarketCategoryLabel(row.category)];
-  if (row.subcategory) parts.push(String(row.subcategory));
-  if (row.quantity > 1) parts.push(`×${row.quantity}`);
-  return `<span class="market-listing-meta">${escapeHtml(parts.filter(Boolean).join(" · "))}</span>`;
+function formatMarketListingQty(quantity, itemDisplayName) {
+  const raw = Number(quantity);
+  if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  const label = String(itemDisplayName || "").trim();
+  const stackMatch = label.match(/^(\d+)×\s/i);
+  if (stackMatch) return Math.max(1, Math.floor(Number(stackMatch[1]) || 1));
+  return 1;
+}
+
+function formatMarketTableItemName(displayName) {
+  const raw = String(displayName || "").trim();
+  if (!raw) return "Item";
+  const stackMatch = raw.match(/^(\d+)×\s*(.+)$/i);
+  if (stackMatch) return formatItemDisplayLabel(stackMatch[2]);
+  return formatItemDisplayLabel(raw);
+}
+
+function buildMarketListingQtyCellHtml(row) {
+  const qty = formatMarketListingQty(row.quantity, row.itemDisplayName);
+  return `<span class="market-table-qty">×${qty}</span>`;
 }
 
 async function refreshMarketPanelData(tab) {
@@ -22378,17 +22393,15 @@ function buildMarketFiltersColumnHtml() {
     : "";
   return `<aside class="market-col market-col--filters" aria-label="Market filters">
     <div class="market-filter-section">
-      <label class="market-filter-search-label">
-        <span class="market-filter-label">Search</span>
-        <input type="search" class="market-search-input" data-market-search="1" placeholder="Search for an item…" value="${escapeAttr(marketSearchText)}" aria-label="Search market">
-      </label>
-    </div>
-    <div class="market-filter-section">
       <span class="market-filter-label">Categories</span>
       <div class="market-filter-cat-grid">${catBtns}</div>
     </div>
     ${subBtns}
     <div class="market-filter-actions">
+      <label class="market-filter-search-label">
+        <span class="market-filter-label">Search</span>
+        <input type="search" class="market-search-input market-search-input--compact" data-market-search="1" placeholder="Search…" value="${escapeAttr(marketSearchText)}" aria-label="Search market">
+      </label>
       <button type="button" class="btn-secondary market-filter-apply-btn" data-market-refresh-browse="1">Apply filters</button>
       <button type="button" class="market-filter-reset-btn" data-market-filter-reset="1">Reset filters</button>
     </div>
@@ -22408,17 +22421,13 @@ function buildMarketPurchaseTableHtml() {
           const catLabel = formatMarketCategoryLabel(row.category);
           const subLabel = row.subcategory ? formatMarketSubcategoryLabel(row.subcategory) : "";
           const categoryText = subLabel ? `${catLabel} · ${subLabel}` : catLabel;
-          const qtyCell =
-            row.quantity > 1
-              ? `<span class="market-table-qty">×${row.quantity}</span>`
-              : `<span class="market-table-qty market-table-qty--empty">—</span>`;
           return `<div class="market-table-row${stripe}">
           <div class="market-table-cell market-table-cell--item">
             ${buildMarketBrowseItemCellHtml(tipName)}
-            <strong class="market-listing-title"${titleStyle}>${escapeHtml(formatMarketListingTitle(row.itemDisplayName))}</strong>
+            <strong class="market-listing-title"${titleStyle}>${escapeHtml(formatMarketTableItemName(row.itemDisplayName))}</strong>
           </div>
           <span class="market-table-cell market-table-cell--cat">${escapeHtml(categoryText)}</span>
-          ${qtyCell}
+          ${buildMarketListingQtyCellHtml(row)}
           <span class="market-table-cell market-table-cell--price">${row.price} gold</span>
           <span class="market-table-cell market-table-cell--action">
             <button type="button" class="btn-secondary market-buy-btn" data-market-buy="${row.id}"${isOwn || (player.gold || 0) < row.price ? " disabled" : ""}${isOwn ? ' title="Your listing"' : ""}>Buy</button>
@@ -22495,17 +22504,13 @@ function buildMarketSaleTableHtml() {
           const catLabel = formatMarketCategoryLabel(l.category);
           const subLabel = l.subcategory ? formatMarketSubcategoryLabel(l.subcategory) : "";
           const categoryText = subLabel ? `${catLabel} · ${subLabel}` : catLabel;
-          const qtyCell =
-            l.quantity > 1
-              ? `<span class="market-table-qty">×${l.quantity}</span>`
-              : `<span class="market-table-qty market-table-qty--empty">—</span>`;
           return `<div class="market-table-row market-table-row--mine${stripe}">
           <div class="market-table-cell market-table-cell--item">
             ${buildMarketBrowseItemCellHtml(tipName)}
-            <strong class="market-listing-title"${titleStyle}>${escapeHtml(formatMarketListingTitle(l.itemDisplayName))}</strong>
+            <strong class="market-listing-title"${titleStyle}>${escapeHtml(formatMarketTableItemName(l.itemDisplayName))}</strong>
           </div>
           <span class="market-table-cell market-table-cell--cat">${escapeHtml(categoryText)}</span>
-          ${qtyCell}
+          ${buildMarketListingQtyCellHtml(l)}
           <span class="market-table-cell market-table-cell--price">${l.price} gold</span>
           <span class="market-table-cell market-table-cell--action">
             <button type="button" class="btn-secondary market-cancel-btn" data-market-cancel="${l.id}">Cancel</button>

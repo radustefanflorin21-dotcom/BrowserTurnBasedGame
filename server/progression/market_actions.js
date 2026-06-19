@@ -45,7 +45,7 @@ function rowToListing(row) {
     sellerName: row.seller_name,
     itemDisplayName: row.item_display_name,
     items,
-    quantity: row.quantity,
+    quantity: Number(row.quantity) || 1,
     price: row.price,
     category: row.category,
     subcategory: row.subcategory,
@@ -212,7 +212,7 @@ export function getMarketBrowseListings(query = {}, viewerUserId = null) {
       itemDisplayName: listing.itemDisplayName,
       tooltipItemName:
         Array.isArray(listing.items) && listing.items[0] ? listing.items[0] : listing.itemDisplayName,
-      quantity: listing.quantity,
+      quantity: Number(listing.quantity) || 1,
       price: listing.price,
       category: listing.category,
       subcategory: listing.subcategory,

@@ -52,7 +52,7 @@ export function registerMarketRoutes(app) {
           id: l.id,
           itemDisplayName: l.itemDisplayName,
           tooltipItemName: Array.isArray(l.items) && l.items[0] ? l.items[0] : l.itemDisplayName,
-          quantity: l.quantity,
+          quantity: Number(l.quantity) || 1,
           price: l.price,
           category: l.category,
           subcategory: l.subcategory,
