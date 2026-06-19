@@ -12481,6 +12481,57 @@ function clearDungeonRun() {
   publishPresenceDungeonLocation();
 }
 
+async function finishLeavingDungeon(dungeonId, opts) {
+  const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
+  const def = getDungeonDef(id);
+  const ent =
+    def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? def.entrance
+      : { x: 37, y: 55 };
+
+  if (
+    typeof window !== "undefined" &&
+    window.GameStorage?.isOnlineMode?.() &&
+    typeof window.GameStorage.leaveDungeon === "function" &&
+    activeCharacterSlotIndex != null
+  ) {
+    try {
+      const body = await window.GameStorage.leaveDungeon(id, activeCharacterSlotIndex, opts || null);
+      if (body?.roster?.slots && activeCharacterSlotIndex != null) {
+        ensureCharacterRoster();
+        characterRoster.slots = body.roster.slots;
+        while (characterRoster.slots.length < CHARACTER_SLOT_COUNT) characterRoster.slots.push(null);
+        player = characterRoster.slots[activeCharacterSlotIndex];
+        if (player) migratePlayer(player);
+      } else {
+        clearDungeonRun();
+        player.worldMap.x = ent.x;
+        player.worldMap.y = ent.y;
+      }
+      ensureCharacterRoster();
+      if (activeCharacterSlotIndex != null) characterRoster.slots[activeCharacterSlotIndex] = player;
+      save({ flush: true });
+      publishPresenceDungeonLocation();
+      closeModal();
+      render();
+      return;
+    } catch (err) {
+      console.error("leaveDungeon:", err);
+      showModal(err && err.message ? err.message : "Could not leave dungeon.");
+      return;
+    }
+  }
+
+  clearDungeonRun();
+  player.worldMap.x = ent.x;
+  player.worldMap.y = ent.y;
+  save({ flush: true });
+  if (typeof persistCharacterRoster === "function") await persistCharacterRoster();
+  publishPresenceDungeonLocation();
+  closeModal();
+  render();
+}
+
 function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
   const def = getDungeonDef(dungeonId);
   const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
@@ -18975,10 +19026,9 @@ function closeFightOverlay() {
   if (dungeonPost && dungeonPost.defeat) {
     const def = getDungeonDef(dungeonPost.dungeonId);
     const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "the dungeon";
-    clearDungeonRun();
-    save();
-    showModal(`You stumble back from ${name}, empty-handed.`);
-    render();
+    void finishLeavingDungeon(dungeonPost.dungeonId, { afterDefeat: true }).then(() => {
+      showModal(`You stumble back from ${name}, empty-handed.`);
+    });
     return;
   }
   if (currentPage === "adventure") renderAdventure();
@@ -23636,14 +23686,7 @@ function onPortalNetworkModalClick(e) {
     const run = getActiveDungeonRun();
     const idFromAttr = leaveD.getAttribute("data-dungeon-leave") || "";
     const dungeonId = idFromAttr && idFromAttr !== "1" ? idFromAttr : run && run.id ? run.id : "sunken_grotto";
-    const def = getDungeonDef(dungeonId);
-    clearDungeonRun();
-    const ent = def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number" ? def.entrance : { x: 37, y: 55 };
-    player.worldMap.x = ent.x;
-    player.worldMap.y = ent.y;
-    save({ flush: true });
-    closeModal();
-    render();
+    void finishLeavingDungeon(dungeonId);
     return;
   }
   if (e.target.closest("[data-dungeon-stay]")) {

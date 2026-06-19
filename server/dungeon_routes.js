@@ -7,6 +7,7 @@ import {
   playerHasDungeonKey,
   consumeDungeonKey,
   applyDungeonEnterToPlayer,
+  applyDungeonLeaveToPlayer,
   isPresenceOnEntranceTile,
   notifyPartyDungeonEnterInvite
 } from "./progression/dungeon.js";
@@ -160,6 +161,61 @@ export function registerDungeonRoutes(app) {
       });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Failed to enter dungeon." });
+    }
+  });
+
+  app.post("/api/dungeon/leave", requireAuth, (req, res) => {
+    try {
+      const dungeonId = typeof req.body?.dungeonId === "string" ? req.body.dungeonId.trim() : "";
+      const slotIndex = Number(req.body?.slotIndex);
+      if (!dungeonId) {
+        res.status(400).json({ error: "dungeonId required." });
+        return;
+      }
+      if (!Number.isFinite(slotIndex) || slotIndex < 0 || slotIndex >= SLOT_COUNT) {
+        res.status(400).json({ error: "Invalid character slot." });
+        return;
+      }
+      if (!getDungeonDef(dungeonId)) {
+        res.status(404).json({ error: "Dungeon not configured." });
+        return;
+      }
+
+      const userId = req.user.id;
+      const roster = parseRoster(getRosterJson(userId));
+      const player = getPlayerFromRoster(roster, slotIndex);
+      if (!player) {
+        res.status(400).json({ error: "No character in that slot." });
+        return;
+      }
+
+      const afterDefeat = req.body?.afterDefeat === true;
+      const leaveResult = applyDungeonLeaveToPlayer(player, dungeonId, {
+        requireEpilogue: !afterDefeat
+      });
+      if (!leaveResult.ok) {
+        res.status(400).json({ error: leaveResult.error || "Could not leave dungeon." });
+        return;
+      }
+
+      roster.slots[slotIndex] = player;
+      upsertRosterJson(userId, JSON.stringify(roster));
+      updatePresence(userId, {
+        x: leaveResult.entrance.x,
+        y: leaveResult.entrance.y,
+        page: "adventure",
+        dungeonId: null,
+        dungeonRoomIndex: 0
+      });
+
+      res.json({
+        ok: true,
+        dungeonId,
+        entrance: leaveResult.entrance,
+        roster
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Failed to leave dungeon." });
     }
   });
 }

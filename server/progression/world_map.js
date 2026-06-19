@@ -139,8 +139,12 @@ function mergeShallowRecords(auth, incoming) {
   return { ...base, ...incoming };
 }
 
-function mergeDungeonRun(authRun, incomingRun) {
+function mergeDungeonRun(authRun, incomingRun, incomingWm) {
+  const wm = incomingWm && typeof incomingWm === "object" ? incomingWm : {};
+  const incomingClearedRun = !("dungeonRun" in wm);
+
   if (!incomingRun || typeof incomingRun !== "object" || typeof incomingRun.id !== "string") {
+    if (incomingClearedRun && authRun?.epilogue) return undefined;
     return authRun && typeof authRun === "object" ? deepClone(authRun) : undefined;
   }
   if (!authRun || typeof authRun !== "object") return deepClone(incomingRun);
@@ -195,11 +199,13 @@ export function mergeWorldMap(authWm, incomingWm, violations = []) {
     portalWorldById: mergeShallowRecords(auth.portalWorldById, incomingWm.portalWorldById),
     spawnPressure: mergeShallowRecords(auth.spawnPressure, incomingWm.spawnPressure)
   };
-  const mergedRun = mergeDungeonRun(auth.dungeonRun, incomingWm.dungeonRun);
+  const mergedRun = mergeDungeonRun(auth.dungeonRun, incomingWm.dungeonRun, incomingWm);
   if (mergedRun) out.dungeonRun = mergedRun;
   else delete out.dungeonRun;
   if (incomingWm.dungeonPostCombat && typeof incomingWm.dungeonPostCombat === "object") {
     out.dungeonPostCombat = { ...incomingWm.dungeonPostCombat };
+  } else if (!mergedRun) {
+    delete out.dungeonPostCombat;
   } else if (auth.dungeonPostCombat) {
     out.dungeonPostCombat = { ...auth.dungeonPostCombat };
   }

@@ -121,6 +121,52 @@ export function applyDungeonCombatDefeat(player, dungeonId) {
 }
 
 /**
+ * Exit an instanced dungeon back to the world-map entrance tile.
+ * @returns {{ ok: boolean, error?: string, entrance?: { x: number, y: number } }}
+ */
+export function applyDungeonLeaveToPlayer(player, dungeonId, opts = {}) {
+  const id = typeof dungeonId === "string" ? dungeonId.trim() : "";
+  if (!id || !player?.worldMap) {
+    return { ok: false, error: "Invalid request." };
+  }
+  const def = getDungeonDef(id);
+  if (!def) {
+    return { ok: false, error: "Dungeon not configured." };
+  }
+  const run = player.worldMap.dungeonRun;
+  const requireEpilogue = opts.requireEpilogue !== false;
+  const roomCount = Array.isArray(def.rooms) ? def.rooms.length : 0;
+  const lastRoomIdx = roomCount > 0 ? roomCount - 1 : 0;
+  if (run && run.id === id && !run.epilogue && roomCount > 0) {
+    const post = player.worldMap.dungeonPostCombat;
+    const clearedFinalRoom =
+      post?.victory &&
+      post.dungeonId === id &&
+      typeof post.roomIndex === "number" &&
+      post.roomIndex >= lastRoomIdx;
+    const atFinalRoom = typeof run.roomIndex === "number" && run.roomIndex >= lastRoomIdx;
+    if (clearedFinalRoom && atFinalRoom) {
+      run.epilogue = true;
+    }
+  }
+  if (requireEpilogue && (!run || run.id !== id || !run.epilogue)) {
+    return { ok: false, error: "Complete the dungeon before leaving through the guide." };
+  }
+  const entrance =
+    def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? { x: Math.floor(def.entrance.x), y: Math.floor(def.entrance.y) }
+      : null;
+  if (!entrance) {
+    return { ok: false, error: "Dungeon entrance not configured." };
+  }
+  delete player.worldMap.dungeonRun;
+  delete player.worldMap.dungeonPostCombat;
+  player.worldMap.x = entrance.x;
+  player.worldMap.y = entrance.y;
+  return { ok: true, entrance };
+}
+
+/**
  * For online dungeon fights, ignore client room/enemy payload and use roster progression.
  * @returns {object} encounter safe to pass into buildFoesFromEncounter
  */

@@ -255,6 +255,16 @@
     });
   }
 
+  async function leaveDungeon(dungeonId, slotIndex, opts) {
+    if (!isOnlineMode()) return null;
+    const body = { dungeonId, slotIndex };
+    if (opts && opts.afterDefeat) body.afterDefeat = true;
+    return apiFetch("/api/dungeon/leave", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+
   root.GameStorage = {
     isOnlineMode,
     getMode: () => runtime.mode,
@@ -269,6 +279,7 @@
     logout,
     ensureSession,
     onSessionReady,
-    enterDungeon
+    enterDungeon,
+    leaveDungeon
   };
 })(typeof window !== "undefined" ? window : globalThis);
