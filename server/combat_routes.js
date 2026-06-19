@@ -258,6 +258,8 @@ export function registerCombatRoutes(app) {
       }
 
       if (out.finished && out.left && out.result && out.leaverPlayer) {
+        applyCombatWorldMapOutcome(out.leaverPlayer, session.state, out.result);
+        syncPresenceDungeonRun(req.user.id, out.leaverPlayer);
         const roster = await persistLeaveResult(
           req.user.id,
           out.leaverSlotIndex,

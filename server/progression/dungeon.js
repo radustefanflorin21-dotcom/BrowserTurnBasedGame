@@ -111,13 +111,37 @@ export function applyDungeonCombatVictory(player, dungeonId, roomIndex) {
   return advanceDungeonRunAfterRoomVictory(player, id, ri);
 }
 
-/** Record dungeon defeat and end the run on the authoritative player. */
-export function applyDungeonCombatDefeat(player, dungeonId) {
-  if (!player?.worldMap) return;
+/**
+ * End a dungeon run and place the player on the overworld entrance tile.
+ * Does not restore the dungeon key (already consumed on entry).
+ * @returns {{ ok: boolean, error?: string, entrance?: { x: number, y: number }, dungeonId?: string }}
+ */
+export function ejectPlayerFromDungeon(player, dungeonId) {
   const id = typeof dungeonId === "string" ? dungeonId.trim() : "";
-  if (!id) return;
-  player.worldMap.dungeonPostCombat = { dungeonId: id, defeat: true };
+  if (!id || !player?.worldMap) {
+    return { ok: false, error: "Invalid request." };
+  }
+  const def = getDungeonDef(id);
+  if (!def) {
+    return { ok: false, error: "Dungeon not configured." };
+  }
+  const entrance =
+    def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? { x: Math.floor(def.entrance.x), y: Math.floor(def.entrance.y) }
+      : null;
+  if (!entrance) {
+    return { ok: false, error: "Dungeon entrance not configured." };
+  }
   delete player.worldMap.dungeonRun;
+  delete player.worldMap.dungeonPostCombat;
+  player.worldMap.x = entrance.x;
+  player.worldMap.y = entrance.y;
+  return { ok: true, entrance, dungeonId: id };
+}
+
+/** Defeat or forfeit in a dungeon — eject to entrance (key stays consumed). */
+export function applyDungeonCombatDefeat(player, dungeonId) {
+  return ejectPlayerFromDungeon(player, dungeonId);
 }
 
 /**
@@ -220,7 +244,8 @@ export function resolveAuthoritativeDungeonEncounter(player, encounter) {
 /** Keep presence dungeon fields aligned with saved roster after combat. */
 export function syncPresenceDungeonRun(userId, player) {
   if (userId == null || !player?.worldMap) return;
-  const run = player.worldMap.dungeonRun;
+  const wm = player.worldMap;
+  const run = wm.dungeonRun;
   if (run && typeof run.id === "string" && run.id.trim() && !run.epilogue) {
     updatePresence(userId, {
       dungeonId: run.id.trim(),
@@ -228,7 +253,8 @@ export function syncPresenceDungeonRun(userId, player) {
     });
     return;
   }
-  if (player.worldMap.dungeonPostCombat?.defeat) {
-    updatePresence(userId, { dungeonId: null, dungeonRoomIndex: 0 });
-  }
+  const pos = {};
+  if (typeof wm.x === "number" && Number.isFinite(wm.x)) pos.x = Math.floor(wm.x);
+  if (typeof wm.y === "number" && Number.isFinite(wm.y)) pos.y = Math.floor(wm.y);
+  updatePresence(userId, { dungeonId: null, dungeonRoomIndex: 0, page: "adventure", ...pos });
 }

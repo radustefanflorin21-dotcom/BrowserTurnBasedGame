@@ -424,6 +424,7 @@ export function processCombatAction(session, action, actingUserId = null) {
     if (coop) return leaveCoopParticipant(session, userId);
     appendLog(st, `${player.name || "Hero"} forfeits.`);
     const result = finishDefeat(st, player);
+    result.leftFight = true;
     st.playerHp = 1;
     syncHeroHp(st);
     return { state: cloneState(st), result, finished: true };

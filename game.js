@@ -12613,6 +12613,25 @@ function clearDungeonRun() {
   publishPresenceDungeonLocation();
 }
 
+/** Defeat / forfeit in a dungeon — eject to entrance (key is not restored). */
+function ejectPlayerFromDungeonClient(dungeonId) {
+  const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "";
+  if (!id || !player?.worldMap) return false;
+  const def = getDungeonDef(id);
+  const ent =
+    def && def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? def.entrance
+      : { x: 37, y: 55 };
+  delete player.worldMap.dungeonRun;
+  delete player.worldMap.dungeonPostCombat;
+  player.worldMap.x = ent.x;
+  player.worldMap.y = ent.y;
+  lastDungeonPhaseBgCrossfadeKey = "";
+  pendingLeviathanPhaseCeremony = null;
+  publishPresenceDungeonLocation();
+  return true;
+}
+
 async function finishLeavingDungeon(dungeonId, opts) {
   const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
   const def = getDungeonDef(id);
@@ -16901,9 +16920,24 @@ function showFightResults(victory, result) {
       </div>
       ${closeFooter}`;
   } else {
+    const st = combatState;
+    const dungeonId =
+      st?.worldMapContext && typeof st.worldMapContext.dungeonId === "string"
+        ? st.worldMapContext.dungeonId.trim()
+        : "";
+    let loseMsg;
+    if (dungeonId) {
+      loseMsg = result?.leftFight
+        ? "You left the fight and were expelled to the entrance. No XP, gold, or loot — your key is spent."
+        : "You were defeated and expelled to the entrance. No XP, gold, or loot — your key is spent.";
+    } else {
+      loseMsg = result?.leftFight
+        ? "You left the fight. No XP, gold, or loot."
+        : "You were defeated. No XP, gold, or loot.";
+    }
     el.innerHTML = `<div class="fight-results-head fight-results-head--lose" id="${titleId}">${result?.leftFight ? "Left fight" : "Defeat"}</div>
       <div class="fight-results-body">
-        <p class="fight-results-msg">${result?.leftFight ? "You left the fight. No XP, gold, or loot." : "You were defeated. No XP, gold, or loot."}</p>
+        <p class="fight-results-msg">${escapeHtml(loseMsg)}</p>
       </div>
       ${closeFooter}`;
   }
@@ -16938,16 +16972,13 @@ function applyServerFightResult(result) {
     }
     showFightResults(true, result);
   } else {
-    if (
-      !result.leftFight &&
-      st.worldMapContext &&
-      typeof st.worldMapContext.dungeonId === "string" &&
-      st.worldMapContext.dungeonId.trim()
-    ) {
-      player.worldMap.dungeonPostCombat = {
-        dungeonId: st.worldMapContext.dungeonId.trim(),
-        defeat: true
-      };
+    const dungeonId =
+      st.worldMapContext && typeof st.worldMapContext.dungeonId === "string"
+        ? st.worldMapContext.dungeonId.trim()
+        : "";
+    if (dungeonId) {
+      ejectPlayerFromDungeonClient(dungeonId);
+      player.worldMap.dungeonPostCombat = { dungeonId, defeat: true };
     }
     showFightResults(false, result);
   }
@@ -17025,10 +17056,9 @@ function finishCombatDefeat() {
   };
   applyFightResult(result);
   if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
-    player.worldMap.dungeonPostCombat = {
-      dungeonId: st.worldMapContext.dungeonId.trim(),
-      defeat: true
-    };
+    const dungeonId = st.worldMapContext.dungeonId.trim();
+    ejectPlayerFromDungeonClient(dungeonId);
+    player.worldMap.dungeonPostCombat = { dungeonId, defeat: true };
     save();
   }
   showFightResults(false, result);
@@ -19315,9 +19345,22 @@ function closeFightOverlay() {
   if (dungeonPost && dungeonPost.defeat) {
     const def = getDungeonDef(dungeonPost.dungeonId);
     const name = def && typeof def.name === "string" && def.name.trim() ? def.name.trim() : "the dungeon";
-    void finishLeavingDungeon(dungeonPost.dungeonId, { afterDefeat: true }).then(() => {
-      showModal(`You stumble back from ${name}, empty-handed.`);
-    });
+    const id = dungeonPost.dungeonId;
+    const finishDungeonEject = () => {
+      publishPresenceDungeonLocation();
+      if (currentPage === "adventure") renderAdventure();
+      else render();
+      showModal(`You stumble back from ${name}, empty-handed. The entrance key is spent.`);
+    };
+    if (getActiveDungeonRun()) {
+      void finishLeavingDungeon(id, { afterDefeat: true }).then(finishDungeonEject);
+    } else {
+      ensureCharacterRoster();
+      if (activeCharacterSlotIndex != null) characterRoster.slots[activeCharacterSlotIndex] = player;
+      save({ flush: true });
+      if (typeof persistCharacterRoster === "function") void persistCharacterRoster();
+      finishDungeonEject();
+    }
     return;
   }
   if (currentPage === "adventure") renderAdventure();
