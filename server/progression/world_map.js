@@ -145,7 +145,7 @@ function mergeShallowRecords(auth, incoming) {
   return { ...base, ...incoming };
 }
 
-function mergeDungeonRun(authRun, incomingRun, incomingWm) {
+function mergeDungeonRun(authRun, incomingRun, incomingWm, violations = []) {
   const wm = incomingWm && typeof incomingWm === "object" ? incomingWm : {};
   const incomingClearedRun = !("dungeonRun" in wm);
 
@@ -153,8 +153,24 @@ function mergeDungeonRun(authRun, incomingRun, incomingWm) {
     if (incomingClearedRun && authRun?.epilogue) return undefined;
     return authRun && typeof authRun === "object" ? deepClone(authRun) : undefined;
   }
-  if (!authRun || typeof authRun !== "object") return deepClone(incomingRun);
-  if (incomingRun.id !== authRun.id) return deepClone(incomingRun);
+
+  // Dungeon runs may only start via POST /api/dungeon/enter (key consumed server-side).
+  if (!authRun || typeof authRun !== "object") {
+    violations.push({
+      severity: "clamp",
+      code: "DUNGEON_RUN",
+      message: "Dungeon entry must use the entrance NPC."
+    });
+    return undefined;
+  }
+  if (incomingRun.id !== authRun.id) {
+    violations.push({
+      severity: "clamp",
+      code: "DUNGEON_RUN",
+      message: "Cannot switch dungeons via save."
+    });
+    return deepClone(authRun);
+  }
   const authRi = typeof authRun.roomIndex === "number" ? authRun.roomIndex : 0;
   const incRi = typeof incomingRun.roomIndex === "number" ? incomingRun.roomIndex : 0;
   if (incRi >= authRi) return deepClone(incomingRun);
@@ -219,7 +235,7 @@ export function mergeWorldMap(authWm, incomingWm, violations = []) {
     portalWorldById: mergeShallowRecords(auth.portalWorldById, incomingWm.portalWorldById),
     spawnPressure: mergeShallowRecords(auth.spawnPressure, incomingWm.spawnPressure)
   };
-  const mergedRun = mergeDungeonRun(auth.dungeonRun, incomingWm.dungeonRun, incomingWm);
+  const mergedRun = mergeDungeonRun(auth.dungeonRun, incomingWm.dungeonRun, incomingWm, violations);
   if (mergedRun) out.dungeonRun = mergedRun;
   else delete out.dungeonRun;
   if (incomingWm.dungeonPostCombat && typeof incomingWm.dungeonPostCombat === "object") {

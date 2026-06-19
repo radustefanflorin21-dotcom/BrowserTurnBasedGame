@@ -14372,6 +14372,9 @@ function buildAdventureSceneHtml(x, y, cfg) {
       if (typeof el.dungeonEntrance === "string" && el.dungeonEntrance.trim()) {
         payloadObj.dungeonEntrance = el.dungeonEntrance.trim();
       }
+      if (typeof el.shopId === "string" && el.shopId.trim()) {
+        payloadObj.shopId = el.shopId.trim();
+      }
       const payload = escapeAttr(JSON.stringify(payloadObj));
       const labelRaw = typeof el.label === "string" && el.label.trim() ? el.label.trim() : "NPC";
       const label = escapeHtml(labelRaw);
@@ -14559,6 +14562,10 @@ function onAdventureSceneButtonClick(e) {
   }
   if (payload.type === "dungeon_epilogue" && typeof payload.dungeonId === "string") {
     openDungeonEpilogueDialog(payload.dungeonId.trim());
+    return true;
+  }
+  if ((payload.type === "npc" || payload.type === "note") && typeof payload.shopId === "string" && payload.shopId.trim()) {
+    openVendorShopDialog(payload.shopId.trim());
     return true;
   }
   if ((payload.type === "npc" || payload.type === "note") && typeof payload.dungeonEntrance === "string" && payload.dungeonEntrance.trim()) {
@@ -18622,6 +18629,120 @@ function openHollisKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("sunken_grotto");
 }
 
+function getVendorsConfig() {
+  return GAME_CONFIG.vendors && typeof GAME_CONFIG.vendors === "object" ? GAME_CONFIG.vendors : {};
+}
+
+function getVendorDefLocal(vendorId) {
+  const id = typeof vendorId === "string" ? vendorId.trim() : "";
+  if (!id) return null;
+  const raw = getVendorsConfig()[id];
+  if (!raw || typeof raw !== "object") return null;
+  const items = Array.isArray(raw.items)
+    ? raw.items
+        .map((entry) => {
+          const item = entry && typeof entry.item === "string" ? entry.item.trim() : "";
+          const price =
+            entry && typeof entry.price === "number" && Number.isFinite(entry.price)
+              ? Math.max(0, Math.floor(entry.price))
+              : null;
+          if (!item || price == null || !getItemDef(item)) return null;
+          return { item, price };
+        })
+        .filter(Boolean)
+    : [];
+  if (!items.length) return null;
+  return {
+    id,
+    name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : id,
+    greeting: typeof raw.greeting === "string" ? raw.greeting.trim() : "",
+    items
+  };
+}
+
+function buildVendorShopModalHtml(vendor) {
+  const greeting = vendor.greeting
+    ? `<p class="npc-dialog-body">${escapeHtml(vendor.greeting)}</p>`
+    : "";
+  const rows = vendor.items
+    .map((entry) => {
+      const def = getItemDef(entry.item);
+      const img =
+        def && typeof def.image === "string" && def.image.trim()
+          ? `<img class="vendor-item-img" src="${escapeAttr(def.image)}" alt="" onerror="this.style.display='none'">`
+          : "";
+      const desc =
+        def && typeof def.description === "string" && def.description.trim()
+          ? `<span class="vendor-item-desc muted">${escapeHtml(def.description)}</span>`
+          : "";
+      const affordable = (player.gold || 0) >= entry.price;
+      return `<div class="vendor-row">
+      ${img}
+      <div class="vendor-item-meta">
+        <strong>${escapeHtml(entry.item)}</strong>
+        ${desc}
+      </div>
+      <span class="vendor-price">${entry.price} gold</span>
+      <button type="button" class="btn-secondary vendor-buy-btn" data-vendor-buy="${escapeAttr(vendor.id)}" data-vendor-item="${escapeAttr(entry.item)}"${affordable ? "" : " disabled"}>Buy</button>
+    </div>`;
+    })
+    .join("");
+  return `<div class="npc-dialog-bubble vendor-shop">
+    <p class="npc-dialog-speaker">${escapeHtml(vendor.name)}</p>
+    ${greeting}
+    <p class="npc-dialog-body muted">Your gold: <strong>${player.gold || 0}</strong></p>
+    <div class="vendor-list">${rows}</div>
+    <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-vendor-close="1">Close</button></div>
+  </div>`;
+}
+
+function openVendorShopDialog(vendorId) {
+  const vendor = getVendorDefLocal(vendorId);
+  if (!vendor) {
+    showModal("This vendor is not configured.");
+    return;
+  }
+  showModalHtml(buildVendorShopModalHtml(vendor), { npcBubble: true });
+}
+
+function purchaseFromVendor(vendorId, itemName) {
+  const vendor = getVendorDefLocal(vendorId);
+  if (!vendor) {
+    showModal("This vendor is not configured.");
+    return false;
+  }
+  const name = typeof itemName === "string" ? itemName.trim() : "";
+  const listing = vendor.items.find((e) => e.item === name);
+  if (!listing) return false;
+  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.shopBuy) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.shopBuy({
+          slotIndex: activeCharacterSlotIndex,
+          vendorId,
+          itemName: name,
+          quantity: 1
+        });
+        await applyOnlineActionResponse(body);
+        openVendorShopDialog(vendorId);
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not buy item.");
+      }
+    })();
+    return true;
+  }
+  const gold = typeof player.gold === "number" && Number.isFinite(player.gold) ? Math.max(0, Math.floor(player.gold)) : 0;
+  if (gold < listing.price) {
+    showModal(`Not enough gold (need ${listing.price}, have ${gold}).`);
+    return false;
+  }
+  player.gold = gold - listing.price;
+  player.inventory.push(name);
+  save();
+  openVendorShopDialog(vendorId);
+  return true;
+}
+
 async function beginDungeonRunFromModal(dungeonId) {
   const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "sunken_grotto";
   const def = getDungeonDef(id);
@@ -18648,21 +18769,9 @@ async function beginDungeonRunFromModal(dungeonId) {
   ) {
     try {
       const body = await window.GameStorage.enterDungeon(id, activeCharacterSlotIndex);
-      if (body?.roster?.slots && activeCharacterSlotIndex != null) {
-        ensureCharacterRoster();
-        characterRoster.slots = body.roster.slots;
-        while (characterRoster.slots.length < CHARACTER_SLOT_COUNT) characterRoster.slots.push(null);
-        player = characterRoster.slots[activeCharacterSlotIndex];
-      } else if (body?.dungeonRun) {
-        player.worldMap.dungeonRun = { ...body.dungeonRun };
-        player.worldMap.x = ent.x;
-        player.worldMap.y = ent.y;
-      }
-      save({ flush: true });
-      if (typeof persistCharacterRoster === "function") await persistCharacterRoster();
+      await applyOnlineActionResponse(body);
       publishPresenceDungeonLocation();
       closeModal();
-      render();
       return;
     } catch (err) {
       console.error("enterDungeon:", err);
@@ -21400,7 +21509,12 @@ function getMenuPanelMeta(kind) {
   }
   if (kind === "arena") return { title: "Arena", lead: "To be defined later." };
   if (kind === "alliance") return { title: "Alliance", lead: "Coming soon." };
-  if (kind === "market") return { title: "Market", lead: "Coming soon." };
+  if (kind === "market") {
+    return {
+      title: "Market",
+      lead: "Player auctions are coming soon. NPC vendors sell supplies for gold below."
+    };
+  }
   if (kind === "crafting") {
     return {
       title: "Crafting",
@@ -21941,11 +22055,47 @@ function buildAtlasPanelHtml() {
   </div>`;
 }
 
+function buildShopPanelHtml() {
+  const meta = getMenuPanelMeta("market");
+  const vendorIds = Object.keys(getVendorsConfig());
+  if (!vendorIds.length) {
+    return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(meta.lead)}</p></div>`;
+  }
+  const sections = vendorIds
+    .map((vendorId) => {
+      const vendor = getVendorDefLocal(vendorId);
+      if (!vendor) return "";
+      const rows = vendor.items
+        .map((entry) => {
+          const affordable = (player.gold || 0) >= entry.price;
+          return `<div class="vendor-row vendor-row--panel">
+          <div class="vendor-item-meta"><strong>${escapeHtml(entry.item)}</strong></div>
+          <span class="vendor-price">${entry.price} gold</span>
+          <button type="button" class="btn-secondary vendor-buy-btn" data-vendor-buy="${escapeAttr(vendor.id)}" data-vendor-item="${escapeAttr(entry.item)}"${affordable ? "" : " disabled"}>Buy</button>
+        </div>`;
+        })
+        .join("");
+      return `<section class="vendor-panel-section">
+        <h2 class="vendor-panel-name">${escapeHtml(vendor.name)}</h2>
+        ${vendor.greeting ? `<p class="game-page-lead muted">${escapeHtml(vendor.greeting)}</p>` : ""}
+        <div class="vendor-list">${rows}</div>
+      </section>`;
+    })
+    .join("");
+  return `<div class="game-page vendor-panel">
+    <h1 class="game-page-title">${escapeHtml(meta.title)}</h1>
+    <p class="game-page-lead muted">${escapeHtml(meta.lead)}</p>
+    <p class="muted">Your gold: <strong>${player.gold || 0}</strong></p>
+    ${sections}
+  </div>`;
+}
+
 function buildMenuPanelHtml(kind) {
   const meta = getMenuPanelMeta(kind);
   if (!meta) return '<div class="game-page"><p class="game-page-lead muted">Panel unavailable.</p></div>';
   if (kind === "crafting") return buildCraftingPanelHtml();
   if (kind === "atlas") return buildAtlasPanelHtml();
+  if (kind === "market") return buildShopPanelHtml();
   return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(
     meta.lead
   )}</p></div>`;
@@ -23515,6 +23665,18 @@ function onContentClick(e) {
     render();
     return;
   }
+  const vendorBuyBtn = e.target.closest("[data-vendor-buy]");
+  if (vendorBuyBtn && vendorBuyBtn.dataset.vendorBuy && vendorBuyBtn.dataset.vendorItem) {
+    if (purchaseFromVendor(vendorBuyBtn.dataset.vendorBuy, vendorBuyBtn.dataset.vendorItem)) {
+      if (isMenuPanelOpen() && activeMenuPanel === "market") renderMenuPanelContent();
+      render();
+    }
+    return;
+  }
+  if (e.target.closest("[data-vendor-close]")) {
+    closeModal();
+    return;
+  }
   const craftingProfTab = e.target.closest("[data-crafting-tab]");
   if (craftingProfTab && craftingProfTab.dataset.craftingTab) {
     activeCraftingTabKey = craftingProfTab.dataset.craftingTab;
@@ -23877,6 +24039,14 @@ function onPortalNetworkModalClick(e) {
       return;
     }
     if (v === "enter_dungeon") {
+      if (!def) {
+        showModal("This dungeon is not configured.");
+        return;
+      }
+      if (player.inventory.indexOf(keyName) === -1) {
+        showModal("You no longer have the key.");
+        return;
+      }
       beginDungeonRunFromModal(id);
       return;
     }

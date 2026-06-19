@@ -1,5 +1,12 @@
 import { requireAuth } from "./auth.js";
 import { getEconomyEventsForUser } from "./economy/audit.js";
+import { logEconomyEvent } from "./economy/audit.js";
+import { getVendorCatalog, applyShopBuy } from "./progression/shop_actions.js";
+import {
+  actionRosterResponse,
+  loadPlayerForSlot,
+  savePlayerForSlot
+} from "./progression/roster_ops.js";
 
 const MMO_FEATURES = Object.freeze({
   arena: {
@@ -15,13 +22,12 @@ const MMO_FEATURES = Object.freeze({
   market: {
     status: "planned",
     title: "Market",
-    message: "Player listings and buyout auctions will route through the server. Coming soon."
+    message: "Player listings and buyout auctions will route through the server. Visit NPC vendors in the world for supplies."
   },
   shop: {
-    status: "planned",
+    status: "live",
     title: "Vendors",
-    message: "NPC shop purchases will debit gold server-side. No vendors are live yet.",
-    vendors: []
+    message: "NPC vendors sell supplies for gold. Talk to merchants in harbor scenes or open Market (B) for the catalog."
   },
   trade: {
     status: "planned",
@@ -39,9 +45,22 @@ function notImplemented(feature, res) {
   });
 }
 
+function shopFeaturePayload() {
+  const vendors = getVendorCatalog();
+  return {
+    ...MMO_FEATURES.shop,
+    vendors: vendors.map((v) => ({ id: v.id, name: v.name, itemCount: v.items.length }))
+  };
+}
+
 export function registerMmoRoutes(app) {
   app.get("/api/mmo/features", requireAuth, (_req, res) => {
-    res.json({ features: MMO_FEATURES });
+    res.json({
+      features: {
+        ...MMO_FEATURES,
+        shop: shopFeaturePayload()
+      }
+    });
   });
 
   app.get("/api/economy/history", requireAuth, (req, res) => {
@@ -66,15 +85,31 @@ export function registerMmoRoutes(app) {
     notImplemented("alliance", res);
   });
 
-  app.get("/api/shop/catalog", requireAuth, (_req, res) => {
+  app.get("/api/shop/catalog", requireAuth, (req, res) => {
+    const vendorId = typeof req.query?.vendorId === "string" ? req.query.vendorId.trim() : "";
+    const vendors = getVendorCatalog(vendorId || null);
     res.json({
-      vendors: MMO_FEATURES.shop.vendors,
       status: MMO_FEATURES.shop.status,
-      message: MMO_FEATURES.shop.message
+      message: MMO_FEATURES.shop.message,
+      vendors
     });
   });
 
-  app.post("/api/shop/buy", requireAuth, (_req, res) => {
-    notImplemented("shop", res);
+  app.post("/api/shop/buy", requireAuth, (req, res) => {
+    try {
+      const slotIndex = Number(req.body?.slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
+      const result = applyShopBuy(player, {
+        vendorId: req.body?.vendorId,
+        itemName: req.body?.itemName,
+        quantity: req.body?.quantity
+      });
+      roster.slots[idx] = player;
+      logEconomyEvent(req.user.id, { kind: "shop_buy", slotIndex: idx, meta: result });
+      const { roster: saved, revision } = savePlayerForSlot(req.user.id, roster, idx, player);
+      res.json(actionRosterResponse(saved, revision, { result }));
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Purchase failed." });
+    }
   });
 }
