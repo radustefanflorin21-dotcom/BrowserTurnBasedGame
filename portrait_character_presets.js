@@ -213,10 +213,10 @@
         "scalePct": 9
       },
       "bracelet_wristband": {
-        "offsetXPct": -81.60220699196667,
-        "offsetYPct": -27.50667060398691,
-        "rotDeg": 12,
-        "scalePct": 12
+        "offsetXPct": -73.9853,
+        "offsetYPct": -22.9365,
+        "rotDeg": -1,
+        "scalePct": 22
       },
       "chest": {
         "offsetXPct": 4.09083,
