@@ -175,12 +175,6 @@ function collectMonsterTableLootForFoe(rng, foe, def, moodLootMult, companionEnt
     if (Number.isFinite(slotIndex)) companionBySlot[slotIndex] = [];
   });
 
-  const pGear = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * mult);
-  if (rng.chance(pGear * 100)) {
-    const picked = rollWeightedGearFromMonsterTable(rng, table.gear, ml);
-    if (picked) hero.push(makeRarityItemInstanceName(picked, rollLootGearRarityTier(rng)));
-  }
-
   const passMaterials = [];
   const perKillMaterials = [];
   (table.materials || []).forEach((mat) => {
@@ -206,11 +200,6 @@ function collectMonsterTableLootForFoe(rng, foe, def, moodLootMult, companionEnt
   companionEntries.forEach(({ slotIndex }) => {
     const bucket = companionBySlot[slotIndex] || (companionBySlot[slotIndex] = []);
     const companionMult = mult * COMPANION_LOOT_CHANCE_MULT;
-    const companionGearChance = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * companionMult);
-    if (rng.chance(companionGearChance * 100)) {
-      const picked = rollWeightedGearFromMonsterTable(rng, table.gear, ml);
-      if (picked) bucket.push(makeRarityItemInstanceName(picked, rollLootGearRarityTier(rng)));
-    }
     const companionPasses = rollMaterialPassCount(rng);
     for (let p = 0; p < companionPasses; p++) {
       passMaterials.forEach((mat) => {

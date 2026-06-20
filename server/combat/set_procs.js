@@ -138,3 +138,19 @@ export function tryProcHeartbloomMagResOnPoison(equipment, foe, rng) {
   applyFoeMagResDown(foe, 6, 1);
   return `${foe.name}'s magic resist falters (Heartbloom).`;
 }
+
+export function tryProcAshmawPhysResDownOnHit(equipment, foe, rng, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return null;
+  if (countEquippedSetPieces(equipment, "Ashmaw Set") < 2) return null;
+  if (!rng?.chance?.(15)) return null;
+  applyFoePhysResDown(foe, 5, 2);
+  return `${foe.name}'s physical resist falters (Ashmaw Set).`;
+}
+
+export function tryProcRiftforgeTyrantMagResOnBurn(equipment, foe, rng) {
+  if (!foe || foe.hp <= 0) return null;
+  if (countEquippedSetPieces(equipment, "Riftforge Tyrant Set") < 4) return null;
+  if (!rng?.chance?.(20)) return null;
+  applyFoeMagResDown(foe, 6, 1);
+  return `${foe.name}'s magic resist falters (Riftforge Tyrant Set).`;
+}

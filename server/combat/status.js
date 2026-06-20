@@ -13,7 +13,8 @@ import {
 } from "./combat_passives.js";
 import {
   tryProcBannerlessMagResOnAccuracyDebuff,
-  tryProcHeartbloomMagResOnPoison
+  tryProcHeartbloomMagResOnPoison,
+  tryProcRiftforgeTyrantMagResOnBurn
 } from "./set_procs.js";
 
 const CAPS = { accuracyDown: 40, damageDown: 35 };
@@ -318,6 +319,10 @@ export function tryRollFoeDebuff(st, foe, deb, actor, rng, extraLogs) {
         const heartbloomLog = tryProcHeartbloomMagResOnPoison(actor?.equipment, foe, rng);
         if (heartbloomLog && Array.isArray(extraLogs)) extraLogs.push(heartbloomLog);
       }
+      if (dotKey === "burn") {
+        const tyrantLog = tryProcRiftforgeTyrantMagResOnBurn(actor?.equipment, foe, rng);
+        if (tyrantLog && Array.isArray(extraLogs)) extraLogs.push(tyrantLog);
+      }
       return `${name} suffers ${dotKey}.`;
     }
     default:
@@ -377,6 +382,20 @@ export function applyPartyMemberBlind(st, member, pct, turns) {
     Math.max(0, Math.min(CAPS.accuracyDown, pct))
   );
   member.outgoingAccuracyDownTurns = Math.max(member.outgoingAccuracyDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+export function applyPartyMemberStatusResistDown(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(CAPS.accuracyDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerStatusResistDownPct = Math.max(st.status.playerStatusResistDownPct || 0, p);
+    st.status.playerStatusResistDownTurns = Math.max(st.status.playerStatusResistDownTurns || 0, t);
+    return;
+  }
+  member.statusResistDownPct = Math.max(member.statusResistDownPct || 0, p);
+  member.statusResistDownTurns = Math.max(member.statusResistDownTurns || 0, t);
 }
 
 export function applyPartyMemberCripple(st, member, turns) {

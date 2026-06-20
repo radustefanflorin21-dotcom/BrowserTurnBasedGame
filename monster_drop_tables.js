@@ -1,13 +1,11 @@
 /**
- * Per-monster loot: gear pool weights + material drop chances (% per material pass).
+ * Per-monster loot: material drop chances (% per material pass). Equipment is craft-only.
  * Merged into GAME_CONFIG after config.js loads. Victory loot uses game.js helpers.
  */
 (function () {
   if (typeof GAME_CONFIG === "undefined" || !GAME_CONFIG) return;
 
   const coastalTide = {
-    gear: [
-    ],
     materials: [
       { name: "Abyss Flesh", dropRate: 32.5 },
       { name: "Dark Residue", dropRate: 20 },
@@ -26,21 +24,7 @@
       epic: { min: 20, max: 40 },
       myth: { min: 30, max: 55 },
       ancient: { min: 42, max: 75 }
-    },
-    rarityWeights: [
-      { id: "common", weight: 70 },
-      { id: "uncommon", weight: 20 },
-      { id: "rare", weight: 8 },
-      { id: "epic", weight: 1.8 },
-      { id: "legendary", weight: 0.2 }
-    ],
-    gearBaseChanceByMaxLevel: [
-      { maxLevel: 10, chance: 0.1 },
-      { maxLevel: 20, chance: 0.06 },
-      { maxLevel: 30, chance: 0.03 },
-      { maxLevel: 40, chance: 0.012 },
-      { maxLevel: 999, chance: 0.004 }
-    ]
+    }
   };
 
   GAME_CONFIG.monsterDropTables = {
@@ -53,7 +37,6 @@
       ]
     },
     "Hermit Crab": {
-      gear: [{ w: 5, item: "Scaleguard Shirt" }],
       materials: [
         { name: "Hardened Shell", dropRate: 32 },
         { name: "Salt Flesh", dropRate: 20 },
@@ -63,7 +46,6 @@
       ]
     },
     "Saltwind Skimmer": {
-      gear: [{ w: 7, item: "Skimmer Blade" }],
       materials: [
         { name: "Sharp Fin", dropRate: 34 },
         { name: "Wind Scale", dropRate: 22 },
@@ -97,7 +79,6 @@
     },
     "Coastal Horror": coastalTide,
     "Tideharrow": {
-      gear: coastalTide.gear,
       materials: [
         { name: "Tide Fragment", dropRate: 32.5 },
         { name: "Pressure Core", dropRate: 20 },
@@ -186,7 +167,6 @@
       ]
     },
     "Burrow Hare": {
-      gear: [{ w: 4, item: "Burrowstep Boots" }, { w: 3.5, item: "Stonepulse Amulet" }],
       materials: [
         { name: "Soft Fur", dropRate: 35 },
         { name: "Digging Claw", dropRate: 22.5 },
@@ -195,7 +175,6 @@
       ]
     },
     "Dust Carver": {
-      gear: [{ w: 4, item: "Sandfang Blade" }],
       materials: [
         { name: "Razor Claw", dropRate: 32.5 },
         { name: "Sand Blade Fragment", dropRate: 20 },
@@ -220,7 +199,6 @@
       ]
     },
     "Tusk Boar": {
-      gear: [{ w: 2.5, item: "Boarhide Leggings" }],
       materials: [
         { name: "Thick Hide", dropRate: 40 },
         { name: "Boar Tusk", dropRate: 22.5 },
@@ -229,7 +207,6 @@
       ]
     },
     "Field Wolf": {
-      gear: [{ w: 3, item: "Fang Dagger" }],
       materials: [
         { name: "Wolf Fang", dropRate: 37.5 },
         { name: "Fur Pelt", dropRate: 20 },
@@ -345,7 +322,6 @@
       ]
     },
     "Dune Devourer": {
-      gear: [{ w: 2.8, item: "Devourer Axe" }],
       materials: [
         { name: "Devourer Tooth", dropRate: 35 },
         { name: "Sand Core", dropRate: 20 },
@@ -354,7 +330,6 @@
       ]
     },
     "Mirage Lurker": {
-      gear: [{ w: 2.8, item: "Mirage Ring" }],
       materials: [
         { name: "Mirage Dust", dropRate: 32.5 },
         { name: "Illusion Thread", dropRate: 20 },
@@ -396,7 +371,6 @@
       ]
     },
     "Stone Marmot": {
-      gear: [{ w: 2.5, item: "Marmot Helm" }],
       materials: [
         { name: "Hardened Stone", dropRate: 40 },
         { name: "Dense Fur", dropRate: 20 },
@@ -405,7 +379,6 @@
       ]
     },
     "Rock Lynx": {
-      gear: [{ w: 2.3, item: "Lynx Fang" }],
       materials: [
         { name: "Sharp Fang", dropRate: 35 },
         { name: "Stone Claw", dropRate: 20 },
@@ -414,7 +387,6 @@
       ]
     },
     "Rock Ibex": {
-      gear: [{ w: 2.2, item: "Hornbreaker Axe" }],
       materials: [
         { name: "Ibex Horn", dropRate: 37.5 },
         { name: "Muscle Fiber", dropRate: 20 },
@@ -423,7 +395,6 @@
       ]
     },
     "Rock Serpent": {
-      gear: [{ w: 2, item: "Petrify Ring" }, { w: 1.8, item: "Earthbind Amulet" }],
       materials: [
         { name: "Stone Scale", dropRate: 35 },
         { name: "Petrify Gland", dropRate: 22.5 },
@@ -432,7 +403,6 @@
       ]
     },
     "Rock Lizard": {
-      gear: [{ w: 1.8, item: "Stonescale Armor" }],
       materials: [
         { name: "Stone Scale", dropRate: 37.5 },
         { name: "Stone Skin", dropRate: 20 },
@@ -473,7 +443,6 @@
       ]
     },
     "Jungle Stag": {
-      gear: [],
       materials: [
         { name: "Antler Piece", dropRate: 37.5 },
         { name: "Bark Fragment", dropRate: 20 },
@@ -506,7 +475,6 @@
       ]
     },
     "Faded War Wraith": {
-      gear: [{ w: 0.9, item: "Wraithcall Scepter" }, { w: 0.8, item: "Soul Echo Amulet" }],
       materials: [
         { name: "Soul Fragment", dropRate: 70 },
         { name: "Faded Banner Thread", dropRate: 55 },
@@ -573,8 +541,32 @@
         { name: "Gaia Soulseed", dropRate: 8 }
       ]
     },
+    "Inferno Oracle": {
+      materials: [
+        { name: "Oracle Ember Eye", dropRate: 70 },
+        { name: "Cinderveil Thread", dropRate: 55 },
+        { name: "Burning Prophecy Core", dropRate: 35 },
+        { name: "Oracle Flameheart", dropRate: 15 }
+      ]
+    },
+    "Ashmaw Titan": {
+      materials: [
+        { name: "Titan Obsidian Plate", dropRate: 70 },
+        { name: "Ashmaw Jawbone", dropRate: 55 },
+        { name: "Molten Titan Core", dropRate: 35 },
+        { name: "Ashmaw Heartplate", dropRate: 15 }
+      ]
+    },
+    "The Riftforge Tyrant": {
+      materials: [
+        { name: "Tyrant Blackplate", dropRate: 100 },
+        { name: "Broken Riftblade", dropRate: 75 },
+        { name: "Tyrant Forge Core", dropRate: 45 },
+        { name: "Hatred Emberstone", dropRate: 25 },
+        { name: "Worldhate Soulcore", dropRate: 8 }
+      ]
+    },
     "Ash Lizard": {
-      gear: [{ w: 0.6, item: "Ashmaw Cleaver" }],
       materials: [
         { name: "Ash Scale", dropRate: 37.5 },
         { name: "Burnt Hide", dropRate: 20 },
@@ -583,7 +575,6 @@
       ]
     },
     "Cinder Stalker": {
-      gear: [{ w: 0.5, item: "Emberfang" }],
       materials: [
         { name: "Burning Fang", dropRate: 35 },
         { name: "Ember Fragment", dropRate: 20 },
@@ -592,7 +583,6 @@
       ]
     },
     "Ember Scuttler": {
-      gear: [{ w: 0.45, item: "Ember Core Ring" }],
       materials: [
         { name: "Ember Core", dropRate: 37.5 },
         { name: "Heat Shell", dropRate: 20 },
@@ -601,7 +591,6 @@
       ]
     },
     "Magma Boar": {
-      gear: [{ w: 0.4, item: "Magmahide Plate" }, { w: 0.35, item: "Lava Greaves" }],
       materials: [
         { name: "Magma Hide", dropRate: 40 },
         { name: "Lava Core", dropRate: 22.5 },
@@ -610,7 +599,6 @@
       ]
     },
     "Lava Basilisk": {
-      gear: [{ w: 0.25, item: "Basilisk Eye Amulet" }, { w: 0.25, item: "Molten Gaze Ring" }],
       materials: [
         { name: "Basilisk Eye", dropRate: 35 },
         { name: "Molten Scale", dropRate: 20 },
@@ -619,7 +607,6 @@
       ]
     },
     "Glacier Turtoise": {
-      gear: [{ w: 0.4, item: "Glacier Shell" }, { w: 0.35, item: "Icebound Boots" }],
       materials: [
         { name: "Frozen Shell", dropRate: 40 },
         { name: "Ice Plate", dropRate: 22.5 },
@@ -628,7 +615,6 @@
       ]
     },
     "Frozen Stalker": {
-      gear: [{ w: 0.3, item: "Frozen Edge" }],
       materials: [
         { name: "Ice Fang", dropRate: 35 },
         { name: "Frost Claw", dropRate: 20 },
@@ -637,7 +623,6 @@
       ]
     },
     "Frost Skitter": {
-      gear: [{ w: 0.3, item: "Frozen Edge" }],
       materials: [
         { name: "Frost Thread", dropRate: 35 },
         { name: "Ice Fragment", dropRate: 20 },
@@ -744,7 +729,7 @@
   Object.keys(resourceDropTable).forEach((monsterName) => {
     const additions = resourceDropTable[monsterName];
     if (!GAME_CONFIG.monsterDropTables[monsterName]) {
-      GAME_CONFIG.monsterDropTables[monsterName] = { gear: [], materials: [] };
+      GAME_CONFIG.monsterDropTables[monsterName] = { materials: [] };
     }
     const table = GAME_CONFIG.monsterDropTables[monsterName];
     if (!Array.isArray(table.materials)) table.materials = [];
@@ -772,10 +757,9 @@
   enemies.forEach((enemy) => {
     if (!enemy || typeof enemy.name !== "string") return;
     if (!GAME_CONFIG.monsterDropTables[enemy.name]) {
-      GAME_CONFIG.monsterDropTables[enemy.name] = { gear: [], materials: [] };
+      GAME_CONFIG.monsterDropTables[enemy.name] = { materials: [] };
     }
     const table = GAME_CONFIG.monsterDropTables[enemy.name];
-    if (!Array.isArray(table.gear)) table.gear = [];
     if (!Array.isArray(table.materials)) table.materials = [];
     if (table.gold != null) return;
     const rarity =

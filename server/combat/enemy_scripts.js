@@ -6,6 +6,7 @@ import {
   applyPartyMemberCripple,
   applyPartyMemberIncomingDamageUp,
   applyPartyMemberSuppressedDamageDownBoth,
+  applyPartyMemberStatusResistDown,
   applyPlayerAccuracyDown,
   applyPlayerBleed,
   applyPlayerPoison,
@@ -64,6 +65,22 @@ function isMemberBlinded(st, member) {
   if (!member) return false;
   if (member.kind === "hero") return (st.status?.playerOutgoingAccuracyDownTurns || 0) > 0;
   return (member.outgoingAccuracyDownTurns || 0) > 0;
+}
+
+function isMemberBurned(st, member) {
+  if (!member) return false;
+  if (member.kind === "hero") return (st.status?.playerBurn?.turns || 0) > 0;
+  return (member.burnTurns || 0) > 0;
+}
+
+function applyBurnFromHit(st, member, hit, dotPct, turns, rng) {
+  if (!member || !rng.chance(dotPct)) return;
+  const dot = Math.max(1, Math.floor(hit * (dotPct / 100)));
+  applyPlayerBurn(st, dot, turns);
+}
+
+function livingPartyCount(st) {
+  return (st.party || []).filter((m) => m && m.hp > 0).length;
 }
 
 function runRoleFallbackTurn(scriptId, foe, st, ctx) {
@@ -1210,6 +1227,201 @@ const SCRIPT_HANDLERS = {
       ctx.hitAdjacent(member, basicHit, "strikes", 1, 1);
     } else {
       ctx.hit(member, basicHit, "strikes");
+    }
+    return true;
+  },
+
+  ember_forgeling(foe, st, ctx) {
+    const member = ctx.pickTarget("mage");
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    if (ctx.ready("spark_spray")) {
+      ctx.setCd("spark_spray", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.35 * ctx.outMult));
+      ctx.hitAdjacent(member, hit, "Spark Spray scorches", 1, 1);
+      for (const m of [member, ...((st.party || []).filter((x) => x && x.hp > 0))].slice(0, 2)) {
+        if (ctx.rng.chance(30)) applyBurnFromHit(st, m, hit, 10, 2, ctx.rng);
+      }
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(strv * 0.45 * ctx.outMult)), "Slag Scratch claws");
+    return true;
+  },
+
+  inferno_oracle(foe, st, ctx) {
+    const member = ctx.pickTarget("mage");
+    const intv = foe.int || 20;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (ctx.ready("flameveil_ward") && hpFrac < 0.7 && (foe.combat.magicResBonusTurns || 0) <= 0) {
+      ctx.setCd("flameveil_ward", 4);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 10);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      foe.combat.evasionBonusPct = Math.max(foe.combat.evasionBonusPct || 0, 8);
+      foe.combat.evasionBonusTurns = Math.max(foe.combat.evasionBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Flameveil Ward.`);
+      return true;
+    }
+    if (ctx.ready("cinder_prophecy") && livingPartyCount(st) >= 3) {
+      ctx.setCd("cinder_prophecy", 4);
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        if (ctx.rng.chance(45)) applyPartyMemberBlind(st, m, 8, 2);
+        if (ctx.rng.chance(35)) applyPartyMemberStatusResistDown(st, m, 5, 2);
+      }
+      ctx.log(`${foe.name} speaks Cinder Prophecy.`);
+      return true;
+    }
+    if (ctx.ready("inferno_gaze") && !isMemberBurned(st, member)) {
+      ctx.setCd("inferno_gaze", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.8 * ctx.outMult));
+      ctx.hit(member, hit, "Inferno Gaze brands");
+      applyBurnFromHit(st, member, hit, 12, 3, ctx.rng);
+      return true;
+    }
+    if (ctx.ready("firethread_lash")) {
+      ctx.setCd("firethread_lash", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult));
+      ctx.hitAdjacent(member, hit, "Firethread Lash whips", 1, 1);
+      applyBurnFromHit(st, member, hit, 10, 2, ctx.rng);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(intv * 0.4 * ctx.outMult)), "Ember Bolt strikes");
+    return true;
+  },
+
+  ashmaw_titan(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const strv = foe.str || 20;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (ctx.ready("obsidian_hide") && hpFrac < 0.75 && (foe.combat.physResBonusTurns || 0) <= 0) {
+      ctx.setCd("obsidian_hide", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} hardens Obsidian Hide.`);
+      return true;
+    }
+    if (ctx.ready("burning_rampage") && hpFrac < 0.6 && (foe.combat.outgoingDamageBonusTurns || 0) <= 0) {
+      ctx.setCd("burning_rampage", 4);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 10);
+      foe.combat.outgoingAccuracyBonusPct = Math.max(foe.combat.outgoingAccuracyBonusPct || 0, 6);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      foe.combat.outgoingAccuracyBonusTurns = Math.max(foe.combat.outgoingAccuracyBonusTurns || 0, 2);
+      ctx.log(`${foe.name} enters Burning Rampage.`);
+      return true;
+    }
+    if (ctx.ready("ashmaw_crush")) {
+      ctx.setCd("ashmaw_crush", 2);
+      const hit = Math.max(1, Math.floor(strv * 1.1 * ctx.outMult));
+      ctx.hit(member, hit, "Ashmaw Crush slams");
+      if (ctx.rng.chance(40)) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ctx.ready("slagquake_slam")) {
+      ctx.setCd("slagquake_slam", 3);
+      const hit = Math.max(1, Math.floor(strv * 0.7 * ctx.outMult));
+      ctx.hitAdjacent(member, hit, "Slagquake Slam shakes", 1, 1);
+      if (ctx.rng.chance(35)) applyPartyMemberCripple(st, member, 1);
+      return true;
+    }
+    if (ctx.ready("jawbreaker_impact")) {
+      ctx.setCd("jawbreaker_impact", 5);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 0.95 * ctx.outMult)), "Jawbreaker Impact crushes");
+      tryPartyMemberStun(st, member, ctx.rng, 0.18, ctx.player, ctx.log);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(strv * 0.6 * ctx.outMult)), "Slag Fist strikes");
+    return true;
+  },
+
+  the_riftforge_tyrant(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const hpFrac = ctx.foeHpFrac();
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    const phase3 = !!foe.combat.riftforgePhase3;
+    const phase2 = !!foe.combat.riftforgePhase2;
+
+    if (hpFrac <= 0.7 && !foe.combat.riftforgePhase2) {
+      foe.combat.riftforgePhase2 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 8;
+      foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
+      ctx.log(`${foe.name} enters The Forge Opens.`);
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
+        spawnReinforcement(st, "Ember Scuttler", ctx.rng);
+      }
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
+        spawnReinforcement(st, "Ash Lizard", ctx.rng);
+      }
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.riftforgePhase3) {
+      foe.combat.riftforgePhase3 = true;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      foe.combat.outgoingMagicBonusPct = (foe.combat.outgoingMagicBonusPct || 0) + 10;
+      ctx.log(`${foe.name} enters Hatred Unbound.`);
+      return true;
+    }
+    if (ctx.ready("tyrant_blackguard") && hpFrac < 0.8 && (foe.combat.mitigationTurns || 0) <= 0) {
+      ctx.setCd("tyrant_blackguard", 4);
+      setFoeMitigation(foe, 2, 0.85);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Tyrant Blackguard.`);
+      return true;
+    }
+    if (phase3 && ctx.ready("worldhate_judgment")) {
+      ctx.setCd("worldhate_judgment", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * dmgBonus * accBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Worldhate Judgment blinds");
+        tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
+      }
+      return true;
+    }
+    if (phase2 && ctx.ready("riftforge_eruption")) {
+      ctx.setCd("riftforge_eruption", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.6 * ctx.outMult * dmgBonus));
+      ctx.hitAdjacent(member, hit, "Riftforge Eruption bursts", 2, 1);
+      if (ctx.rng.chance(35)) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ctx.ready("forgefire_decree") && livingPartyCount(st) >= 3) {
+      ctx.setCd("forgefire_decree", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * dmgBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Forgefire Decree erupts under");
+        applyBurnFromHit(st, m, hit, 10, 2, ctx.rng);
+        if (ctx.rng.chance(35)) applyPartyMemberBlind(st, m, 6, 1);
+      }
+      return true;
+    }
+    if (ctx.ready("chain_of_hatred")) {
+      ctx.setCd("chain_of_hatred", 3);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 0.75 * ctx.outMult * dmgBonus)), "Chain of Hatred lashes");
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    if (ctx.ready("riftblade_cleave")) {
+      ctx.setCd("riftblade_cleave", 2);
+      const mult = phase3 ? 0.8 : 1.05;
+      const hit = Math.max(1, Math.floor(strv * mult * ctx.outMult * dmgBonus * accBonus));
+      if (phase3) {
+        ctx.hitAdjacent(member, hit, "Riftblade Cleave burns", 1, 1);
+      } else {
+        ctx.hit(member, hit, "Riftblade Cleave burns");
+      }
+      applyBurnFromHit(st, member, hit, 10, 2, ctx.rng);
+      return true;
+    }
+    const basicMult = phase3 ? 0.55 : 0.65;
+    const basicHit = Math.max(1, Math.floor(strv * basicMult * ctx.outMult * dmgBonus * accBonus));
+    if (phase3) {
+      ctx.hitAdjacent(member, basicHit, "Tyrant Strike cleaves", 1, 1);
+    } else {
+      ctx.hit(member, basicHit, "Tyrant Strike hits");
     }
     return true;
   },

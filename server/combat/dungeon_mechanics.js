@@ -5,7 +5,7 @@
 import { loadGameConfig, getEnemyDefByName } from "../load_game_config.js";
 import { buildFoeFromUnit } from "./formulas.js";
 import { initFoeCombatRuntime } from "./enemy_ai.js";
-import { applyPartyMemberBlind, applyPartyMemberCripple, ensureCombatStatus } from "./status.js";
+import { applyPartyMemberBlind, applyPartyMemberCripple, ensureCombatStatus, applyPlayerBurn } from "./status.js";
 
 function getDungeonDef(dungeonId) {
   const cfg = loadGameConfig();
@@ -90,6 +90,44 @@ function isHeartbloomAncientPhase3(st) {
 function isVerdantDeepFinalRoom(st, def) {
   const roomIndex = typeof st.worldMapContext?.roomIndex === "number" ? st.worldMapContext.roomIndex : 0;
   return Array.isArray(def?.rooms) && roomIndex === def.rooms.length - 1;
+}
+
+function isRiftforgeTyrantPhase3(st) {
+  return (st.foes || []).some(
+    (f) =>
+      f &&
+      f.name === "The Riftforge Tyrant" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function isInfernalRiftforgeFinalRoom(st, def) {
+  const roomIndex = typeof st.worldMapContext?.roomIndex === "number" ? st.worldMapContext.roomIndex : 0;
+  return Array.isArray(def?.rooms) && roomIndex === def.rooms.length - 1;
+}
+
+function countEmberForgelings(st) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Ember Forgeling").length;
+}
+
+export function spawnEmberForgeling(st, rng) {
+  if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
+  if (countEmberForgelings(st) >= 2) return false;
+  return spawnReinforcement(st, "Ember Forgeling", rng);
+}
+
+function applyPartyMemberBurn(st, member, dmgPerTurn, turns) {
+  if (!member) return;
+  const d = Math.max(1, Math.floor(dmgPerTurn));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    applyPlayerBurn(st, d, t);
+    return;
+  }
+  member.burnDmg = Math.max(member.burnDmg || 0, d);
+  member.burnTurns = Math.max(member.burnTurns || 0, t);
 }
 
 export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
@@ -302,6 +340,32 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (round === 8 || round === 12) {
       if (spawnReinforcement(st, "Verdant Sprout", rng)) {
         log("Roots split — a Verdant Sprout crawls into the fight!");
+      }
+    }
+  }
+
+  if (def.heatSurge) {
+    const phase3BossSurge =
+      dungeonId === "infernal_riftforge" && isInfernalRiftforgeFinalRoom(st, def) && isRiftforgeTyrantPhase3(st);
+    const interval = phase3BossSurge ? 2 : 3;
+    const due = phase3BossSurge ? round % interval === 0 : roomIndex >= 2 && round % interval === 0;
+    if (due) {
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      if (living.length) {
+        const pick = living[Math.floor(rng.next() * living.length)];
+        if (rng.chance(0.35)) {
+          const dot = Math.max(1, Math.floor(pick.maxHp * 0.04));
+          applyPartyMemberBurn(st, pick, dot, 2);
+          log(`Heat Surge brands ${pick.name || "a fighter"} with Burn (${dot} per turn).`);
+        }
+      }
+    }
+  }
+
+  if (dungeonId === "infernal_riftforge" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
+    if (round === 8 || round === 12) {
+      if (spawnEmberForgeling(st, rng)) {
+        log("The forge erupts — an Ember Forgeling crawls from the slag!");
       }
     }
   }

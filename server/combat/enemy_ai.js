@@ -9,7 +9,7 @@ import {
 import { trySecondBreath } from "./combat_passives.js";
 import { getFoeEffectiveAttack, getFoeOutgoingDamageMult } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
-import { isFoeStunned } from "./status.js";
+import { isFoeStunned, applyPlayerBurn } from "./status.js";
 import { tryProcFrosthornCrippleOnHit, tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
 
 function countEquippedSetPieces(equipment, setName) {
@@ -276,4 +276,25 @@ export function runSingleEnemyTurn(foe, st, rng, appendLog, player, enemyHits) {
     ctx.hit(member, ctx.atk * ctx.outMult, "hits");
   }
   tickEnemyCooldowns(foe);
+}
+
+/** Ember Forgeling Meltdown when slain. @returns {string|null} */
+export function tryEmberForgelingMeltdown(st, deadFoe, rng, appendLog, player) {
+  if (!deadFoe || deadFoe.name !== "Ember Forgeling") return null;
+  const living = (st.party || []).filter((m) => m && m.hp > 0);
+  if (!living.length) return null;
+  const pick = living[Math.floor(rng.next() * living.length)];
+  const intv = deadFoe.int || 46;
+  const hit = Math.max(1, Math.floor(intv * 0.3));
+  const res = dealFoeDamageToMember(st, deadFoe, pick, hit, "Meltdown bursts on", rng, player);
+  if (!res.evaded && res.dmg > 0) {
+    appendLog(`${deadFoe.name} Meltdown bursts on ${pick.name} for ${res.dmg} damage.`);
+    if (rng.chance(0.25)) {
+      applyPlayerBurn(st, Math.max(1, Math.floor(hit * 0.08)), 1);
+      appendLog(`${pick.name} is scorched by unstable slag.`);
+    }
+    return null;
+  }
+  if (res.evaded) appendLog(`${deadFoe.name} Meltdown bursts — ${pick.name} evades!`);
+  return null;
 }

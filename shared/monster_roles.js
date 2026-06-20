@@ -70,7 +70,11 @@ const MONSTER_ROLE_BY_SCRIPT_ID = {
   verdant_sprout: "support",
   verdant_bloomseer: "support",
   primordial_silverback: "bruiser",
-  the_heartbloom_ancient: "bruiser"
+  the_heartbloom_ancient: "bruiser",
+  ember_forgeling: "controller",
+  inferno_oracle: "mage",
+  ashmaw_titan: "bruiser",
+  the_riftforge_tyrant: "bruiser"
 };
 
 function inferMonsterCombatRole(scriptId) {

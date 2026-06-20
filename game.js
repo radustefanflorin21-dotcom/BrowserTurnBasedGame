@@ -2870,6 +2870,22 @@ function tryProcHeartbloomMagResOnPoison(st, equipment, foe) {
   appendFightLog(`${foe.name}'s magic resist falters (Heartbloom).`);
 }
 
+function tryProcAshmawPhysResDownOnHit(st, equipment, foe, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return;
+  if (!equipment || countEquippedSetPieces(equipment, "Ashmaw Set") < 2) return;
+  if (Math.random() >= 0.15) return;
+  applyFoePhysResDown(foe, 5, 2);
+  appendFightLog(`${foe.name}'s physical resist falters (Ashmaw Set).`);
+}
+
+function tryProcRiftforgeTyrantMagResOnBurn(st, equipment, foe) {
+  if (!foe || foe.hp <= 0) return;
+  if (!equipment || countEquippedSetPieces(equipment, "Riftforge Tyrant Set") < 4) return;
+  if (Math.random() >= 0.2) return;
+  applyFoeMagResDown(foe, 6, 1);
+  appendFightLog(`${foe.name}'s magic resist falters (Riftforge Tyrant Set).`);
+}
+
 function sumEquippedBonusStatsFromEquipment(equipment) {
   const out = {
     str: 0,
@@ -5404,6 +5420,10 @@ function isDungeonJungleBloomCombat(st) {
   return isDungeonMechanicCombat(st, "jungleBloom");
 }
 
+function isDungeonHeatSurgeCombat(st) {
+  return isDungeonMechanicCombat(st, "heatSurge");
+}
+
 function isLastWarmasterPhase3Active(st) {
   if (!st || !Array.isArray(st.foes)) return false;
   return st.foes.some(
@@ -5433,11 +5453,29 @@ function isHeartbloomAncientPhase3Active(st) {
 }
 
 function isVerdantDeepFinalRoom(st) {
-  const ctx = st?.worldMapContext;
+  const ctx = st && st.worldMapContext;
   if (!ctx || ctx.dungeonId !== "verdant_deep") return false;
   const def = getDungeonDef("verdant_deep");
-  if (!def || !Array.isArray(def.rooms)) return false;
-  return ctx.roomIndex === def.rooms.length - 1;
+  return !!(def && Array.isArray(def.rooms) && ctx.roomIndex === def.rooms.length - 1);
+}
+
+function isRiftforgeTyrantPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) =>
+      f &&
+      f.name === "The Riftforge Tyrant" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function isInfernalRiftforgeFinalRoom(st) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "infernal_riftforge") return false;
+  const def = getDungeonDef("infernal_riftforge");
+  return !!(def && Array.isArray(def.rooms) && ctx.roomIndex === def.rooms.length - 1);
 }
 
 function isSleepingChildPhase3Active(st) {
@@ -5822,6 +5860,62 @@ function applyDungeonJungleBloomIfDue(st, round) {
   appendFightLog(`Jungle Bloom mends ${target.name} for ${amt}.`);
 }
 
+function applyPartyMemberBurn(st, member, dmgPerTurn, turns) {
+  if (!member) return;
+  if (member.kind === "hero") {
+    applyBurnToPlayer(st, dmgPerTurn, turns);
+    return;
+  }
+  const d = Math.max(1, Math.floor(dmgPerTurn));
+  const t = Math.max(1, Math.floor(turns));
+  member.burnDmg = Math.max(member.burnDmg || 0, d);
+  member.burnTurns = Math.max(member.burnTurns || 0, t);
+}
+
+function applyDungeonHeatSurgeIfDue(st, round) {
+  if (!isDungeonHeatSurgeCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  const phase3BossSurge = isInfernalRiftforgeFinalRoom(st) && isRiftforgeTyrantPhase3Active(st);
+  if (phase3BossSurge) {
+    if (round % 2 !== 0) return;
+  } else {
+    if (roomIndex < 2) return;
+    if (round % 3 !== 0) return;
+  }
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    const dot = Math.max(1, Math.floor(pick.maxHp * 0.04));
+    applyPartyMemberBurn(st, pick, dot, 2);
+    appendFightLog(`Heat Surge brands ${pick.name || "a fighter"} with Burn (${dot} per turn).`);
+  }
+}
+
+function countEmberForgelings(st) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Ember Forgeling").length;
+}
+
+function summonEmberForgeling(st) {
+  if (!st) return false;
+  if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
+  if (countEmberForgelings(st) >= 2) return false;
+  return summonDungeonReinforcement(st, "Ember Forgeling");
+}
+
+function applyInfernalRiftforgeBossReinforcementsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "infernal_riftforge") return;
+  const def = getDungeonDef("infernal_riftforge");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  if (round !== 8 && round !== 12) return;
+  if (summonEmberForgeling(st)) {
+    appendFightLog("The forge erupts—an Ember Forgeling crawls from the slag!");
+  }
+}
+
 function applyDungeonFrostrootSnareIfDue(st, round) {
   if (!isDungeonFrostrootSnareCombat(st)) return;
   const ctx = st.worldMapContext;
@@ -5952,6 +6046,8 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyDungeonWarEchoIfDue(st, round);
   applyRustfallenBossReinforcementsIfDue(st, round);
   applyVerdantDeepBossReinforcementsIfDue(st, round);
+  applyDungeonHeatSurgeIfDue(st, round);
+  applyInfernalRiftforgeBossReinforcementsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -9784,6 +9880,194 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     return true;
   }
 
+  if (scriptId === "ember_forgeling") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    if (ready("spark_spray")) {
+      setCd("spark_spray", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.35 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Spark Spray scorches", partyUid, 1, 1);
+      if (Math.random() < 0.3) applyBurnToPlayer(st, Math.max(1, Math.floor(hit * 0.1)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.45 * outMult)), foe.name, "Slag Scratch claws you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "inferno_oracle") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const intv = foe.int || 20;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (ready("flameveil_ward") && hpFrac < 0.7 && (foe.combat.magicResBonusTurns || 0) <= 0) {
+      setCd("flameveil_ward", 4);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 10);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Flameveil Ward.`);
+      return true;
+    }
+    if (ready("cinder_prophecy") && getLivingPartyMembers(st).length >= 3) {
+      setCd("cinder_prophecy", 4);
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+        if (Math.random() < 0.35) applyPartyMemberStatusResistDown(st, m, 5, 2);
+      }
+      appendFightLog(`${foe.name} speaks Cinder Prophecy.`);
+      return true;
+    }
+    if (ready("inferno_gaze") && !(st.status?.playerBurn?.turns > 0)) {
+      setCd("inferno_gaze", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.8 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Inferno Gaze brands you", { partyUid });
+      if (Math.random() < 0.45) applyBurnToPlayer(st, Math.max(1, Math.floor(hit * 0.12)), 3);
+      return true;
+    }
+    if (ready("firethread_lash")) {
+      setCd("firethread_lash", 2);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Firethread Lash whips", partyUid, 1, 1);
+      if (Math.random() < 0.35) applyBurnToPlayer(st, Math.max(1, Math.floor(hit * 0.1)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.4 * outMult)), foe.name, "Ember Bolt strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "ashmaw_titan") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const strv = foe.str || 20;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (ready("obsidian_hide") && hpFrac < 0.75 && (foe.combat.physResBonusTurns || 0) <= 0) {
+      setCd("obsidian_hide", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} hardens Obsidian Hide.`);
+      return true;
+    }
+    if (ready("burning_rampage") && hpFrac < 0.6 && (foe.combat.outgoingDamageBonusTurns || 0) <= 0) {
+      setCd("burning_rampage", 4);
+      foe.combat.outgoingDamageBonusPct = Math.max(foe.combat.outgoingDamageBonusPct || 0, 10);
+      foe.combat.outgoingAccuracyBonusPct = Math.max(foe.combat.outgoingAccuracyBonusPct || 0, 6);
+      foe.combat.outgoingDamageBonusTurns = Math.max(foe.combat.outgoingDamageBonusTurns || 0, 2);
+      foe.combat.outgoingAccuracyBonusTurns = Math.max(foe.combat.outgoingAccuracyBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} enters Burning Rampage.`);
+      return true;
+    }
+    if (ready("ashmaw_crush")) {
+      setCd("ashmaw_crush", 2);
+      const hit = Math.max(1, Math.floor(strv * 1.1 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Ashmaw Crush slams you", { partyUid });
+      if (Math.random() < 0.4) applyPartyMemberIncomingDamageUp(st, getPartyMemberByUid(st, partyUid), 8, 2);
+      return true;
+    }
+    if (ready("slagquake_slam")) {
+      setCd("slagquake_slam", 3);
+      const hit = Math.max(1, Math.floor(strv * 0.7 * outMult));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Slagquake Slam shakes", partyUid, 1, 1);
+      if (Math.random() < 0.35) applyPartyMemberCripple(st, getPartyMemberByUid(st, partyUid), 1);
+      return true;
+    }
+    if (ready("jawbreaker_impact")) {
+      setCd("jawbreaker_impact", 5);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.95 * outMult)), foe.name, "Jawbreaker Impact crushes you", { partyUid });
+      tryPartyMemberStun(st, getPartyMemberByUid(st, partyUid), 0.18);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.6 * outMult)), foe.name, "Slag Fist strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "the_riftforge_tyrant") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    const magicBonus = 1 + (foe.combat.outgoingMagicBonusPct || 0) / 100;
+    if (hpFrac <= 0.7 && !foe.combat.riftforgePhase2) {
+      foe.combat.riftforgePhase2 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 8;
+      foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
+      appendFightLog(`${foe.name} enters The Forge Opens.`);
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) summonDungeonReinforcement(st, "Ember Scuttler");
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) summonDungeonReinforcement(st, "Ash Lizard");
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.riftforgePhase3) {
+      foe.combat.riftforgePhase3 = true;
+      foe.combat.outgoingAccuracyBonusPct = (foe.combat.outgoingAccuracyBonusPct || 0) + 8;
+      foe.combat.outgoingMagicBonusPct = (foe.combat.outgoingMagicBonusPct || 0) + 10;
+      appendFightLog(`${foe.name} enters Hatred Unbound—Heat Surge quickens.`);
+      return true;
+    }
+    if (ready("tyrant_blackguard") && hpFrac < 0.8 && (foe.combat.mitigationTurns || 0) <= 0) {
+      setCd("tyrant_blackguard", 4);
+      setFoeMitigation(foe, 2, 0.85);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Tyrant Blackguard.`);
+      return true;
+    }
+    if (foe.combat.riftforgePhase3 && ready("worldhate_judgment")) {
+      setCd("worldhate_judgment", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * outMult * dmgBonus * magicBonus * accBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Worldhate Judgment blinds the party", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) tryPartyMemberStun(st, m, 0.18);
+      return true;
+    }
+    if (foe.combat.riftforgePhase2 && ready("riftforge_eruption")) {
+      setCd("riftforge_eruption", 5);
+      const hit = Math.max(1, Math.floor(intv * 0.6 * outMult * dmgBonus * magicBonus));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Riftforge Eruption bursts", partyUid, 2, 1);
+      if (Math.random() < 0.35) applyPartyMemberIncomingDamageUp(st, member, 8, 2);
+      return true;
+    }
+    if (ready("forgefire_decree") && getLivingPartyMembers(st).length >= 3) {
+      setCd("forgefire_decree", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.45 * outMult * dmgBonus * magicBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Forgefire Decree erupts under the party", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        if (Math.random() < 0.45) applyBurnToPlayer(st, Math.max(1, Math.floor(hit * 0.1)), 2);
+        if (Math.random() < 0.35) applyPartyMemberBlind(st, m, 6, 1);
+      }
+      return true;
+    }
+    if (ready("chain_of_hatred")) {
+      setCd("chain_of_hatred", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.75 * outMult * dmgBonus)), foe.name, "Chain of Hatred lashes you", { partyUid });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    if (ready("riftblade_cleave")) {
+      setCd("riftblade_cleave", 2);
+      const mult = foe.combat.riftforgePhase3 ? 0.8 : 1.05;
+      const hit = Math.max(1, Math.floor(strv * mult * outMult * dmgBonus * accBonus));
+      if (foe.combat.riftforgePhase3) {
+        dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Riftblade Cleave burns", partyUid, 1, 1);
+      } else {
+        dealRawDamageToPlayer(st, hit, foe.name, "Riftblade Cleave burns you", { partyUid });
+      }
+      if (Math.random() < 0.4) applyBurnToPlayer(st, Math.max(1, Math.floor(hit * 0.1)), 2);
+      return true;
+    }
+    const basicMult = foe.combat.riftforgePhase3 ? 0.55 : 0.65;
+    const basicHit = Math.max(1, Math.floor(strv * basicMult * outMult * dmgBonus * accBonus));
+    if (foe.combat.riftforgePhase3) {
+      dealRawDamageToPlayerAdjacent(st, basicHit, foe.name, "Tyrant Strike cleaves", partyUid, 1, 1);
+    } else {
+      dealRawDamageToPlayer(st, basicHit, foe.name, "Tyrant Strike hits you", { partyUid });
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -12067,11 +12351,22 @@ function getHeartbloomAncientPhaseTransitionLogMessage(stemIndex) {
   return byStem[ix] || "The Heartbloom Ancient's domain shifts into a new phase.";
 }
 
+function getRiftforgeTyrantPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "The forge burns steadily—deep red light and slow-moving slag.",
+    2: "The forge-heart splits wider—molten channels brighten and sparks pour like fiery rain.",
+    3: "The forge becomes a furnace storm—hatred unbound scorches the Tyrant Forge."
+  };
+  return byStem[ix] || "The Riftforge Tyrant's domain shifts into a new phase.";
+}
+
 function getBossPhaseTransitionLogMessage(dungeonId, stemIndex) {
   if (dungeonId === "stonevein_sanctum") return getColossusPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "frostroot_nursery") return getSleepingChildPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "rustfallen_bastion") return getLastWarmasterPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "verdant_deep") return getHeartbloomAncientPhaseTransitionLogMessage(stemIndex);
+  if (dungeonId === "infernal_riftforge") return getRiftforgeTyrantPhaseTransitionLogMessage(stemIndex);
   return getLeviathanPhaseTransitionLogMessage(stemIndex);
 }
 
@@ -12089,7 +12384,9 @@ function shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st) {
   const warmaster = st.foes && st.foes.find((f) => f && f.name === "The Last Warmaster" && f.hp > 0);
   if (warmaster) return true;
   const heartbloom = st.foes && st.foes.find((f) => f && f.name === "The Heartbloom Ancient" && f.hp > 0);
-  return !!heartbloom;
+  if (heartbloom) return true;
+  const tyrant = st.foes && st.foes.find((f) => f && f.name === "The Riftforge Tyrant" && f.hp > 0);
+  return !!tyrant;
 }
 
 function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
@@ -12699,7 +12996,8 @@ function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
     { name: "The Held Colossus", thresholds: [0.7, 0.35] },
     { name: "The Sleeping Child of Winter", thresholds: [0.7, 0.35] },
     { name: "The Last Warmaster", thresholds: [0.7, 0.35] },
-    { name: "The Heartbloom Ancient", thresholds: [0.7, 0.35] }
+    { name: "The Heartbloom Ancient", thresholds: [0.7, 0.35] },
+    { name: "The Riftforge Tyrant", thresholds: [0.7, 0.35] }
   ];
   for (const rule of bossPhaseRules) {
     const boss = co.foes && co.foes.find((f) => f && f.name === rule.name && f.hp > 0);
@@ -13461,6 +13759,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "kael_ashbrand_epilogue") {
+    const irDef = getDungeonDef("infernal_riftforge");
+    const ex =
+      irDef && irDef.entrance && typeof irDef.entrance.x === "number" ? Math.floor(irDef.entrance.x) : 43;
+    const ey =
+      irDef && irDef.entrance && typeof irDef.entrance.y === "number" ? Math.floor(irDef.entrance.y) : 76;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(48),
+        topPct: clampScenePct(62),
+        scalePct: clampSceneScalePct(72)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -13653,6 +13965,19 @@ function buildNpcLayoutExportByCoordinate() {
         : null;
     if (vdEnt && x === vdEnt.x && y === vdEnt.y) {
       const epId = "nali_rootwatcher_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 48 && epPos.topPct === 62 && epPos.scalePct === 72;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const irDef = getDungeonDef("infernal_riftforge");
+    const irEnt =
+      irDef && irDef.entrance && typeof irDef.entrance.x === "number" && typeof irDef.entrance.y === "number"
+        ? { x: Math.floor(irDef.entrance.x), y: Math.floor(irDef.entrance.y) }
+        : null;
+    if (irEnt && x === irEnt.x && y === irEnt.y) {
+      const epId = "kael_ashbrand_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 48 && epPos.topPct === 62 && epPos.scalePct === 72;
       if (!epDefault) {
@@ -15200,11 +15525,6 @@ function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, compani
     if (typeof slotIndex === "number") companionBySlot[slotIndex] = [];
   });
 
-  const pGear = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * mult);
-  if (Math.random() < pGear) {
-    const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
-    if (pickedBase) hero.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
-  }
   const allMats = Array.isArray(table.materials) ? table.materials : [];
   const passMaterials = [];
   const perKillMaterials = [];
@@ -15233,11 +15553,6 @@ function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, compani
     if (!comp || !comp.enabled || typeof slotIndex !== "number") return;
     const bucket = companionBySlot[slotIndex] || (companionBySlot[slotIndex] = []);
     const companionMult = mult * COMPANION_LOOT_CHANCE_MULT;
-    const companionGearChance = Math.min(0.999999, getBaseGearDropChanceForMonsterLevel(ml) * companionMult);
-    if (Math.random() < companionGearChance) {
-      const pickedBase = rollWeightedGearFromMonsterTable(table.gear, ml);
-      if (pickedBase) bucket.push(makeRarityItemInstanceName(pickedBase, rollLootGearRarityTier()));
-    }
     const companionPasses = rollMaterialPassCount();
     for (let p = 0; p < companionPasses; p++) {
       passMaterials.forEach((mat) => {
@@ -17858,6 +18173,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
       if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (dmg > 0) tryProcSilverbackPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+      if (dmg > 0) tryProcAshmawPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
       }
@@ -18415,6 +18731,34 @@ function openMerritRootsnifferKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("rootwarren");
 }
 
+function openKaelAshbrandEntranceDialog() {
+  const def = getDungeonDef("infernal_riftforge");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Riftforge Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Kael Ashbrand</p>
+      <p class="npc-dialog-body">The Riftforge still burns below. Not with fire. With hatred. If you carry the Riftforge Key, I can open the slag gate. Step in only if you are ready to be judged by flame.</p>
+      <p class="npc-dialog-actions-label">Action options</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="infernal_riftforge">Use Riftforge Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="infernal_riftforge">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Kael Ashbrand</p>
+    <p class="npc-dialog-body">No key, no forge. The gate does not open for empty hands. Bring me a Riftforge Key, and do not let the ash beasts smell fear on you.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="infernal_riftforge">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
 function openNaliRootwatcherEntranceDialog() {
   const def = getDungeonDef("verdant_deep");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Verdant Deep Key";
@@ -18610,6 +18954,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openNaliRootwatcherEntranceDialog();
     return;
   }
+  if (id === "infernal_riftforge") {
+    openKaelAshbrandEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -18640,7 +18988,9 @@ function openDungeonKeyAcceptedDialog(dungeonId) {
             ? "Captain Ilyra turns the rusted key. The gate exhales ash and old marching echoes."
             : id === "verdant_deep"
               ? "Nali parts the vine seal. Warm sap breath rolls up from the Verdant Deep."
-              : "The key turns by itself. Thunder exhales from the gap ahead.";
+              : id === "infernal_riftforge"
+                ? "Kael turns the Riftforge Key. The slag gate exhales heat and old hammering echoes."
+                : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -18827,6 +19177,20 @@ function openDungeonEpilogueDialog(dungeonId) {
     <div class="npc-dialog-actions">
       <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Take me out</button>
       <button type="button" class="btn-secondary" data-dungeon-stay="1">I will stay longer</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  if (id === "infernal_riftforge") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Kael Ashbrand</p>
+    <p class="npc-dialog-body">The forge has gone quiet... for now. You broke the Tyrant's flame, but hatred leaves embers behind.</p>
+    <p class="npc-dialog-body">Come, before the mountain remembers how to scream.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Take me out</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay</button>
     </div>
   </div>`;
     showModalHtml(html, { npcBubble: true });
@@ -19033,6 +19397,35 @@ function buildDungeonEpilogueSceneHtml() {
       return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The last chamber is quiet. Nali listens as the deep roots finally still.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    if (dungeonId === "infernal_riftforge") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "kael_ashbrand");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Kael Ashbrand", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Kael Ashbrand" aria-label="Kael Ashbrand"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "kael_ashbrand_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The forge has gone quiet. Kael Ashbrand waits beside the cooling slag gate.</p>
     <div class="${actionsClass}">
       ${btn}
     </div>
@@ -21815,11 +22208,6 @@ function getAtlasMonsterLootEntries(monsterName) {
     }
     out.push({ name: n, conditional: !!conditional });
   };
-  const gear = Array.isArray(table.gear) ? table.gear : [];
-  gear.forEach((g) => {
-    if (g && typeof g.name === "string") pushName(g.name, false);
-    if (g && typeof g.item === "string") pushName(g.item, false);
-  });
   const mats = Array.isArray(table.materials) ? table.materials : [];
   mats.forEach((m) => {
     if (m && typeof m.name === "string") pushName(m.name, true);

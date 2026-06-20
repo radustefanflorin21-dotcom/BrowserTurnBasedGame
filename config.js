@@ -527,6 +527,55 @@ const GAME_CONFIG = {
       baseHp: 3600
     },
     {
+      name: "Ember Forgeling",
+      combatScript: "ember_forgeling",
+      combatRole: "controller",
+      spawnRarity: "rare",
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ember_forgeling.png",
+      possibleLevels: [48],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 6,
+      baseStats: { str: 22, dex: 34, vit: 28, int: 46 },
+      baseHp: 260
+    },
+    {
+      name: "Inferno Oracle",
+      combatScript: "inferno_oracle",
+      combatRole: "mage",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/inferno_oracle.png",
+      possibleLevels: [52],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 28, dex: 62, vit: 78, int: 146 },
+      baseHp: 1420
+    },
+    {
+      name: "Ashmaw Titan",
+      combatScript: "ashmaw_titan",
+      combatRole: "bruiser",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_titan.png",
+      possibleLevels: [53],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 124, dex: 48, vit: 96, int: 28 },
+      baseHp: 1680
+    },
+    {
+      name: "The Riftforge Tyrant",
+      combatScript: "the_riftforge_tyrant",
+      combatRole: "bruiser",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/riftforge_tyrant.png",
+      possibleLevels: [54],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 8,
+      baseStats: { str: 132, dex: 72, vit: 118, int: 118 },
+      baseHp: 5200
+    },
+    {
       name: "Dust Carver",
       combatScript: "dust_carver",
       combatRole: "assassin",
@@ -1239,6 +1288,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/verdant_deep_key.png",
       description: "A living vine key that parts the seal into the Verdant Deep.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Riftforge Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/riftforge_key.png",
+      description: "A volcanic key that opens the slag gate into the Infernal Riftforge.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -3448,6 +3505,110 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 29, VIT: 20, HP: 220, HEAL: 6, "Magic Resist": 6, "Status Resist": 5 }
     },
+    "Oracle Ember Eye Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "epic",
+      itemLevel: 51,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/oracle_ember_eye_amulet.png",
+      description: "An amulet holding a living ember eye from the Inferno Oracle.",
+      set: "",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 34, DEX: 14, "Magic Damage": 8, ACC: 7, "Magic Resist": 5, "Status Resist": 5 }
+    },
+    "Ashmaw Obsidian Vest": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest",
+      rarity: "epic",
+      itemLevel: 51,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_obsidian_vest.png",
+      description: "Obsidian chest armor shaped like the Ashmaw Titan's armored maw.",
+      set: "Ashmaw Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 36, VIT: 28, HP: 420, "Phys Resist": 8, "Phys Damage": 8 }
+    },
+    "Ashmaw Crusher Bracers": {
+      type: "armor",
+      slot: "bracelet",
+      equipCategory: "wristband",
+      rarity: "epic",
+      itemLevel: 51,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_crusher_bracers.png",
+      description: "Heavy jawbone bracers built to crush armor and shields.",
+      set: "Ashmaw Set",
+      build: "STR_DEX",
+      bonusSkills: [],
+      bonusStats: { STR: 34, DEX: 16, "Phys Damage": 9, ACC: 6, Crit: 5 }
+    },
+    "Tyrant Obsidian Warplate": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest",
+      rarity: "epic",
+      itemLevel: 52,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/tyrant_obsidian_warplate.png",
+      description: "A brutal warplate forged from Tyrant Blackplate and obsidian slabs.",
+      set: "Riftforge Tyrant Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 34, VIT: 30, INT: 18, HP: 460, "Phys Resist": 9, "Magic Resist": 6 }
+    },
+    "Crown of Worldhate": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helm",
+      rarity: "epic",
+      itemLevel: 52,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/crown_of_worldhate.png",
+      description: "A jagged crown-helm forged from rage and battlefield ruin.",
+      set: "Riftforge Tyrant Set",
+      build: "INT_STR",
+      bonusSkills: [],
+      bonusStats: { INT: 32, STR: 18, VIT: 18, "Magic Damage": 8, ACC: 6, "Status Resist": 6 }
+    },
+    "Slagmarch Greaves": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "epic",
+      itemLevel: 53,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/slagmarch_greaves.png",
+      description: "Heavy volcanic greaves with slag soles and glowing ankle cracks.",
+      set: "Riftforge Tyrant Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 26, VIT: 24, HP: 300, "Phys Resist": 6, "Magic Resist": 5, "Status Resist": 5 }
+    },
+    "Last Hatred Greatsword": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "greatsword",
+      rarity: "epic",
+      itemLevel: 53,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/last_hatred_greatsword.png",
+      description: "A broken riftblade reforged into a cursed hatred greatsword.",
+      set: "Riftforge Tyrant Set",
+      build: "STR_INT",
+      bonusSkills: [],
+      bonusStats: { STR: 38, INT: 24, VIT: 16, "Phys Damage": 10, "Magic Damage": 7, ACC: 7, Crit: 4 }
+    },
+    "Hatred Emberstone Ring": {
+      type: "armor",
+      slot: "ring",
+      equipCategory: "ring",
+      rarity: "epic",
+      itemLevel: 53,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/hatred_emberstone_ring.png",
+      description: "A ring holding a Hatred Emberstone that refuses to die.",
+      set: "",
+      build: "INT_STR",
+      bonusSkills: [],
+      bonusStats: { INT: 30, STR: 18, VIT: 16, HP: 220, "Magic Damage": 7, ACC: 6, "Status Resist": 5 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -4870,6 +5031,84 @@ const GAME_CONFIG = {
       image: "Assets/Resources/gaia_soulseed.png",
       description: "A rare Gaia soulseed from the Heartbloom Ancient."
     },
+    "Oracle Ember Eye": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/oracle_ember_eye_material.png",
+      description: "A burning ember eye shed by the Inferno Oracle."
+    },
+    "Cinderveil Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/cinderveil_thread.png",
+      description: "Ash-woven prophecy thread from the Inferno Oracle."
+    },
+    "Burning Prophecy Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/burning_prophecy_core.png",
+      description: "A prophecy core burned into volcanic glass."
+    },
+    "Oracle Flameheart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/oracle_flameheart.png",
+      description: "A rare flameheart from the Inferno Oracle."
+    },
+    "Titan Obsidian Plate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/titan_obsidian_plate.png",
+      description: "Obsidian plate torn from the Ashmaw Titan."
+    },
+    "Ashmaw Jawbone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_jawbone.png",
+      description: "A molten jawbone fragment from the Ashmaw Titan."
+    },
+    "Molten Titan Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/molten_titan_core.png",
+      description: "A molten core from the Ashmaw Titan."
+    },
+    "Ashmaw Heartplate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_heartplate.png",
+      description: "A rare heartplate from the Ashmaw Titan."
+    },
+    "Tyrant Blackplate": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/tyrant_blackplate.png",
+      description: "Black volcanic plate from the Riftforge Tyrant."
+    },
+    "Broken Riftblade": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/broken_riftblade.png",
+      description: "A shattered riftblade fragment from the Tyrant's forge."
+    },
+    "Tyrant Forge Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/tyrant_forge_core.png",
+      description: "A forge core pulsing with stored hatred."
+    },
+    "Hatred Emberstone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/hatred_emberstone.png",
+      description: "An emberstone of condensed world-hate."
+    },
+    "Worldhate Soulcore": {
+      type: "material",
+      value: 5,
+      image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/worldhate_soulcore.png",
+      description: "A rare soulcore of pure volcanic hatred."
+    },
     "Heartburrow Horn": {
       type: "material",
       value: 5,
@@ -5577,7 +5816,11 @@ const GAME_CONFIG = {
     "Verdant Sprout": ["nature", "plant"],
     "Verdant Bloomseer": ["beast", "nature"],
     "Primordial Silverback": ["beast", "nature"],
-    "The Heartbloom Ancient": ["beast", "nature", "plant"]
+    "The Heartbloom Ancient": ["beast", "nature", "plant"],
+    "Ember Forgeling": ["construct", "elemental"],
+    "Inferno Oracle": ["undead", "elemental"],
+    "Ashmaw Titan": ["beast", "elemental"],
+    "The Riftforge Tyrant": ["construct", "elemental", "undead"]
   },
 
   crafting: {
@@ -7846,6 +8089,134 @@ const GAME_CONFIG = {
               { item: "Residue", qty: 2, source: "gathering_loot" },
               { item: "Tough Hide", qty: 2, source: "gathering_loot" }
             ]
+          },
+          {
+            id: "riftforge_key",
+            resultItem: "Riftforge Key",
+            resultLevel: 48,
+            ingredients: [
+              { item: "Ash Scale", qty: 6, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 5, source: "monster_loot" },
+              { item: "Burning Fang", qty: 5, source: "monster_loot" },
+              { item: "Ember Core", qty: 4, source: "monster_loot" },
+              { item: "Magma Hide", qty: 4, source: "monster_loot" },
+              { item: "Lava Core", qty: 3, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 3, source: "monster_loot" },
+              { item: "Fire Essence", qty: 4, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "oracle_ember_eye_amulet",
+            resultItem: "Oracle Ember Eye Amulet",
+            resultLevel: 51,
+            ingredients: [
+              { item: "Oracle Ember Eye", qty: 3, source: "monster_loot" },
+              { item: "Burning Prophecy Core", qty: 2, source: "monster_loot" },
+              { item: "Oracle Flameheart", qty: 1, source: "monster_loot" },
+              { item: "Cinderveil Thread", qty: 4, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 6, source: "monster_loot" },
+              { item: "Fire Essence", qty: 5, source: "monster_loot" },
+              { item: "Flame Essence", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "ashmaw_obsidian_vest",
+            resultItem: "Ashmaw Obsidian Vest",
+            resultLevel: 51,
+            ingredients: [
+              { item: "Titan Obsidian Plate", qty: 4, source: "monster_loot" },
+              { item: "Ashmaw Jawbone", qty: 3, source: "monster_loot" },
+              { item: "Molten Titan Core", qty: 2, source: "monster_loot" },
+              { item: "Magma Hide", qty: 8, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 8, source: "monster_loot" },
+              { item: "Lava Core", qty: 5, source: "monster_loot" },
+              { item: "Endurance Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "ashmaw_crusher_bracers",
+            resultItem: "Ashmaw Crusher Bracers",
+            resultLevel: 51,
+            ingredients: [
+              { item: "Ashmaw Jawbone", qty: 4, source: "monster_loot" },
+              { item: "Titan Obsidian Plate", qty: 3, source: "monster_loot" },
+              { item: "Ashmaw Heartplate", qty: 1, source: "monster_loot" },
+              { item: "Burning Fang", qty: 8, source: "monster_loot" },
+              { item: "Ember Fragment", qty: 6, source: "monster_loot" },
+              { item: "Fire Core", qty: 2, source: "monster_loot" },
+              { item: "Assassin Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "tyrant_obsidian_warplate",
+            resultItem: "Tyrant Obsidian Warplate",
+            resultLevel: 52,
+            ingredients: [
+              { item: "Tyrant Blackplate", qty: 5, source: "monster_loot" },
+              { item: "Broken Riftblade", qty: 4, source: "monster_loot" },
+              { item: "Tyrant Forge Core", qty: 2, source: "monster_loot" },
+              { item: "Titan Obsidian Plate", qty: 3, source: "monster_loot" },
+              { item: "Magma Hide", qty: 10, source: "monster_loot" },
+              { item: "Molten Scale", qty: 8, source: "monster_loot" },
+              { item: "Fire Core", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "crown_of_worldhate",
+            resultItem: "Crown of Worldhate",
+            resultLevel: 52,
+            ingredients: [
+              { item: "Broken Riftblade", qty: 4, source: "monster_loot" },
+              { item: "Tyrant Blackplate", qty: 3, source: "monster_loot" },
+              { item: "Hatred Emberstone", qty: 1, source: "monster_loot" },
+              { item: "Oracle Ember Eye", qty: 2, source: "monster_loot" },
+              { item: "Cinderveil Thread", qty: 5, source: "monster_loot" },
+              { item: "Basilisk Eye", qty: 5, source: "monster_loot" },
+              { item: "Flame Essence", qty: 4, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "slagmarch_greaves",
+            resultItem: "Slagmarch Greaves",
+            resultLevel: 53,
+            ingredients: [
+              { item: "Tyrant Forge Core", qty: 3, source: "monster_loot" },
+              { item: "Tyrant Blackplate", qty: 3, source: "monster_loot" },
+              { item: "Broken Riftblade", qty: 3, source: "monster_loot" },
+              { item: "Heat Shell", qty: 8, source: "monster_loot" },
+              { item: "Magma Hide", qty: 8, source: "monster_loot" },
+              { item: "Burnt Hide", qty: 6, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "last_hatred_greatsword",
+            resultItem: "Last Hatred Greatsword",
+            resultLevel: 53,
+            ingredients: [
+              { item: "Worldhate Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Hatred Emberstone", qty: 2, source: "monster_loot" },
+              { item: "Tyrant Forge Core", qty: 4, source: "monster_loot" },
+              { item: "Broken Riftblade", qty: 5, source: "monster_loot" },
+              { item: "Ashmaw Jawbone", qty: 3, source: "monster_loot" },
+              { item: "Burning Fang", qty: 8, source: "monster_loot" },
+              { item: "Lava Core", qty: 4, source: "monster_loot" },
+              { item: "Fire Essence", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "hatred_emberstone_ring",
+            resultItem: "Hatred Emberstone Ring",
+            resultLevel: 53,
+            ingredients: [
+              { item: "Hatred Emberstone", qty: 2, source: "monster_loot" },
+              { item: "Worldhate Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Tyrant Forge Core", qty: 2, source: "monster_loot" },
+              { item: "Oracle Flameheart", qty: 1, source: "monster_loot" },
+              { item: "Ember Core", qty: 6, source: "monster_loot" },
+              { item: "Fire Seed", qty: 6, source: "monster_loot" },
+              { item: "Fire Essence", qty: 4, source: "monster_loot" }
+            ]
           }]
       }
     ]
@@ -7871,6 +8242,8 @@ const GAME_CONFIG = {
     Warmaster: 4,
     Silverback: 2,
     Heartbloom: 4,
+    "Ashmaw Set": 2,
+    "Riftforge Tyrant Set": 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -7964,6 +8337,14 @@ const GAME_CONFIG = {
       2: { INT: 18, VIT: 12, HP: 180, HEAL: 4 },
       3: { INT: 30, VIT: 20, HP: 340, HEAL: 7, "Magic Resist": 5 },
       4: { STA: 1, INT: 42, VIT: 30, HP: 520, HEAL: 9, "Magic Damage": 7, ACC: 6 }
+    },
+    "Ashmaw Set": {
+      2: { STR: 20, VIT: 12, HP: 240, "Phys Damage": 6, "Phys Resist": 4 }
+    },
+    "Riftforge Tyrant Set": {
+      2: { STR: 16, INT: 12, HP: 180, "Phys Damage": 4 },
+      3: { STR: 26, INT: 20, VIT: 14, HP: 340, "Phys Damage": 6, "Magic Damage": 5 },
+      4: { STA: 1, STR: 36, INT: 30, VIT: 22, HP: 520, "Phys Damage": 8, "Magic Damage": 7, ACC: 6 }
     },
     "Held Colossus": {
       2: { VIT: 16, HP: 180, "Phys Resist": 5 },
@@ -8235,7 +8616,8 @@ const GAME_CONFIG = {
       "32,70": "Assets/Biomes/The held breath/The Stonevein Sanctum/stonevein_entrance.png",
       "23,30": "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_frostroot_nursery_entrance.png",
       "45,21": "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_rustfallen_bastion_entrance.png",
-      "9,74": "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_verdant_deep_entrance.png"
+      "9,74": "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_verdant_deep_entrance.png",
+      "43,76": "Assets/Biomes/Hatred of the World/The Infernal Riftforge/entrance_riftforge_gate.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -8403,6 +8785,26 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/nali_rootwatcher.png",
             text: "Nali Rootwatcher listens to the vines.",
             dungeonEntrance: "verdant_deep"
+          }
+        ]
+      },
+      "43,76": {
+        kind: "scene",
+        title: "Hatred of the World — The Infernal Riftforge",
+        description:
+          "A brutal obsidian forge gate leaks orange heat from a vertical crack at the base of a black volcanic cliff.",
+        elements: [
+          {
+            type: "npc",
+            id: "kael_ashbrand",
+            label: "Kael Ashbrand",
+            editable: true,
+            leftPct: 48,
+            topPct: 62,
+            scalePct: 72,
+            image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/npc_kael_ashbrand.png",
+            text: "Kael Ashbrand keeps watch beside the slag-sealed gate.",
+            dungeonEntrance: "infernal_riftforge"
           }
         ]
       },
@@ -9271,6 +9673,123 @@ const GAME_CONFIG = {
                 moodId: "steady",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_heartbloom_ancient.png"
+              }
+            ]
+          }
+        ]
+      },
+      infernal_riftforge: {
+        name: "The Infernal Riftforge",
+        keyItem: "Riftforge Key",
+        entrance: { x: 43, y: 76 },
+        assetBase: "Assets/Biomes/Hatred of the World/The Infernal Riftforge",
+        heatSurge: true,
+        rooms: [
+          {
+            bg: "infernal_riftforge_room_1",
+            enemies: [
+              { name: "Ash Lizard", level: 48, moodId: "berserk" },
+              { name: "Ash Lizard", level: 48, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 48, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 48, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 49, moodId: "berserk" },
+              { name: "Magma Boar", level: 49, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "infernal_riftforge_room_2",
+            enemies: [
+              { name: "Ash Lizard", level: 49, moodId: "berserk" },
+              { name: "Ash Lizard", level: 49, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 49, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 49, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 50, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 50, moodId: "berserk" },
+              { name: "Magma Boar", level: 50, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "infernal_riftforge_room_3",
+            modifierText:
+              "Heat Surge: Every 3 rounds, one random player has a 35% chance to receive Burn for 2 turns. Burn deals 4% of max HP per turn. In Phase 3 of the boss fight, Heat Surge triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Ember Scuttler", level: 50, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 50, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 50, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 50, moodId: "berserk" },
+              { name: "Ash Lizard", level: 50, moodId: "berserk" },
+              { name: "Magma Boar", level: 51, moodId: "berserk" },
+              { name: "Lava Basilisk", level: 51, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "infernal_riftforge_room_4",
+            modifierText:
+              "Heat Surge: Every 3 rounds, one random player has a 35% chance to receive Burn for 2 turns. Burn deals 4% of max HP per turn. In Phase 3 of the boss fight, Heat Surge triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Ember Scuttler", level: 51, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 51, moodId: "berserk" },
+              { name: "Lava Basilisk", level: 51, moodId: "berserk" },
+              { name: "Lava Basilisk", level: 51, moodId: "berserk" },
+              { name: "Ash Lizard", level: 51, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 51, moodId: "berserk" },
+              { name: "Magma Boar", level: 52, moodId: "berserk" },
+              {
+                name: "Inferno Oracle",
+                level: 52,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/inferno_oracle.png"
+              }
+            ]
+          },
+          {
+            bg: "infernal_riftforge_room_5",
+            modifierText:
+              "Heat Surge: Every 3 rounds, one random player has a 35% chance to receive Burn for 2 turns. Burn deals 4% of max HP per turn. In Phase 3 of the boss fight, Heat Surge triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Magma Boar", level: 52, moodId: "berserk" },
+              { name: "Magma Boar", level: 52, moodId: "berserk" },
+              { name: "Lava Basilisk", level: 52, moodId: "berserk" },
+              { name: "Lava Basilisk", level: 52, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 52, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 52, moodId: "berserk" },
+              { name: "Ash Lizard", level: 52, moodId: "berserk" },
+              {
+                name: "Ashmaw Titan",
+                level: 53,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_titan.png"
+              }
+            ]
+          },
+          {
+            bg: "infernal_riftforge_room_6_1",
+            bgPhaseStems: [
+              "infernal_riftforge_room_6_1",
+              "infernal_riftforge_room_6_1",
+              "infernal_riftforge_room_6_2",
+              "infernal_riftforge_room_6_3"
+            ],
+            modifierText:
+              "Heat Surge: Every 3 rounds, one random player has a 35% chance to receive Burn for 2 turns. Burn deals 4% of max HP per turn. In Phase 3 of the boss fight, Heat Surge triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Ash Lizard", level: 52, moodId: "berserk" },
+              { name: "Cinder Stalker", level: 52, moodId: "berserk" },
+              { name: "Ember Scuttler", level: 52, moodId: "berserk" },
+              { name: "Magma Boar", level: 53, moodId: "berserk" },
+              { name: "Lava Basilisk", level: 53, moodId: "berserk" },
+              {
+                name: "Inferno Oracle",
+                level: 52,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/inferno_oracle.png"
+              },
+              {
+                name: "The Riftforge Tyrant",
+                level: 54,
+                moodId: "steady",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/riftforge_tyrant.png"
               }
             ]
           }

@@ -14,7 +14,7 @@ import {
   skillTargetMode,
   getSkillDef
 } from "./skills.js";
-import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit, tryProcSilverbackPhysResDownOnHit } from "./set_procs.js";
+import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit, tryProcSilverbackPhysResDownOnHit, tryProcAshmawPhysResDownOnHit } from "./set_procs.js";
 import { ensureClassState } from "./class_state.js";
 import { applyClassSkillOnHit } from "./class_skills.js";
 import {
@@ -24,7 +24,7 @@ import {
   trySecondBreath
 } from "./combat_passives.js";
 import { applyDungeonMechanicsEndOfEnemyPhase } from "./dungeon_mechanics.js";
-import { initFoeCombatRuntime, runSingleEnemyTurn } from "./enemy_ai.js";
+import { initFoeCombatRuntime, runSingleEnemyTurn, tryEmberForgelingMeltdown } from "./enemy_ai.js";
 import {
   ensureCombatStatus,
   tickEffectsAtStartOfPlayerTurn,
@@ -515,6 +515,8 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (warmasterLog) appendLog(st, warmasterLog);
       const silverbackLog = tryProcSilverbackPhysResDownOnHit(actorPlayer?.equipment, foe, rng, dmgKind);
       if (silverbackLog) appendLog(st, silverbackLog);
+      const ashmawLog = tryProcAshmawPhysResDownOnHit(actorPlayer?.equipment, foe, rng, dmgKind);
+      if (ashmawLog) appendLog(st, ashmawLog);
       if (hit.crit) {
         const dm = tryDuelistMomentumOnCrit(st, actor, rng, member);
         if (dm) appendLog(st, dm);
@@ -526,6 +528,8 @@ export function processCombatAction(session, action, actingUserId = null) {
         for (const line of onFoeKilledPassives(st, actor, member)) {
           if (line) appendLog(st, line);
         }
+        const meltdownLog = tryEmberForgelingMeltdown(st, foe, rng, appendLog, actorPlayer);
+        if (meltdownLog) appendLog(st, meltdownLog);
       }
     }
     for (const line of resolved.debuffLogs || []) {
@@ -575,6 +579,12 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (warmasterLog) appendLog(st, warmasterLog);
       const silverbackLog = tryProcSilverbackPhysResDownOnHit(actorPlayer?.equipment, foe, rng, "physical");
       if (silverbackLog) appendLog(st, silverbackLog);
+      const ashmawLog = tryProcAshmawPhysResDownOnHit(actorPlayer?.equipment, foe, rng, "physical");
+      if (ashmawLog) appendLog(st, ashmawLog);
+    }
+    if (foe.hp <= 0) {
+      const meltdownLog = tryEmberForgelingMeltdown(st, foe, rng, appendLog, actorPlayer);
+      if (meltdownLog) appendLog(st, meltdownLog);
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     markCoopHeroActedIfNeeded(member, session);
