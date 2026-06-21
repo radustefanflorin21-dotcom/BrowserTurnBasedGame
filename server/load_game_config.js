@@ -16,7 +16,15 @@ export function loadGameConfig() {
   });
   context.window = context;
   context.globalThis = context;
-  for (const file of ["config.js", "monster_drop_tables.js", "skills_catalog.js"]) {
+  for (const file of [
+    "config.js",
+    "monster_drop_tables.js",
+    "pets/pet_items.js",
+    "pets/pet_progression.js",
+    "pets/pets_catalog.js",
+    "pets/egg_drops.js",
+    "skills_catalog.js"
+  ]) {
     const code = fs.readFileSync(path.join(rootDir, file), "utf8");
     vm.runInContext(code, context, { filename: file });
   }
@@ -27,6 +35,14 @@ export function loadGameConfig() {
   global.GAME_CONFIG = cfg;
   global.SKILL_CATALOG = vm.runInContext(
     "typeof SKILL_CATALOG !== 'undefined' ? SKILL_CATALOG : null",
+    context
+  );
+  global.PET_EGG_DROPS = vm.runInContext(
+    "typeof PET_EGG_DROPS !== 'undefined' ? PET_EGG_DROPS : null",
+    context
+  );
+  global.PETS_CATALOG = vm.runInContext(
+    "typeof PETS_CATALOG !== 'undefined' ? PETS_CATALOG : null",
     context
   );
   loaded = true;

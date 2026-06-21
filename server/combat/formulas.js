@@ -19,7 +19,8 @@ const EQUIP_SLOTS = [
   "legs",
   "feet",
   "ring1",
-  "ring2"
+  "ring2",
+  "pet"
 ];
 
 function emptyEquipment() {

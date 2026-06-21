@@ -288,7 +288,7 @@ function finishVictory(st, player, rng) {
   st.phase = "ended";
   st.endOutcome = "victory";
   syncHeroHp(st);
-  const rewards = computeVictoryRewards(st.foes, st.party, player, rng);
+  const rewards = computeVictoryRewards(st.foes, st.party, player, rng, st.worldMapContext);
   const result = {
     victory: true,
     finalPlayerHp: Math.max(0, st.playerHp),

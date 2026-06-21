@@ -14,7 +14,8 @@ export const EQUIP_SLOT_IDS = [
   "legs",
   "feet",
   "ring1",
-  "ring2"
+  "ring2",
+  "pet"
 ];
 
 export function emptyEquipment() {
@@ -62,11 +63,13 @@ export function getItemEquipCategory(def) {
       "robe",
       "veil",
       "leg_armor",
-      "feet_armor"
+      "feet_armor",
+      "pet"
     ].includes(category)
   ) {
     return category;
   }
+  if (def.type === "pet") return "pet";
   if (def.type === "weapon") return "one_handed";
   if (def.type === "armor" && def.slot === "offhand") return "shield";
   return "";
@@ -89,6 +92,7 @@ export function getAllowedEquipSlotsForDef(def) {
   if (category === "veil") return ["head"];
   if (category === "leg_armor") return ["legs"];
   if (category === "feet_armor") return ["feet"];
+  if (category === "pet") return ["pet"];
   if (typeof def.slot === "string" && def.slot.trim()) return [def.slot.trim()];
   return [];
 }

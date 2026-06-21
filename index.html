@@ -43,7 +43,7 @@
     <p id="characterSelectAccount" class="character-select-account muted hidden"></p>
     <p class="character-select-lead muted">Create up to five heroes. Each account has its own roster.</p>
     <div id="characterSelectSlots" class="character-select-slots"></div>
-    <button type="button" id="characterSelectPlayBtn" class="btn-primary character-select-play" disabled>Play</button>
+    <button type="button" id="characterSelectPlayBtn" class="btn-primary character-select-play character-select-play--inactive" aria-disabled="true">Play</button>
     <button type="button" id="characterSelectLogoutBtn" class="btn-secondary character-select-logout hidden">Log out</button>
   </div>
 </div>
@@ -269,6 +269,9 @@
 
 <script src="shared/mmo_constants.js"></script>
 <script src="shared/monster_hp.js"></script>
+<script src="pets/pet_progression.js"></script>
+<script src="pets/pets_catalog.js"></script>
+<script src="pets/pet_system.js"></script>
 <script src="mmo/config.js"></script>
 <script src="mmo/storage.js"></script>
 <script src="mmo/presence_client.js"></script>
@@ -277,6 +280,8 @@
 <script src="config.js"></script>
 <script src="portrait_character_presets.js"></script>
 <script src="monster_drop_tables.js"></script>
+<script src="pets/pet_items.js"></script>
+<script src="pets/egg_drops.js"></script>
 <script src="skills_catalog.js"></script>
 <script src="game.js"></script>
 <script src="mmo/combat_client.js"></script>

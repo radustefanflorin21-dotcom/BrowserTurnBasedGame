@@ -171,6 +171,30 @@
         "offsetYPct": -32.38687352582633,
         "rotDeg": 0,
         "scalePct": 40
+      },
+      "pet": {
+        "offsetXPct": 48,
+        "offsetYPct": 32,
+        "rotDeg": 0,
+        "scalePct": 38
+      },
+      "pet_young": {
+        "offsetXPct": 37.3365,
+        "offsetYPct": -30.8386,
+        "rotDeg": 0,
+        "scalePct": 98
+      },
+      "pet_grown": {
+        "offsetXPct": 26.67291445998215,
+        "offsetYPct": -14.08176578399286,
+        "rotDeg": 0,
+        "scalePct": 164
+      },
+      "pet_mature": {
+        "offsetXPct": 28.9581,
+        "offsetYPct": -27.7918,
+        "rotDeg": 0,
+        "scalePct": 194
       }
     }
   },
@@ -182,8 +206,8 @@
       "attack": "Assets/Character/female_character.png"
     },
     "baseLayout": {
-      "offsetXPct": 21.08781710800357,
-      "offsetYPct": 3.18735,
+      "offsetXPct": 22.611182891996428,
+      "offsetYPct": 3.1873555400178515,
       "rotDeg": 0,
       "scalePct": 184
     },
@@ -337,6 +361,30 @@
         "offsetYPct": -64.88609518000595,
         "rotDeg": 17.5,
         "scalePct": 112
+      },
+      "pet": {
+        "offsetXPct": 48,
+        "offsetYPct": 32,
+        "rotDeg": 0,
+        "scalePct": 38
+      },
+      "pet_young": {
+        "offsetXPct": 37.3365,
+        "offsetYPct": -30.8386,
+        "rotDeg": 0,
+        "scalePct": 98
+      },
+      "pet_grown": {
+        "offsetXPct": 26.67291445998215,
+        "offsetYPct": -14.08176578399286,
+        "rotDeg": 0,
+        "scalePct": 164
+      },
+      "pet_mature": {
+        "offsetXPct": 28.9581,
+        "offsetYPct": -27.7918,
+        "rotDeg": 0,
+        "scalePct": 194
       }
     }
   }

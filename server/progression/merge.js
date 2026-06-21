@@ -22,7 +22,8 @@ const EQUIP_SLOT_IDS = [
   "legs",
   "feet",
   "ring1",
-  "ring2"
+  "ring2",
+  "pet"
 ];
 
 const MAX_GOLD_DRIFT = 25;

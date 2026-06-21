@@ -9,7 +9,8 @@ const EQUIP_SLOTS = [
   { id: "legs", label: "Legs", cls: "paper-slot--legs" },
   { id: "feet", label: "Boots", cls: "paper-slot--feet" },
   { id: "ring1", label: "Ring", cls: "paper-slot--ring1" },
-  { id: "ring2", label: "Ring", cls: "paper-slot--ring2" }
+  { id: "ring2", label: "Ring", cls: "paper-slot--ring2" },
+  { id: "pet", label: "Pet", cls: "paper-slot--pet" }
 ];
 
 let currentPage = "adventure";
@@ -84,6 +85,104 @@ let worldMapModalZoomInitialized = false;
 const WORLD_MAP_MODAL_FIRST_OPEN_ZOOM_MULT = 10;
 const WORLD_MAP_MODAL_ZOOM_STEP = 1.08;
 
+function ensurePlayerPetState(p) {
+  if (typeof PET_SYSTEM !== "undefined" && PET_SYSTEM && typeof PET_SYSTEM.ensurePlayerPetState === "function") {
+    PET_SYSTEM.ensurePlayerPetState(p);
+  }
+}
+
+function isPetItemDef(def) {
+  return !!(def && def.type === "pet");
+}
+
+function isPetInstanceItemName(itemName) {
+  return typeof PET_SYSTEM !== "undefined" && PET_SYSTEM && PET_SYSTEM.isPetInstanceName(itemName);
+}
+
+function getPetProgressOwner(actor) {
+  if (actor && typeof actor === "object") {
+    if (
+      inGameSession &&
+      player &&
+      actor !== player &&
+      Array.isArray(player.companions) &&
+      player.companions.includes(actor)
+    ) {
+      return player;
+    }
+    return actor;
+  }
+  return player;
+}
+
+function getPetDisplayImage(itemName, progressOwner) {
+  if (!isPetInstanceItemName(itemName)) return getItemImage(itemName);
+  if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM) return getItemImage(itemName);
+  const base = getItemBaseName(itemName);
+  const progOwner = getPetProgressOwner(progressOwner);
+  const prog =
+    progOwner && typeof PET_SYSTEM.getPetProgress === "function"
+      ? PET_SYSTEM.getPetProgress(progOwner, itemName)
+      : { level: 1 };
+  return PET_SYSTEM.getPetImage(base, prog.level);
+}
+
+function getPortraitPetStageLayoutKey(petInstance, progressOwner) {
+  if (!petInstance || typeof PET_PROGRESSION === "undefined" || !PET_PROGRESSION || typeof PET_SYSTEM === "undefined" || !PET_SYSTEM) {
+    return "pet_young";
+  }
+  const progOwner = getPetProgressOwner(progressOwner);
+  if (!progOwner) return "pet_young";
+  const { level } = PET_SYSTEM.getPetProgress(progOwner, petInstance);
+  return `pet_${PET_PROGRESSION.getVisualStage(level)}`;
+}
+
+function getEquippedPetBonusStats(equipment, progressOwner) {
+  if (!equipment || typeof equipment !== "object" || !equipment.pet) return {};
+  if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM) return {};
+  const progOwner = getPetProgressOwner(progressOwner);
+  if (!progOwner) return {};
+  const base = getItemBaseName(equipment.pet);
+  const { level } = PET_SYSTEM.getPetProgress(progOwner, equipment.pet);
+  return PET_SYSTEM.getPetBonusStats(base, level);
+}
+
+function equipmentSlotsForActor(actor, rosterTab) {
+  return EQUIP_SLOTS;
+}
+
+function normalizePetInventoryEntry(p, itemName) {
+  if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM) return itemName;
+  const def = getItemDef(itemName);
+  if (!isPetItemDef(def)) return itemName;
+  if (PET_SYSTEM.isPetInstanceName(itemName)) {
+    ensurePlayerPetState(p);
+    const { instanceId } = PET_SYSTEM.splitInstance(itemName);
+    if (instanceId && !p.petProgress[instanceId]) p.petProgress[instanceId] = { level: 1, xp: 0 };
+    return itemName;
+  }
+  ensurePlayerPetState(p);
+  const base = getItemBaseName(itemName);
+  const id = PET_SYSTEM.newInstanceId();
+  const inst = PET_SYSTEM.makePetInstanceName(base, id);
+  p.petProgress[id] = { level: 1, xp: 0 };
+  return inst;
+}
+
+function reconcilePetInventoryInstances(p) {
+  if (!p || !Array.isArray(p.inventory)) return;
+  p.inventory = p.inventory.map((entry) => (typeof entry === "string" ? normalizePetInventoryEntry(p, entry) : entry));
+  const eq = p.equipment && typeof p.equipment === "object" ? p.equipment : null;
+  if (eq && typeof eq.pet === "string" && eq.pet) eq.pet = normalizePetInventoryEntry(p, eq.pet);
+  if (Array.isArray(p.companions)) {
+    p.companions.forEach((c) => {
+      if (c && c.equipment && typeof c.equipment.pet === "string" && c.equipment.pet) {
+        c.equipment.pet = normalizePetInventoryEntry(p, c.equipment.pet);
+      }
+    });
+  }
+}
+
 function emptyEquipment() {
   return {
     head: null,
@@ -95,7 +194,8 @@ function emptyEquipment() {
     legs: null,
     feet: null,
     ring1: null,
-    ring2: null
+    ring2: null,
+    pet: null
   };
 }
 
@@ -440,9 +540,55 @@ function hydrateRosterSlot(raw) {
   }
 }
 
+function parseRosterJson(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || !Array.isArray(parsed.slots)) return null;
+    const slots = parsed.slots.slice(0, CHARACTER_SLOT_COUNT);
+    while (slots.length < CHARACTER_SLOT_COUNT) slots.push(null);
+    return {
+      version: 1,
+      slots: slots.map((entry) => hydrateRosterSlot(entry))
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rosterHasCharacters(roster) {
+  return !!(roster && Array.isArray(roster.slots) && roster.slots.some(Boolean));
+}
+
+function loadRosterJsonFromLocalStorageCandidates() {
+  const keys = [CHARACTER_ROSTER_KEY];
+  try {
+    const email =
+      typeof window !== "undefined" && window.GameStorage && typeof window.GameStorage.getAuthEmail === "function"
+        ? window.GameStorage.getAuthEmail()
+        : "";
+    if (email) keys.unshift(`${CHARACTER_ROSTER_KEY}:${email}`);
+  } catch {
+    /* ignore */
+  }
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      const roster = parseRosterJson(raw);
+      if (rosterHasCharacters(roster)) return roster;
+    } catch {
+      /* try next key */
+    }
+  }
+  return null;
+}
+
 async function migrateLegacyPlayerToRoster() {
-  if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.()) {
-    return emptyCharacterRoster();
+  const fromLocal = loadRosterJsonFromLocalStorageCandidates();
+  if (fromLocal) {
+    characterRoster = fromLocal;
+    await persistCharacterRoster();
+    return fromLocal;
   }
   const roster = emptyCharacterRoster();
   const fromPrimary = parseSavedPlayerJson(localStorage.getItem(PLAYER_SAVE_KEY));
@@ -465,7 +611,6 @@ async function loadCharacterRoster() {
       raw = await window.GameStorage.loadRosterJson();
     } catch (err) {
       console.error("Failed to load roster from server:", err);
-      if (online) return emptyCharacterRoster();
     }
   } else {
     try {
@@ -474,22 +619,8 @@ async function loadCharacterRoster() {
       /* ignore */
     }
   }
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.slots)) {
-        const slots = parsed.slots.slice(0, CHARACTER_SLOT_COUNT);
-        while (slots.length < CHARACTER_SLOT_COUNT) slots.push(null);
-        return {
-          version: 1,
-          slots: slots.map((entry) => hydrateRosterSlot(entry))
-        };
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-  if (online) return emptyCharacterRoster();
+  const parsedRoster = parseRosterJson(raw);
+  if (rosterHasCharacters(parsedRoster)) return parsedRoster;
   return migrateLegacyPlayerToRoster();
 }
 
@@ -714,20 +845,27 @@ function buildCharacterSlotPreviewHtml(actor) {
 }
 
 function buildCharacterSelectSlotHtml(slotIdx) {
-  ensureCharacterRoster();
-  const actor = characterRoster.slots[slotIdx];
-  if (!actor) {
+  try {
+    ensureCharacterRoster();
+    const actor = characterRoster.slots[slotIdx];
+    if (!actor) {
+      return `<div class="character-select-slot character-select-slot--empty">
+      <button type="button" class="character-select-add" data-character-slot-add="${slotIdx}" aria-label="Create character">+</button>
+    </div>`;
+    }
+    const selected = selectedCharacterSlotIndex === slotIdx ? " character-select-slot--selected" : "";
+    const portrait = buildCharacterSlotPreviewHtml(actor);
+    const name = typeof actor.name === "string" && actor.name.trim() ? actor.name.trim() : "Hero";
+    return `<button type="button" class="character-select-slot character-select-slot--filled${selected}" data-character-slot-select="${slotIdx}">
+    <div class="character-select-portrait-wrap"><div class="character-select-portrait">${portrait}</div></div>
+    <span class="character-select-name">${escapeHtml(name)}</span>
+  </button>`;
+  } catch (err) {
+    console.error("Character select slot render failed:", slotIdx, err);
     return `<div class="character-select-slot character-select-slot--empty">
       <button type="button" class="character-select-add" data-character-slot-add="${slotIdx}" aria-label="Create character">+</button>
     </div>`;
   }
-  const selected = selectedCharacterSlotIndex === slotIdx ? " character-select-slot--selected" : "";
-  const portrait = buildCharacterSlotPreviewHtml(actor);
-  const name = typeof actor.name === "string" && actor.name.trim() ? actor.name.trim() : "Hero";
-  return `<button type="button" class="character-select-slot character-select-slot--filled${selected}" data-character-slot-select="${slotIdx}">
-    <div class="character-select-portrait-wrap"><div class="character-select-portrait">${portrait}</div></div>
-    <span class="character-select-name">${escapeHtml(name)}</span>
-  </button>`;
 }
 
 function renderCharacterSelectScreen() {
@@ -739,12 +877,27 @@ function renderCharacterSelectScreen() {
     html += buildCharacterSelectSlotHtml(i);
   }
   slotsHost.innerHTML = html;
+  const filledSlots = characterRoster.slots
+    .map((slot, idx) => (slot ? idx : null))
+    .filter((idx) => idx != null);
+  if (selectedCharacterSlotIndex == null && filledSlots.length === 1) {
+    selectedCharacterSlotIndex = filledSlots[0];
+    renderCharacterSelectScreen();
+    return;
+  }
   const playBtn = document.getElementById("characterSelectPlayBtn");
   const canPlay =
     selectedCharacterSlotIndex != null &&
     Number.isFinite(selectedCharacterSlotIndex) &&
     !!characterRoster.slots[selectedCharacterSlotIndex];
-  if (playBtn) playBtn.disabled = !canPlay;
+  if (playBtn) {
+    playBtn.disabled = false;
+    playBtn.setAttribute(
+      "aria-disabled",
+      canPlay ? "false" : "true"
+    );
+    playBtn.classList.toggle("character-select-play--inactive", !canPlay);
+  }
   const logoutBtn = document.getElementById("characterSelectLogoutBtn");
   if (logoutBtn) {
     const online = typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.();
@@ -1411,36 +1564,63 @@ async function startGameWithSelectedCharacter() {
   waitForAllImagesToLoad().catch(() => hideLoadingOverlay());
 }
 
-function initCharacterSelectUi() {
-  const screen = document.getElementById("characterSelectScreen");
-  if (!screen || screen.dataset.bound === "1") return;
-  screen.dataset.bound = "1";
-  screen.addEventListener("click", (e) => {
-    const addBtn = e.target.closest("[data-character-slot-add]");
-    if (addBtn && addBtn.dataset.characterSlotAdd != null && addBtn.dataset.characterSlotAdd !== "") {
-      const si = parseInt(addBtn.dataset.characterSlotAdd, 10);
-      if (Number.isFinite(si) && si >= 0 && si < CHARACTER_SLOT_COUNT && !characterRoster.slots[si]) {
-        openHeroCreationModal(si);
-      }
-      return;
-    }
-    const pickBtn = e.target.closest("[data-character-slot-select]");
-    if (pickBtn && pickBtn.dataset.characterSlotSelect != null && pickBtn.dataset.characterSlotSelect !== "") {
-      const si = parseInt(pickBtn.dataset.characterSlotSelect, 10);
-      if (Number.isFinite(si) && si >= 0 && si < CHARACTER_SLOT_COUNT && characterRoster.slots[si]) {
-        selectedCharacterSlotIndex = si;
-        renderCharacterSelectScreen();
-      }
-      return;
-    }
-    if (e.target.closest("#characterSelectPlayBtn")) {
-      startGameWithSelectedCharacter();
-      return;
-    }
-    if (e.target.closest("#characterSelectLogoutBtn")) {
-      logoutToLoginScreen();
-    }
+function initEarlyModalUi() {
+  const modalEl = document.getElementById("modal");
+  if (!modalEl || modalEl.dataset.earlyUiBound === "1") return;
+  modalEl.dataset.earlyUiBound = "1";
+  modalEl.addEventListener("click", onPortalNetworkModalClick);
+  modalEl.addEventListener("submit", (ev) => {
+    const form = ev.target;
+    if (!form || !form.matches || !form.matches("form[data-char-spend-form]")) return;
+    ev.preventDefault();
+    applyCharSpendFromModal();
   });
+  modalEl.addEventListener("dblclick", onModalDblClick);
+}
+
+function onCharacterSelectScreenClick(e) {
+  const screen = document.getElementById("characterSelectScreen");
+  if (!screen || screen.classList.contains("hidden") || !screen.contains(e.target)) return;
+  ensureCharacterRoster();
+  const addBtn = e.target.closest("[data-character-slot-add]");
+  if (addBtn && addBtn.dataset.characterSlotAdd != null && addBtn.dataset.characterSlotAdd !== "") {
+    const si = parseInt(addBtn.dataset.characterSlotAdd, 10);
+    if (Number.isFinite(si) && si >= 0 && si < CHARACTER_SLOT_COUNT && !characterRoster.slots[si]) {
+      openHeroCreationModal(si);
+    }
+    return;
+  }
+  const pickBtn = e.target.closest("[data-character-slot-select]");
+  if (pickBtn && pickBtn.dataset.characterSlotSelect != null && pickBtn.dataset.characterSlotSelect !== "") {
+    const si = parseInt(pickBtn.dataset.characterSlotSelect, 10);
+    if (Number.isFinite(si) && si >= 0 && si < CHARACTER_SLOT_COUNT && characterRoster.slots[si]) {
+      selectedCharacterSlotIndex = si;
+      renderCharacterSelectScreen();
+    }
+    return;
+  }
+  if (e.target.closest("#characterSelectPlayBtn")) {
+    if (
+      selectedCharacterSlotIndex == null ||
+      !Number.isFinite(selectedCharacterSlotIndex) ||
+      !characterRoster.slots[selectedCharacterSlotIndex]
+    ) {
+      showModal("Select a character or click + to create one.");
+      return;
+    }
+    startGameWithSelectedCharacter();
+    return;
+  }
+  if (e.target.closest("#characterSelectLogoutBtn")) {
+    logoutToLoginScreen();
+  }
+}
+
+function initCharacterSelectUi() {
+  initEarlyModalUi();
+  if (document.documentElement.dataset.characterSelectBound === "1") return;
+  document.documentElement.dataset.characterSelectBound = "1";
+  document.addEventListener("click", onCharacterSelectScreenClick);
 }
 
 function logoutToLoginScreen() {
@@ -1461,6 +1641,14 @@ function logoutToLoginScreen() {
   }
 }
 
+async function ensureMinimalCharacterSelectUi() {
+  ensureCharacterRoster();
+  initCharacterSelectUi();
+  setGameSessionUiVisible(false);
+  setCharacterSelectScreenVisible(true);
+  renderCharacterSelectScreen();
+}
+
 async function initAppAtStartup() {
   characterRoster = emptyCharacterRoster();
   player = null;
@@ -1468,11 +1656,12 @@ async function initAppAtStartup() {
   activeCharacterSlotIndex = null;
   selectedCharacterSlotIndex = null;
   characterRoster = await loadCharacterRoster();
-  initUi();
-  initCharacterSelectUi();
-  setGameSessionUiVisible(false);
-  setCharacterSelectScreenVisible(true);
-  renderCharacterSelectScreen();
+  await ensureMinimalCharacterSelectUi();
+  try {
+    initUi();
+  } catch (err) {
+    console.error("UI init failed (character select still available):", err);
+  }
   hideLoadingOverlay();
 }
 
@@ -2457,6 +2646,8 @@ function migratePlayer(p) {
   if (typeof p.int !== "number") p.int = STAT_CHAR_ALLOC_FLOOR;
   if (!p.theme || !GAME_CONFIG.themes[p.theme]) p.theme = "medieval";
   if (!Array.isArray(p.inventory)) p.inventory = [];
+  ensurePlayerPetState(p);
+  reconcilePetInventoryInstances(p);
   if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
   if (typeof SKILL_CATALOG === "object" && SKILL_CATALOG) {
     const next = {};
@@ -2934,9 +3125,17 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
     maxHpPct: 0
   };
   const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
+  const progressOwner = arguments.length >= 2 ? arguments[1] : player;
   EQUIP_SLOTS.forEach((s) => {
     const n = eq[s.id];
     if (!n) return;
+    if (s.id === "pet") {
+      const petStats = getEquippedPetBonusStats(eq, progressOwner);
+      Object.entries(petStats).forEach(([k, v]) => {
+        if (typeof v === "number" && Number.isFinite(v)) addEquipmentBonusStat(out, k, v);
+      });
+      return;
+    }
     const def = getItemDef(n);
     if (!def) return;
     const scaledBonusStats = getScaledItemBonusStats(def, n);
@@ -2956,7 +3155,7 @@ function sumEquippedBonusStatsFromEquipment(equipment) {
 function totalVitFromPlayerRecord(p) {
   if (!p) return 0;
   const base = typeof p.vit === "number" && Number.isFinite(p.vit) ? p.vit : 10;
-  const gearVit = sumEquippedBonusStatsFromEquipment(p.equipment).vit;
+  const gearVit = sumEquippedBonusStatsFromEquipment(p.equipment, p).vit;
   return base + gearVit;
 }
 
@@ -2965,7 +3164,7 @@ function computeMaxHp(p) {
   const lv = typeof p.level === "number" && p.level >= 1 ? p.level : 1;
   const baseHp = getBaseHpFromLevel(lv);
   const vitPer = typeof sys.vitHpPerPoint === "number" ? sys.vitHpPerPoint : 5;
-  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
+  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment(), p);
   const gearHp = gear.hp || 0;
   const hpPct = Math.max(0, Number(gear.maxHpPct) || 0);
   const flat = baseHp + vitPer * totalVitFromPlayerRecord(p) + gearHp;
@@ -3354,10 +3553,12 @@ function getItemEquipCategory(def) {
     category === "robe" ||
     category === "veil" ||
     category === "leg_armor" ||
-    category === "feet_armor"
+    category === "feet_armor" ||
+    category === "pet"
   ) {
     return category;
   }
+  if (def.type === "pet") return "pet";
   // Backward compatibility for older item definitions.
   if (def.type === "weapon") return "one_handed";
   if (def.type === "armor" && def.slot === "offhand") return "shield";
@@ -3386,6 +3587,7 @@ function getAllowedEquipSlotsForDef(def) {
   if (category === "veil") return ["head"];
   if (category === "leg_armor") return ["legs"];
   if (category === "feet_armor") return ["feet"];
+  if (category === "pet") return ["pet"];
   if (typeof def.slot === "string" && def.slot.trim()) return [def.slot.trim()];
   return [];
 }
@@ -3475,6 +3677,11 @@ function getDuplicateEquipConflictSlot(itemName, slotId, equipmentObj) {
   return "";
 }
 
+function isCompanionEquipmentObj(equipmentObj) {
+  if (!player || !Array.isArray(player.companions) || !equipmentObj) return false;
+  return player.companions.some((c) => c && c.equipment === equipmentObj);
+}
+
 function canEquipItemInSlot(itemName, slotId, equipmentObj) {
   const def = getItemDef(itemName);
   if (!def || typeof slotId !== "string" || !slotId) return false;
@@ -3535,6 +3742,7 @@ function enforceOffhandRuleForEquipment(eq, inventory) {
 }
 
 function getItemImage(itemName) {
+  if (isPetInstanceItemName(itemName)) return getPetDisplayImage(itemName);
   const def = getItemDef(itemName);
   if (def && def.image) return def.image;
   const t = encodeURIComponent(itemName.slice(0, 16));
@@ -3743,6 +3951,8 @@ function clampPortraitLayoutRotDeg(v) {
 }
 
 function getLegacyPortraitLayoutKey(slotId) {
+  if (slotId === "pet_grown" || slotId === "pet_mature") return "pet_young";
+  if (slotId === "pet_young") return "pet";
   if (
     slotId === "weapon_one_handed_sword" ||
     slotId === "weapon_dagger" ||
@@ -4074,7 +4284,30 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
   const fixedArmLayer = `<img class="portrait-equip-layer portrait-equip-layer--offhand-fixed-arm" src="${escapeAttr(
     getOffhandFixedArmOverlayImage(owner)
   )}" alt="" draggable="false" title="Offhand fixed arm" data-portrait-slot="${escapeAttr(fixedArmLayoutKey)}" style="${escapeAttr(fixedArmStyle)}" />`;
-  const backLayers = [layerBySlot.weapon || "", layerBySlot.offhand || "", fixedArmLayer].join("");
+  let petLayerBackmost = "";
+  let petLayerAboveWeapon = "";
+  if (eq.pet && typeof getPetDisplayImage === "function") {
+    const petInst = eq.pet;
+    const petBase = getItemBaseName(petInst);
+    const petSrc = getPetDisplayImage(petInst, owner);
+    if (petSrc) {
+      const layoutKey = getPortraitPetStageLayoutKey(petInst, owner);
+      const petStage = layoutKey.replace(/^pet_/, "");
+      const petLayout = useFightLayouts
+        ? getFightPortraitEquipLayout(layoutKey, portraitGender)
+        : getPortraitEquipLayout(layoutKey, owner);
+      const petStyle = `transform: translate(${petLayout.offsetXPct}%, ${petLayout.offsetYPct}%) rotate(${petLayout.rotDeg}deg) scale(${petLayout.scalePct / 100});`;
+      const petHtml = `<img class="portrait-equip-layer portrait-equip-layer--pet portrait-equip-layer--pet-${escapeAttr(
+        petStage
+      )}" src="${escapeAttr(petSrc)}" alt="" draggable="false" title="${escapeAttr(
+        petBase
+      )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(petStyle)}" />`;
+      if (petStage === "mature") petLayerBackmost = petHtml;
+      else petLayerAboveWeapon = petHtml;
+    }
+  }
+  const weaponBackLayer = layerBySlot.weapon || "";
+  const offhandBackLayers = [layerBySlot.offhand || "", fixedArmLayer].join("");
   const rootTransformStyle = `transform: translate(${rootLayout.offsetXPct}%, ${rootLayout.offsetYPct}%) rotate(${rootLayout.rotDeg}deg) scale(${rootLayout.scalePct / 100});`;
   const backHandHtml =
     occ && occ.backHandClip
@@ -4096,7 +4329,7 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
       : "";
   return `<div class="portrait-stack"${ownerTabAttr}><div class="portrait-root-group"${rootAttr} style="${escapeAttr(
     rootTransformStyle
-  )}">${backHandHtml}${backLayers}<img src="${base}" alt="" class="portrait-img portrait-img--base"${baseStyle} />${frontLayers}</div></div>`;
+  )}">${petLayerBackmost}${backHandHtml}${weaponBackLayer}${petLayerAboveWeapon}${offhandBackLayers}<img src="${base}" alt="" class="portrait-img portrait-img--base"${baseStyle} />${frontLayers}</div></div>`;
 }
 function buildBottomHudLayeredPortraitHtml(state) {
   return buildPortraitLayeredStackHtml(
@@ -4270,19 +4503,19 @@ function totalInt() {
 }
 
 function totalStrFromActor(actor) {
-  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment(), actor);
   return Math.max(0, getActorStatBase(actor, "str") + (g.str || 0));
 }
 function totalDexFromActor(actor) {
-  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment(), actor);
   return Math.max(0, getActorStatBase(actor, "dex") + (g.dex || 0));
 }
 function totalVitFromActor(actor) {
-  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment(), actor);
   return Math.max(0, getActorStatBase(actor, "vit") + (g.vit || 0));
 }
 function totalIntFromActor(actor) {
-  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment());
+  const g = sumEquippedBonusStatsFromEquipment(actor && actor.equipment ? actor.equipment : emptyEquipment(), actor);
   return Math.max(0, getActorStatBase(actor, "int") + (g.int || 0));
 }
 
@@ -4427,7 +4660,7 @@ function resolveActorOutgoingDamageVsFoe(foe, baseSkillDamage, kind, skillName, 
   const str = totalStrFromActor(act);
   const dex = totalDexFromActor(act);
   const int = totalIntFromActor(act);
-  const gear = sumEquippedBonusStatsFromEquipment(act.equipment || emptyEquipment());
+  const gear = sumEquippedBonusStatsFromEquipment(act.equipment || emptyEquipment(), act);
   const sk = skillName ? getSkillDef(skillName) : null;
   let dmgKind = "physical";
   if (sk && sk.damageKind === "magic") dmgKind = "magic";
@@ -4698,7 +4931,7 @@ function endPlayerTurn() {
 /** Core attack before bonuses from skills that define combatMultiplier (those are applied in combat only). */
 function getActorDamageCore(actor) {
   const p = actor || player;
-  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment());
+  const gear = sumEquippedBonusStatsFromEquipment(p.equipment || emptyEquipment(), p);
   const effStr = Math.max(0, getActorStatBase(p, "str") + (gear.str || 0));
   let atk = (typeof p.baseAttack === "number" ? p.baseAttack : 10) + Math.floor(effStr / 2);
   const skillsArr = Array.isArray(p.skills) ? p.skills : [];
@@ -5371,7 +5604,7 @@ function buildCombatPartyForMob(mob) {
       comp.maxHp = computeMaxHp(comp);
       const maxHp = Math.max(1, Math.floor(comp.maxHp));
       const hp = Math.max(1, Math.min(maxHp, typeof comp.hp === "number" && Number.isFinite(comp.hp) ? comp.hp : maxHp));
-      const gear = sumEquippedBonusStatsFromEquipment(comp.equipment || emptyEquipment());
+      const gear = sumEquippedBonusStatsFromEquipment(comp.equipment || emptyEquipment(), comp);
       const effDex = Math.max(1, Math.floor((typeof comp.dex === "number" ? comp.dex : 10) + (gear.dex || 0)));
       const compMaxStamina = getActorCombatMaxStamina(comp);
       party.push({
@@ -10775,7 +11008,7 @@ function categorizeInventory() {
     }
     if (def.type === "consumable") consumables.push(name);
     else if (def.type === "resource") resources.push(name);
-    else if (isEquippableItemDef(def)) equipment.push(name);
+    else if (def.type === "pet" || isEquippableItemDef(def)) equipment.push(name);
     else resources.push(name);
   });
   return { equipment, resources, consumables };
@@ -10789,6 +11022,22 @@ function removeOneFromInventory(itemName) {
 function useConsumable(itemName) {
   const def = getItemDef(itemName);
   if (!def || def.type !== "consumable") return;
+  if (def.effect === "hatch_pet_egg") {
+    if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM || typeof PET_SYSTEM.hatchPetFromEgg !== "function") {
+      showModal("Pet system unavailable.");
+      return;
+    }
+    const result = PET_SYSTEM.hatchPetFromEgg(player, itemName);
+    if (!result.ok) {
+      if (result.message) showModal(result.message);
+      return;
+    }
+    removeOneFromInventory(itemName);
+    save();
+    render();
+    if (result.message) showModal(result.message);
+    return;
+  }
   if (def.effect === "heal") {
     const base = def.value || 0;
     const bonus = formulaVitHealingReceivedBonusPct(totalVit()) / 100;
@@ -10834,12 +11083,17 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
   }
   const i = player.inventory.indexOf(itemName);
   if (i === -1) return false;
+  let equipItemName = itemName;
+  if (isPetItemDef(def)) {
+    equipItemName = normalizePetInventoryEntry(player, itemName);
+    if (equipItemName !== itemName) player.inventory[i] = equipItemName;
+  }
   if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerEquip) {
     void (async () => {
       try {
         const body = await window.GameStorage.playerEquip({
           slotIndex: activeCharacterSlotIndex,
-          itemName,
+          itemName: equipItemName,
           preferredSlot: preferredSlot || null,
           ...resolveOnlineTargetFromActor(target)
         });
@@ -10858,14 +11112,14 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
     showModal(`Cannot equip ${getItemBaseName(itemName)} twice.`);
     return false;
   }
-  if (!canEquipItemInSlot(itemName, slot, eq)) return false;
+  if (!canEquipItemInSlot(equipItemName, slot, eq)) return false;
   const prev = eq[slot];
   let displacedOffhand = null;
   if (slot === "weapon" && isTwoHandedWeaponDef(def) && eq.offhand) {
     displacedOffhand = eq.offhand;
     eq.offhand = null;
   }
-  eq[slot] = itemName;
+  eq[slot] = equipItemName;
   target.equipment = eq;
   player.inventory.splice(i, 1);
   if (prev) player.inventory.push(prev);
@@ -16241,11 +16495,47 @@ function buildVictoryMemberRewardRows(party) {
   return rows;
 }
 
+function enrichWorldMapContextForLoot(worldMapContext) {
+  if (!worldMapContext || typeof worldMapContext !== "object") return worldMapContext;
+  const ctx = { ...worldMapContext };
+  if (typeof ctx.dungeonId === "string" && ctx.dungeonId.trim()) return ctx;
+  if (!ctx.biomeName && typeof ctx.x === "number" && typeof ctx.y === "number") {
+    const biome = getWorldBiomeDefAt(ctx.x, ctx.y);
+    if (biome && biome.name) ctx.biomeName = biome.name;
+  }
+  return ctx;
+}
+
+function getVictoryLootContextFromCombat() {
+  const st = combatState;
+  if (!st || !st.worldMapContext || typeof st.worldMapContext !== "object") return {};
+  const ctx = st.worldMapContext;
+  if (typeof ctx.dungeonId === "string" && ctx.dungeonId.trim()) {
+    return { dungeonId: ctx.dungeonId.trim() };
+  }
+  if (typeof ctx.biomeName === "string" && ctx.biomeName.trim()) {
+    return { biomeName: ctx.biomeName.trim() };
+  }
+  if (typeof ctx.x === "number" && typeof ctx.y === "number") {
+    const biome = getWorldBiomeDefAt(ctx.x, ctx.y);
+    return { biomeName: biome && biome.name ? biome.name : "" };
+  }
+  return {};
+}
+
+function rollPetEggLootForFoe(foe, def, lootContext) {
+  if (typeof PET_EGG_DROPS === "undefined" || !PET_EGG_DROPS || typeof PET_EGG_DROPS.tryRollEggDrop !== "function") {
+    return null;
+  }
+  return PET_EGG_DROPS.tryRollEggDrop(lootContext, foe, def);
+}
+
 /**
  * @param {Array<{ name: string, level?: number }>} foes Defeated encounter units (use `combatState.foes`).
  * @returns {{ gold: number, xp: number, items: string[], memberRewards: Array<{ key: string, kind: string, name: string, xp: number, gold: number, items: string[], companionSlotIndex?: number }> }}
  */
-function computeVictoryLoot(foes, party) {
+function computeVictoryLoot(foes, party, lootContext) {
+  lootContext = lootContext && typeof lootContext === "object" ? lootContext : {};
   const xpByMember = computeVictoryXpByMember(foes, party);
   /** @type {Record<string, { key: string, kind: string, name: string, level?: number, xp: number, gold: number, items: string[], companionSlotIndex?: number }>} */
   const byKey = {};
@@ -16282,6 +16572,8 @@ function computeVictoryLoot(foes, party) {
         if (byKey[key]) byKey[key].items.push(...(companionBySlot[slot] || []));
       });
     }
+    const eggDrop = rollPetEggLootForFoe(foe, def, lootContext);
+    if (eggDrop && byKey.hero) byKey.hero.items.push(eggDrop);
   });
 
   const memberRewards = xpByMember.map((row) => byKey[row.key] || row).filter(Boolean);
@@ -17796,7 +18088,7 @@ function finishCombatVictory() {
   st.endOutcome = "victory";
   syncCombatPartyHeroMirror(st);
   syncCompanionHpFromCombatParty(st);
-  const { gold, xp, items, memberRewards } = computeVictoryLoot(st.foes, st.party);
+  const { gold, xp, items, memberRewards } = computeVictoryLoot(st.foes, st.party, getVictoryLootContextFromCombat());
   const result = {
     victory: true,
     finalPlayerHp: Math.max(0, st.playerHp),
@@ -20044,6 +20336,7 @@ function buildDungeonEpilogueSceneHtml() {
 }
 
 async function beginTurnCombat(region, mob, worldMapContext, coopSessionId) {
+  worldMapContext = enrichWorldMapContextForLoot(worldMapContext);
   if (
     typeof window !== "undefined" &&
     window.GameStorage?.isOnlineMode?.() &&
@@ -20432,6 +20725,10 @@ function buildInventoryGridHtml(names, tabKind) {
       cells.push(
         `<div class="inv-cell inv-use" data-item="${esc}" data-item-name="${esc}" data-use-consumable="${esc}">${img}${qtyBadge}</div>`
       );
+    } else if (tabKind === "resources") {
+      cells.push(
+        `<div class="inv-cell inv-cell--resource" draggable="true" data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`
+      );
     } else {
       cells.push(`<div class="inv-cell" data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`);
     }
@@ -20671,6 +20968,12 @@ function showTooltipHtml(html, clientX, clientY, opts) {
 }
 
 function showItemTooltip(itemName, clientX, clientY, sourceEl, opts) {
+  if (isPetInstanceItemName(itemName) && typeof PET_SYSTEM !== "undefined" && PET_SYSTEM) {
+    showTooltipHtml(PET_SYSTEM.buildPetTooltipHtml(itemName, player), clientX, clientY, {
+      tooltipClass: "item-tooltip--inventory-item item-tooltip--pet"
+    });
+    return;
+  }
   let imageSizePx = 64;
   if (sourceEl instanceof HTMLElement) {
     if (sourceEl.closest(".crafting-result-name, .crafting-ingredient-chip, .atlas-loot-chip, .atlas-finding-resource")) {
@@ -21750,6 +22053,52 @@ function statBarRowLevelEditable(value, max, statTipKey) {
   </div>`;
 }
 
+function buildPetLevelEditHtml(petInstanceName, progressOwner) {
+  if (
+    !petInstanceName ||
+    typeof PET_SYSTEM === "undefined" ||
+    !PET_SYSTEM ||
+    typeof PET_PROGRESSION === "undefined" ||
+    !PET_PROGRESSION
+  ) {
+    return "";
+  }
+  const progOwner = getPetProgressOwner(progressOwner);
+  if (!progOwner) return "";
+  const prog = PET_SYSTEM.getPetProgress(progOwner, petInstanceName);
+  const stage = PET_PROGRESSION.getVisualStageLabel(PET_PROGRESSION.getVisualStage(prog.level));
+  const maxPetLv = PET_PROGRESSION.PET_MAX_LEVEL;
+  return `<div class="pet-edit-level">
+    <input type="number" class="portrait-edit-select pet-edit-level-input" data-pet-level-input min="1" max="${maxPetLv}" step="1" value="${Math.max(
+    1,
+    Math.floor(prog.level || 1)
+  )}" aria-label="Pet level" />
+    <button type="button" class="btn-secondary portrait-edit-btn" data-pet-level-apply>Set</button>
+    <span class="pet-edit-stage muted">${escapeHtml(stage)}</span>
+  </div>`;
+}
+
+function applyEditedPetLevel(actor, level) {
+  if (!actor || typeof actor !== "object") return false;
+  const petInst = actor.equipment && actor.equipment.pet;
+  if (
+    !petInst ||
+    typeof PET_SYSTEM === "undefined" ||
+    !PET_SYSTEM ||
+    typeof PET_PROGRESSION === "undefined" ||
+    !PET_PROGRESSION
+  ) {
+    return false;
+  }
+  const nextLevel = PET_PROGRESSION.clampLevel(level);
+  const progOwner = getPetProgressOwner(actor);
+  if (!progOwner) return false;
+  PET_SYSTEM.setPetProgressFromLevelXp(progOwner, petInst, nextLevel, 0);
+  actor.maxHp = computeMaxHp(actor);
+  actor.hp = Math.min(actor.maxHp, Math.max(1, typeof actor.hp === "number" ? actor.hp : actor.maxHp));
+  return true;
+}
+
 function statBarRowWithSpend(label, value, max, variant, statTipKey, statKey, gearBonus, charPointsPool) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const pts = typeof charPointsPool === "number" ? charPointsPool : player.charPoints;
@@ -22009,24 +22358,29 @@ function buildOverviewHtml() {
   else invBlock = buildInventoryGridHtml(cat.consumables, "consumables");
 
   const eqBag = actor.equipment || emptyEquipment();
-  const slotHtml = EQUIP_SLOTS.map((s) => {
+  const slotsForPanel = equipmentSlotsForActor(actor, rosterTab);
+  const slotHtml = slotsForPanel.map((s) => {
     const name = eqBag[s.id];
     const offhandBlocked = s.id === "offhand" && isOffhandBlockedByEquipment(eqBag);
     const drag = name ? 'draggable="true"' : "";
     const itemAttr = name ? ` data-item-name="${escapeAttr(name)}"` : "";
     const blockedCls = offhandBlocked ? " slot-drop--blocked" : "";
+    const petFeedCls = s.id === "pet" && name ? " slot-drop--pet-feed-target" : "";
     let inner = "";
     if (name) {
-      const src = escapeAttr(getItemImage(name));
+      const src = escapeAttr(s.id === "pet" ? getPetDisplayImage(name, actor) : getItemImage(name));
       inner = `<img class="slot-item-img" src="${src}" alt="" draggable="false" />`;
     } else if (offhandBlocked) {
       inner = `<span class="slot-placeholder slot-placeholder--blocked">Blocked</span>`;
     } else {
       inner = `<span class="slot-placeholder">—</span>`;
     }
+    const petEditRow =
+      s.id === "pet" && player.editMode && name ? buildPetLevelEditHtml(name, actor) : "";
     return `<div class="paper-slot ${s.cls}" data-slot="${s.id}">
       <span class="slot-label">${s.label}</span>
-      <div class="slot-drop${blockedCls}" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
+      <div class="slot-drop${blockedCls}${petFeedCls}" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
+      ${petEditRow}
     </div>`;
   }).join("");
 
@@ -22064,7 +22418,7 @@ function buildOverviewHtml() {
   const editInvOptions = buildEditInventoryOptionsHtml(getEditableInventoryItemNames());
   const portraitEditControlsHtml = player.editMode
     ? `<div class="portrait-edit-tools portrait-edit-tools-overlay">${buildPortraitGenderSwitchHtml()}<button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
-      <p class="portrait-edit-hint">Edit mode: Male/Female switches layout preset. Equip = left move, right rotate, Shift+drag/wheel resize. Export JSON → paste into portrait_character_presets.js for that gender.</p>`
+      <p class="portrait-edit-hint">Edit mode: Male/Female switches layout preset. Equip = left move, right rotate, Shift+drag/wheel resize. Pet slot: set level to preview Young/Grown/Mature stages. Export JSON → paste into portrait_character_presets.js for that gender.</p>`
     : "";
   const resetCharacterBtnHtml = player.editMode && actor === player
     ? `<button type="button" class="btn-reset-char" data-reset-character>Reset character</button>`
@@ -22103,7 +22457,7 @@ function buildOverviewHtml() {
     <span class="char-points-num">${actor.charPoints}</span>
   </div>`;
 
-  const equipStatBonuses = sumEquippedBonusStatsFromEquipment(actor.equipment || emptyEquipment());
+  const equipStatBonuses = sumEquippedBonusStatsFromEquipment(actor.equipment || emptyEquipment(), actor);
   const aStr = totalStrFromActor(actor);
   const aDex = totalDexFromActor(actor);
   const aVit = totalVitFromActor(actor);
@@ -22745,12 +23099,22 @@ function getAtlasRegions() {
     const levels = Object.values(monsterLevels);
     const minLv = levels.length ? Math.min(...levels.map((l) => l.min)) : 1;
     const maxLv = levels.length ? Math.max(...levels.map((l) => l.max)) : minLv;
+    const monsterBoss = {};
+    dg.rooms.forEach((room) => {
+      const enemies = room && Array.isArray(room.enemies) ? room.enemies : [];
+      enemies.forEach((entry) => {
+        const name = entry && typeof entry.name === "string" ? entry.name.trim() : "";
+        if (name && entry && entry.isBoss === true) monsterBoss[name] = true;
+      });
+    });
     regions.push({
       name: typeof dg.name === "string" && dg.name.trim() ? dg.name.trim() : id,
+      dungeonId: id,
       levelMin: minLv,
       levelMax: maxLv,
       monsters,
       monsterLevels,
+      monsterBoss,
       atlasKind: "dungeon"
     });
   });
@@ -22764,12 +23128,36 @@ function getAtlasMonsterImage(def) {
   return "Assets/Monsters/monster_placeholder.png";
 }
 
-function getAtlasMonsterLootEntries(monsterName) {
+function resolveAtlasEggItemForRegion(region) {
+  if (!region || typeof PET_EGG_DROPS === "undefined" || !PET_EGG_DROPS) return null;
+  let element = null;
+  if (region.atlasKind === "dungeon") {
+    const dungeons =
+      GAME_CONFIG.worldMap && GAME_CONFIG.worldMap.dungeons && typeof GAME_CONFIG.worldMap.dungeons === "object"
+        ? GAME_CONFIG.worldMap.dungeons
+        : {};
+    const dungeonId =
+      typeof region.dungeonId === "string" && region.dungeonId.trim()
+        ? region.dungeonId.trim()
+        : Object.keys(dungeons).find((k) => {
+            const dg = dungeons[k];
+            return dg && typeof dg.name === "string" && dg.name.trim() === region.name;
+          });
+    if (dungeonId && PET_EGG_DROPS.DUNGEON_ELEMENT[dungeonId]) {
+      element = PET_EGG_DROPS.DUNGEON_ELEMENT[dungeonId];
+    }
+  } else if (region.name && PET_EGG_DROPS.BIOME_ELEMENT[region.name]) {
+    element = PET_EGG_DROPS.BIOME_ELEMENT[region.name];
+  }
+  if (!element || !PET_EGG_DROPS.EGG_BY_ELEMENT[element]) return null;
+  return PET_EGG_DROPS.EGG_BY_ELEMENT[element];
+}
+
+function getAtlasMonsterLootEntries(monsterName, region) {
   const def = getEnemyDefByName(monsterName);
   const table = getMonsterLootDropTable(def);
-  if (!table) return [];
   const out = [];
-  const pushName = (raw, conditional) => {
+  const pushName = (raw, conditional, eggDrop) => {
     const n = typeof raw === "string" ? raw.trim() : "";
     if (!n || !getItemDef(n)) return;
     const existing = out.find((x) => x && x.name === n);
@@ -22777,12 +23165,21 @@ function getAtlasMonsterLootEntries(monsterName) {
       if (conditional) existing.conditional = true;
       return;
     }
-    out.push({ name: n, conditional: !!conditional });
+    out.push({ name: n, conditional: !!conditional, eggDrop: !!eggDrop });
   };
-  const mats = Array.isArray(table.materials) ? table.materials : [];
-  mats.forEach((m) => {
-    if (m && typeof m.name === "string") pushName(m.name, true);
-  });
+  if (table) {
+    const mats = Array.isArray(table.materials) ? table.materials : [];
+    mats.forEach((m) => {
+      if (m && typeof m.name === "string") pushName(m.name, true, false);
+    });
+  }
+  const eggName = resolveAtlasEggItemForRegion(region);
+  if (eggName && typeof PET_EGG_DROPS !== "undefined" && PET_EGG_DROPS) {
+    const isBoss = !!(def && def.isBoss) || !!(region && region.monsterBoss && region.monsterBoss[monsterName]);
+    const foe = { name: monsterName, isBoss };
+    const dropPct = PET_EGG_DROPS.getEggDropChancePct(foe, def);
+    if (dropPct > 0) pushName(eggName, false, true);
+  }
   return out;
 }
 
@@ -22792,7 +23189,7 @@ function buildAtlasSearchFindings(regions, q) {
   const findings = [];
   regions.forEach((region) => {
     region.monsters.forEach((monsterName) => {
-      const lootEntries = getAtlasMonsterLootEntries(monsterName);
+      const lootEntries = getAtlasMonsterLootEntries(monsterName, region);
       const monsterMatch = monsterName.toLowerCase().includes(query);
       const resourceMatches = lootEntries.filter((e) => e.name.toLowerCase().includes(query));
       if (!monsterMatch && !resourceMatches.length) return;
@@ -22883,16 +23280,16 @@ function buildAtlasPanelHtml() {
     .join("");
 
   const def = atlasSelectedMonsterName ? getEnemyDefByName(atlasSelectedMonsterName) : null;
-  const lootEntries = atlasSelectedMonsterName ? getAtlasMonsterLootEntries(atlasSelectedMonsterName) : [];
+  const lootEntries = atlasSelectedMonsterName ? getAtlasMonsterLootEntries(atlasSelectedMonsterName, selectedRegion) : [];
   const lootHtml = lootEntries.length
     ? `<div class="atlas-loot-list">${lootEntries
         .map(
           (entry) =>
-            `<span class="atlas-loot-chip" data-item-name="${escapeAttr(entry.name)}" data-atlas-loot-conditional="${
+            `<span class="atlas-loot-chip${entry.eggDrop ? " atlas-loot-chip--egg" : ""}" data-item-name="${escapeAttr(entry.name)}" data-atlas-loot-conditional="${
               entry.conditional ? "1" : "0"
             }"><img class="atlas-loot-img" data-item-name="${escapeAttr(entry.name)}" data-atlas-loot-conditional="${
               entry.conditional ? "1" : "0"
-            }" src="${escapeAttr(getItemImage(entry.name))}" alt="" draggable="false" /></span>`
+            }" src="${escapeAttr(getItemImage(entry.name))}" alt="" draggable="false" title="${escapeAttr(entry.name)}" /></span>`
         )
         .join("")}</div>`
     : '<p class="crafting-empty">No configured loot items.</p>';
@@ -24734,8 +25131,14 @@ function onDragStart(e) {
   const cell = e.target.closest(".inv-cell[draggable=\"true\"]");
   const slot = e.target.closest(".slot-drop[draggable=\"true\"]");
   if (cell && cell.dataset.item) {
-    dragPayload = { kind: "inventory", item: cell.dataset.item };
-    e.dataTransfer.effectAllowed = "move";
+    const def = getItemDef(cell.dataset.item);
+    dragPayload = {
+      kind: "inventory",
+      item: cell.dataset.item,
+      isResource: !!(def && def.type === "resource")
+    };
+    e.dataTransfer.setData("text/plain", cell.dataset.item);
+    e.dataTransfer.effectAllowed = dragPayload.isResource ? "copy" : "move";
   } else if (slot) {
     const slotId = slot.dataset.slot;
     const overview = slot.closest("[data-overview-roster-tab]");
@@ -24744,6 +25147,7 @@ function onDragStart(e) {
     const name = eq[slotId];
     if (name) {
       dragPayload = { kind: "equipped", slot: slotId, item: name, equipContextEl: overview || undefined };
+      e.dataTransfer.setData("text/plain", name);
       e.dataTransfer.effectAllowed = "move";
     }
   } else {
@@ -24841,6 +25245,33 @@ function onDrop(e) {
     const slotId = slotEl.dataset.slot;
     const overviewCtx = slotEl.closest("[data-overview-roster-tab]");
     const target = overviewCtx ? resolveEquipTargetActorFromEl(overviewCtx) : player;
+    const resourceDef = getItemDef(dragPayload.item);
+    const equippedPet = target && target.equipment ? target.equipment.pet : null;
+    if (
+      slotId === "pet" &&
+      dragPayload.isResource &&
+      resourceDef &&
+      resourceDef.type === "resource" &&
+      equippedPet &&
+      typeof PET_SYSTEM !== "undefined" &&
+      PET_SYSTEM
+    ) {
+      const result = PET_SYSTEM.addFeedResource(player, equippedPet, dragPayload.item, (n) => {
+        const idx = player.inventory.indexOf(n);
+        if (idx === -1) return false;
+        player.inventory.splice(idx, 1);
+        return true;
+      });
+      if (result.message) showModal(result.message);
+      if (result.ok) {
+        target.maxHp = computeMaxHp(target);
+        target.hp = Math.min(target.maxHp, Math.max(1, typeof target.hp === "number" ? target.hp : target.maxHp));
+        save();
+        render();
+      }
+      dragPayload = null;
+      return;
+    }
     if (slotId && canEquipItemInSlot(dragPayload.item, slotId, target.equipment || emptyEquipment())) {
       equipFromInventory(dragPayload.item, slotId, overviewCtx || undefined);
     }
@@ -24869,7 +25300,7 @@ function onDragEnd(e) {
       applySkillBarClearSlot(actor, fi);
       refreshSkillBarUiAfterChange();
     }
-  } else if (dragPayload.kind === "inventory" && dragPayload.item) {
+  } else if (dragPayload.kind === "inventory" && dragPayload.item && !dragPayload.isResource) {
     promptDiscardDraggedInventoryItem(dragPayload.item);
   }
   dragPayload = null;
@@ -24877,6 +25308,15 @@ function onDragEnd(e) {
 
 function onContentDblClick(e) {
   const invCell = e.target.closest(".inv-cell[data-item-name]");
+  if (invCell && inventoryTab === "consumables") {
+    const name = invCell.getAttribute("data-item-name");
+    const def = name ? getItemDef(name) : null;
+    if (def && def.type === "consumable" && def.effect === "hatch_pet_egg") {
+      hideItemTooltip();
+      useConsumable(name);
+      return;
+    }
+  }
   if (invCell && inventoryTab === "equipment") {
     const name = invCell.getAttribute("data-item-name");
     const overview = invCell.closest("[data-overview-roster-tab]");
@@ -25002,7 +25442,12 @@ function onContentClick(e) {
     const sel = host ? host.querySelector("[data-portrait-add-item-select]") : null;
     const name = sel && typeof sel.value === "string" ? sel.value : "";
     if (name && getItemDef(name)) {
-      player.inventory.push(name);
+      const def = getItemDef(name);
+      if (isPetItemDef(def) && typeof PET_SYSTEM !== "undefined" && PET_SYSTEM) {
+        PET_SYSTEM.grantPetToInventory(player, getItemBaseName(name));
+      } else {
+        player.inventory.push(name);
+      }
       save();
       render();
     }
@@ -25022,6 +25467,20 @@ function onContentClick(e) {
     if (!Number.isFinite(levelActor.hp)) levelActor.hp = levelActor.maxHp;
     levelActor.hp = Math.min(levelActor.maxHp, Math.max(1, levelActor.hp));
     if (input) input.value = String(levelActor.level);
+    save();
+    render();
+    return;
+  }
+  if (e.target.closest("[data-pet-level-apply]")) {
+    const levelActor = resolveOverviewRosterActorFromEvent(e);
+    const host = e.target.closest(".paper-slot--pet") || e.target.closest(".paper-slot");
+    const input = host ? host.querySelector("[data-pet-level-input]") : null;
+    const raw = input ? Number(input.value) : NaN;
+    if (!Number.isFinite(raw)) return;
+    if (!applyEditedPetLevel(levelActor, raw)) return;
+    if (input && typeof PET_PROGRESSION !== "undefined" && PET_PROGRESSION) {
+      input.value = String(PET_PROGRESSION.clampLevel(raw));
+    }
     save();
     render();
     return;
@@ -25756,7 +26215,8 @@ function initUi() {
   }
 
   const modalEl = document.getElementById("modal");
-  if (modalEl) {
+  if (modalEl && modalEl.dataset.earlyUiBound !== "1") {
+    modalEl.dataset.earlyUiBound = "1";
     modalEl.addEventListener("click", onPortalNetworkModalClick);
     modalEl.addEventListener("submit", (ev) => {
       const form = ev.target;
@@ -25796,21 +26256,23 @@ function initUi() {
   }
 
   const content = document.getElementById("content");
-  content.addEventListener("contextmenu", onPortraitLayerContextMenu);
-  content.addEventListener("pointerdown", onPortraitLayerPointerDown, true);
-  content.addEventListener("wheel", onPortraitLayerWheel, { passive: false });
-  content.addEventListener("pointerdown", onSceneResizePointerDown, true);
-  content.addEventListener("pointerdown", onSceneLayoutPointerDown, true);
-  content.addEventListener("click", onContentClick);
-  content.addEventListener("dblclick", onContentDblClick);
-  content.addEventListener("dragstart", onDragStart);
-  content.addEventListener("dragend", onDragEnd);
-  content.addEventListener("dragover", onDragOver);
-  content.addEventListener("drop", onDrop);
-  content.addEventListener("mouseover", onContentTooltipOver);
-  content.addEventListener("mouseout", onContentTooltipOut);
-  content.addEventListener("mousemove", onContentTooltipMove);
-  content.addEventListener("input", onContentInput);
+  if (content) {
+    content.addEventListener("contextmenu", onPortraitLayerContextMenu);
+    content.addEventListener("pointerdown", onPortraitLayerPointerDown, true);
+    content.addEventListener("wheel", onPortraitLayerWheel, { passive: false });
+    content.addEventListener("pointerdown", onSceneResizePointerDown, true);
+    content.addEventListener("pointerdown", onSceneLayoutPointerDown, true);
+    content.addEventListener("click", onContentClick);
+    content.addEventListener("dblclick", onContentDblClick);
+    content.addEventListener("dragstart", onDragStart);
+    content.addEventListener("dragend", onDragEnd);
+    content.addEventListener("dragover", onDragOver);
+    content.addEventListener("drop", onDrop);
+    content.addEventListener("mouseover", onContentTooltipOver);
+    content.addEventListener("mouseout", onContentTooltipOut);
+    content.addEventListener("mousemove", onContentTooltipMove);
+    content.addEventListener("input", onContentInput);
+  }
   const characterPanelContent = document.getElementById("characterPanelContent");
   if (characterPanelContent) {
     characterPanelContent.addEventListener("contextmenu", onPortraitLayerContextMenu);
@@ -25975,6 +26437,14 @@ async function bootApp() {
     await initAppAtStartup();
   } catch (err) {
     console.error("Game boot failed:", err);
+    try {
+      if (!characterRoster || !Array.isArray(characterRoster.slots)) {
+        characterRoster = emptyCharacterRoster();
+      }
+      await ensureMinimalCharacterSelectUi();
+    } catch (fallbackErr) {
+      console.error("Character select fallback failed:", fallbackErr);
+    }
     hideLoadingOverlay();
   }
 }
@@ -25986,6 +26456,14 @@ window.bootGameAfterAuth = async function bootGameAfterAuth() {
     await initAppAtStartup();
   } catch (err) {
     console.error("Game boot failed:", err);
+    try {
+      if (!characterRoster || !Array.isArray(characterRoster.slots)) {
+        characterRoster = emptyCharacterRoster();
+      }
+      await ensureMinimalCharacterSelectUi();
+    } catch (fallbackErr) {
+      console.error("Character select fallback failed:", fallbackErr);
+    }
     hideLoadingOverlay();
   }
 };

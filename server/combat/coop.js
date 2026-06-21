@@ -285,7 +285,7 @@ export function finishCoopVictory(session, rng) {
     const rollSeed =
       ((Math.floor(rng.next() * 0xffffffff) ^ (Number(userId) * 2654435761)) >>> 0) || 1;
     const rollRng = createCombatRng(rollSeed);
-    const rewards = computeVictoryRewards(st.foes, subset, part.player, rollRng);
+    const rewards = computeVictoryRewards(st.foes, subset, part.player, rollRng, st.worldMapContext);
     const result = {
       victory: true,
       finalPlayerHp: Math.max(0, part.player.hp),

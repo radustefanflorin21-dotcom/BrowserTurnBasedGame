@@ -312,10 +312,27 @@ function getCompanionLootEntries(party, player) {
   return out;
 }
 
+function buildLootContextFromWorldMapContext(wmc) {
+  if (!wmc || typeof wmc !== "object") return {};
+  if (typeof wmc.dungeonId === "string" && wmc.dungeonId.trim()) {
+    return { dungeonId: wmc.dungeonId.trim() };
+  }
+  if (typeof wmc.biomeName === "string" && wmc.biomeName.trim()) {
+    return { biomeName: wmc.biomeName.trim() };
+  }
+  return {};
+}
+
+function rollPetEggDropForFoe(lootContext, foe, def, rng) {
+  const eggs = global.PET_EGG_DROPS;
+  if (!eggs || typeof eggs.tryRollEggDrop !== "function") return null;
+  return eggs.tryRollEggDrop(lootContext, foe, def, () => rng.next());
+}
+
 /**
  * Full victory loot (XP, gold, items) using seeded RNG.
  */
-export function computeVictoryRewards(foes, party, player, rng) {
+export function computeVictoryRewards(foes, party, player, rng, lootContext) {
   const memberRows = buildMemberRows(party, player);
   let totalMonsterXP = 0;
   let totalMonsterLevels = 0;
@@ -339,6 +356,7 @@ export function computeVictoryRewards(foes, party, player, rng) {
   });
 
   const companionEntries = getCompanionLootEntries(party, player);
+  const eggCtx = buildLootContextFromWorldMapContext(lootContext);
   (foes || []).forEach((foe) => {
     if (!foe?.name) return;
     if (foe.combat && typeof foe.combat.summonerUid === "number") return;
@@ -369,6 +387,8 @@ export function computeVictoryRewards(foes, party, player, rng) {
         if (byKey[key]) byKey[key].items.push(...(companionBySlot[slot] || []));
       });
     }
+    const eggDrop = rollPetEggDropForFoe(eggCtx, foe, def, rng);
+    if (eggDrop && byKey.hero) byKey.hero.items.push(eggDrop);
   });
 
   const memberRewards = memberRows.map((row) => byKey[row.key] || row);

@@ -1165,6 +1165,39 @@ body.edit-mode-on .portrait-stack--editing-scale {
   bottom: 6%;
 }
 
+.portrait-equip-layer--pet {
+  filter: none;
+}
+
+.portrait-equip-layer--pet-young {
+  width: 32%;
+  height: 32%;
+  left: 12%;
+  bottom: 4%;
+  z-index: 1;
+}
+
+.portrait-equip-layer--pet-grown {
+  width: 38%;
+  height: 38%;
+  left: 8%;
+  bottom: 10%;
+  z-index: 1;
+}
+
+.portrait-equip-layer--pet-mature {
+  width: 44%;
+  height: 44%;
+  left: 4%;
+  bottom: 18%;
+  z-index: 0;
+}
+
+body.edit-mode-on .portrait-equip-layer--pet {
+  pointer-events: auto;
+  cursor: grab;
+}
+
 .portrait-equip-layer--offhand {
   width: 36%;
   height: 36%;
@@ -1928,6 +1961,12 @@ body.edit-mode-on .portrait-stack--editing-scale {
   cursor: help;
 }
 
+.atlas-loot-chip--egg {
+  outline: 1px solid rgba(212, 168, 42, 0.45);
+  border-radius: 6px;
+  padding: 2px;
+}
+
 .atlas-loot-img {
   width: 28px;
   height: 28px;
@@ -2440,6 +2479,92 @@ body.edit-mode-on .portrait-stack--editing-scale {
 .paper-slot--ring2 {
   grid-column: 5;
   grid-row: 4;
+}
+
+.paper-slot--pet {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.pet-edit-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.pet-edit-level-input {
+  width: 3.2rem;
+  min-width: 0;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.pet-edit-stage {
+  flex: 0 0 100%;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.slot-drop--pet-feed-ready {
+  border-color: rgba(90, 160, 110, 0.85);
+  box-shadow: 0 0 0 1px rgba(90, 160, 110, 0.35);
+}
+
+.pet-feed-pending-badge {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  font-size: clamp(0.35rem, 2.8cqw, 0.55rem);
+  line-height: 1.1;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(40, 90, 55, 0.88);
+  color: #fff;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.slot-drop {
+  position: relative;
+}
+
+.pet-tooltip .pet-tip-name {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.pet-tooltip .pet-tip-meta,
+.pet-tooltip .pet-tip-xp,
+.pet-tooltip .pet-tip-feed,
+.pet-tooltip .pet-tip-cost,
+.pet-tooltip .pet-tip-food,
+.pet-tooltip .pet-tip-pending,
+.pet-tooltip .pet-tip-hint {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.pet-tooltip .pet-tip-muted {
+  opacity: 0.82;
+}
+
+.pet-tip-stats {
+  margin: 6px 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pet-tip-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
 }
 
 .slot-label {
@@ -7639,9 +7764,14 @@ img {
   font-size: 1rem;
 }
 
-.character-select-play:disabled {
+.character-select-play:disabled,
+.character-select-play--inactive {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.character-select-play--inactive {
+  pointer-events: auto;
 }
 
 .character-select-logout {
