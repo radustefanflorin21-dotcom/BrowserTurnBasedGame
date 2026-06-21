@@ -20,11 +20,11 @@
 
   /** Drop chance (% per kill) by tier. */
   const EGG_DROP_RATE_PCT = {
-    common: 0.04,
-    rare: 0.06,
-    epic: 0.08,
-    dungeon_elite: 0.12,
-    dungeon_boss: 0.2
+    common: 0.1,
+    rare: 0.15,
+    epic: 0.2,
+    dungeon_elite: 0.5,
+    dungeon_boss: 1
   };
 
   /** Overworld biome name → egg element. */
