@@ -179,22 +179,58 @@
         "scalePct": 38
       },
       "pet_young": {
-        "offsetXPct": 37.3365,
-        "offsetYPct": -30.8386,
+        "offsetXPct": 45.33414433204403,
+        "offsetYPct": 10.672856864028562,
         "rotDeg": 0,
-        "scalePct": 98
+        "scalePct": 134
       },
       "pet_grown": {
-        "offsetXPct": 26.67291445998215,
-        "offsetYPct": -14.08176578399286,
+        "offsetXPct": 54.093310592085686,
+        "offsetYPct": 9.53022023207379,
         "rotDeg": 0,
         "scalePct": 164
       },
       "pet_mature": {
-        "offsetXPct": 28.9581,
-        "offsetYPct": -27.7918,
+        "offsetXPct": 40.002480720023804,
+        "offsetYPct": 14.862176504016663,
         "rotDeg": 0,
         "scalePct": 194
+      },
+      "pet_young_ground": {
+        "offsetXPct": 45.33414433204403,
+        "offsetYPct": 10.672856864028562,
+        "rotDeg": 0,
+        "scalePct": 134
+      },
+      "pet_grown_ground": {
+        "offsetXPct": 54.093310592085686,
+        "offsetYPct": 9.53022023207379,
+        "rotDeg": 0,
+        "scalePct": 164
+      },
+      "pet_mature_ground": {
+        "offsetXPct": 40.002480720023804,
+        "offsetYPct": 14.862176504016663,
+        "rotDeg": 0,
+        "scalePct": 194
+      },
+      "pet_young_flying": {
+        "offsetXPct": 13.343653612020233,
+        "offsetYPct": -172.89156144004758,
+        "rotDeg": 0,
+        "scalePct": 134
+      },
+      "pet_grown_flying": {
+        "offsetXPct": 16.390362404046414,
+        "offsetYPct": -121.09762987206189,
+        "rotDeg": 0,
+        "scalePct": 182
+      },
+      "pet_mature_flying": {
+        "offsetXPct": 24.387931567985717,
+        "offsetYPct": -87.9642706039869,
+        "rotDeg": 0,
+        "scalePct": 206
       }
     }
   },
@@ -369,22 +405,58 @@
         "scalePct": 38
       },
       "pet_young": {
-        "offsetXPct": 37.3365,
-        "offsetYPct": -30.8386,
+        "offsetXPct": 33.5281,
+        "offsetYPct": -47.5955,
+        "rotDeg": 0,
+        "scalePct": 86
+      },
+      "pet_grown": {
+        "offsetXPct": 30.10058771199048,
+        "offsetYPct": -33.50444168402261,
+        "rotDeg": 0,
+        "scalePct": 128
+      },
+      "pet_mature": {
+        "offsetXPct": 27.053897828027374,
+        "offsetYPct": -22.8408903600119,
+        "rotDeg": 0,
+        "scalePct": 152
+      },
+      "pet_young_ground": {
+        "offsetXPct": 50.28501758405237,
+        "offsetYPct": -30.076904343945255,
+        "rotDeg": 0,
+        "scalePct": 86
+      },
+      "pet_grown_ground": {
+        "offsetXPct": 41.5257,
+        "offsetYPct": -17.1284,
         "rotDeg": 0,
         "scalePct": 98
       },
-      "pet_grown": {
-        "offsetXPct": 26.67291445998215,
-        "offsetYPct": -14.08176578399286,
+      "pet_mature_ground": {
+        "offsetXPct": 43.810739036001195,
+        "offsetYPct": -3.4181996399880985,
         "rotDeg": 0,
-        "scalePct": 164
+        "scalePct": 128
       },
-      "pet_mature": {
-        "offsetXPct": 28.9581,
-        "offsetYPct": -27.7918,
+      "pet_young_flying": {
+        "offsetXPct": 33.90896578399286,
+        "offsetYPct": -161.84724962808687,
         "rotDeg": 0,
-        "scalePct": 194
+        "scalePct": 86
+      },
+      "pet_grown_flying": {
+        "offsetXPct": 37.3364,
+        "offsetYPct": -107.77026361202024,
+        "rotDeg": 0,
+        "scalePct": 128
+      },
+      "pet_mature_flying": {
+        "offsetXPct": 32.38573204403451,
+        "offsetYPct": -74.63743204403451,
+        "rotDeg": 0,
+        "scalePct": 146
       }
     }
   }

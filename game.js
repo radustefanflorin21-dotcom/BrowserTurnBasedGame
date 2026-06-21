@@ -127,14 +127,28 @@ function getPetDisplayImage(itemName, progressOwner) {
   return PET_SYSTEM.getPetImage(base, prog.level);
 }
 
-function getPortraitPetStageLayoutKey(petInstance, progressOwner) {
+function getPetPortraitLayoutCategory(baseName) {
+  if (typeof PETS_CATALOG !== "undefined" && PETS_CATALOG && typeof PETS_CATALOG.getPetPortraitLayoutCategory === "function") {
+    return PETS_CATALOG.getPetPortraitLayoutCategory(baseName);
+  }
+  return "ground";
+}
+
+function getPortraitPetVisualStage(petInstance, progressOwner) {
   if (!petInstance || typeof PET_PROGRESSION === "undefined" || !PET_PROGRESSION || typeof PET_SYSTEM === "undefined" || !PET_SYSTEM) {
-    return "pet_young";
+    return "young";
   }
   const progOwner = getPetProgressOwner(progressOwner);
-  if (!progOwner) return "pet_young";
+  if (!progOwner) return "young";
   const { level } = PET_SYSTEM.getPetProgress(progOwner, petInstance);
-  return `pet_${PET_PROGRESSION.getVisualStage(level)}`;
+  return PET_PROGRESSION.getVisualStage(level);
+}
+
+function getPortraitPetStageLayoutKey(petInstance, progressOwner) {
+  const stage = getPortraitPetVisualStage(petInstance, progressOwner);
+  const base = petInstance ? getItemBaseName(petInstance) : "";
+  const category = getPetPortraitLayoutCategory(base);
+  return `pet_${stage}_${category}`;
 }
 
 function getEquippedPetBonusStats(equipment, progressOwner) {
@@ -3951,6 +3965,14 @@ function clampPortraitLayoutRotDeg(v) {
 }
 
 function getLegacyPortraitLayoutKey(slotId) {
+  const petLegacy = /^pet_(young|grown|mature)_(ground|flying)$/.exec(slotId);
+  if (petLegacy) {
+    const stage = petLegacy[1];
+    const category = petLegacy[2];
+    if (stage === "mature") return `pet_grown_${category}`;
+    if (stage === "grown") return `pet_young_${category}`;
+    return "pet_young";
+  }
   if (slotId === "pet_grown" || slotId === "pet_mature") return "pet_young";
   if (slotId === "pet_young") return "pet";
   if (
@@ -4292,14 +4314,15 @@ function buildPortraitLayeredStackHtml(baseRaw, rootLayout, rootDataAttr, equipm
     const petSrc = getPetDisplayImage(petInst, owner);
     if (petSrc) {
       const layoutKey = getPortraitPetStageLayoutKey(petInst, owner);
-      const petStage = layoutKey.replace(/^pet_/, "");
+      const petStage = getPortraitPetVisualStage(petInst, owner);
+      const petCategory = getPetPortraitLayoutCategory(petBase);
       const petLayout = useFightLayouts
         ? getFightPortraitEquipLayout(layoutKey, portraitGender)
         : getPortraitEquipLayout(layoutKey, owner);
       const petStyle = `transform: translate(${petLayout.offsetXPct}%, ${petLayout.offsetYPct}%) rotate(${petLayout.rotDeg}deg) scale(${petLayout.scalePct / 100});`;
       const petHtml = `<img class="portrait-equip-layer portrait-equip-layer--pet portrait-equip-layer--pet-${escapeAttr(
         petStage
-      )}" src="${escapeAttr(petSrc)}" alt="" draggable="false" title="${escapeAttr(
+      )} portrait-equip-layer--pet-${escapeAttr(petCategory)}" src="${escapeAttr(petSrc)}" alt="" draggable="false" title="${escapeAttr(
         petBase
       )}" data-portrait-slot="${escapeAttr(layoutKey)}" style="${escapeAttr(petStyle)}" />`;
       if (petStage === "mature") petLayerBackmost = petHtml;

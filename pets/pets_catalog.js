@@ -10,9 +10,12 @@
   };
 
   function petEntry(opts) {
+    const portraitLayoutCategory =
+      opts.portraitLayoutCategory === "flying" ? "flying" : "ground";
     return {
       displayName: opts.displayName,
       element: opts.element,
+      portraitLayoutCategory,
       images: {
         young: opts.imageBase + "_young.png",
         grown: opts.imageBase + "_grown.png",
@@ -27,6 +30,7 @@
     "Ember Salamander": petEntry({
       displayName: "Ember Salamander",
       element: "fire",
+      portraitLayoutCategory: "ground",
       imageBase: "Assets/Pets/ember_salamander",
       favoriteFood: ["Oracle Ember Eye", "Oracle Flameheart", "Burning Prophecy Core", "Cinderveil Thread"],
       statsAt30: { INT: 36, "Magic Resist": 4, Accuracy: 3 }
@@ -34,6 +38,7 @@
     "Cinder Moth": petEntry({
       displayName: "Cinder Moth",
       element: "fire",
+      portraitLayoutCategory: "flying",
       imageBase: "Assets/Pets/cinder_moth",
       favoriteFood: ["Burning Prophecy Core", "Oracle Ember Eye", "Hatred Emberstone", "Tyrant Forge Core"],
       statsAt30: { INT: 30, "Magic Damage": 6, Accuracy: 5, "Magic Resist": 4 }
@@ -170,6 +175,11 @@
     return entry && entry.element ? entry.element : null;
   }
 
+  function getPetPortraitLayoutCategory(baseName) {
+    const entry = getPetCatalogEntry(baseName);
+    return entry && entry.portraitLayoutCategory === "flying" ? "flying" : "ground";
+  }
+
   const api = {
     PET_CATALOG,
     ELEMENT_BASIC_FOOD,
@@ -177,7 +187,8 @@
     listPetBaseNames,
     listPetsByElement,
     getBasicFoodForElement,
-    getElementForPet
+    getElementForPet,
+    getPetPortraitLayoutCategory
   };
 
   if (typeof module !== "undefined" && module.exports) {
