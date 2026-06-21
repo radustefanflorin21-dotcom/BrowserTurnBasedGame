@@ -566,6 +566,47 @@
         { name: "Worldhate Soulcore", dropRate: 8 }
       ]
     },
+    "Hollowglass Siren": {
+      materials: [
+        { name: "Hollowglass Shard", dropRate: 70 },
+        { name: "Soundless Veil Thread", dropRate: 55 },
+        { name: "Siren Silence Core", dropRate: 35 },
+        { name: "Frozen Echo Heart", dropRate: 15 }
+      ]
+    },
+    "Rimebound Undertaker": {
+      materials: [
+        { name: "Rimebound Ironbone", dropRate: 70 },
+        { name: "Undertaker Frosthide", dropRate: 55 },
+        { name: "Funeral Chainlink", dropRate: 35 },
+        { name: "Gravecold Core", dropRate: 15 }
+      ]
+    },
+    "The Stillness Below": {
+      materials: [
+        { name: "Stillness Leviathan Scale", dropRate: 100 },
+        { name: "Abyssal Iceheart Fragment", dropRate: 75 },
+        { name: "Frozen Void Core", dropRate: 45 },
+        { name: "Absolute Rime Crystal", dropRate: 25 },
+        { name: "Apathy Soulcore", dropRate: 8 }
+      ]
+    },
+    "Icy Mink": {
+      materials: [
+        { name: "Mink Frostfur", dropRate: 37.5 },
+        { name: "Quick Ice Claw", dropRate: 20 },
+        { name: "Agility Core", dropRate: 7.5 },
+        { name: "Ice Essence", dropRate: 2.5 }
+      ]
+    },
+    "Icy Serpent": {
+      materials: [
+        { name: "Icefang Needle", dropRate: 37.5 },
+        { name: "Serpent Frostscale", dropRate: 20 },
+        { name: "Venom Core", dropRate: 7.5 },
+        { name: "Ice Essence", dropRate: 2.5 }
+      ]
+    },
     "Ash Lizard": {
       materials: [
         { name: "Ash Scale", dropRate: 37.5 },
@@ -608,15 +649,15 @@
     },
     "Glacier Turtoise": {
       materials: [
-        { name: "Frozen Shell", dropRate: 40 },
-        { name: "Ice Plate", dropRate: 22.5 },
-        { name: "Defense Core", dropRate: 9 },
-        { name: "Ice Essence", dropRate: 3 }
+        { name: "Frozen Shell", dropRate: 37.5 },
+        { name: "Ice Plate", dropRate: 20 },
+        { name: "Defense Core", dropRate: 7.5 },
+        { name: "Ice Essence", dropRate: 2.5 }
       ]
     },
     "Frozen Stalker": {
       materials: [
-        { name: "Ice Fang", dropRate: 35 },
+        { name: "Ice Fang", dropRate: 37.5 },
         { name: "Frost Claw", dropRate: 20 },
         { name: "Assassin Core", dropRate: 7.5 },
         { name: "Ice Essence", dropRate: 2.5 }
@@ -624,7 +665,7 @@
     },
     "Frost Skitter": {
       materials: [
-        { name: "Frost Thread", dropRate: 35 },
+        { name: "Frost Thread", dropRate: 37.5 },
         { name: "Ice Fragment", dropRate: 20 },
         { name: "Control Core", dropRate: 7.5 },
         { name: "Ice Essence", dropRate: 2.5 }
@@ -708,9 +749,21 @@
       { name: "Basilisk Eye", dropRate: 2 }
     ],
 
-    "Glacier Turtoise": [{ name: "Frozen Shell", dropRate: 9 }],
-    "Glacier Tortoise": [{ name: "Frozen Shell", dropRate: 9 }],
-    "Frost Skitter": [{ name: "Chill Residue", dropRate: 5, condition: "harvester" }],
+    "Glacier Turtoise": [{ name: "Frozen Shell", dropRate: 10, condition: "skinner" }, { name: "Ice Plate", dropRate: 8, condition: "extractor" }],
+    "Glacier Tortoise": [{ name: "Frozen Shell", dropRate: 10, condition: "skinner" }, { name: "Ice Plate", dropRate: 8, condition: "extractor" }],
+    "Frozen Stalker": [{ name: "Frost Claw", dropRate: 10, condition: "skinner" }, { name: "Ice Fang", dropRate: 7, condition: "extractor" }],
+    "Frost Skitter": [
+      { name: "Chill Residue", dropRate: 10, condition: "harvester" },
+      { name: "Frost Thread", dropRate: 8, condition: "harvester" }
+    ],
+    "Icy Mink": [
+      { name: "Mink Frostfur", dropRate: 12, condition: "skinner" },
+      { name: "Quick Ice Claw", dropRate: 8, condition: "extractor" }
+    ],
+    "Icy Serpent": [
+      { name: "Serpent Frostscale", dropRate: 10, condition: "skinner" },
+      { name: "Frost Venom Sac", dropRate: 6, condition: "extractor" }
+    ],
 
     "Faded War Wraith": [
       { name: "Shadow Residue", dropRate: 9, condition: "harvester" },

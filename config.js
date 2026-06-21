@@ -576,6 +576,55 @@ const GAME_CONFIG = {
       baseHp: 5200
     },
     {
+      name: "Hollowglass Siren",
+      combatScript: "hollowglass_siren",
+      combatRole: "mage",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/The apathy of the World/The Silent Glacier/hollowglass_siren.png",
+      possibleLevels: [52],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 18, dex: 62, vit: 72, int: 136 },
+      baseHp: 1280
+    },
+    {
+      name: "Rimebound Undertaker",
+      combatScript: "rimebound_undertaker",
+      combatRole: "bruiser",
+      spawnRarity: "epic",
+      image: "Assets/Biomes/The apathy of the World/The Silent Glacier/rimebound_undertaker.png",
+      possibleLevels: [53],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 7,
+      baseStats: { str: 104, dex: 28, vit: 96, int: 20 },
+      baseHp: 1660
+    },
+    {
+      name: "Pale Rime Wisp",
+      combatScript: "pale_rime_wisp",
+      combatRole: "controller",
+      spawnRarity: "rare",
+      image: "Assets/Biomes/The apathy of the World/The Silent Glacier/pale_rime_wisp.png",
+      possibleLevels: [50],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 6,
+      baseStats: { str: 8, dex: 34, vit: 30, int: 58 },
+      baseHp: 300
+    },
+    {
+      name: "The Stillness Below",
+      combatScript: "the_stillness_below",
+      combatRole: "mage",
+      spawnRarity: "myth",
+      isBoss: true,
+      image: "Assets/Biomes/The apathy of the World/The Silent Glacier/the_stillness_below.png",
+      possibleLevels: [54],
+      possibleMoods: ["steady"],
+      staminaPerTurn: 8,
+      baseStats: { str: 92, dex: 44, vit: 132, int: 118 },
+      baseHp: 4300
+    },
+    {
       name: "Dust Carver",
       combatScript: "dust_carver",
       combatRole: "assassin",
@@ -1296,6 +1345,14 @@ const GAME_CONFIG = {
       category: "key",
       image: "Assets/Resources/riftforge_key.png",
       description: "A volcanic key that opens the slag gate into the Infernal Riftforge.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Silent Glacier Key": {
+      type: "resource",
+      category: "key",
+      image: "Assets/Resources/silent_glacier_key.png",
+      description: "A pale ice key that opens the hushed cleft into the Silent Glacier.",
       bonusSkills: [],
       bonusStats: {}
     },
@@ -3609,6 +3666,110 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: { INT: 30, STR: 18, VIT: 16, HP: 220, "Magic Damage": 7, ACC: 6, "Status Resist": 5 }
     },
+    "Hollowglass Focus Ring": {
+      type: "armor",
+      slot: "ring",
+      equipCategory: "ring",
+      rarity: "epic",
+      itemLevel: 52,
+      image: "Assets/Equips/hollowglass_focus_ring.png",
+      description: "A ring of hollow glass-ice that traps silence inside frozen crystal.",
+      set: "",
+      build: "INT_DEX",
+      bonusSkills: [],
+      bonusStats: { INT: 32, DEX: 18, "Magic Damage": 8, ACC: 7, EVA: 5, "Status Resist": 4 }
+    },
+    "Undertaker Ironbone Chestguard": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest",
+      rarity: "epic",
+      itemLevel: 53,
+      image: "Assets/Equips/undertaker_ironbone_chestguard.png",
+      description: "Grim chest armor of black ice plates, ironbone ribs, and funeral chain.",
+      set: "Rimebound Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 30, VIT: 30, HP: 420, "Phys Resist": 9, "Status Resist": 6 }
+    },
+    "Gravecold Hookblade": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "polearm",
+      rarity: "epic",
+      itemLevel: 53,
+      image: "Assets/Equips/gravecold_hookblade.png",
+      description: "A hooked polearm of black ice and ironbone for dragging foes across the glacier.",
+      set: "Rimebound Set",
+      build: "STR_VIT",
+      bonusSkills: [],
+      bonusStats: { STR: 36, VIT: 18, "Phys Damage": 10, ACC: 6, Crit: 4, "Status Resist": 4 }
+    },
+    "Leviathan Scale Crown": {
+      type: "armor",
+      slot: "head",
+      equipCategory: "helm",
+      rarity: "epic",
+      itemLevel: 54,
+      image: "Assets/Equips/leviathan_scale_crown.png",
+      description: "A cold crown of pale leviathan scales and black-blue ice.",
+      set: "Stillness Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 34, VIT: 24, HP: 260, "Magic Damage": 8, ACC: 7, "Status Resist": 6 }
+    },
+    "Abyssal Iceheart Robe": {
+      type: "armor",
+      slot: "chest",
+      equipCategory: "chest",
+      rarity: "epic",
+      itemLevel: 54,
+      image: "Assets/Equips/abyssal_iceheart_robe.png",
+      description: "A still caster robe layered with pale fur, dark cloth, and translucent ice plates.",
+      set: "Stillness Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 36, INT: 30, HP: 440, "Magic Resist": 10, "Status Resist": 8 }
+    },
+    "Voidfrost Greaves": {
+      type: "armor",
+      slot: "feet",
+      equipCategory: "feet_armor",
+      rarity: "epic",
+      itemLevel: 55,
+      image: "Assets/Equips/voidfrost_greaves.png",
+      description: "Heavy frost greaves for walking cracked glacier surfaces without sound.",
+      set: "Stillness Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { VIT: 30, INT: 22, HP: 320, "Magic Resist": 7, EVA: 5, "Status Resist": 6 }
+    },
+    "Absolute Rime Staff": {
+      type: "weapon",
+      slot: "weapon",
+      equipCategory: "staff",
+      rarity: "epic",
+      itemLevel: 55,
+      image: "Assets/Equips/absolute_rime_staff.png",
+      description: "A staff suspending an absolute rime crystal like a frozen dead moon.",
+      set: "Stillness Set",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 42, VIT: 22, "Magic Damage": 11, ACC: 8, Crit: 4, "Magic Resist": 5 }
+    },
+    "Apathy Soulcore Amulet": {
+      type: "armor",
+      slot: "amulet",
+      equipCategory: "amulet",
+      rarity: "epic",
+      itemLevel: 55,
+      image: "Assets/Equips/apathy_soulcore_amulet.png",
+      description: "An amulet holding a hollow apathy soulcore trapped in clear ice.",
+      set: "",
+      build: "INT_VIT",
+      bonusSkills: [],
+      bonusStats: { INT: 34, VIT: 24, HP: 260, "Magic Damage": 7, "Magic Resist": 7, "Status Resist": 6 }
+    },
   /* END SYNCED MMO ITEMS */
 
     "Small Bone": {
@@ -5109,6 +5270,120 @@ const GAME_CONFIG = {
       image: "Assets/Resources/worldhate_soulcore.png",
       description: "A rare soulcore of pure volcanic hatred."
     },
+    "Mink Frostfur": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/mink_frostfur.png",
+      description: "Pale frost-stiff fur from an Icy Mink."
+    },
+    "Quick Ice Claw": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/quick_ice_claw.png",
+      description: "A razor-fast ice claw from an Icy Mink."
+    },
+    "Icefang Needle": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/icefang_needle.png",
+      description: "A needle-sharp fang from an Icy Serpent."
+    },
+    "Serpent Frostscale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/serpent_frostscale.png",
+      description: "Frostscale shed by an Icy Serpent."
+    },
+    "Venom Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/venom_core.png",
+      description: "A cold venom core from glacier serpents."
+    },
+    "Frost Venom Sac": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frost_venom_sac.png",
+      description: "A frozen venom sac from an Icy Serpent."
+    },
+    "Hollowglass Shard": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/hollowglass_shard.png",
+      description: "A shard of hollow glass-ice from the Siren."
+    },
+    "Soundless Veil Thread": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/soundless_veil_thread.png",
+      description: "Thread woven from soundless frost-veil."
+    },
+    "Siren Silence Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/siren_silence_core.png",
+      description: "A silence core from the Hollowglass Siren."
+    },
+    "Frozen Echo Heart": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_echo_heart.png",
+      description: "A hollow echo-heart frozen in clear ice."
+    },
+    "Rimebound Ironbone": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/rimebound_ironbone.png",
+      description: "Ironbone bound in funeral ice from the Undertaker."
+    },
+    "Undertaker Frosthide": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/undertaker_frosthide.png",
+      description: "Heavy frosthide stripped from the Rimebound Undertaker."
+    },
+    "Funeral Chainlink": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/funeral_chainlink.png",
+      description: "A frozen funeral chainlink from the glacier trench."
+    },
+    "Gravecold Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/gravecold_core.png",
+      description: "A grave-cold core from the Rimebound Undertaker."
+    },
+    "Stillness Leviathan Scale": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/stillness_leviathan_scale.png",
+      description: "Scale from the leviathan beneath the glacier."
+    },
+    "Abyssal Iceheart Fragment": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/abyssal_iceheart_fragment.png",
+      description: "A fragment of the abyssal iceheart below the still core."
+    },
+    "Frozen Void Core": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/frozen_void_core.png",
+      description: "A void core of absolute cold from the deep glacier."
+    },
+    "Absolute Rime Crystal": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/absolute_rime_crystal.png",
+      description: "A rare crystal of absolute rime from the Stillness Below."
+    },
+    "Apathy Soulcore": {
+      type: "material",
+      value: 5,
+      image: "Assets/Resources/apathy_soulcore.png",
+      description: "A hollow soulcore of glacier apathy."
+    },
     "Heartburrow Horn": {
       type: "material",
       value: 5,
@@ -5820,7 +6095,11 @@ const GAME_CONFIG = {
     "Ember Forgeling": ["construct", "elemental"],
     "Inferno Oracle": ["undead", "elemental"],
     "Ashmaw Titan": ["beast", "elemental"],
-    "The Riftforge Tyrant": ["construct", "elemental", "undead"]
+    "The Riftforge Tyrant": ["construct", "elemental", "undead"],
+    "Hollowglass Siren": ["elemental", "undead"],
+    "Rimebound Undertaker": ["undead", "elemental"],
+    "Pale Rime Wisp": ["elemental", "undead"],
+    "The Stillness Below": ["beast", "elemental", "undead"]
   },
 
   crafting: {
@@ -8217,6 +8496,135 @@ const GAME_CONFIG = {
               { item: "Fire Seed", qty: 6, source: "monster_loot" },
               { item: "Fire Essence", qty: 4, source: "monster_loot" }
             ]
+          },
+          {
+            id: "silent_glacier_key",
+            resultItem: "Silent Glacier Key",
+            resultLevel: 48,
+            ingredients: [
+              { item: "Mink Frostfur", qty: 6, source: "monster_loot" },
+              { item: "Icefang Needle", qty: 5, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 5, source: "monster_loot" },
+              { item: "Ice Plate", qty: 4, source: "monster_loot" },
+              { item: "Ice Fang", qty: 4, source: "monster_loot" },
+              { item: "Frost Thread", qty: 6, source: "monster_loot" },
+              { item: "Chill Residue", qty: 4, source: "monster_loot" },
+              { item: "Ice Essence", qty: 3, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "hollowglass_focus_ring",
+            resultItem: "Hollowglass Focus Ring",
+            resultLevel: 52,
+            ingredients: [
+              { item: "Frozen Echo Heart", qty: 1, source: "monster_loot" },
+              { item: "Siren Silence Core", qty: 2, source: "monster_loot" },
+              { item: "Hollowglass Shard", qty: 3, source: "monster_loot" },
+              { item: "Soundless Veil Thread", qty: 4, source: "monster_loot" },
+              { item: "Frost Thread", qty: 8, source: "monster_loot" },
+              { item: "Ice Fragment", qty: 8, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "undertaker_ironbone_chestguard",
+            resultItem: "Undertaker Ironbone Chestguard",
+            resultLevel: 53,
+            ingredients: [
+              { item: "Rimebound Ironbone", qty: 4, source: "monster_loot" },
+              { item: "Undertaker Frosthide", qty: 4, source: "monster_loot" },
+              { item: "Funeral Chainlink", qty: 3, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 8, source: "monster_loot" },
+              { item: "Ice Plate", qty: 8, source: "monster_loot" },
+              { item: "Defense Core", qty: 2, source: "monster_loot" },
+              { item: "Ice Essence", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "gravecold_hookblade",
+            resultItem: "Gravecold Hookblade",
+            resultLevel: 53,
+            ingredients: [
+              { item: "Gravecold Core", qty: 1, source: "monster_loot" },
+              { item: "Rimebound Ironbone", qty: 4, source: "monster_loot" },
+              { item: "Funeral Chainlink", qty: 5, source: "monster_loot" },
+              { item: "Undertaker Frosthide", qty: 2, source: "monster_loot" },
+              { item: "Ice Fang", qty: 8, source: "monster_loot" },
+              { item: "Frost Claw", qty: 8, source: "monster_loot" },
+              { item: "Assassin Core", qty: 2, source: "monster_loot" },
+              { item: "Ice Essence", qty: 5, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "leviathan_scale_crown",
+            resultItem: "Leviathan Scale Crown",
+            resultLevel: 54,
+            ingredients: [
+              { item: "Stillness Leviathan Scale", qty: 5, source: "monster_loot" },
+              { item: "Abyssal Iceheart Fragment", qty: 4, source: "monster_loot" },
+              { item: "Frozen Void Core", qty: 2, source: "monster_loot" },
+              { item: "Hollowglass Shard", qty: 3, source: "monster_loot" },
+              { item: "Serpent Frostscale", qty: 8, source: "monster_loot" },
+              { item: "Frost Thread", qty: 8, source: "monster_loot" },
+              { item: "Ice Essence", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "abyssal_iceheart_robe",
+            resultItem: "Abyssal Iceheart Robe",
+            resultLevel: 54,
+            ingredients: [
+              { item: "Abyssal Iceheart Fragment", qty: 5, source: "monster_loot" },
+              { item: "Stillness Leviathan Scale", qty: 3, source: "monster_loot" },
+              { item: "Absolute Rime Crystal", qty: 1, source: "monster_loot" },
+              { item: "Soundless Veil Thread", qty: 4, source: "monster_loot" },
+              { item: "Mink Frostfur", qty: 10, source: "monster_loot" },
+              { item: "Frozen Shell", qty: 8, source: "monster_loot" },
+              { item: "Defense Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "voidfrost_greaves",
+            resultItem: "Voidfrost Greaves",
+            resultLevel: 55,
+            ingredients: [
+              { item: "Frozen Void Core", qty: 3, source: "monster_loot" },
+              { item: "Stillness Leviathan Scale", qty: 4, source: "monster_loot" },
+              { item: "Abyssal Iceheart Fragment", qty: 3, source: "monster_loot" },
+              { item: "Undertaker Frosthide", qty: 3, source: "monster_loot" },
+              { item: "Ice Plate", qty: 8, source: "monster_loot" },
+              { item: "Mink Frostfur", qty: 8, source: "monster_loot" },
+              { item: "Chill Residue", qty: 6, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "absolute_rime_staff",
+            resultItem: "Absolute Rime Staff",
+            resultLevel: 55,
+            ingredients: [
+              { item: "Apathy Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Absolute Rime Crystal", qty: 2, source: "monster_loot" },
+              { item: "Frozen Void Core", qty: 4, source: "monster_loot" },
+              { item: "Abyssal Iceheart Fragment", qty: 4, source: "monster_loot" },
+              { item: "Frozen Echo Heart", qty: 2, source: "monster_loot" },
+              { item: "Icefang Needle", qty: 8, source: "monster_loot" },
+              { item: "Frost Venom Sac", qty: 3, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "apathy_soulcore_amulet",
+            resultItem: "Apathy Soulcore Amulet",
+            resultLevel: 55,
+            ingredients: [
+              { item: "Apathy Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Absolute Rime Crystal", qty: 2, source: "monster_loot" },
+              { item: "Frozen Void Core", qty: 2, source: "monster_loot" },
+              { item: "Frozen Echo Heart", qty: 1, source: "monster_loot" },
+              { item: "Ice Essence", qty: 8, source: "monster_loot" },
+              { item: "Chill Residue", qty: 8, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
           }]
       }
     ]
@@ -8244,6 +8652,8 @@ const GAME_CONFIG = {
     Heartbloom: 4,
     "Ashmaw Set": 2,
     "Riftforge Tyrant Set": 4,
+    "Rimebound Set": 2,
+    "Stillness Set": 4,
     "Channeler Set": 3,
     "Crusher Set": 3,
     Dunestrike: 4,
@@ -8345,6 +8755,14 @@ const GAME_CONFIG = {
       2: { STR: 16, INT: 12, HP: 180, "Phys Damage": 4 },
       3: { STR: 26, INT: 20, VIT: 14, HP: 340, "Phys Damage": 6, "Magic Damage": 5 },
       4: { STA: 1, STR: 36, INT: 30, VIT: 22, HP: 520, "Phys Damage": 8, "Magic Damage": 7, ACC: 6 }
+    },
+    "Rimebound Set": {
+      2: { STR: 18, VIT: 14, HP: 220, "Phys Damage": 5, "Phys Resist": 5 }
+    },
+    "Stillness Set": {
+      2: { INT: 18, VIT: 12, HP: 200, "Magic Damage": 5 },
+      3: { INT: 30, VIT: 22, HP: 360, "Magic Damage": 7, "Magic Resist": 6 },
+      4: { STA: 1, INT: 42, VIT: 32, HP: 540, "Magic Damage": 9, "Magic Resist": 8, ACC: 6 }
     },
     "Held Colossus": {
       2: { VIT: 16, HP: 180, "Phys Resist": 5 },
@@ -8617,7 +9035,8 @@ const GAME_CONFIG = {
       "23,30": "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_frostroot_nursery_entrance.png",
       "45,21": "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_rustfallen_bastion_entrance.png",
       "9,74": "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_verdant_deep_entrance.png",
-      "43,76": "Assets/Biomes/Hatred of the World/The Infernal Riftforge/entrance_riftforge_gate.png"
+      "43,76": "Assets/Biomes/Hatred of the World/The Infernal Riftforge/entrance_riftforge_gate.png",
+      "10,23": "Assets/Biomes/The apathy of the World/The Silent Glacier/entrance_the_silent_glacier.png"
     },
     /** Filled at runtime from {@link cityPortals} plus any manual entries you add here. */
     coordinateCells: {
@@ -8805,6 +9224,26 @@ const GAME_CONFIG = {
             image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/npc_kael_ashbrand.png",
             text: "Kael Ashbrand keeps watch beside the slag-sealed gate.",
             dungeonEntrance: "infernal_riftforge"
+          }
+        ]
+      },
+      "10,23": {
+        kind: "scene",
+        title: "The apathy of the World — The Silent Glacier",
+        description:
+          "A pale glacier cleft opens like a wound in ancient ice, exhaling cold blue light from the depths below.",
+        elements: [
+          {
+            type: "npc",
+            id: "maera_hushveil",
+            label: "Maera Hushveil",
+            editable: true,
+            leftPct: 48,
+            topPct: 62,
+            scalePct: 72,
+            image: "Assets/Biomes/The apathy of the World/The Silent Glacier/maera_hushveil.png",
+            text: "Maera Hushveil stands beside the hushed cleft with a pale blue lantern.",
+            dungeonEntrance: "silent_glacier"
           }
         ]
       },
@@ -9785,6 +10224,120 @@ const GAME_CONFIG = {
                 moodId: "steady",
                 isBoss: true,
                 portraitImage: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/riftforge_tyrant.png"
+              }
+            ]
+          }
+        ]
+      },
+      silent_glacier: {
+        name: "The Silent Glacier",
+        keyItem: "Silent Glacier Key",
+        entrance: { x: 10, y: 23 },
+        assetBase: "Assets/Biomes/The apathy of the World/The Silent Glacier",
+        numbingSilence: true,
+        glacialDrag: true,
+        bitterCold: true,
+        rooms: [
+          {
+            bg: "1",
+            enemies: [
+              { name: "Icy Mink", level: 48, moodId: "berserk" },
+              { name: "Icy Mink", level: 48, moodId: "berserk" },
+              { name: "Icy Serpent", level: 48, moodId: "berserk" },
+              { name: "Icy Serpent", level: 48, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 49, moodId: "berserk" },
+              { name: "Frozen Stalker", level: 49, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "2",
+            enemies: [
+              { name: "Icy Mink", level: 49, moodId: "berserk" },
+              { name: "Icy Mink", level: 49, moodId: "berserk" },
+              { name: "Icy Serpent", level: 49, moodId: "berserk" },
+              { name: "Icy Serpent", level: 49, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 50, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 50, moodId: "berserk" },
+              { name: "Frost Skitter", level: 50, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "3",
+            modifierText:
+              "Numbing Silence: Every 3 rounds, one random player has a 35% chance to receive Accuracy down (-8%) for 2 turns. In Phase 3 of the boss fight, Numbing Silence triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Frozen Stalker", level: 50, moodId: "berserk" },
+              { name: "Frozen Stalker", level: 50, moodId: "berserk" },
+              { name: "Icy Serpent", level: 50, moodId: "berserk" },
+              { name: "Icy Serpent", level: 50, moodId: "berserk" },
+              { name: "Icy Mink", level: 50, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 51, moodId: "berserk" },
+              { name: "Frost Skitter", level: 51, moodId: "berserk" }
+            ]
+          },
+          {
+            bg: "4",
+            modifierText:
+              "Numbing Silence: Every 3 rounds, one random player has a 35% chance to receive Accuracy down (-8%) for 2 turns. Glacial Drag: Every 4 rounds, one random player has a 30% chance to receive Cripple for 1 turn. In Phase 3 of the boss fight, Numbing Silence triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Frost Skitter", level: 51, moodId: "berserk" },
+              { name: "Frost Skitter", level: 51, moodId: "berserk" },
+              { name: "Icy Serpent", level: 51, moodId: "berserk" },
+              { name: "Icy Serpent", level: 51, moodId: "berserk" },
+              { name: "Icy Mink", level: 51, moodId: "berserk" },
+              { name: "Frozen Stalker", level: 51, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 52, moodId: "berserk" },
+              {
+                name: "Hollowglass Siren",
+                level: 52,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/The apathy of the World/The Silent Glacier/hollowglass_siren.png"
+              }
+            ]
+          },
+          {
+            bg: "5",
+            modifierText:
+              "Numbing Silence: Every 3 rounds, one random player has a 35% chance to receive Accuracy down (-8%) for 2 turns. Glacial Drag: Every 4 rounds, one random player has a 30% chance to receive Cripple for 1 turn. Bitter Cold: Every 4 rounds, all players take cold damage equal to 3% of max HP. In Phase 3 of the boss fight, Numbing Silence triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Glacier Turtoise", level: 52, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 52, moodId: "berserk" },
+              { name: "Frozen Stalker", level: 52, moodId: "berserk" },
+              { name: "Frozen Stalker", level: 52, moodId: "berserk" },
+              { name: "Frost Skitter", level: 52, moodId: "berserk" },
+              { name: "Icy Serpent", level: 52, moodId: "berserk" },
+              { name: "Icy Mink", level: 52, moodId: "berserk" },
+              {
+                name: "Rimebound Undertaker",
+                level: 53,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/The apathy of the World/The Silent Glacier/rimebound_undertaker.png"
+              }
+            ]
+          },
+          {
+            bg: "6_1",
+            bgPhaseStems: ["6_1", "6_1", "6_2", "6_3"],
+            modifierText:
+              "Numbing Silence: Every 3 rounds, one random player has a 35% chance to receive Accuracy down (-8%) for 2 turns. Glacial Drag: Every 4 rounds, one random player has a 30% chance to receive Cripple for 1 turn. Bitter Cold: Every 4 rounds, all players take cold damage equal to 3% of max HP. Pale Rime Wisps may answer on rounds 8 and 12. In Phase 3 of the boss fight, Numbing Silence triggers every 2 rounds instead.",
+            enemies: [
+              { name: "Icy Mink", level: 52, moodId: "berserk" },
+              { name: "Icy Serpent", level: 52, moodId: "berserk" },
+              { name: "Glacier Turtoise", level: 53, moodId: "berserk" },
+              { name: "Frozen Stalker", level: 53, moodId: "berserk" },
+              { name: "Frost Skitter", level: 53, moodId: "berserk" },
+              {
+                name: "Hollowglass Siren",
+                level: 52,
+                moodId: "steady",
+                portraitImage: "Assets/Biomes/The apathy of the World/The Silent Glacier/hollowglass_siren.png"
+              },
+              {
+                name: "The Stillness Below",
+                level: 54,
+                moodId: "steady",
+                isBoss: true,
+                portraitImage: "Assets/Biomes/The apathy of the World/The Silent Glacier/the_stillness_below.png"
               }
             ]
           }

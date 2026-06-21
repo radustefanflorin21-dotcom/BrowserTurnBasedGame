@@ -2791,12 +2791,23 @@ function applyFoeCrippleFromSet(foe, turns) {
   foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, t);
 }
 
-function applyFoeAccuracyDown(foe, pct, turns) {
+function applyFoeAccuracyDown(foe, pct, turns, equipment) {
   if (!foe) return;
   if (!foe.combat) initFoeCombatRuntime(foe);
   const t = Math.max(1, Math.floor(turns));
   foe.combat.accDownPct = Math.max(foe.combat.accDownPct || 0, Math.max(0, pct));
   foe.combat.accDownTurns = Math.max(foe.combat.accDownTurns || 0, t);
+  const eq = equipment || (typeof player !== "undefined" ? player.equipment : null);
+  if (combatState) tryProcBannerlessMagResOnAccuracyDebuff(combatState, eq, foe);
+  if (combatState) tryProcStillnessMagDmgOnAccuracyDebuff(combatState, eq, foe);
+}
+
+function applyFoeMagDmgDown(foe, pct, turns) {
+  if (!foe) return;
+  if (!foe.combat) initFoeCombatRuntime(foe);
+  const t = Math.max(1, Math.floor(turns));
+  foe.combat.magDmgDownPct = Math.max(foe.combat.magDmgDownPct || 0, Math.max(0, pct));
+  foe.combat.magDmgDownTurns = Math.max(foe.combat.magDmgDownTurns || 0, t);
 }
 
 function applyPlayerInflictedCrippleToFoe(st, equipment, foe, turns) {
@@ -2844,6 +2855,22 @@ function tryProcBannerlessMagResOnAccuracyDebuff(st, equipment, foe) {
   if (Math.random() >= 0.15) return;
   applyFoeMagResDown(foe, 5, 1);
   appendFightLog(`${foe.name}'s magic resist falters (Bannerless).`);
+}
+
+function tryProcStillnessMagDmgOnAccuracyDebuff(st, equipment, foe) {
+  if (!foe || foe.hp <= 0) return;
+  if (!equipment || countEquippedSetPieces(equipment, "Stillness Set") < 4) return;
+  if (Math.random() >= 0.2) return;
+  applyFoeMagDmgDown(foe, 6, 1);
+  appendFightLog(`${foe.name}'s spell force falters (Stillness Set).`);
+}
+
+function tryProcRimeboundCrippleOnPhysHit(st, equipment, foe, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return;
+  if (!equipment || countEquippedSetPieces(equipment, "Rimebound Set") < 2) return;
+  if (Math.random() >= 0.15) return;
+  applyFoeCrippleFromSet(foe, 1);
+  appendFightLog(`${foe.name} is crippled by rimebound ice (+1 stamina per action).`);
 }
 
 function tryProcWarmasterBothDmgDownOnHit(st, equipment, foe, damageKind) {
@@ -4879,6 +4906,20 @@ function applyPartyMemberPhysDamageDown(st, member, pct, turns) {
   member.physDamageDownTurns = Math.max(member.physDamageDownTurns || 0, t);
 }
 
+function applyPartyMemberMagicDamageDown(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerMagicDamageDownPct = Math.max(st.status.playerMagicDamageDownPct || 0, p);
+    st.status.playerMagicDamageDownTurns = Math.max(st.status.playerMagicDamageDownTurns || 0, t);
+    return;
+  }
+  member.magicDamageDownPct = Math.max(member.magicDamageDownPct || 0, p);
+  member.magicDamageDownTurns = Math.max(member.magicDamageDownTurns || 0, t);
+}
+
 function applyPartyMemberSuppressedDamageDownBoth(st, member, pct, turns) {
   if (!member) return;
   const p = Math.max(0, Math.min(MONSTER_EFFECT_CAPS.damageDown, pct));
@@ -5424,6 +5465,18 @@ function isDungeonHeatSurgeCombat(st) {
   return isDungeonMechanicCombat(st, "heatSurge");
 }
 
+function isDungeonNumbingSilenceCombat(st) {
+  return isDungeonMechanicCombat(st, "numbingSilence");
+}
+
+function isDungeonGlacialDragCombat(st) {
+  return isDungeonMechanicCombat(st, "glacialDrag");
+}
+
+function isDungeonBitterColdCombat(st) {
+  return isDungeonMechanicCombat(st, "bitterCold");
+}
+
 function isLastWarmasterPhase3Active(st) {
   if (!st || !Array.isArray(st.foes)) return false;
   return st.foes.some(
@@ -5476,6 +5529,29 @@ function isInfernalRiftforgeFinalRoom(st) {
   if (!ctx || ctx.dungeonId !== "infernal_riftforge") return false;
   const def = getDungeonDef("infernal_riftforge");
   return !!(def && Array.isArray(def.rooms) && ctx.roomIndex === def.rooms.length - 1);
+}
+
+function isStillnessBelowPhase3Active(st) {
+  if (!st || !Array.isArray(st.foes)) return false;
+  return st.foes.some(
+    (f) =>
+      f &&
+      f.name === "The Stillness Below" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
+function isSilentGlacierFinalRoom(st) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "silent_glacier") return false;
+  const def = getDungeonDef("silent_glacier");
+  return !!(def && Array.isArray(def.rooms) && ctx.roomIndex === def.rooms.length - 1);
+}
+
+function dungeonMechanicDueFromRound1(round, interval) {
+  return (round - 1) % interval === 0;
 }
 
 function isSleepingChildPhase3Active(st) {
@@ -5719,9 +5795,39 @@ function applyDamageToFoeHp(foe, dmg) {
     d -= blocked;
     if (blocked > 0) appendFightLog(`${foe.name}'s shield absorbs ${blocked} damage.`);
   }
+  const wasAlive = foe.hp > 0;
   foe.hp -= d;
   if (foe.hp < 0) foe.hp = 0;
+  if (wasAlive && foe.hp <= 0 && combatState) tryFoeOnDeathProcs(combatState, foe);
   return d;
+}
+
+function tryEmberForgelingMeltdown(st, deadFoe) {
+  if (!deadFoe || deadFoe.name !== "Ember Forgeling") return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  const intv = deadFoe.int || 46;
+  const hit = Math.max(1, Math.floor(intv * 0.3));
+  dealRawDamageToPartyMember(st, pick.uid, hit, deadFoe.name, "Meltdown bursts on");
+  if (Math.random() < 0.25) applyBurnToPlayer(st, Math.max(1, Math.floor(hit * 0.08)), 1);
+}
+
+function tryPaleRimeWispFadeCold(st, deadFoe) {
+  if (!deadFoe || deadFoe.name !== "Pale Rime Wisp") return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  const intv = deadFoe.int || 58;
+  const hit = Math.max(1, Math.floor(intv * 0.25));
+  dealRawDamageToPartyMember(st, pick.uid, hit, deadFoe.name, "Fade Cold chills");
+  if (Math.random() < 0.25) applyPartyMemberMagicDamageDown(st, pick, 5, 1);
+}
+
+function tryFoeOnDeathProcs(st, deadFoe) {
+  if (!st || !deadFoe) return;
+  tryEmberForgelingMeltdown(st, deadFoe);
+  tryPaleRimeWispFadeCold(st, deadFoe);
 }
 
 function getLowestHpLivingFoeAlly(st, excludeUid) {
@@ -5916,6 +6022,77 @@ function applyInfernalRiftforgeBossReinforcementsIfDue(st, round) {
   }
 }
 
+function countPaleRimeWisps(st) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Pale Rime Wisp").length;
+}
+
+function summonPaleRimeWisp(st) {
+  if (!st) return false;
+  if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
+  if (countPaleRimeWisps(st) >= 2) return false;
+  return summonDungeonReinforcement(st, "Pale Rime Wisp");
+}
+
+function applyDungeonNumbingSilenceIfDue(st, round) {
+  if (!isDungeonNumbingSilenceCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  const phase3BossSilence = isSilentGlacierFinalRoom(st) && isStillnessBelowPhase3Active(st);
+  const interval = phase3BossSilence ? 2 : 3;
+  const due = phase3BossSilence
+    ? dungeonMechanicDueFromRound1(round, interval)
+    : roomIndex >= 2 && dungeonMechanicDueFromRound1(round, interval);
+  if (!due) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.35) {
+    applyPartyMemberBlind(st, pick, 8, 2);
+    appendFightLog(`Numbing Silence dulls ${pick.name || "a fighter"} (−8% accuracy).`);
+  }
+}
+
+function applyDungeonGlacialDragIfDue(st, round) {
+  if (!isDungeonGlacialDragCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 3) return;
+  if (!dungeonMechanicDueFromRound1(round, 4)) return;
+  const living = getLivingPartyMembers(st);
+  if (!living.length) return;
+  const pick = living[Math.floor(Math.random() * living.length)];
+  if (Math.random() < 0.3) {
+    applyPartyMemberCripple(st, pick, 1);
+    appendFightLog(`Glacial Drag cripples ${pick.name || "a fighter"} (+1 stamina per action).`);
+  }
+}
+
+function applyDungeonBitterColdIfDue(st, round) {
+  if (!isDungeonBitterColdCombat(st)) return;
+  const ctx = st.worldMapContext;
+  const roomIndex = typeof ctx.roomIndex === "number" ? ctx.roomIndex : 0;
+  if (roomIndex < 4) return;
+  if (!dungeonMechanicDueFromRound1(round, 4)) return;
+  const living = getLivingPartyMembers(st);
+  for (const m of living) {
+    const dmg = Math.max(1, Math.floor(m.maxHp * 0.03));
+    m.hp = Math.max(0, m.hp - dmg);
+    appendFightLog(`Bitter Cold saps ${m.name || "a fighter"} for ${dmg}.`);
+  }
+}
+
+function applySilentGlacierBossReinforcementsIfDue(st, round) {
+  const ctx = st && st.worldMapContext;
+  if (!ctx || ctx.dungeonId !== "silent_glacier") return;
+  const def = getDungeonDef("silent_glacier");
+  if (!def || !Array.isArray(def.rooms)) return;
+  if (ctx.roomIndex !== def.rooms.length - 1) return;
+  if (round !== 8 && round !== 12) return;
+  if (summonPaleRimeWisp(st)) {
+    appendFightLog("A Pale Rime Wisp drifts from the still core!");
+  }
+}
+
 function applyDungeonFrostrootSnareIfDue(st, round) {
   if (!isDungeonFrostrootSnareCombat(st)) return;
   const ctx = st.worldMapContext;
@@ -6048,6 +6225,10 @@ function applyDungeonEndOfRoundMechanics(st) {
   applyVerdantDeepBossReinforcementsIfDue(st, round);
   applyDungeonHeatSurgeIfDue(st, round);
   applyInfernalRiftforgeBossReinforcementsIfDue(st, round);
+  applyDungeonNumbingSilenceIfDue(st, round);
+  applyDungeonGlacialDragIfDue(st, round);
+  applyDungeonBitterColdIfDue(st, round);
+  applySilentGlacierBossReinforcementsIfDue(st, round);
 }
 
 function applyStormPressureIfDue(st) {
@@ -10068,6 +10249,266 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     return true;
   }
 
+  if (scriptId === "hollowglass_siren") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const intv = foe.int || 20;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const living = getLivingPartyMembers(st);
+    if (ready("hollow_reflection") && hpFrac < 0.7 && (foe.combat.evasionBonusTurns || 0) <= 0) {
+      setCd("hollow_reflection", 3);
+      foe.combat.evasionBonusPct = Math.max(foe.combat.evasionBonusPct || 0, 18);
+      foe.combat.evasionBonusTurns = Math.max(foe.combat.evasionBonusTurns || 0, 2);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Hollow Reflection.`);
+      return true;
+    }
+    if (ready("silent_aria") && living.filter((m) => !isPartyMemberBlinded(st, m)).length >= 2) {
+      setCd("silent_aria", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.4 * outMult));
+      for (const m of living) {
+        dealRawDamageToPlayer(st, hit, foe.name, "Silent Aria numbs", { partyUid: m.uid });
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (
+      ready("rime_lament") &&
+      living.filter(
+        (m) =>
+          (m.kind === "hero" ? (st.status?.playerMagicDamageDownTurns || 0) <= 0 : (m.magicDamageDownTurns || 0) <= 0)
+      ).length >= 2
+    ) {
+      setCd("rime_lament", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.35 * outMult));
+      for (const m of living) {
+        dealRawDamageToPlayer(st, hit, foe.name, "Rime Lament chills", { partyUid: m.uid });
+        if (Math.random() < 0.4) applyPartyMemberMagicDamageDown(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (ready("shatter_focus")) {
+      setCd("shatter_focus", 4);
+      const target = getPartyMemberByUid(st, partyUid);
+      if (Math.random() < 0.55) applyPartyMemberBlind(st, target, 10, 2);
+      if (Math.random() < 0.35) applyPartyMemberStatusResistDown(st, target, 5, 2);
+      appendFightLog(`${foe.name} shatters ${target?.name || "your"} focus.`);
+      return true;
+    }
+    if (ready("glass_needle")) {
+      setCd("glass_needle", 2);
+      const assassinUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+      const hit = Math.max(1, Math.floor(intv * 0.65 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Glass Needle pierces", {
+        partyUid: typeof assassinUid === "number" ? assassinUid : partyUid
+      });
+      if (Math.random() < 0.35) applyPartyMemberCripple(st, getPartyMemberByUid(st, assassinUid), 1);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(intv * 0.35 * outMult)), foe.name, "Frost Note strikes you", {
+      partyUid
+    });
+    return true;
+  }
+
+  if (scriptId === "rimebound_undertaker") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const strv = foe.str || 20;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (ready("rimehide_burden") && hpFrac < 0.75 && (foe.combat.physResBonusTurns || 0) <= 0) {
+      setCd("rimehide_burden", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      setFoeMitigation(foe, 2, 0.92);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} braces under Rimehide Burden.`);
+      return true;
+    }
+    const living = getLivingPartyMembers(st);
+    if (
+      ready("funeral_weight") &&
+      living.filter(
+        (m) => (m.kind === "hero" && (st.status?.playerCrippleTurns || 0) <= 0) || (m.kind !== "hero" && (m.crippleTurns || 0) <= 0)
+      ).length >= 2
+    ) {
+      setCd("funeral_weight", 4);
+      for (const m of living) {
+        if (Math.random() < 0.45) applyPartyMemberCripple(st, m, 1);
+        if (Math.random() < 0.35) applyPartyMemberBlind(st, m, 6, 1);
+      }
+      appendFightLog(`${foe.name} slams Funeral Weight into the ice.`);
+      return true;
+    }
+    if (ready("coffin_breaker")) {
+      setCd("coffin_breaker", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 1.15 * outMult)), foe.name, "Coffin Breaker crushes you", {
+        partyUid
+      });
+      tryPartyMemberStun(st, member, 0.18);
+      return true;
+    }
+    if (ready("gravehook_drag")) {
+      setCd("gravehook_drag", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.95 * outMult)), foe.name, "Gravehook Drag hooks you", {
+        partyUid
+      });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    if (ready("last_procession")) {
+      setCd("last_procession", 5);
+      const hit = Math.max(1, Math.floor(strv * 0.7 * outMult));
+      const crippled =
+        (member?.kind === "hero" && (st.status?.playerCrippleTurns || 0) > 0) ||
+        (member?.kind !== "hero" && (member?.crippleTurns || 0) > 0);
+      dealRawDamageToPlayerAdjacent(
+        st,
+        Math.max(1, Math.floor(hit * (crippled ? 1.15 : 1))),
+        foe.name,
+        "Last Procession sweeps",
+        partyUid,
+        1,
+        1
+      );
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 0.6 * outMult)), foe.name, "Ironbone Strike hits you", {
+      partyUid
+    });
+    return true;
+  }
+
+  if (scriptId === "pale_rime_wisp") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const intv = foe.int || 20;
+    const lowest = getLowestHpLivingFoeAlly(st, foe.uid);
+    if (lowest && ready("wisp_veil") && (lowest.combat?.absorbTurns || 0) <= 0) {
+      setCd("wisp_veil", 3);
+      grantFoeAbsorbShield(lowest, Math.max(1, Math.floor((lowest.vit || 30) * 0.6)), 1);
+      appendFightLog(`${foe.name} wraps ${lowest.name} in Wisp Veil.`);
+      return true;
+    }
+    const hit = Math.max(1, Math.floor(intv * 0.35 * outMult));
+    dealRawDamageToPlayer(st, hit, foe.name, "Chill Flicker chills you", { partyUid });
+    if (Math.random() < 0.3) applyPartyMemberBlind(st, getPartyMemberByUid(st, partyUid), 5, 1);
+    return true;
+  }
+
+  if (scriptId === "the_stillness_below") {
+    const memberUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof memberUid === "number" ? memberUid : null;
+    const member = getPartyMemberByUid(st, partyUid);
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    const dmgBonus = 1 + (foe.combat.outgoingDamageBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    const magicBonus = 1 + (foe.combat.outgoingMagicBonusPct || 0) / 100;
+    const phase3 = !!foe.combat.stillnessPhase3;
+    const phase2 = !!foe.combat.stillnessPhase2;
+    if (hpFrac <= 0.7 && !foe.combat.stillnessPhase2) {
+      foe.combat.stillnessPhase2 = true;
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      appendFightLog(`${foe.name} enters The Glacier Opens.`);
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) summonDungeonReinforcement(st, "Frost Skitter");
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) summonDungeonReinforcement(st, "Glacier Turtoise");
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.stillnessPhase3) {
+      foe.combat.stillnessPhase3 = true;
+      foe.combat.outgoingMagicBonusPct = Math.max(foe.combat.outgoingMagicBonusPct || 0, 10);
+      foe.combat.outgoingAccuracyBonusPct = Math.max(foe.combat.outgoingAccuracyBonusPct || 0, 8);
+      appendFightLog(`${foe.name} enters Absolute Stillness.`);
+      return true;
+    }
+    if (phase3 && ready("absolute_zero_pulse")) {
+      setCd("absolute_zero_pulse", 6);
+      const hit = Math.max(1, Math.floor(intv * 0.58 * outMult * magicBonus * accBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Absolute Zero Pulse freezes the party", { aoeAllParty: true });
+      for (const m of getLivingPartyMembers(st)) {
+        tryPartyMemberStun(st, m, 0.2);
+        if (Math.random() < 0.45) applyPartyMemberMagicDamageDown(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (phase2 && ready("fracture_the_surface") && getLivingPartyMembers(st).length >= 3) {
+      setCd("fracture_the_surface", 5);
+      const hit = Math.max(1, Math.floor(strv * 0.5 * outMult));
+      for (const m of getLivingPartyMembers(st)) {
+        dealRawDamageToPlayer(st, hit, foe.name, "Fracture the Surface shakes", { partyUid: m.uid });
+        tryPartyMemberStun(st, m, 0.18);
+        if (Math.random() < 0.35) applyPartyMemberCripple(st, m, 1);
+      }
+      return true;
+    }
+    if (ready("glacial_carapace") && hpFrac < 0.75 && (foe.combat.mitigationTurns || 0) <= 0) {
+      setCd("glacial_carapace", 4);
+      setFoeMitigation(foe, 2, 0.85);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      appendFightLog(`${foe.name} raises Glacial Carapace.`);
+      return true;
+    }
+    const living = getLivingPartyMembers(st);
+    if (ready("silence_wave") && living.filter((m) => !isPartyMemberBlinded(st, m)).length >= 2) {
+      setCd("silence_wave", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.42 * outMult * magicBonus));
+      for (const m of living) {
+        dealRawDamageToPlayer(st, hit, foe.name, "Silence Wave numbs", { partyUid: m.uid });
+        if (Math.random() < 0.45) applyPartyMemberBlind(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (
+      ready("abyssal_rime") &&
+      living.filter(
+        (m) =>
+          (m.kind === "hero" ? (st.status?.playerMagicDamageDownTurns || 0) <= 0 : (m.magicDamageDownTurns || 0) <= 0)
+      ).length >= 2
+    ) {
+      setCd("abyssal_rime", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * outMult * magicBonus));
+      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Abyssal Rime chills", partyUid, 2, 1);
+      if (Math.random() < 0.4) applyPartyMemberMagicDamageDown(st, member, 8, 2);
+      return true;
+    }
+    if (ready("eye_beneath")) {
+      setCd("eye_beneath", 5);
+      const mageUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+      const target = getPartyMemberByUid(st, typeof mageUid === "number" ? mageUid : partyUid);
+      const hit = Math.max(1, Math.floor(intv * 0.7 * outMult * magicBonus * accBonus));
+      dealRawDamageToPlayer(st, hit, foe.name, "Eye Beneath sees you", { partyUid: target?.uid ?? partyUid });
+      if (Math.random() < 0.5) applyPartyMemberStatusResistDown(st, target, 6, 2);
+      if (Math.random() < 0.35) applyPartyMemberBlind(st, target, 6, 2);
+      return true;
+    }
+    if (ready("pressure_under_ice")) {
+      setCd("pressure_under_ice", 2);
+      const assassinUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+      const target = getPartyMemberByUid(st, typeof assassinUid === "number" ? assassinUid : partyUid);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(strv * 1.0 * outMult)), foe.name, "Pressure Under Ice bulges under you", {
+        partyUid: target?.uid ?? partyUid
+      });
+      if (Math.random() < 0.45) applyPartyMemberCripple(st, target, 1);
+      return true;
+    }
+    const basicHit = Math.max(1, Math.floor(intv * (phase3 ? 0.35 : 0.42) * outMult * magicBonus * accBonus));
+    if (phase3) {
+      dealRawDamageToPlayerAdjacent(st, basicHit, foe.name, "Rime Pressure surges", partyUid, 1, 1);
+    } else {
+      dealRawDamageToPlayer(st, basicHit, foe.name, "Rime Pressure strikes you", { partyUid });
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -12361,12 +12802,23 @@ function getRiftforgeTyrantPhaseTransitionLogMessage(stemIndex) {
   return byStem[ix] || "The Riftforge Tyrant's domain shifts into a new phase.";
 }
 
+function getStillnessBelowPhaseTransitionLogMessage(stemIndex) {
+  const ix = typeof stemIndex === "number" && Number.isFinite(stemIndex) ? Math.floor(stemIndex) : 0;
+  const byStem = {
+    1: "The lake is calm—ice blue, silent, and vast beneath the transparent floor.",
+    2: "The glacier opens—cracks spread under the lake and pale reflections rise.",
+    3: "Absolute stillness falls—the room dims, frost thickens, and the abyss eye remains open."
+  };
+  return byStem[ix] || "The Stillness Below shifts into a new phase.";
+}
+
 function getBossPhaseTransitionLogMessage(dungeonId, stemIndex) {
   if (dungeonId === "stonevein_sanctum") return getColossusPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "frostroot_nursery") return getSleepingChildPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "rustfallen_bastion") return getLastWarmasterPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "verdant_deep") return getHeartbloomAncientPhaseTransitionLogMessage(stemIndex);
   if (dungeonId === "infernal_riftforge") return getRiftforgeTyrantPhaseTransitionLogMessage(stemIndex);
+  if (dungeonId === "silent_glacier") return getStillnessBelowPhaseTransitionLogMessage(stemIndex);
   return getLeviathanPhaseTransitionLogMessage(stemIndex);
 }
 
@@ -12386,7 +12838,9 @@ function shouldDeferBossPhaseBgCeremony(dungeonId, roomIndex, st) {
   const heartbloom = st.foes && st.foes.find((f) => f && f.name === "The Heartbloom Ancient" && f.hp > 0);
   if (heartbloom) return true;
   const tyrant = st.foes && st.foes.find((f) => f && f.name === "The Riftforge Tyrant" && f.hp > 0);
-  return !!tyrant;
+  if (tyrant) return true;
+  const stillness = st.foes && st.foes.find((f) => f && f.name === "The Stillness Below" && f.hp > 0);
+  return !!stillness;
 }
 
 function shouldDeferLeviathanPhaseBgCeremony(dungeonId, roomIndex, st) {
@@ -13773,6 +14227,20 @@ function getSceneLayoutDefaultsFromSceneElement(x, y, elId) {
       };
     }
   }
+  if (elId === "maera_hushveil_epilogue") {
+    const sgDef = getDungeonDef("silent_glacier");
+    const ex =
+      sgDef && sgDef.entrance && typeof sgDef.entrance.x === "number" ? Math.floor(sgDef.entrance.x) : 10;
+    const ey =
+      sgDef && sgDef.entrance && typeof sgDef.entrance.y === "number" ? Math.floor(sgDef.entrance.y) : 23;
+    if (x === ex && y === ey) {
+      return {
+        leftPct: clampScenePct(48),
+        topPct: clampScenePct(62),
+        scalePct: clampSceneScalePct(72)
+      };
+    }
+  }
   const cfg = getCoordinateCellConfig(x, y);
   if (!cfg || cfg.kind !== "scene" || !Array.isArray(cfg.elements)) return null;
   const el = cfg.elements.find((e) => e && e.id === elId);
@@ -13978,6 +14446,19 @@ function buildNpcLayoutExportByCoordinate() {
         : null;
     if (irEnt && x === irEnt.x && y === irEnt.y) {
       const epId = "kael_ashbrand_epilogue";
+      const epPos = getSceneLayoutTransform(x, y, epId);
+      const epDefault = epPos.leftPct === 48 && epPos.topPct === 62 && epPos.scalePct === 72;
+      if (!epDefault) {
+        rows.push({ id: epId, leftPct: epPos.leftPct, topPct: epPos.topPct, scalePct: epPos.scalePct });
+      }
+    }
+    const sgDef = getDungeonDef("silent_glacier");
+    const sgEnt =
+      sgDef && sgDef.entrance && typeof sgDef.entrance.x === "number" && typeof sgDef.entrance.y === "number"
+        ? { x: Math.floor(sgDef.entrance.x), y: Math.floor(sgDef.entrance.y) }
+        : null;
+    if (sgEnt && x === sgEnt.x && y === sgEnt.y) {
+      const epId = "maera_hushveil_epilogue";
       const epPos = getSceneLayoutTransform(x, y, epId);
       const epDefault = epPos.leftPct === 48 && epPos.topPct === 62 && epPos.scalePct === 72;
       if (!epDefault) {
@@ -18174,6 +18655,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
       if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (dmg > 0) tryProcSilverbackPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (dmg > 0) tryProcAshmawPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+      if (dmg > 0) tryProcRimeboundCrippleOnPhysHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
       if (foe.combat && foe.combat.script === "tusk_boar") {
         foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
       }
@@ -18252,6 +18734,8 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
   if (dmg > 0) tryProcGranitehornPhysResDown(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (dmg > 0) tryProcWarmasterBothDmgDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (dmg > 0) tryProcSilverbackPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+  if (dmg > 0) tryProcAshmawPhysResDownOnHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
+  if (dmg > 0) tryProcRimeboundCrippleOnPhysHit(st, getEquipmentForCombatMember(member, actor), foe, outgoingDmgKind);
   if (foe.combat && foe.combat.script === "tusk_boar") {
     foe.combat.rageStacks = (foe.combat.rageStacks || 0) + 1;
   }
@@ -18731,6 +19215,34 @@ function openMerritRootsnifferKeyAcceptedDialog() {
   openDungeonKeyAcceptedDialog("rootwarren");
 }
 
+function openMaeraHushveilEntranceDialog() {
+  const def = getDungeonDef("silent_glacier");
+  const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Silent Glacier Key";
+  const hasKey = player.inventory.includes(keyName);
+  if (hasKey) {
+    const html = `<div class="npc-dialog-bubble">
+      <p class="npc-dialog-speaker">Maera Hushveil</p>
+      <p class="npc-dialog-body">You found a Silent Glacier Key. Then the ice has already noticed you. I can open the cleft, but I cannot make it care whether you return. Step lightly. Down there, even fear freezes before it reaches your face.</p>
+      <p class="npc-dialog-actions-label">Action options</p>
+      <div class="npc-dialog-actions">
+        <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="silent_glacier">Use Silent Glacier Key</button>
+        <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="silent_glacier">Leave</button>
+      </div>
+    </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Maera Hushveil</p>
+    <p class="npc-dialog-body">No key. Then the glacier remains closed. That is not a punishment. It may be the kindest thing this place has ever done for you. Bring a Silent Glacier Key if you still wish to be forgotten below.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="silent_glacier">Leave</button>
+    </div>
+  </div>`;
+  showModalHtml(html, { npcBubble: true });
+}
+
 function openKaelAshbrandEntranceDialog() {
   const def = getDungeonDef("infernal_riftforge");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Riftforge Key";
@@ -18958,6 +19470,10 @@ function openDungeonEntranceDialog(dungeonId) {
     openKaelAshbrandEntranceDialog();
     return;
   }
+  if (id === "silent_glacier") {
+    openMaeraHushveilEntranceDialog();
+    return;
+  }
   const name = typeof def.name === "string" && def.name.trim() ? def.name.trim() : id;
   const keyName = typeof def.keyItem === "string" && def.keyItem.trim() ? def.keyItem.trim() : "Dungeon Key";
   const html = `<div class="npc-dialog-bubble">
@@ -18990,7 +19506,9 @@ function openDungeonKeyAcceptedDialog(dungeonId) {
               ? "Nali parts the vine seal. Warm sap breath rolls up from the Verdant Deep."
               : id === "infernal_riftforge"
                 ? "Kael turns the Riftforge Key. The slag gate exhales heat and old hammering echoes."
-                : "The key turns by itself. Thunder exhales from the gap ahead.";
+                : id === "silent_glacier"
+                  ? "Maera touches the frost seal. The cleft opens with a sound like breath caught in ice."
+                  : "The key turns by itself. Thunder exhales from the gap ahead.";
   const html = `<div class="npc-dialog-bubble">
     <p class="npc-dialog-body">${escapeHtml(body)}</p>
     <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-dungeon-choice="enter_dungeon" data-dungeon-id="${escapeAttr(id)}">Continue</button></div>
@@ -19187,6 +19705,20 @@ function openDungeonEpilogueDialog(dungeonId) {
     <p class="npc-dialog-speaker">Kael Ashbrand</p>
     <p class="npc-dialog-body">The forge has gone quiet... for now. You broke the Tyrant's flame, but hatred leaves embers behind.</p>
     <p class="npc-dialog-body">Come, before the mountain remembers how to scream.</p>
+    <p class="npc-dialog-actions-label">Action options</p>
+    <div class="npc-dialog-actions">
+      <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Take me out</button>
+      <button type="button" class="btn-secondary" data-dungeon-stay="1">Stay</button>
+    </div>
+  </div>`;
+    showModalHtml(html, { npcBubble: true });
+    return;
+  }
+  if (id === "silent_glacier") {
+    const html = `<div class="npc-dialog-bubble">
+    <p class="npc-dialog-speaker">Maera Hushveil</p>
+    <p class="npc-dialog-body">The ice stopped listening. For a moment, I heard my own breath again.</p>
+    <p class="npc-dialog-body">You reached what sleeps below the glacier and came back with warmth still in you. Come. I will lead you out before the silence remembers your name.</p>
     <p class="npc-dialog-actions-label">Action options</p>
     <div class="npc-dialog-actions">
       <button type="button" class="btn-primary" data-dungeon-leave="${escapeAttr(id)}">Take me out</button>
@@ -19426,6 +19958,35 @@ function buildDungeonEpilogueSceneHtml() {
       return `<div class="world-scene">
     <h3 class="world-scene-title">${escapeHtml(name)}</h3>
     <p class="world-scene-desc muted">The forge has gone quiet. Kael Ashbrand waits beside the cooling slag gate.</p>
+    <div class="${actionsClass}">
+      ${btn}
+    </div>
+  </div>`;
+    }
+    if (dungeonId === "silent_glacier") {
+      const cellCfg = getCoordinateCellConfig(epX, epY);
+      let imgUrl = "";
+      if (cellCfg && cellCfg.kind === "scene" && Array.isArray(cellCfg.elements)) {
+        const el = cellCfg.elements.find((e) => e && e.type === "npc" && e.id === "maera_hushveil");
+        imgUrl = el && typeof el.image === "string" ? el.image.trim() : "";
+      }
+      if (imgUrl) {
+        const visual = buildNpcVisualHtml("Maera Hushveil", imgUrl);
+        btn = `<button type="button" class="world-scene-btn world-npc-btn" data-world-scene="${payload}" title="Maera Hushveil" aria-label="Maera Hushveil"><span class="world-npc-visual" aria-hidden="true">${visual}</span></button>`;
+      }
+      const layoutId = "maera_hushveil_epilogue";
+      const layoutKey = sceneLayoutStorageKey(epX, epY, layoutId);
+      const pos = getSceneLayoutTransform(epX, epY, layoutId);
+      const sc = pos.scalePct / 100;
+      btn = `<div class="scene-object-anchor" data-scene-layout-key="${escapeAttr(
+        layoutKey
+      )}" style="left:${pos.leftPct}%;top:${pos.topPct}%;transform:translate(-50%,-50%) scale(${sc})"><button type="button" class="scene-object-remove" data-scene-remove="${escapeAttr(
+        layoutId
+      )}" aria-label="Remove object" title="Remove">&times;</button><span class="scene-object-resize" data-scene-resize="${escapeAttr(layoutId)}" aria-label="Resize" title="Resize"></span>${btn}</div>`;
+      const actionsClass = "world-scene-actions world-scene-actions--anchored";
+      return `<div class="world-scene">
+    <h3 class="world-scene-title">${escapeHtml(name)}</h3>
+    <p class="world-scene-desc muted">The cleft is hushed again. Maera Hushveil waits with her pale blue lantern.</p>
     <div class="${actionsClass}">
       ${btn}
     </div>

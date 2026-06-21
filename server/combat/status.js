@@ -14,7 +14,8 @@ import {
 import {
   tryProcBannerlessMagResOnAccuracyDebuff,
   tryProcHeartbloomMagResOnPoison,
-  tryProcRiftforgeTyrantMagResOnBurn
+  tryProcRiftforgeTyrantMagResOnBurn,
+  tryProcStillnessMagDmgOnAccuracyDebuff
 } from "./set_procs.js";
 
 const CAPS = { accuracyDown: 40, damageDown: 35 };
@@ -268,6 +269,8 @@ export function tryRollFoeDebuff(st, foe, deb, actor, rng, extraLogs) {
       c.blindAccDownPct = Math.max(c.blindAccDownPct || 0, deb.accDown || 0);
       const bannerlessLog = tryProcBannerlessMagResOnAccuracyDebuff(actor?.equipment, foe, rng);
       if (bannerlessLog && Array.isArray(extraLogs)) extraLogs.push(bannerlessLog);
+      const stillnessLog = tryProcStillnessMagDmgOnAccuracyDebuff(actor?.equipment, foe, rng);
+      if (stillnessLog && Array.isArray(extraLogs)) extraLogs.push(stillnessLog);
       return `${name} is blinded.`;
     }
     case "stun":
@@ -406,6 +409,20 @@ export function applyPartyMemberCripple(st, member, turns) {
     st.status.playerCrippleTurns = Math.max(st.status.playerCrippleTurns || 0, t);
   }
   member.crippleTurns = Math.max(member.crippleTurns || 0, t);
+}
+
+export function applyPartyMemberMagicDamageDown(st, member, pct, turns) {
+  if (!member) return;
+  const p = Math.max(0, Math.min(CAPS.damageDown, pct));
+  const t = Math.max(1, Math.floor(turns));
+  if (member.kind === "hero") {
+    ensureCombatStatus(st);
+    st.status.playerMagicDamageDownPct = Math.max(st.status.playerMagicDamageDownPct || 0, p);
+    st.status.playerMagicDamageDownTurns = Math.max(st.status.playerMagicDamageDownTurns || 0, t);
+    return;
+  }
+  member.magicDamageDownPct = Math.max(member.magicDamageDownPct || 0, p);
+  member.magicDamageDownTurns = Math.max(member.magicDamageDownTurns || 0, t);
 }
 
 export function applyPlayerBleed(st, dmgPerTurn, turns) {

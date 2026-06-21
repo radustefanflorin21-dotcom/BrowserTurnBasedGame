@@ -74,7 +74,11 @@ const MONSTER_ROLE_BY_SCRIPT_ID = {
   ember_forgeling: "controller",
   inferno_oracle: "mage",
   ashmaw_titan: "bruiser",
-  the_riftforge_tyrant: "bruiser"
+  the_riftforge_tyrant: "bruiser",
+  hollowglass_siren: "mage",
+  rimebound_undertaker: "bruiser",
+  pale_rime_wisp: "controller",
+  the_stillness_below: "mage"
 };
 
 function inferMonsterCombatRole(scriptId) {

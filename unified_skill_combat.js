@@ -196,6 +196,9 @@
         if (typeof tryProcBannerlessMagResOnAccuracyDebuff === "function" && typeof player !== "undefined") {
           tryProcBannerlessMagResOnAccuracyDebuff(st, player.equipment, foe);
         }
+        if (typeof tryProcStillnessMagDmgOnAccuracyDebuff === "function" && typeof player !== "undefined") {
+          tryProcStillnessMagDmgOnAccuracyDebuff(st, player.equipment, foe);
+        }
         break;
       case "cripple":
         foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, t);

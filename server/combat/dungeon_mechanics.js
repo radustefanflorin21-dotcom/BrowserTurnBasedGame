@@ -103,9 +103,39 @@ function isRiftforgeTyrantPhase3(st) {
   );
 }
 
+function isStillnessBelowPhase3(st) {
+  return (st.foes || []).some(
+    (f) =>
+      f &&
+      f.name === "The Stillness Below" &&
+      f.hp > 0 &&
+      f.maxHp > 0 &&
+      f.hp / f.maxHp <= 0.35
+  );
+}
+
 function isInfernalRiftforgeFinalRoom(st, def) {
   const roomIndex = typeof st.worldMapContext?.roomIndex === "number" ? st.worldMapContext.roomIndex : 0;
   return Array.isArray(def?.rooms) && roomIndex === def.rooms.length - 1;
+}
+
+function isSilentGlacierFinalRoom(st, def) {
+  const roomIndex = typeof st.worldMapContext?.roomIndex === "number" ? st.worldMapContext.roomIndex : 0;
+  return Array.isArray(def?.rooms) && roomIndex === def.rooms.length - 1;
+}
+
+function mechanicDueFromRound1(round, interval) {
+  return (round - 1) % interval === 0;
+}
+
+function countPaleRimeWisps(st) {
+  return (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Pale Rime Wisp").length;
+}
+
+export function spawnPaleRimeWisp(st, rng) {
+  if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
+  if (countPaleRimeWisps(st) >= 2) return false;
+  return spawnReinforcement(st, "Pale Rime Wisp", rng);
 }
 
 function countEmberForgelings(st) {
@@ -366,6 +396,53 @@ export function applyDungeonMechanicsEndOfEnemyPhase(st, rng, log) {
     if (round === 8 || round === 12) {
       if (spawnEmberForgeling(st, rng)) {
         log("The forge erupts — an Ember Forgeling crawls from the slag!");
+      }
+    }
+  }
+
+  if (def.numbingSilence) {
+    const phase3BossSilence =
+      dungeonId === "silent_glacier" && isSilentGlacierFinalRoom(st, def) && isStillnessBelowPhase3(st);
+    const interval = phase3BossSilence ? 2 : 3;
+    const due = phase3BossSilence
+      ? mechanicDueFromRound1(round, interval)
+      : roomIndex >= 2 && mechanicDueFromRound1(round, interval);
+    if (due) {
+      const living = (st.party || []).filter((m) => m && m.hp > 0);
+      if (living.length) {
+        const pick = living[Math.floor(rng.next() * living.length)];
+        if (rng.chance(0.35)) {
+          applyPartyMemberBlind(st, pick, 8, 2);
+          log(`Numbing Silence dulls ${pick.name || "a fighter"} (−8% accuracy).`);
+        }
+      }
+    }
+  }
+
+  if (def.glacialDrag && roomIndex >= 3 && mechanicDueFromRound1(round, 4)) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    if (living.length) {
+      const pick = living[Math.floor(rng.next() * living.length)];
+      if (rng.chance(0.3)) {
+        applyPartyMemberCripple(st, pick, 1);
+        log(`Glacial Drag cripples ${pick.name || "a fighter"} (+1 stamina per action).`);
+      }
+    }
+  }
+
+  if (def.bitterCold && roomIndex >= 4 && mechanicDueFromRound1(round, 4)) {
+    const living = (st.party || []).filter((m) => m && m.hp > 0);
+    for (const m of living) {
+      const dmg = Math.max(1, Math.floor(m.maxHp * 0.03));
+      m.hp = Math.max(0, m.hp - dmg);
+      log(`Bitter Cold saps ${m.name || "a fighter"} for ${dmg}.`);
+    }
+  }
+
+  if (dungeonId === "silent_glacier" && Array.isArray(def.rooms) && roomIndex === def.rooms.length - 1) {
+    if (round === 8 || round === 12) {
+      if (spawnPaleRimeWisp(st, rng)) {
+        log("A Pale Rime Wisp drifts from the still core!");
       }
     }
   }

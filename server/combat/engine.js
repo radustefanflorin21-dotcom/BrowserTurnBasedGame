@@ -14,7 +14,7 @@ import {
   skillTargetMode,
   getSkillDef
 } from "./skills.js";
-import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit, tryProcSilverbackPhysResDownOnHit, tryProcAshmawPhysResDownOnHit } from "./set_procs.js";
+import { tryProcGranitehornPhysResDown, tryProcWarmasterBothDmgDownOnHit, tryProcSilverbackPhysResDownOnHit, tryProcAshmawPhysResDownOnHit, tryProcRimeboundCrippleOnPhysHit } from "./set_procs.js";
 import { ensureClassState } from "./class_state.js";
 import { applyClassSkillOnHit } from "./class_skills.js";
 import {
@@ -24,7 +24,7 @@ import {
   trySecondBreath
 } from "./combat_passives.js";
 import { applyDungeonMechanicsEndOfEnemyPhase } from "./dungeon_mechanics.js";
-import { initFoeCombatRuntime, runSingleEnemyTurn, tryEmberForgelingMeltdown } from "./enemy_ai.js";
+import { initFoeCombatRuntime, runSingleEnemyTurn, tryEmberForgelingMeltdown, tryPaleRimeWispFadeCold } from "./enemy_ai.js";
 import {
   ensureCombatStatus,
   tickEffectsAtStartOfPlayerTurn,
@@ -517,6 +517,8 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (silverbackLog) appendLog(st, silverbackLog);
       const ashmawLog = tryProcAshmawPhysResDownOnHit(actorPlayer?.equipment, foe, rng, dmgKind);
       if (ashmawLog) appendLog(st, ashmawLog);
+      const rimeboundLog = tryProcRimeboundCrippleOnPhysHit(actorPlayer?.equipment, foe, rng, dmgKind);
+      if (rimeboundLog) appendLog(st, rimeboundLog);
       if (hit.crit) {
         const dm = tryDuelistMomentumOnCrit(st, actor, rng, member);
         if (dm) appendLog(st, dm);
@@ -530,6 +532,8 @@ export function processCombatAction(session, action, actingUserId = null) {
         }
         const meltdownLog = tryEmberForgelingMeltdown(st, foe, rng, appendLog, actorPlayer);
         if (meltdownLog) appendLog(st, meltdownLog);
+        const fadeColdLog = tryPaleRimeWispFadeCold(st, foe, rng, appendLog, actorPlayer);
+        if (fadeColdLog) appendLog(st, fadeColdLog);
       }
     }
     for (const line of resolved.debuffLogs || []) {
@@ -581,10 +585,14 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (silverbackLog) appendLog(st, silverbackLog);
       const ashmawLog = tryProcAshmawPhysResDownOnHit(actorPlayer?.equipment, foe, rng, "physical");
       if (ashmawLog) appendLog(st, ashmawLog);
+      const rimeboundLog = tryProcRimeboundCrippleOnPhysHit(actorPlayer?.equipment, foe, rng, "physical");
+      if (rimeboundLog) appendLog(st, rimeboundLog);
     }
     if (foe.hp <= 0) {
       const meltdownLog = tryEmberForgelingMeltdown(st, foe, rng, appendLog, actorPlayer);
       if (meltdownLog) appendLog(st, meltdownLog);
+      const fadeColdLog = tryPaleRimeWispFadeCold(st, foe, rng, appendLog, actorPlayer);
+      if (fadeColdLog) appendLog(st, fadeColdLog);
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     markCoopHeroActedIfNeeded(member, session);

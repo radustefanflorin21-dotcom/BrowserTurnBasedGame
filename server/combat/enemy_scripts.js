@@ -5,6 +5,7 @@ import {
   applyPartyMemberBlind,
   applyPartyMemberCripple,
   applyPartyMemberIncomingDamageUp,
+  applyPartyMemberMagicDamageDown,
   applyPartyMemberSuppressedDamageDownBoth,
   applyPartyMemberStatusResistDown,
   applyPlayerAccuracyDown,
@@ -1422,6 +1423,237 @@ const SCRIPT_HANDLERS = {
       ctx.hitAdjacent(member, basicHit, "Tyrant Strike cleaves", 1, 1);
     } else {
       ctx.hit(member, basicHit, "Tyrant Strike hits");
+    }
+    return true;
+  },
+
+  hollowglass_siren(foe, st, ctx) {
+    const intv = foe.int || 20;
+    const hpFrac = ctx.foeHpFrac();
+    const living = (st.party || []).filter((x) => x && x.hp > 0);
+    if (ctx.ready("hollow_reflection") && hpFrac < 0.7 && (foe.combat.evasionBonusTurns || 0) <= 0) {
+      ctx.setCd("hollow_reflection", 3);
+      foe.combat.evasionBonusPct = Math.max(foe.combat.evasionBonusPct || 0, 18);
+      foe.combat.evasionBonusTurns = Math.max(foe.combat.evasionBonusTurns || 0, 2);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Hollow Reflection.`);
+      return true;
+    }
+    if (ctx.ready("silent_aria") && living.filter((m) => !isMemberBlinded(st, m)).length >= 2) {
+      ctx.setCd("silent_aria", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.4 * ctx.outMult));
+      for (const m of living) {
+        ctx.hit(m, hit, "Silent Aria numbs");
+        if (ctx.rng.chance(45)) applyPartyMemberBlind(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (
+      ctx.ready("rime_lament") &&
+      living.filter((m) => (m.kind === "hero" ? (st.status?.playerMagicDamageDownTurns || 0) <= 0 : (m.magicDamageDownTurns || 0) <= 0))
+        .length >= 2
+    ) {
+      ctx.setCd("rime_lament", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.35 * ctx.outMult));
+      for (const m of living) {
+        ctx.hit(m, hit, "Rime Lament chills");
+        if (ctx.rng.chance(40)) applyPartyMemberMagicDamageDown(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (ctx.ready("shatter_focus")) {
+      ctx.setCd("shatter_focus", 4);
+      const target = ctx.pickTarget("mage");
+      if (ctx.rng.chance(55)) applyPartyMemberBlind(st, target, 10, 2);
+      if (ctx.rng.chance(35)) applyPartyMemberStatusResistDown(st, target, 5, 2);
+      ctx.log(`${foe.name} shatters ${target.name}'s focus.`);
+      return true;
+    }
+    if (ctx.ready("glass_needle")) {
+      ctx.setCd("glass_needle", 2);
+      const target = ctx.pickTarget("assassin");
+      const hit = Math.max(1, Math.floor(intv * 0.65 * ctx.outMult));
+      ctx.hit(target, hit, "Glass Needle pierces");
+      if (ctx.rng.chance(35)) applyPartyMemberCripple(st, target, 1);
+      return true;
+    }
+    ctx.hit(ctx.pickTarget("mage"), Math.max(1, Math.floor(intv * 0.35 * ctx.outMult)), "Frost Note strikes");
+    return true;
+  },
+
+  rimebound_undertaker(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const strv = foe.str || 20;
+    const hpFrac = ctx.foeHpFrac();
+    if (ctx.ready("rimehide_burden") && hpFrac < 0.75 && (foe.combat.physResBonusTurns || 0) <= 0) {
+      ctx.setCd("rimehide_burden", 4);
+      foe.combat.physResBonusPct = Math.max(foe.combat.physResBonusPct || 0, 10);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      setFoeMitigation(foe, 2, 0.92);
+      foe.combat.physResBonusTurns = Math.max(foe.combat.physResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} braces under Rimehide Burden.`);
+      return true;
+    }
+    const living = (st.party || []).filter((x) => x && x.hp > 0);
+    if (
+      ctx.ready("funeral_weight") &&
+      living.filter(
+        (m) => (m.kind === "hero" && (st.status?.playerCrippleTurns || 0) <= 0) || (m.kind !== "hero" && (m.crippleTurns || 0) <= 0)
+      ).length >= 2
+    ) {
+      ctx.setCd("funeral_weight", 4);
+      for (const m of living) {
+        if (ctx.rng.chance(45)) applyPartyMemberCripple(st, m, 1);
+        if (ctx.rng.chance(35)) applyPartyMemberBlind(st, m, 6, 1);
+      }
+      ctx.log(`${foe.name} slams Funeral Weight into the ice.`);
+      return true;
+    }
+    if (ctx.ready("coffin_breaker")) {
+      ctx.setCd("coffin_breaker", 3);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 1.15 * ctx.outMult)), "Coffin Breaker crushes");
+      tryPartyMemberStun(st, member, ctx.rng, 0.18, ctx.player, ctx.log);
+      return true;
+    }
+    if (ctx.ready("gravehook_drag")) {
+      ctx.setCd("gravehook_drag", 2);
+      ctx.hit(member, Math.max(1, Math.floor(strv * 0.95 * ctx.outMult)), "Gravehook Drag hooks");
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
+      return true;
+    }
+    if (ctx.ready("last_procession")) {
+      ctx.setCd("last_procession", 5);
+      const hit = Math.max(1, Math.floor(strv * 0.7 * ctx.outMult));
+      const crippled =
+        (member.kind === "hero" && (st.status?.playerCrippleTurns || 0) > 0) ||
+        (member.kind !== "hero" && (member.crippleTurns || 0) > 0);
+      ctx.hitAdjacent(member, Math.max(1, Math.floor(hit * (crippled ? 1.15 : 1))), "Last Procession sweeps", 1, 1);
+      return true;
+    }
+    ctx.hit(member, Math.max(1, Math.floor(strv * 0.6 * ctx.outMult)), "Ironbone Strike hits");
+    return true;
+  },
+
+  pale_rime_wisp(foe, st, ctx) {
+    const intv = foe.int || 20;
+    const lowest = lowestHpAlly(st, foe.uid);
+    if (ctx.ready("wisp_veil") && lowest && (lowest.combat?.absorbTurns || 0) <= 0) {
+      ctx.setCd("wisp_veil", 3);
+      grantFoeAbsorb(lowest, Math.max(1, Math.floor((lowest.vit || 30) * 0.6)), 1);
+      ctx.log(`${foe.name} wraps ${lowest.name} in Wisp Veil.`);
+      return true;
+    }
+    const member = ctx.pickTarget("mage");
+    const hit = Math.max(1, Math.floor(intv * 0.35 * ctx.outMult));
+    ctx.hit(member, hit, "Chill Flicker chills");
+    if (ctx.rng.chance(30)) applyPartyMemberBlind(st, member, 5, 1);
+    return true;
+  },
+
+  the_stillness_below(foe, st, ctx) {
+    const member = ctx.pickTarget("tank");
+    const hpFrac = ctx.foeHpFrac();
+    const strv = foe.str || 20;
+    const intv = foe.int || 20;
+    const magicBonus = 1 + (foe.combat.outgoingMagicBonusPct || 0) / 100;
+    const accBonus = 1 + (foe.combat.outgoingAccuracyBonusPct || 0) / 100;
+    const phase3 = !!foe.combat.stillnessPhase3;
+    const phase2 = !!foe.combat.stillnessPhase2;
+
+    if (hpFrac <= 0.7 && !foe.combat.stillnessPhase2) {
+      foe.combat.stillnessPhase2 = true;
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
+      ctx.log(`${foe.name} enters The Glacier Opens.`);
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
+        spawnReinforcement(st, "Frost Skitter", ctx.rng);
+      }
+      if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
+        spawnReinforcement(st, "Glacier Turtoise", ctx.rng);
+      }
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.stillnessPhase3) {
+      foe.combat.stillnessPhase3 = true;
+      foe.combat.outgoingMagicBonusPct = Math.max(foe.combat.outgoingMagicBonusPct || 0, 10);
+      foe.combat.outgoingAccuracyBonusPct = Math.max(foe.combat.outgoingAccuracyBonusPct || 0, 8);
+      ctx.log(`${foe.name} enters Absolute Stillness.`);
+      return true;
+    }
+    if (phase3 && ctx.ready("absolute_zero_pulse")) {
+      ctx.setCd("absolute_zero_pulse", 6);
+      const hit = Math.max(1, Math.floor(intv * 0.58 * ctx.outMult * magicBonus * accBonus));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Absolute Zero Pulse freezes");
+        tryPartyMemberStun(st, m, ctx.rng, 0.2, ctx.player, ctx.log);
+        if (ctx.rng.chance(45)) applyPartyMemberMagicDamageDown(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (phase2 && ctx.ready("fracture_the_surface") && livingPartyCount(st) >= 3) {
+      ctx.setCd("fracture_the_surface", 5);
+      const hit = Math.max(1, Math.floor(strv * 0.5 * ctx.outMult));
+      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
+        ctx.hit(m, hit, "Fracture the Surface shakes");
+        tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
+        if (ctx.rng.chance(35)) applyPartyMemberCripple(st, m, 1);
+      }
+      return true;
+    }
+    if (ctx.ready("glacial_carapace") && hpFrac < 0.75 && (foe.combat.mitigationTurns || 0) <= 0) {
+      ctx.setCd("glacial_carapace", 4);
+      setFoeMitigation(foe, 2, 0.85);
+      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 8);
+      foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 8);
+      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
+      foe.combat.statusResBonusTurns = Math.max(foe.combat.statusResBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Glacial Carapace.`);
+      return true;
+    }
+    const living = (st.party || []).filter((x) => x && x.hp > 0);
+    if (ctx.ready("silence_wave") && living.filter((m) => !isMemberBlinded(st, m)).length >= 2) {
+      ctx.setCd("silence_wave", 3);
+      const hit = Math.max(1, Math.floor(intv * 0.42 * ctx.outMult * magicBonus));
+      for (const m of living) {
+        ctx.hit(m, hit, "Silence Wave numbs");
+        if (ctx.rng.chance(45)) applyPartyMemberBlind(st, m, 8, 2);
+      }
+      return true;
+    }
+    if (
+      ctx.ready("abyssal_rime") &&
+      living.filter((m) => (m.kind === "hero" ? (st.status?.playerMagicDamageDownTurns || 0) <= 0 : (m.magicDamageDownTurns || 0) <= 0))
+        .length >= 2
+    ) {
+      ctx.setCd("abyssal_rime", 4);
+      const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * magicBonus));
+      ctx.hitAdjacent(member, hit, "Abyssal Rime chills", 2, 1);
+      if (ctx.rng.chance(40)) applyPartyMemberMagicDamageDown(st, member, 8, 2);
+      return true;
+    }
+    if (ctx.ready("eye_beneath")) {
+      ctx.setCd("eye_beneath", 5);
+      const target = ctx.pickTarget("mage");
+      const hit = Math.max(1, Math.floor(intv * 0.7 * ctx.outMult * magicBonus * accBonus));
+      ctx.hit(target, hit, "Eye Beneath sees");
+      if (ctx.rng.chance(50)) applyPartyMemberStatusResistDown(st, target, 6, 2);
+      if (ctx.rng.chance(35)) applyPartyMemberBlind(st, target, 6, 2);
+      return true;
+    }
+    if (ctx.ready("pressure_under_ice")) {
+      ctx.setCd("pressure_under_ice", 2);
+      const target = ctx.pickTarget("assassin");
+      ctx.hit(target, Math.max(1, Math.floor(strv * 1.0 * ctx.outMult)), "Pressure Under Ice bulges");
+      if (ctx.rng.chance(45)) applyPartyMemberCripple(st, target, 1);
+      return true;
+    }
+    const basicHit = Math.max(1, Math.floor(intv * (phase3 ? 0.35 : 0.42) * ctx.outMult * magicBonus * accBonus));
+    if (phase3) {
+      ctx.hitAdjacent(member, basicHit, "Rime Pressure surges", 1, 1);
+    } else {
+      ctx.hit(member, basicHit, "Rime Pressure strikes");
     }
     return true;
   },

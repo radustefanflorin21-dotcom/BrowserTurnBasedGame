@@ -9,7 +9,7 @@ import {
 import { trySecondBreath } from "./combat_passives.js";
 import { getFoeEffectiveAttack, getFoeOutgoingDamageMult } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
-import { isFoeStunned, applyPlayerBurn } from "./status.js";
+import { isFoeStunned, applyPlayerBurn, ensureCombatStatus } from "./status.js";
 import { tryProcFrosthornCrippleOnHit, tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
 
 function countEquippedSetPieces(equipment, setName) {
@@ -296,5 +296,28 @@ export function tryEmberForgelingMeltdown(st, deadFoe, rng, appendLog, player) {
     return null;
   }
   if (res.evaded) appendLog(`${deadFoe.name} Meltdown bursts — ${pick.name} evades!`);
+  return null;
+}
+
+/** Pale Rime Wisp Fade Cold when slain. @returns {string|null} */
+export function tryPaleRimeWispFadeCold(st, deadFoe, rng, appendLog, player) {
+  if (!deadFoe || deadFoe.name !== "Pale Rime Wisp") return null;
+  const living = (st.party || []).filter((m) => m && m.hp > 0);
+  if (!living.length) return null;
+  const pick = living[Math.floor(rng.next() * living.length)];
+  const intv = deadFoe.int || 58;
+  const hit = Math.max(1, Math.floor(intv * 0.25));
+  const res = dealFoeDamageToMember(st, deadFoe, pick, hit, "Fade Cold chills", rng, player);
+  if (!res.evaded && res.dmg > 0) {
+    appendLog(`${deadFoe.name} collapses into cold mist on ${pick.name} for ${res.dmg} damage.`);
+    if (rng.chance(0.25)) {
+      ensureCombatStatus(st);
+      st.status.playerMagicDamageDownPct = Math.max(st.status.playerMagicDamageDownPct || 0, 5);
+      st.status.playerMagicDamageDownTurns = Math.max(st.status.playerMagicDamageDownTurns || 0, 1);
+      appendLog(`${pick.name}'s spell force falters in the cold.`);
+    }
+    return null;
+  }
+  if (res.evaded) appendLog(`${deadFoe.name} Fade Cold dissipates — ${pick.name} evades!`);
   return null;
 }

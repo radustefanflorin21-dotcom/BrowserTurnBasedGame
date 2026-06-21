@@ -32,12 +32,13 @@ export function applyFoeCrippleFromSet(foe, turns) {
   foe.combat.staggerSkillTaxTurns = Math.max(foe.combat.staggerSkillTaxTurns || 0, Math.max(1, Math.floor(turns)));
 }
 
-export function applyFoeAccuracyDown(foe, pct, turns) {
-  if (!foe) return;
+export function applyFoeAccuracyDown(foe, pct, turns, equipment, rng) {
+  if (!foe) return null;
   ensureFoeCombat(foe);
   const c = foe.combat;
   c.accDownPct = Math.max(c.accDownPct || 0, Math.max(0, pct));
   c.accDownTurns = Math.max(c.accDownTurns || 0, Math.max(1, Math.floor(turns)));
+  return tryProcStillnessMagDmgOnAccuracyDebuff(equipment, foe, rng);
 }
 
 /**
@@ -153,4 +154,28 @@ export function tryProcRiftforgeTyrantMagResOnBurn(equipment, foe, rng) {
   if (!rng?.chance?.(20)) return null;
   applyFoeMagResDown(foe, 6, 1);
   return `${foe.name}'s magic resist falters (Riftforge Tyrant Set).`;
+}
+
+export function applyFoeMagDmgDown(foe, pct, turns) {
+  if (!foe) return;
+  ensureFoeCombat(foe);
+  const c = foe.combat;
+  c.magDmgDownPct = Math.max(c.magDmgDownPct || 0, Math.max(0, pct));
+  c.magDmgDownTurns = Math.max(c.magDmgDownTurns || 0, Math.max(1, Math.floor(turns)));
+}
+
+export function tryProcStillnessMagDmgOnAccuracyDebuff(equipment, foe, rng) {
+  if (!foe || foe.hp <= 0) return null;
+  if (countEquippedSetPieces(equipment, "Stillness Set") < 4) return null;
+  if (!rng?.chance?.(20)) return null;
+  applyFoeMagDmgDown(foe, 6, 1);
+  return `${foe.name}'s spell force falters (Stillness Set).`;
+}
+
+export function tryProcRimeboundCrippleOnPhysHit(equipment, foe, rng, damageKind) {
+  if (!foe || foe.hp <= 0 || damageKind !== "physical") return null;
+  if (countEquippedSetPieces(equipment, "Rimebound Set") < 2) return null;
+  if (!rng?.chance?.(15)) return null;
+  applyFoeCrippleFromSet(foe, 1);
+  return `${foe.name} is crippled by rimebound ice (+1 stamina per action).`;
 }
