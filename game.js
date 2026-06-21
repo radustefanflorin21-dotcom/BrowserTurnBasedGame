@@ -11797,7 +11797,7 @@ function computeMonsterStatBudget(level, def) {
       ? def.statBudgetMultiplier
       : 1;
   const rarityMult = getMonsterStatRarityMultiplier(def || { spawnRarity: "common" });
-  return Math.max(4, Math.round((6 + lv * 4) * rarityMult * customMult));
+  return Math.max(4, Math.round((6 + lv * 8) * rarityMult * customMult));
 }
 function getMonsterRarityHpMultiplier(def) {
   const ms = getMonsterScalingConfig();
@@ -11900,12 +11900,13 @@ function applyMonsterCritToRaw(foe, raw) {
   return raw;
 }
 
-function buildSpawnedFoe(region, def, uid, level, mood) {
+function buildSpawnedFoe(region, def, uid, level, mood, spawnOpts) {
   const scale = region && typeof region.enemyScale === "number" ? region.enemyScale : 1;
   const attackBonus = typeof mood.attackBonus === "number" ? mood.attackBonus : 0;
   const attackMult = typeof mood.attackMult === "number" ? mood.attackMult : 1;
   const hpMult = typeof mood.hpMult === "number" ? mood.hpMult : 1;
   const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
+  const isBoss = (spawnOpts && spawnOpts.isBoss === true) || (def && def.isBoss === true);
   const roleKey = getEnemyCombatRoleKey(def);
   const stats = buildMonsterCharacteristics(level, roleKey, def);
   const statOverride = def && def.baseStats && typeof def.baseStats === "object" ? def.baseStats : null;
@@ -11915,12 +11916,21 @@ function buildSpawnedFoe(region, def, uid, level, mood) {
     if (typeof statOverride.vit === "number" && Number.isFinite(statOverride.vit)) stats.vit = Math.max(1, Math.floor(statOverride.vit));
     if (typeof statOverride.int === "number" && Number.isFinite(statOverride.int)) stats.int = Math.max(1, Math.floor(statOverride.int));
   }
-  const lvl = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
-  const rarityMult = getMonsterRarityHpMultiplier(def);
-  const coreHp = Math.round((lvl * 10 + stats.vit * 4) * rarityMult);
-  const hpFromFormulas = Math.max(1, Math.round(coreHp * scale * hpMult));
-  const hpOverride = def && typeof def.baseHp === "number" && Number.isFinite(def.baseHp) ? Math.max(1, Math.floor(def.baseHp)) : null;
-  const hp = hpOverride != null ? hpOverride : hpFromFormulas;
+  const ms = getMonsterScalingConfig();
+  let hp;
+  if (typeof MONSTER_HP !== "undefined" && MONSTER_HP && typeof MONSTER_HP.resolveSpawnHp === "function") {
+    hp = MONSTER_HP.resolveSpawnHp(level, stats, def, ms, {
+      isBoss,
+      roleKey,
+      regionScale: scale,
+      moodHpMult: hpMult
+    });
+  } else {
+    const lvl = Math.max(1, Math.floor(typeof level === "number" && level > 0 ? level : 1));
+    const rarityMult = getMonsterRarityHpMultiplier(def);
+    const coreHp = Math.round((lvl * 10 + stats.vit * 4) * rarityMult);
+    hp = Math.max(1, Math.round(coreHp * scale * hpMult));
+  }
   const maxStamina = getFoeCombatMaxStamina(def);
   const moodId = typeof mood.id === "string" && mood.id.trim() ? mood.id.trim() : null;
   const moodName = typeof mood.name === "string" ? mood.name.trim() : "";
@@ -11957,12 +11967,12 @@ function spawnEnemiesFromPreview(region, units) {
       if (!def) return null;
       const mood = resolveMoodFromPreviewUnit(u, def);
       const level = typeof u.level === "number" ? u.level : pickLevelFromEnemyDef(def);
-      const foe = buildSpawnedFoe(region, def, uid, level, mood);
+      const isBoss = u.isBoss === true || (def && def.isBoss === true);
+      const foe = buildSpawnedFoe(region, def, uid, level, mood, { isBoss });
       if (foe) {
         const pi = u && typeof u.portraitImage === "string" ? u.portraitImage.trim() : "";
         if (pi) foe.image = pi;
-        if (u && u.isBoss === true) foe.isBoss = true;
-        else if (def && def.isBoss === true) foe.isBoss = true;
+        if (isBoss) foe.isBoss = true;
       }
       return foe;
     })

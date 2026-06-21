@@ -102,8 +102,6 @@ const GAME_CONFIG = {
       possibleLevels: [20],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 24, dex: 11, vit: 59, int: 14 },
-      baseHp: 705
     },
     {
       name: "Mirage Maw",
@@ -114,8 +112,6 @@ const GAME_CONFIG = {
       possibleLevels: [21],
       possibleMoods: ["berserk"],
       staminaPerTurn: 7,
-      baseStats: { str: 18, dex: 22, vit: 27, int: 45 },
-      baseHp: 456
     },
     {
       name: "Mirage Remnant",
@@ -126,8 +122,6 @@ const GAME_CONFIG = {
       possibleLevels: [18],
       possibleMoods: ["berserk"],
       staminaPerTurn: 6,
-      baseStats: { str: 8, dex: 14, vit: 12, int: 28 },
-      baseHp: 120
     },
     {
       name: "The Dune Mourner",
@@ -139,8 +133,6 @@ const GAME_CONFIG = {
       possibleLevels: [22],
       possibleMoods: ["berserk"],
       staminaPerTurn: 8,
-      baseStats: { str: 14, dex: 22, vit: 41, int: 59 },
-      baseHp: 1888
     },
     {
       name: "Leafdart Squirrel",
@@ -231,8 +223,6 @@ const GAME_CONFIG = {
       possibleLevels: [30],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 41, dex: 51, vit: 61, int: 102 },
-      baseHp: 729
     },
     {
       name: "Granitehorn Breaker",
@@ -243,8 +233,6 @@ const GAME_CONFIG = {
       possibleLevels: [31],
       possibleMoods: ["berserk"],
       staminaPerTurn: 7,
-      baseStats: { str: 65, dex: 28, vit: 46, int: 15 },
-      baseHp: 739
     },
     {
       name: "The Held Colossus",
@@ -256,8 +244,6 @@ const GAME_CONFIG = {
       possibleLevels: [32],
       possibleMoods: ["berserk"],
       staminaPerTurn: 8,
-      baseStats: { str: 67, dex: 29, vit: 88, int: 21 },
-      baseHp: 2544
     },
     {
       name: "Ash Lizard",
@@ -388,8 +374,6 @@ const GAME_CONFIG = {
       possibleLevels: [30],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 26, dex: 47, vit: 84, int: 105 },
-      baseHp: 729
     },
     {
       name: "Frosthorn Bulwark",
@@ -400,8 +384,6 @@ const GAME_CONFIG = {
       possibleLevels: [31],
       possibleMoods: ["berserk"],
       staminaPerTurn: 7,
-      baseStats: { str: 34, dex: 16, vit: 86, int: 20 },
-      baseHp: 1024
     },
     {
       name: "The Sleeping Child of Winter",
@@ -413,8 +395,6 @@ const GAME_CONFIG = {
       possibleLevels: [32],
       possibleMoods: ["steady"],
       staminaPerTurn: 8,
-      baseStats: { str: 34, dex: 61, vit: 109, int: 136 },
-      baseHp: 2544
     },
     {
       name: "Frostroot Seedling",
@@ -425,8 +405,6 @@ const GAME_CONFIG = {
       possibleLevels: [26],
       possibleMoods: ["steady"],
       staminaPerTurn: 6,
-      baseStats: { str: 8, dex: 18, vit: 24, int: 30 },
-      baseHp: 180
     },
     {
       name: "Fallen Echo",
@@ -437,8 +415,6 @@ const GAME_CONFIG = {
       possibleLevels: [36],
       possibleMoods: ["berserk"],
       staminaPerTurn: 6,
-      baseStats: { str: 44, dex: 26, vit: 36, int: 18 },
-      baseHp: 260
     },
     {
       name: "Rustbound Marshal",
@@ -449,8 +425,6 @@ const GAME_CONFIG = {
       possibleLevels: [40],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 62, dex: 36, vit: 82, int: 58 },
-      baseHp: 1050
     },
     {
       name: "Bannerless Wraithlord",
@@ -461,8 +435,6 @@ const GAME_CONFIG = {
       possibleLevels: [41],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 22, dex: 44, vit: 64, int: 112 },
-      baseHp: 940
     },
     {
       name: "The Last Warmaster",
@@ -474,8 +446,6 @@ const GAME_CONFIG = {
       possibleLevels: [43],
       possibleMoods: ["steady"],
       staminaPerTurn: 8,
-      baseStats: { str: 118, dex: 54, vit: 108, int: 72 },
-      baseHp: 3700
     },
     {
       name: "Verdant Sprout",
@@ -486,8 +456,6 @@ const GAME_CONFIG = {
       possibleLevels: [36],
       possibleMoods: ["steady"],
       staminaPerTurn: 6,
-      baseStats: { str: 14, dex: 26, vit: 34, int: 42 },
-      baseHp: 240
     },
     {
       name: "Verdant Bloomseer",
@@ -498,8 +466,6 @@ const GAME_CONFIG = {
       possibleLevels: [40],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 24, dex: 52, vit: 74, int: 112 },
-      baseHp: 980
     },
     {
       name: "Primordial Silverback",
@@ -510,8 +476,6 @@ const GAME_CONFIG = {
       possibleLevels: [41],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 92, dex: 40, vit: 70, int: 22 },
-      baseHp: 1080
     },
     {
       name: "The Heartbloom Ancient",
@@ -523,8 +487,6 @@ const GAME_CONFIG = {
       possibleLevels: [43],
       possibleMoods: ["steady"],
       staminaPerTurn: 8,
-      baseStats: { str: 78, dex: 60, vit: 112, int: 126 },
-      baseHp: 3600
     },
     {
       name: "Ember Forgeling",
@@ -535,8 +497,6 @@ const GAME_CONFIG = {
       possibleLevels: [48],
       possibleMoods: ["steady"],
       staminaPerTurn: 6,
-      baseStats: { str: 22, dex: 34, vit: 28, int: 46 },
-      baseHp: 260
     },
     {
       name: "Inferno Oracle",
@@ -547,8 +507,6 @@ const GAME_CONFIG = {
       possibleLevels: [52],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 28, dex: 62, vit: 78, int: 146 },
-      baseHp: 1420
     },
     {
       name: "Ashmaw Titan",
@@ -559,8 +517,6 @@ const GAME_CONFIG = {
       possibleLevels: [53],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 124, dex: 48, vit: 96, int: 28 },
-      baseHp: 1680
     },
     {
       name: "The Riftforge Tyrant",
@@ -572,8 +528,6 @@ const GAME_CONFIG = {
       possibleLevels: [54],
       possibleMoods: ["steady"],
       staminaPerTurn: 8,
-      baseStats: { str: 132, dex: 72, vit: 118, int: 118 },
-      baseHp: 5200
     },
     {
       name: "Hollowglass Siren",
@@ -584,8 +538,6 @@ const GAME_CONFIG = {
       possibleLevels: [52],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 18, dex: 62, vit: 72, int: 136 },
-      baseHp: 1280
     },
     {
       name: "Rimebound Undertaker",
@@ -596,8 +548,6 @@ const GAME_CONFIG = {
       possibleLevels: [53],
       possibleMoods: ["steady"],
       staminaPerTurn: 7,
-      baseStats: { str: 104, dex: 28, vit: 96, int: 20 },
-      baseHp: 1660
     },
     {
       name: "Pale Rime Wisp",
@@ -608,8 +558,6 @@ const GAME_CONFIG = {
       possibleLevels: [50],
       possibleMoods: ["steady"],
       staminaPerTurn: 6,
-      baseStats: { str: 8, dex: 34, vit: 30, int: 58 },
-      baseHp: 300
     },
     {
       name: "The Stillness Below",
@@ -621,8 +569,6 @@ const GAME_CONFIG = {
       possibleLevels: [54],
       possibleMoods: ["steady"],
       staminaPerTurn: 8,
-      baseStats: { str: 92, dex: 44, vit: 132, int: 118 },
-      baseHp: 4300
     },
     {
       name: "Dust Carver",
@@ -797,8 +743,6 @@ const GAME_CONFIG = {
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/stormfang_ravager.png",
       possibleLevels: [14],
       possibleMoods: ["berserk"],
-      baseStats: { str: 42, dex: 48, vit: 30, int: 18 },
-      baseHp: 420
     },
     {
       name: "Abyssal Tempest Caller",
@@ -808,8 +752,6 @@ const GAME_CONFIG = {
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/abyssal_tempest_caller.png",
       possibleLevels: [13],
       possibleMoods: ["berserk"],
-      baseStats: { str: 12, dex: 26, vit: 34, int: 52 },
-      baseHp: 390
     },
     {
       name: "The Stormwake Leviathan",
@@ -819,8 +761,6 @@ const GAME_CONFIG = {
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/the_stormwake_leviathan.png",
       possibleLevels: [15],
       possibleMoods: ["berserk"],
-      baseStats: { str: 58, dex: 40, vit: 65, int: 48 },
-      baseHp: 1400
     },
     {
       name: "Saltwind Skimmer",
@@ -941,8 +881,10 @@ const GAME_CONFIG = {
 
   /**
    * Monster characteristics and combat scaling.
-   * Stat budget: round((6 + level * 4) * rarityStatBudgetMultipliers[tier] * optional per-def statBudgetMultiplier).
-   * HP: round((level * 10 + VIT * 4) * rarityHpMultipliers[tier]); then × region enemyScale × mood hpMult (see buildSpawnedFoe).
+   * Stat budget: round((6 + level * 8) * rarityStatBudgetMultipliers[tier] * optional per-def statBudgetMultiplier).
+   * HP curves (`hpCurve`): trash uses level×10 + VIT×4; elites (epic/ancient) and bosses (`isBoss`) use
+   * higher coefficients (boss curve may vary by combatRole). Result × rarityHpMultipliers[tier] × region × mood.
+   * All enemies use the stat budget + role split; optional per-def `baseStats` / `baseHp` overrides are supported but unused.
    * Role stat split uses `enemyRoles` weights with rounding correction to the role main stat (see game.js).
    */
   monsterScaling: {
@@ -968,6 +910,29 @@ const GAME_CONFIG = {
       epic: 1.22,
       myth: 1.45,
       ancient: 1.65
+    },
+    /** Spawn HP: trash / elite (epic+) / boss (`isBoss`) / summon (boss reinforcements). */
+    hpCurve: {
+      trash: { levelCoeff: 10, vitCoeff: 4 },
+      elite: {
+        default: { levelCoeff: 17, vitCoeff: 7 },
+        byRole: {
+          tank: { levelCoeff: 17, vitCoeff: 9 }
+        }
+      },
+      boss: {
+        default: { levelCoeff: 36, vitCoeff: 10 },
+        byRole: {
+          bruiser: { levelCoeff: 36, vitCoeff: 10 },
+          tank: { levelCoeff: 34, vitCoeff: 11 },
+          assassin: { levelCoeff: 32, vitCoeff: 8 },
+          mage: { levelCoeff: 38, vitCoeff: 7 },
+          controller: { levelCoeff: 36, vitCoeff: 7 },
+          support: { levelCoeff: 38, vitCoeff: 7 },
+          summoner: { levelCoeff: 58, vitCoeff: 12 }
+        }
+      },
+      summon: { levelCoeff: 5, vitCoeff: 2.5 }
     },
     foeStaminaByRarity: {
       common: 6,

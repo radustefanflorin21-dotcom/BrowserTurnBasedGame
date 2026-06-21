@@ -1,5 +1,5 @@
 import { getEnemyDefByName, getItemDef, loadGameConfig } from "../load_game_config.js";
-import { buildMonsterCharacteristics, getEnemyCombatRoleKey, getMonsterRarityHpMultiplier } from "./monster_stats.js";
+import { buildEnemySpawnStats } from "./monster_stats.js";
 import {
   getFoeEvasionPenalty,
   getFoeMagicResist,
@@ -172,10 +172,8 @@ export function buildFoeFromUnit(unit, uid) {
   const def = getEnemyDefByName(unit.name);
   if (!def) return null;
   const level = typeof unit.level === "number" && unit.level > 0 ? Math.floor(unit.level) : 5;
-  const roleKey = getEnemyCombatRoleKey(def);
-  const stats = buildMonsterCharacteristics(level, roleKey, def);
-  const rarityMult = getMonsterRarityHpMultiplier(def);
-  const hp = Math.max(1, Math.round((level * 10 + stats.vit * 4) * rarityMult));
+  const isBoss = unit.isBoss === true || def.isBoss === true;
+  const { stats, hp } = buildEnemySpawnStats(level, def, { isBoss });
   const moodAttackMult = unit.moodId ? 1.08 : 1;
   const foe = {
     uid,

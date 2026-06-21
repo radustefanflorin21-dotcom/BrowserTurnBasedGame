@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { inferMonsterCombatRole } = require("../../shared/monster_roles.js");
+const { resolveSpawnHp } = require("../../shared/monster_hp.js");
 
 function getMonsterScaling() {
   const cfg = loadGameConfig();
@@ -35,7 +36,7 @@ function computeMonsterStatBudget(level, def) {
   const customMult =
     def?.statBudgetMultiplier > 0 && Number.isFinite(def.statBudgetMultiplier) ? def.statBudgetMultiplier : 1;
   const rarityMult = getMonsterStatRarityMultiplier(def || { spawnRarity: "common" });
-  return Math.max(4, Math.round((6 + lv * 4) * rarityMult * customMult));
+  return Math.max(4, Math.round((6 + lv * 8) * rarityMult * customMult));
 }
 
 export function getEnemyCombatRoleKey(def) {
@@ -69,12 +70,39 @@ export function buildMonsterCharacteristics(level, roleKey, def) {
         ? "vit"
         : roleKey === "assassin" || roleKey === "harasser"
           ? "dex"
-          : roleKey === "mage" || roleKey === "controller" || roleKey === "support" || roleKey === "summoner"
+          : roleKey === "mage" || roleKey === "controller" || roleKey === "support" || roleKey === "summoner" || roleKey === "buffer"
             ? "int"
             : "str";
     out[primary] = Math.max(0, out[primary] + diff);
   }
   return out;
+}
+
+function applyEnemyBaseStatOverrides(stats, def) {
+  const statOverride = def?.baseStats && typeof def.baseStats === "object" ? def.baseStats : null;
+  if (!statOverride) return stats;
+  const out = { ...stats };
+  for (const key of ["str", "dex", "vit", "int"]) {
+    if (typeof statOverride[key] === "number" && Number.isFinite(statOverride[key])) {
+      out[key] = Math.max(1, Math.floor(statOverride[key]));
+    }
+  }
+  return out;
+}
+
+/** HP from level + VIT tier curve, rarity, optional region scale and mood mult; optional def.baseHp override. */
+export function resolveEnemySpawnHp(level, stats, def, opts = {}) {
+  const ms = getMonsterScaling();
+  const roleKey = opts.roleKey || getEnemyCombatRoleKey(def);
+  return resolveSpawnHp(level, stats, def, ms, { ...opts, roleKey });
+}
+
+/** Stat budget + role split (+ optional overrides) and spawn HP for one enemy def. */
+export function buildEnemySpawnStats(level, def, opts = {}) {
+  const roleKey = getEnemyCombatRoleKey(def);
+  const stats = applyEnemyBaseStatOverrides(buildMonsterCharacteristics(level, roleKey, def), def);
+  const hp = resolveEnemySpawnHp(level, stats, def, { ...opts, roleKey });
+  return { roleKey, stats, hp };
 }
 
 function inferMonsterAttackArchetype(roleKey) {
