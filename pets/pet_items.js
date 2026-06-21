@@ -51,7 +51,7 @@
       type: "consumable",
       effect: "hatch_pet_egg",
       eggElement: element,
-      image: "Assets/Resources/energy-cell.svg",
+      image: `Assets/Pets/${element}_egg.png`,
       description: desc,
       bonusSkills: [],
       bonusStats: {},

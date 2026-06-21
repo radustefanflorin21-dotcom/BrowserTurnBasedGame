@@ -53,6 +53,7 @@
     "Rift Emberling": petEntry({
       displayName: "Rift Emberling",
       element: "fire",
+      portraitLayoutCategory: "flying",
       imageBase: "Assets/Pets/rift_emberling",
       favoriteFood: ["Oracle Flameheart", "Hatred Emberstone", "Worldhate Soulcore", "Cinderveil Thread"],
       statsAt30: { INT: 26, Healing: 5, "Magic Damage": 4, "Status Resist": 4 }
@@ -109,6 +110,7 @@
     "Heartbloom Wisp": petEntry({
       displayName: "Heartbloom Wisp",
       element: "nature",
+      portraitLayoutCategory: "flying",
       imageBase: "Assets/Pets/heartbloom_wisp",
       favoriteFood: ["Gaia Soulseed", "Living Canopy Core", "Verdant Mend Core", "Ancient Gaia Sap"],
       statsAt30: { VIT: 22, INT: 22, Healing: 6, "Status Resist": 5 }
@@ -130,6 +132,7 @@
     "Ripplewing Heron": petEntry({
       displayName: "Ripplewing Heron",
       element: "water",
+      portraitLayoutCategory: "flying",
       imageBase: "Assets/Pets/ripplewing_heron",
       favoriteFood: ["Stormfang Claw", "Static Fang Core", "Stormwake Tendril", "Abyssal Lightning Scale"],
       statsAt30: { DEX: 28, Accuracy: 6, Evasion: 4, Crit: 3 }
