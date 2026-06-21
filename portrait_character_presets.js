@@ -197,20 +197,20 @@
         "scalePct": 194
       },
       "pet_young_ground": {
-        "offsetXPct": 45.33414433204403,
-        "offsetYPct": 10.672856864028562,
+        "offsetXPct": 27.434665307944066,
+        "offsetYPct": -12.939120232073789,
         "rotDeg": 0,
         "scalePct": 134
       },
       "pet_grown_ground": {
-        "offsetXPct": 54.093310592085686,
-        "offsetYPct": 9.53022023207379,
+        "offsetXPct": 17.91359157988694,
+        "offsetYPct": -9.892570836060695,
         "rotDeg": 0,
         "scalePct": 164
       },
       "pet_mature_ground": {
-        "offsetXPct": 40.002480720023804,
-        "offsetYPct": 14.862176504016663,
+        "offsetXPct": 23.626421451948822,
+        "offsetYPct": -6.845625052067836,
         "rotDeg": 0,
         "scalePct": 194
       },
@@ -423,20 +423,20 @@
         "scalePct": 152
       },
       "pet_young_ground": {
-        "offsetXPct": 50.28501758405237,
-        "offsetYPct": -30.076904343945255,
+        "offsetXPct": 42.287380243975,
+        "offsetYPct": -42.64458818803927,
         "rotDeg": 0,
         "scalePct": 86
       },
       "pet_grown_ground": {
-        "offsetXPct": 41.5257,
-        "offsetYPct": -17.1284,
+        "offsetXPct": 35.05143638797977,
+        "offsetYPct": -21.69846843201428,
         "rotDeg": 0,
         "scalePct": 98
       },
       "pet_mature_ground": {
-        "offsetXPct": 43.810739036001195,
-        "offsetYPct": -3.4181996399880985,
+        "offsetXPct": 38.09811445998214,
+        "offsetYPct": -11.796658792026184,
         "rotDeg": 0,
         "scalePct": 128
       },
