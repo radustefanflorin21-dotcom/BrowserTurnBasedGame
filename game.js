@@ -21261,6 +21261,15 @@ function buildStatTooltipHtml(statKey) {
   return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(label)}</div><div class="item-tip-desc">${escapeHtml(help)}</div></div>`;
 }
 
+function showProfessionXpTooltip(host, clientX, clientY) {
+  if (!host || !host.dataset) return;
+  const current = host.dataset.professionXpCurrent;
+  const need = host.dataset.professionXpNeed;
+  if (current == null || need == null) return;
+  const text = `${current} / ${need}`;
+  showTooltipHtml(`<div class="item-tip"><div class="item-tip-desc">${escapeHtml(text)}</div></div>`, clientX, clientY);
+}
+
 function showStatTooltip(statKey, clientX, clientY) {
   showTooltipHtml(buildStatTooltipHtml(statKey), clientX, clientY);
 }
@@ -22066,7 +22075,7 @@ function hideItemTooltip() {
 }
 
 const TOOLTIP_HOST_SEL =
-  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], .skill-bar-slot-drop[data-skill-name], [data-stat-tip], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
+  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], .skill-bar-slot-drop[data-skill-name], [data-stat-tip], [data-profession-xp-current], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
 
 function onContentTooltipOver(e) {
   const tipPinnedEl = document.getElementById("itemTooltip");
@@ -22195,6 +22204,11 @@ function onContentTooltipOver(e) {
       if (Number.isFinite(si) && si >= 0 && si < COMPANION_SLOT_COUNT && player.companions[si]) actorForTip = player.companions[si];
     }
     showSkillTooltip(skillBarSlotTip.dataset.skillName, e.clientX, e.clientY, { actor: actorForTip });
+    return;
+  }
+  const profXpRow = e.target.closest("[data-profession-xp-current]");
+  if (profXpRow) {
+    showProfessionXpTooltip(profXpRow, e.clientX, e.clientY);
     return;
   }
   const statRow = e.target.closest("[data-stat-tip]");
@@ -23266,6 +23280,28 @@ function craftRecipeById(recipeId) {
   return true;
 }
 
+function buildProfessionXpBarHtml(actor, professionId, profLabel) {
+  const label = profLabel || getProfessionLabel(professionId);
+  if (typeof ProfessionProgression === "undefined") {
+    return `<div class="crafting-prof-progress"><p class="crafting-prof-summary">${escapeHtml(label)}: level <strong>1</strong></p></div>`;
+  }
+  ensureActorProfessionProgress(actor);
+  const entry = ProfessionProgression.getProfessionProgressEntry(actor, professionId);
+  const maxLv = ProfessionProgression.PROFESSION_MAX_LEVEL;
+  const xpNeed = entry.level >= maxLv ? 0 : ProfessionProgression.xpToNextProfessionLevel(entry.level);
+  const xpPct = entry.level >= maxLv ? 100 : xpNeed > 0 ? Math.min(100, (entry.xp / xpNeed) * 100) : 0;
+  const xpNum = entry.level >= maxLv ? `${entry.xp} (max L${maxLv})` : `${entry.xp} / ${xpNeed}`;
+  const xpNeedAttr = entry.level >= maxLv ? "max" : String(xpNeed);
+  return `<div class="crafting-prof-progress">
+    <p class="crafting-prof-summary">${escapeHtml(label)}: level <strong>${entry.level}</strong></p>
+    <div class="stat-bar-row stat-tip-row" data-profession-xp-current="${entry.xp}" data-profession-xp-need="${escapeAttr(xpNeedAttr)}">
+      <span class="stat-bar-label">Experience</span>
+      <span class="stat-bar-num">${xpNum}</span>
+      <div class="stat-bar-track stat-bar-xp"><div class="stat-bar-fill" style="width:${xpPct}%"></div></div>
+    </div>
+  </div>`;
+}
+
 function buildCraftingPanelHtml() {
   const cfg = getCraftingConfig();
   const intro = typeof cfg.intro === "string" ? cfg.intro.trim() : "";
@@ -23295,10 +23331,7 @@ function buildCraftingPanelHtml() {
   const invCounts = getInventoryBaseItemCounts();
   const recipes = getAllCraftingRecipes().filter((r) => getCraftingProfessionIdForRecipe(r) === activeProfId);
   const profLabel = getProfessionLabel(activeProfId);
-  const crafterProfLevel =
-    typeof ProfessionProgression !== "undefined"
-      ? ProfessionProgression.getProfessionLevel(crafterActor, activeProfId)
-      : 1;
+  const professionProgressHtml = buildProfessionXpBarHtml(crafterActor, activeProfId, profLabel);
   const evaluated = recipes
     .map((r) => {
       const batchQty = getCraftBatchQuantity(r.id);
@@ -23356,7 +23389,7 @@ function buildCraftingPanelHtml() {
     .join("");
   return `<div class="game-page">${
     intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
-  }<p class="crafting-prof-summary">${escapeHtml(profLabel)}: level <strong>${crafterProfLevel}</strong></p>
+  }${professionProgressHtml}
   <div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
     <div class="crafting-recipe-list">${recipeRows || '<p class="crafting-empty">No recipes found for this profession.</p>'}</div>
   </div>`;

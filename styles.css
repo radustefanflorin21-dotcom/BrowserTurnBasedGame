@@ -1779,10 +1779,24 @@ body.edit-mode-on .portrait-equip-layer--pet {
 }
 
 .crafting-prof-summary {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--overview-ink, #2a2418);
+}
+
+.crafting-prof-progress {
+  margin: 0 0 12px;
+}
+
+.crafting-prof-progress .stat-bar-row {
+  font-size: 0.62rem;
+  margin-bottom: 0;
+}
+
+.crafting-prof-progress .stat-bar-track {
+  height: 4px;
+  border-radius: 2px;
 }
 
 .crafting-recipe-list {
