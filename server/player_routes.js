@@ -106,7 +106,8 @@ export function registerPlayerRoutes(app) {
       const result = applyCraftRecipe(player, {
         recipeId: req.body?.recipeId,
         crafterTarget,
-        companionSlotIndex
+        companionSlotIndex,
+        quantity: req.body?.quantity
       });
       roster.slots[idx] = player;
       finishAction(req, res, idx, roster, player, result, "craft");

@@ -98,7 +98,13 @@ export function buildDungeonEnemyUnitsForRoom(dungeonId, roomIndex) {
   const def = getDungeonDef(dungeonId);
   const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
   if (!room || !Array.isArray(room.enemies)) return [];
-  return room.enemies.map((e) => (e && typeof e === "object" ? { ...e } : null)).filter(Boolean);
+  return room.enemies
+    .map((e) => {
+      if (!e || typeof e !== "object") return null;
+      const { moodId, moodName, mood, ...rest } = e;
+      return { ...rest };
+    })
+    .filter(Boolean);
 }
 
 /** Mark dungeon room cleared and advance run state on the authoritative player. */

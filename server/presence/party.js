@@ -230,5 +230,8 @@ export function clearFightInvite(userId) {
 export function onUserDisconnected(userId) {
   pendingInvites.delete(userId);
   pendingFightInvites.delete(userId);
+  void import("./commission_craft.js")
+    .then((m) => m.clearCraftInvitesForUser(userId))
+    .catch(() => {});
   removeUserFromParty(userId);
 }

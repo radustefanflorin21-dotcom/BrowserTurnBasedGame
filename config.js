@@ -14,7 +14,7 @@ const GAME_CONFIG = {
    * Applied only when a brand-new character is created (new save / reset).
    * Each entry grants `count` copies of an item into starting inventory.
    */
-  startingLoadout: [{ name: "Small Potion", count: 10 }],
+  startingLoadout: [{ name: "Minor Healing Draught", count: 10 }],
 
   /**
    * Enemy art supports legacy `image`, state images (`images: { idle, walk, attack }`),
@@ -1221,25 +1221,77 @@ const GAME_CONFIG = {
       bonusSkills: [],
       bonusStats: {}
     },
-    "Small Potion": {
+    "Minor Healing Draught": {
       type: "consumable",
       effect: "heal",
-      value: 40,
-      image: "Assets/Resources/small-potion.svg",
-      description: "Red liquid in a glass vial. Drink to mend wounds.",
+      value: 60,
+      useInCombat: false,
+      image: "Assets/Resources/minor_healing_draught.png",
+      description:
+        "A simple blue-green healing draught made from tide residue and soft membrane tissue. It closes small wounds and restores enough strength for early adventuring.",
       bonusSkills: [],
       bonusStats: {},
-      useHint: "Click to use in inventory."
+      useHint: "Click to use outside combat."
     },
-    "Large Potion": {
+    "Lesser Healing Draught": {
       type: "consumable",
       effect: "heal",
-      value: 80,
-      image: "Assets/Resources/large-potion.svg",
-      description: "A larger dose of the same restorative brew.",
+      value: 120,
+      useInCombat: false,
+      image: "Assets/Resources/lesser_healing_draught.png",
+      description:
+        "A stronger healing draught mixed with ocean essence and gentle natural fibers. It restores moderate wounds and is useful through the first major regions.",
       bonusSkills: [],
       bonusStats: {},
-      useHint: "Click to use in inventory."
+      useHint: "Click to use outside combat."
+    },
+    "Standard Healing Potion": {
+      type: "consumable",
+      effect: "heal",
+      value: 220,
+      useInCombat: false,
+      image: "Assets/Resources/standard_healing_potion.png",
+      description:
+        "A balanced healing potion with frost berries, living fibers, and stabilizing defensive essence. It is designed for mid-level fights where enemies begin dealing more consistent damage.",
+      bonusSkills: [],
+      bonusStats: {},
+      useHint: "Click to use outside combat."
+    },
+    "Greater Healing Potion": {
+      type: "consumable",
+      effect: "heal",
+      value: 360,
+      useInCombat: false,
+      image: "Assets/Resources/greater_healing_potion.png",
+      description:
+        "A rich green potion filled with growth seeds and strengthening fibers. It rapidly restores damaged tissue and reinforces the body against continued punishment.",
+      bonusSkills: [],
+      bonusStats: {},
+      useHint: "Click to use outside combat."
+    },
+    "Superior Healing Potion": {
+      type: "consumable",
+      effect: "heal",
+      value: 560,
+      useInCombat: false,
+      image: "Assets/Resources/superior_healing_potion.png",
+      description:
+        "A powerful red-blue potion that combines opposing heat and frost stabilizers. It burns away weakness, numbs deep pain, and restores large amounts of vitality.",
+      bonusSkills: [],
+      bonusStats: {},
+      useHint: "Click to use outside combat."
+    },
+    "Sovereign Healing Elixir": {
+      type: "consumable",
+      effect: "heal",
+      value: 820,
+      useInCombat: false,
+      image: "Assets/Resources/sovereign_healing_elixir.png",
+      description:
+        "A rare endgame elixir brewed from powerful northern cores, ancient seeds, and deep frost harvests. It restores severe wounds and is intended for elite dungeon and boss encounters.",
+      bonusSkills: [],
+      bonusStats: {},
+      useHint: "Click to use outside combat."
     },
     "Sunken Grotto Key": {
       type: "resource",
@@ -6075,6 +6127,16 @@ const GAME_CONFIG = {
         maxLevel: 10,
         recipes: [
           {
+            id: "minor_healing_draught",
+            resultItem: "Minor Healing Draught",
+            resultLevel: 1,
+            ingredients: [
+              { item: "Residue", qty: 4, source: "gathering_loot" },
+              { item: "Wet Membrane", qty: 3, source: "monster_loot" },
+              { item: "Water Essence", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
             id: "skimmer_blade",
             resultItem: "Skimmer Blade",
             resultLevel: 5,
@@ -6896,6 +6958,28 @@ const GAME_CONFIG = {
             ]
           },
           {
+            id: "lesser_healing_draught",
+            resultItem: "Lesser Healing Draught",
+            resultLevel: 10,
+            ingredients: [
+              { item: "Ocean Essence", qty: 2, source: "monster_loot" },
+              { item: "Root Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Soft Fur", qty: 3, source: "monster_loot" },
+              { item: "Nature Essence", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "standard_healing_potion",
+            resultItem: "Standard Healing Potion",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Frost Berry", qty: 4, source: "monster_loot" },
+              { item: "Living Fiber", qty: 4, source: "gathering_loot" },
+              { item: "Earth Essence", qty: 3, source: "monster_loot" },
+              { item: "Defense Core", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
             id: "bramblehorn_antler_crown",
             resultItem: "Bramblehorn Antler Crown",
             resultLevel: 20,
@@ -7280,6 +7364,18 @@ const GAME_CONFIG = {
               { item: "Root Fiber", qty: 3, source: "gathering_loot" },
               { item: "Stone Fragment", qty: 3, source: "monster_loot" },
               { item: "Seeds", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "greater_healing_potion",
+            resultItem: "Greater Healing Potion",
+            resultLevel: 30,
+            ingredients: [
+              { item: "Growth Seed", qty: 4, source: "gathering_loot" },
+              { item: "Nature Essence", qty: 4, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 4, source: "monster_loot" },
+              { item: "Endurance Core", qty: 2, source: "monster_loot" },
+              { item: "Earth Essence", qty: 3, source: "monster_loot" }
             ]
           },
           {
@@ -7785,6 +7881,19 @@ const GAME_CONFIG = {
             ]
           },
           {
+            id: "superior_healing_potion",
+            resultItem: "Superior Healing Potion",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Fire Essence", qty: 4, source: "monster_loot" },
+              { item: "Ice Essence", qty: 4, source: "monster_loot" },
+              { item: "Chill Residue", qty: 3, source: "monster_loot" },
+              { item: "Fire Seed", qty: 3, source: "gathering_loot" },
+              { item: "Decay Fragment", qty: 3, source: "monster_loot" },
+              { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
             id: "verdant_deep_key",
             resultItem: "Verdant Deep Key",
             resultLevel: 38,
@@ -7805,6 +7914,21 @@ const GAME_CONFIG = {
         minLevel: 41,
         maxLevel: 99,
         recipes: [
+          {
+            id: "sovereign_healing_elixir",
+            resultItem: "Sovereign Healing Elixir",
+            resultLevel: 50,
+            ingredients: [
+              { item: "Ice Essence", qty: 8, source: "monster_loot" },
+              { item: "Nature Core", qty: 6, source: "monster_loot" },
+              { item: "Living Fiber", qty: 8, source: "gathering_loot" },
+              { item: "Growth Seed", qty: 6, source: "gathering_loot" },
+              { item: "Endurance Core", qty: 4, source: "monster_loot" },
+              { item: "Muscle Fiber", qty: 6, source: "monster_loot" },
+              { item: "Defense Core", qty: 4, source: "monster_loot" },
+              { item: "Frost Berry", qty: 10, source: "monster_loot" }
+            ]
+          },
           {
             id: "rustbound_command_ring",
             resultItem: "Rustbound Command Ring",

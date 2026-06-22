@@ -55,6 +55,7 @@
   <div id="mapPlayerActions" class="map-player-actions hidden">
     <p id="mapPlayerActionsName" class="map-player-actions-name"></p>
     <button type="button" id="mapPlayerPartyInviteBtn" class="btn-primary map-player-action-btn">Party invite</button>
+    <button type="button" id="mapPlayerCraftInviteBtn" class="btn-secondary map-player-action-btn">Invite to craft</button>
     <button type="button" id="mapPlayerMessageBtn" class="btn-secondary map-player-action-btn">Send message</button>
     <button type="button" id="mapPlayerActionsClose" class="map-player-action-btn map-player-action-btn--ghost">Cancel</button>
   </div>
@@ -211,6 +212,18 @@
   </div>
 </div>
 
+<div id="craftInviteModal" class="modal hidden" role="dialog" aria-labelledby="craftInviteTitle">
+  <div class="modal-box modal-box--compact">
+    <h3 id="craftInviteTitle" class="modal-compact-title">Craft commission</h3>
+    <p id="craftInviteText" class="modal-compact-lead"></p>
+    <div id="craftInviteCrafterPick" class="craft-invite-crafter-pick hidden"></div>
+    <div class="modal-compact-actions">
+      <button type="button" id="craftInviteAcceptBtn" class="btn-primary">Accept &amp; craft</button>
+      <button type="button" id="craftInviteDeclineBtn" class="btn-secondary">Decline</button>
+    </div>
+  </div>
+</div>
+
 <div id="fightInviteModal" class="modal hidden" role="dialog" aria-labelledby="fightInviteTitle">
   <div class="modal-box modal-box--compact">
     <h3 id="fightInviteTitle" class="modal-compact-title">Join fight?</h3>
@@ -269,6 +282,9 @@
 
 <script src="shared/mmo_constants.js"></script>
 <script src="shared/monster_hp.js"></script>
+<script src="shared/profession_progression.js"></script>
+<script src="shared/craft_material_tier.js"></script>
+<script src="shared/craft_xp.js"></script>
 <script src="pets/pet_progression.js"></script>
 <script src="pets/pets_catalog.js"></script>
 <script src="pets/pet_system.js"></script>

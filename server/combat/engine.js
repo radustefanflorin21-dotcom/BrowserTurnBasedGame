@@ -6,6 +6,8 @@ import {
   resolveIncomingToMember,
   resolveOutgoingAttack
 } from "./formulas.js";
+import { pickMoodIdFromEnemyDef } from "./enemy_moods.js";
+import { getEnemyDefByName } from "../load_game_config.js";
 import { computeVictoryRewards, applyRewardsToPlayer } from "./loot.js";
 import {
   validateAndResolveSkill,
@@ -208,7 +210,15 @@ export function createCombatSession(player, encounter, rngSeed) {
       ? encounter.enemies.map((name) => ({ name }))
       : [];
   const foes = units
-    .map((u, i) => buildFoeFromUnit(u, i))
+    .map((u, i) => {
+      if (!u || typeof u.name !== "string") return null;
+      const def = getEnemyDefByName(u.name);
+      const moodId =
+        typeof u.moodId === "string" && u.moodId.trim()
+          ? u.moodId.trim()
+          : pickMoodIdFromEnemyDef(def, rng);
+      return buildFoeFromUnit({ ...u, moodId: moodId || null }, i);
+    })
     .filter(Boolean);
   foes.forEach((f) => initFoeCombatRuntime(f));
   if (!foes.length) {

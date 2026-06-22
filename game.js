@@ -21,6 +21,11 @@ let overviewSkillsScrollTop = 0;
 let overviewSkillsScrollAnchor = null;
 /** Active crafting tab: `hero|weapon_smith` or `c0|armor_smith` (companion slot + profession). */
 let activeCraftingTabKey = null;
+/** recipeId -> batch quantity (1–999) in crafting panel */
+const craftBatchQtyByRecipe = new Map();
+/** @type {null | object} */
+let pendingCraftInvitePayload = null;
+let clientMaterialDifficultyIndex = null;
 let atlasSearchQuery = "";
 let atlasSelectedRegionName = null;
 let atlasSelectedMonsterName = null;
@@ -323,6 +328,7 @@ function ensurePlayerCompanions(p) {
     syncPlayerClassSkillList(c);
     ensureActorSkillBar(c);
     normalizeActorProfessions(c);
+    ensureActorProfessionProgress(c);
     if (!c.equipment || typeof c.equipment !== "object") c.equipment = emptyEquipment();
     if (!c.hasBeenEnabled && c.equipment && !c.equipment.weapon && !c.equipment.chest && !c.equipment.legs) {
       equipStarterGearIfEmpty(c);
@@ -1126,6 +1132,98 @@ function hidePartyInviteModal() {
   if (modal) modal.classList.add("hidden");
 }
 
+function showCraftInviteModal(payload) {
+  pendingCraftInvitePayload = payload;
+  const modal = document.getElementById("craftInviteModal");
+  const text = document.getElementById("craftInviteText");
+  if (text && payload) {
+    const profLabel = getProfessionLabel(payload.professionId);
+    text.textContent = `${payload.fromName || "A player"} wants you to craft ${payload.quantity || 1}× ${payload.recipeName || "item"} (${profLabel}) for ${payload.goldOffer || 0} gold. Your ingredients are not used — theirs are.`;
+  }
+  const pick = document.getElementById("craftInviteCrafterPick");
+  if (pick) {
+    pick.innerHTML = buildCraftInviteCrafterPickHtml();
+    pick.classList.remove("hidden");
+  }
+  if (modal) modal.classList.remove("hidden");
+}
+
+function hideCraftInviteModal() {
+  const modal = document.getElementById("craftInviteModal");
+  if (modal) modal.classList.add("hidden");
+  pendingCraftInvitePayload = null;
+}
+
+function buildCraftInviteCrafterPickHtml() {
+  if (!player) return "";
+  const parts = [`<label class="craft-invite-crafter-label">Crafter</label>`];
+  parts.push(
+    `<label class="craft-invite-crafter-option"><input type="radio" name="craftInviteCrafter" value="hero" checked /> ${escapeHtml(player.name || "Hero")}</label>`
+  );
+  if (Array.isArray(player.companions)) {
+    player.companions.forEach((c, i) => {
+      if (!c || !c.enabled) return;
+      parts.push(
+        `<label class="craft-invite-crafter-option"><input type="radio" name="craftInviteCrafter" value="c${i}" /> ${escapeHtml(c.name || `Companion ${i + 1}`)}</label>`
+      );
+    });
+  }
+  return `<div class="craft-invite-crafter-options">${parts.join("")}</div>`;
+}
+
+function showCraftCommissionRequestModal(targetUserId, targetName) {
+  const recipes = getAllCraftingRecipes().slice().sort((a, b) => {
+    const aLvl = typeof a.resultLevel === "number" ? a.resultLevel : 1;
+    const bLvl = typeof b.resultLevel === "number" ? b.resultLevel : 1;
+    return aLvl - bLvl || String(a.resultItem || "").localeCompare(String(b.resultItem || ""));
+  });
+  const options = recipes
+    .map((r) => {
+      const profId = getCraftingProfessionIdForRecipe(r);
+      return `<option value="${escapeAttr(r.id || "")}">${escapeHtml(r.resultItem || r.id)} (${escapeHtml(getProfessionLabel(profId))}, lv ${typeof r.resultLevel === "number" ? r.resultLevel : 1})</option>`;
+    })
+    .join("");
+  showModalHtml(
+    `<div class="craft-commission-request">
+      <h3 class="modal-compact-title">Invite ${escapeHtml(targetName || "player")} to craft</h3>
+      <p class="muted">You supply ingredients and gold; they craft into your inventory.</p>
+      <label class="craft-commission-field">Recipe<select id="craftCommissionRecipe" class="craft-commission-select">${options}</select></label>
+      <label class="craft-commission-field">Quantity<input id="craftCommissionQty" type="number" min="1" max="999" value="1" class="craft-commission-input" /></label>
+      <label class="craft-commission-field">Gold offer<input id="craftCommissionGold" type="number" min="0" value="0" class="craft-commission-input" /></label>
+      <p class="muted">Your gold: ${player?.gold || 0}</p>
+      <div class="modal-compact-actions">
+        <button type="button" class="btn-primary" id="craftCommissionSendBtn">Send invite</button>
+        <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>`
+  );
+  setTimeout(() => {
+    const sendBtn = document.getElementById("craftCommissionSendBtn");
+    if (!sendBtn || sendBtn.dataset.bound === "1") return;
+    sendBtn.dataset.bound = "1";
+    sendBtn.addEventListener("click", () => {
+      const recipeEl = document.getElementById("craftCommissionRecipe");
+      const qtyEl = document.getElementById("craftCommissionQty");
+      const goldEl = document.getElementById("craftCommissionGold");
+      const recipeId = recipeEl && recipeEl.value ? recipeEl.value : "";
+      const quantity = qtyEl ? Math.max(1, Math.min(999, Math.floor(Number(qtyEl.value) || 1))) : 1;
+      const goldOffer = goldEl ? Math.max(0, Math.floor(Number(goldEl.value) || 0)) : 0;
+      if (!recipeId) return;
+      if (window.MMOPresence?.sendCraftInvite) {
+        window.MMOPresence.sendCraftInvite({
+          targetUserId,
+          requesterSlotIndex: activeCharacterSlotIndex,
+          recipeId,
+          quantity,
+          goldOffer
+        });
+      }
+      closeModal();
+      hideMapPlayerActions();
+    });
+  }, 0);
+}
+
 function showFightInviteModal(payload) {
   pendingFightInvitePayload = payload;
   if (typeof window !== "undefined") window.pendingFightInvitePayload = payload;
@@ -1351,6 +1449,18 @@ function initMapPlayersPanelUi() {
       }
     });
   }
+  const craftInviteBtn = document.getElementById("mapPlayerCraftInviteBtn");
+  if (craftInviteBtn && craftInviteBtn.dataset.bound !== "1") {
+    craftInviteBtn.dataset.bound = "1";
+    craftInviteBtn.addEventListener("click", () => {
+      if (!mapPlayerActionTarget) return;
+      if (!isOnlineGameplayMode()) {
+        showModal("Commission crafting is only available in online mode.");
+        return;
+      }
+      showCraftCommissionRequestModal(mapPlayerActionTarget.userId, mapPlayerActionTarget.name);
+    });
+  }
   const msgBtn = document.getElementById("mapPlayerMessageBtn");
   if (msgBtn && msgBtn.dataset.bound !== "1") {
     msgBtn.dataset.bound = "1";
@@ -1386,6 +1496,31 @@ function initMapPlayersPanelUi() {
     partyDecline.addEventListener("click", () => {
       if (window.MMOPresence?.declinePartyInvite) window.MMOPresence.declinePartyInvite();
       hidePartyInviteModal();
+    });
+  }
+  const craftAccept = document.getElementById("craftInviteAcceptBtn");
+  if (craftAccept && craftAccept.dataset.bound !== "1") {
+    craftAccept.dataset.bound = "1";
+    craftAccept.addEventListener("click", () => {
+      let crafterTarget = "hero";
+      let companionSlotIndex = null;
+      const picked = document.querySelector('input[name="craftInviteCrafter"]:checked');
+      if (picked && typeof picked.value === "string" && picked.value.startsWith("c")) {
+        crafterTarget = "companion";
+        companionSlotIndex = parseInt(picked.value.slice(1), 10);
+      }
+      if (window.MMOPresence?.acceptCraftInvite) {
+        window.MMOPresence.acceptCraftInvite({ crafterTarget, companionSlotIndex });
+      }
+      hideCraftInviteModal();
+    });
+  }
+  const craftDecline = document.getElementById("craftInviteDeclineBtn");
+  if (craftDecline && craftDecline.dataset.bound !== "1") {
+    craftDecline.dataset.bound = "1";
+    craftDecline.addEventListener("click", () => {
+      if (window.MMOPresence?.declineCraftInvite) window.MMOPresence.declineCraftInvite();
+      hideCraftInviteModal();
     });
   }
   const fightJoin = document.getElementById("fightInviteJoinBtn");
@@ -1453,6 +1588,31 @@ function initOnlinePresence() {
     if (!msg || !msg.message) return;
     if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(msg.message);
     if (!msg.ok && typeof showModal === "function") showModal(msg.message);
+  };
+  window.onCraftInvite = (msg) => {
+    if (!msg) return;
+    showCraftInviteModal(msg);
+    if (window.MMOChat?.appendSystem) {
+      window.MMOChat.appendSystem(`${msg.fromName || "A player"} sent a craft commission.`);
+    }
+  };
+  window.onCraftResult = (msg) => {
+    if (!msg || !msg.message) return;
+    if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(msg.message);
+    if (!msg.ok && typeof showModal === "function") showModal(msg.message);
+  };
+  window.onCraftCommissionComplete = async (msg) => {
+    if (!msg || !msg.ok) return;
+    if (msg.roster && typeof applyOnlineActionResponse === "function") {
+      await applyOnlineActionResponse({ roster: msg.roster, revision: msg.revision });
+    }
+    const who = msg.role === "crafter" ? msg.fromName : msg.crafterName;
+    const line =
+      msg.role === "crafter"
+        ? `Commission complete: crafted ${msg.quantity}× ${msg.recipeName} for ${msg.fromName}. +${msg.xpGained || 0} profession XP.`
+        : `${msg.crafterName || "Crafter"} delivered ${msg.quantity}× ${msg.recipeName}.`;
+    if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(line);
+    render();
   };
   window.onFightInvite = (msg) => {
     if (!msg || !msg.sessionId) return;
@@ -1711,6 +1871,17 @@ function normalizeActorProfessions(actor) {
   });
   actor.professions = next;
   return next.slice();
+}
+
+function ensureActorProfessionProgress(actor) {
+  if (typeof ProfessionProgression !== "undefined" && actor && typeof actor === "object") {
+    ProfessionProgression.ensureProfessionProgress(actor);
+  }
+}
+
+function getProfessionLabel(professionId) {
+  const d = getProfessionDefById(professionId);
+  return d && d.label ? d.label : String(professionId || "").replace(/_/g, " ");
 }
 
 function toggleActorProfession(actor, id) {
@@ -2475,6 +2646,7 @@ const defaultPlayer = () => {
     classSkillLevels,
     skills: [],
     professions: [],
+    professionProgress: {},
     inventory: buildStartingInventory(),
     equipment: getStarterEquipment(),
     portraitGender: "male",
@@ -2872,6 +3044,10 @@ function migratePlayer(p) {
     }
   }
   ensurePlayerCompanions(p);
+  ensureActorProfessionProgress(p);
+  if (Array.isArray(p.companions)) {
+    p.companions.forEach((c) => ensureActorProfessionProgress(c));
+  }
 }
 
 let onlineSaveDebounceTimer = null;
@@ -5874,20 +6050,16 @@ function maxLevelFromEnemyDefByName(name) {
   return Math.max(...def.possibleLevels);
 }
 
-function randomMoodIdFromEnemyDef(def) {
-  const moods = Array.isArray(def?.possibleMoods) ? def.possibleMoods : ["berserk"];
-  return moods[Math.floor(Math.random() * moods.length)];
-}
-
 function summonDungeonReinforcement(st, enemyName) {
   if (!st || !enemyName) return false;
   if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
   const def = getEnemyDefByName(enemyName);
   if (!def) return false;
+  const mood = pickMoodFromEnemyDef(def);
   const unit = {
     name: enemyName,
     level: maxLevelFromEnemyDefByName(enemyName),
-    moodId: randomMoodIdFromEnemyDef(def)
+    moodId: mood.id
   };
   const spawned = spawnEnemiesFromPreview(st.region, [unit]);
   if (!spawned.length) return false;
@@ -5908,7 +6080,8 @@ function summonMirageRemnantUncapped(st, summoner) {
   if (!st) return null;
   const def = getEnemyDefByName("Mirage Remnant");
   if (!def) return null;
-  const unit = { name: "Mirage Remnant", level: 18, moodId: "berserk" };
+  const mood = pickMoodFromEnemyDef(def);
+  const unit = { name: "Mirage Remnant", level: 18, moodId: mood.id };
   const spawned = spawnEnemiesFromPreview(st.region, [unit]);
   if (!spawned.length) return null;
   const foe = spawned[0];
@@ -11042,9 +11215,19 @@ function removeOneFromInventory(itemName) {
   if (i !== -1) player.inventory.splice(i, 1);
 }
 
+function isConsumableBlockedInCombat(def) {
+  if (!def || def.type !== "consumable") return false;
+  if (def.useInCombat !== false && def.outOfCombatOnly !== true) return false;
+  return !!(combatState || isFightOverlayOpen());
+}
+
 function useConsumable(itemName) {
   const def = getItemDef(itemName);
   if (!def || def.type !== "consumable") return;
+  if (isConsumableBlockedInCombat(def)) {
+    showModal("This item can only be used outside combat.");
+    return;
+  }
   if (def.effect === "hatch_pet_egg") {
     if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM || typeof PET_SYSTEM.hatchPetFromEgg !== "function") {
       showModal("Pet system unavailable.");
@@ -14254,7 +14437,7 @@ function getEditableSceneObjectCatalog() {
     firstCity && typeof firstCity.theme === "string" && /^[a-zA-Z0-9_-]+$/.test(firstCity.theme.trim())
       ? firstCity.theme.trim()
       : "portal-theme-default";
-  const inv0 = player.inventory && player.inventory[0] ? String(player.inventory[0]) : "Small Potion";
+  const inv0 = player.inventory && player.inventory[0] ? String(player.inventory[0]) : "Minor Healing Draught";
   return [
     {
       id: "portal",
@@ -19390,14 +19573,20 @@ function buildDungeonEnemyUnitsForRoom(dungeonId, roomIndex) {
   const def = getDungeonDef(dungeonId);
   const room = def && Array.isArray(def.rooms) ? def.rooms[roomIndex] : null;
   if (!room || !Array.isArray(room.enemies)) return [];
-  return room.enemies.map((e) => (e && typeof e === "object" ? { ...e } : null)).filter(Boolean);
+  return room.enemies
+    .map((e) => {
+      if (!e || typeof e !== "object") return null;
+      const { moodId, moodName, mood, ...rest } = e;
+      return { ...rest };
+    })
+    .filter(Boolean);
 }
 
 function enrichDungeonPreviewUnitForMob(u) {
   if (!u || typeof u !== "object" || typeof u.name !== "string") return null;
   const def = getEnemyDefByName(u.name);
   if (!def) return null;
-  const mood = resolveMoodFromPreviewUnit(u, def);
+  const mood = pickMoodFromEnemyDef(def);
   const level =
     typeof u.level === "number" && Number.isFinite(u.level) ? Math.max(1, Math.floor(u.level)) : pickLevelFromEnemyDef(def);
   const out = {
@@ -19445,8 +19634,8 @@ function startDungeonRoomCombat(dungeonId, roomIndex) {
   const def = getDungeonDef(dungeonId);
   if (!def || !Array.isArray(def.rooms) || roomIndex < 0 || roomIndex >= def.rooms.length) return;
   const room = def.rooms[roomIndex];
-  const units = buildDungeonEnemyUnitsForRoom(dungeonId, roomIndex);
-  if (!units.length) return;
+  const mob = buildDungeonRoomMobPreview(dungeonId, roomIndex);
+  if (!mob || !mob.units.length) return;
   const biome = getWorldBiomeDefAt(player.worldMap.x, player.worldMap.y);
   const region = {
     name: def.name || dungeonId,
@@ -19457,7 +19646,7 @@ function startDungeonRoomCombat(dungeonId, roomIndex) {
   if (typeof room.enemyDamageMult === "number" && Number.isFinite(room.enemyDamageMult) && room.enemyDamageMult > 0) {
     ctx.enemyDamageMult = room.enemyDamageMult;
   }
-  beginTurnCombat(region, { units }, ctx);
+  beginTurnCombat(region, mob, ctx);
   if (combatState && typeof room.modifierText === "string" && room.modifierText.trim()) {
     appendFightLog(room.modifierText.trim());
   }
@@ -20861,7 +21050,10 @@ function buildItemTooltipHtml(itemName, imageSizePx, tooltipOpts) {
   }
 
   const statParts = [];
-  if (def.type === "consumable" && def.effect === "heal") statParts.push(`Restores ${def.value} HP`);
+  if (def.type === "consumable" && def.effect === "heal") {
+    statParts.push(`Restores ${def.value} HP`);
+    if (def.useInCombat === false || def.outOfCombatOnly === true) statParts.push("Outside combat only");
+  }
   const bs = getScaledItemBonusStats(def, itemName);
   Object.keys(bs).forEach((k) => {
     const line = formatEquipmentBonusStatLine(k, bs[k]);
@@ -22034,6 +22226,12 @@ function onContentTooltipMove(e) {
 }
 
 function onContentInput(e) {
+  const craftQtyInput = e.target.closest("[data-craft-qty-recipe]");
+  if (craftQtyInput) {
+    setCraftBatchQuantity(craftQtyInput.getAttribute("data-craft-qty-recipe"), craftQtyInput.value);
+    if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
+    return;
+  }
   const atlasSearch = e.target.closest("[data-atlas-search]");
   if (atlasSearch) {
     atlasSearchQuery = String(atlasSearch.value || "");
@@ -22537,8 +22735,14 @@ function buildOverviewHtml() {
       const cls = selected ? "btn-secondary" : "btn-secondary";
       const disabled = blocked ? " disabled" : "";
       const kind = d.kind === "gathering" ? "Gathering" : "Crafting";
+      let levelHint = "";
+      if (selected && d.kind === "crafting" && typeof ProfessionProgression !== "undefined") {
+        ensureActorProfessionProgress(actor);
+        const plv = ProfessionProgression.getProfessionLevel(actor, d.id);
+        levelHint = ` · Lv ${plv}`;
+      }
       return `<div class="stat-plain-row">
-        <span>${escapeHtml(d.label)} <small>(${kind})</small></span>
+        <span>${escapeHtml(d.label)} <small>(${kind}${levelHint})</small></span>
         <button type="button" class="${cls} profession-toggle-btn" data-profession-toggle="${escapeAttr(d.id)}"${disabled}>${
           selected ? "Selected" : "Select"
         }</button>
@@ -22886,9 +23090,39 @@ function getCraftingProfessionIdForRecipe(recipe) {
   return "armor_smith";
 }
 
-function getInventoryBaseItemCounts() {
+function getCraftSharedDepsClient() {
+  if (!clientMaterialDifficultyIndex && typeof CraftMaterialTier !== "undefined" && GAME_CONFIG) {
+    clientMaterialDifficultyIndex = CraftMaterialTier.buildMaterialDifficultyIndex(GAME_CONFIG);
+  }
+  return {
+    ProfessionProgression,
+    CraftMaterialTier,
+    materialIndex: clientMaterialDifficultyIndex,
+    getItemDef: (name) => getItemDef(name)
+  };
+}
+
+function getCraftBatchQuantity(recipeId) {
+  const id = String(recipeId || "").trim();
+  const raw = craftBatchQtyByRecipe.get(id);
+  const n = Math.floor(Number(raw) || 1);
+  return Math.max(1, Math.min(999, n));
+}
+
+function setCraftBatchQuantity(recipeId, qty) {
+  const id = String(recipeId || "").trim();
+  if (!id) return;
+  craftBatchQtyByRecipe.set(id, Math.max(1, Math.min(999, Math.floor(Number(qty) || 1))));
+}
+
+function computeLocalCraftXp(recipe, professionLevel) {
+  if (typeof CraftXp === "undefined" || typeof ProfessionProgression === "undefined") return 0;
+  return CraftXp.computeCraftXpForRecipe(recipe, professionLevel, getCraftSharedDepsClient());
+}
+
+function getInventoryBaseItemCountsFrom(inventory) {
   const out = new Map();
-  const inv = Array.isArray(player.inventory) ? player.inventory : [];
+  const inv = Array.isArray(inventory) ? inventory : [];
   inv.forEach((entry) => {
     const base = getItemBaseName(entry);
     if (!base) return;
@@ -22897,43 +23131,99 @@ function getInventoryBaseItemCounts() {
   return out;
 }
 
-function evaluateCraftRecipeAvailability(recipe, invCounts, actor) {
-  const requiredLevel =
-    recipe && typeof recipe.resultLevel === "number" && Number.isFinite(recipe.resultLevel)
-      ? Math.max(1, Math.floor(recipe.resultLevel))
-      : 1;
+function getInventoryBaseItemCounts() {
+  return getInventoryBaseItemCountsFrom(player.inventory);
+}
+
+function evaluateCraftRecipeAvailability(recipe, invCounts, actor, quantity = 1) {
+  const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
   const crafter = actor && typeof actor === "object" ? actor : player;
-  const crafterLevel =
-    typeof crafter.level === "number" && Number.isFinite(crafter.level)
-      ? Math.max(1, Math.floor(crafter.level))
+  const professionId = getCraftingProfessionIdForRecipe(recipe);
+  const itemDef = getItemDef(recipe && recipe.resultItem);
+  const requiredLevel =
+    typeof ProfessionProgression !== "undefined"
+      ? ProfessionProgression.getRecipeItemLevel(recipe, itemDef)
+      : recipe && typeof recipe.resultLevel === "number" && Number.isFinite(recipe.resultLevel)
+        ? Math.max(1, Math.floor(recipe.resultLevel))
+        : 1;
+  ensureActorProfessionProgress(crafter);
+  const profLevel =
+    typeof ProfessionProgression !== "undefined"
+      ? ProfessionProgression.getProfessionLevel(crafter, professionId)
       : 1;
-  const levelOk = crafterLevel >= requiredLevel;
+  const levelOk = profLevel >= requiredLevel;
   const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const missing = [];
   ingredients.forEach((ing) => {
     const itemName = ing && typeof ing.item === "string" ? ing.item.trim() : "";
     if (!itemName) return;
-    const need = ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    const perCraft =
+      ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    const need = perCraft * qty;
     const have = invCounts.get(itemName) || 0;
     if (have < need) missing.push({ item: itemName, need, have });
   });
-  return { levelOk, requiredLevel, missing, craftable: levelOk && missing.length === 0 };
+  const xpEach = computeLocalCraftXp(recipe, profLevel);
+  return {
+    levelOk,
+    requiredLevel,
+    professionId,
+    professionLevel: profLevel,
+    missing,
+    craftable: levelOk && missing.length === 0,
+    quantity: qty,
+    xpEach,
+    xpTotal: xpEach * qty
+  };
 }
 
-function removeIngredientsForRecipe(recipe) {
+function removeIngredientsForRecipe(recipe, quantity = 1, inventoryOwner) {
+  const owner = inventoryOwner && typeof inventoryOwner === "object" ? inventoryOwner : player;
+  if (!Array.isArray(owner.inventory)) owner.inventory = [];
+  const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
   const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   for (const ing of ingredients) {
     const itemName = ing && typeof ing.item === "string" ? ing.item.trim() : "";
     if (!itemName) continue;
-    const need = ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
-    let left = need;
-    for (let i = player.inventory.length - 1; i >= 0 && left > 0; i--) {
-      const entry = player.inventory[i];
+    const perCraft =
+      ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    let left = perCraft * qty;
+    for (let i = owner.inventory.length - 1; i >= 0 && left > 0; i--) {
+      const entry = owner.inventory[i];
       if (getItemBaseName(entry) !== itemName) continue;
-      player.inventory.splice(i, 1);
+      owner.inventory.splice(i, 1);
       left--;
     }
   }
+}
+
+function executeLocalCraftBatch(recipe, quantity, inventoryOwner, resultOwner, crafter) {
+  const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
+  const professionId = getCraftingProfessionIdForRecipe(recipe);
+  const invCounts = getInventoryBaseItemCountsFrom(inventoryOwner.inventory);
+  const avail = evaluateCraftRecipeAvailability(recipe, invCounts, crafter, qty);
+  if (!avail.craftable) return null;
+  removeIngredientsForRecipe(recipe, qty, inventoryOwner);
+  const craftedItems = [];
+  let totalXp = 0;
+  for (let i = 0; i < qty; i++) {
+    const resultBaseName = recipe.resultItem;
+    const resultDef = getItemDef(resultBaseName);
+    let craftedName = resultBaseName;
+    if (resultDef && isEquippableItemDef(resultDef)) {
+      craftedName = makeRarityItemInstanceName(resultBaseName, rollLootGearRarityTier());
+    }
+    if (!Array.isArray(resultOwner.inventory)) resultOwner.inventory = [];
+    resultOwner.inventory.push(craftedName);
+    craftedItems.push(craftedName);
+    if (typeof ProfessionProgression !== "undefined") {
+      const profLevel = ProfessionProgression.getProfessionLevel(crafter, professionId);
+      const xpGain = computeLocalCraftXp(recipe, profLevel);
+      if (xpGain > 0) ProfessionProgression.addProfessionXp(crafter, professionId, xpGain);
+      totalXp += xpGain;
+    }
+  }
+  return { craftedItems, xpGained: totalXp, professionId };
 }
 
 function craftRecipeById(recipeId) {
@@ -22944,7 +23234,8 @@ function craftRecipeById(recipeId) {
   const selectedCraftingProfIds = getActorCraftingProfessionIds(tab.actor);
   const requiredProfId = getCraftingProfessionIdForRecipe(recipe);
   if (!selectedCraftingProfIds.includes(requiredProfId)) return false;
-  const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts(), tab.actor);
+  const quantity = getCraftBatchQuantity(recipeId);
+  const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts(), tab.actor, quantity);
   if (!avail.craftable) return false;
   if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerCraft) {
     void (async () => {
@@ -22952,24 +23243,25 @@ function craftRecipeById(recipeId) {
         const body = await window.GameStorage.playerCraft({
           slotIndex: activeCharacterSlotIndex,
           recipeId,
+          quantity,
           crafterTarget: tab.ownerKey === "hero" ? "hero" : "companion",
           companionSlotIndex: typeof tab.companionSlotIndex === "number" ? tab.companionSlotIndex : null
         });
         await applyOnlineActionResponse(body);
+        if (body?.result?.xpGained > 0 && window.MMOChat?.appendSystem) {
+          const profLabel = getProfessionLabel(body.result.professionId || requiredProfId);
+          window.MMOChat.appendSystem(
+            `${profLabel} +${body.result.xpGained} XP${body.result.professionLevelsGained ? ` (level up!)` : ""}.`
+          );
+        }
       } catch (err) {
         showModal(err && err.message ? err.message : "Could not craft item.");
       }
     })();
     return true;
   }
-  removeIngredientsForRecipe(recipe);
-  const resultBaseName = recipe.resultItem;
-  const resultDef = getItemDef(resultBaseName);
-  let craftedName = resultBaseName;
-  if (resultDef && isEquippableItemDef(resultDef)) {
-    craftedName = makeRarityItemInstanceName(resultBaseName, rollLootGearRarityTier());
-  }
-  player.inventory.push(craftedName);
+  const result = executeLocalCraftBatch(recipe, quantity, player, player, tab.actor);
+  if (!result) return false;
   save();
   return true;
 }
@@ -23002,8 +23294,16 @@ function buildCraftingPanelHtml() {
     .join("");
   const invCounts = getInventoryBaseItemCounts();
   const recipes = getAllCraftingRecipes().filter((r) => getCraftingProfessionIdForRecipe(r) === activeProfId);
+  const profLabel = getProfessionLabel(activeProfId);
+  const crafterProfLevel =
+    typeof ProfessionProgression !== "undefined"
+      ? ProfessionProgression.getProfessionLevel(crafterActor, activeProfId)
+      : 1;
   const evaluated = recipes
-    .map((r) => ({ recipe: r, avail: evaluateCraftRecipeAvailability(r, invCounts, crafterActor) }))
+    .map((r) => {
+      const batchQty = getCraftBatchQuantity(r.id);
+      return { recipe: r, avail: evaluateCraftRecipeAvailability(r, invCounts, crafterActor, batchQty), batchQty };
+    })
     .sort((a, b) => {
       if (a.avail.craftable !== b.avail.craftable) return a.avail.craftable ? -1 : 1;
       const aLvl = typeof a.recipe.resultLevel === "number" ? a.recipe.resultLevel : 1;
@@ -23012,7 +23312,7 @@ function buildCraftingPanelHtml() {
       return String(a.recipe.resultItem || "").localeCompare(String(b.recipe.resultItem || ""));
     });
   const recipeRows = evaluated
-    .map(({ recipe: r, avail }) => {
+    .map(({ recipe: r, avail, batchQty }) => {
       const rowCls = avail.craftable
         ? "crafting-recipe-row crafting-recipe-row--craftable"
         : "crafting-recipe-row crafting-recipe-row--locked";
@@ -23021,7 +23321,8 @@ function buildCraftingPanelHtml() {
         .map((i) => {
           const itemName = i && typeof i.item === "string" ? i.item.trim() : "";
           if (!itemName) return null;
-          const need = i && typeof i.qty === "number" && Number.isFinite(i.qty) ? Math.max(1, Math.floor(i.qty)) : 1;
+          const perCraft = i && typeof i.qty === "number" && Number.isFinite(i.qty) ? Math.max(1, Math.floor(i.qty)) : 1;
+          const need = perCraft * batchQty;
           const have = invCounts.get(itemName) || 0;
           const itemImg = escapeAttr(getItemImage(itemName));
           const chipCls = have >= need ? "crafting-ingredient-chip" : "crafting-ingredient-chip crafting-ingredient-chip--missing";
@@ -23031,35 +23332,32 @@ function buildCraftingPanelHtml() {
         })
         .filter(Boolean)
         .join("");
-      const crafterLv =
-        typeof crafterActor.level === "number" && Number.isFinite(crafterActor.level)
-          ? Math.max(1, Math.floor(crafterActor.level))
-          : 1;
-      const statusText = !avail.levelOk ? `Level: ${crafterLv}/${avail.requiredLevel}` : "";
       const tierBadge =
         r.tierLabel && String(r.tierLabel).trim()
           ? ` <span class="crafting-recipe-tier">${escapeHtml(String(r.tierLabel).trim())}</span>`
           : "";
       const craftBtn = `<button type="button" class="btn-secondary crafting-craft-btn" data-craft-recipe-id="${escapeAttr(
         r.id || ""
-      )}"${avail.craftable ? "" : " disabled"}>Craft</button>`;
+      )}"${avail.craftable ? "" : " disabled"}>Craft ×${batchQty}</button>`;
+      const qtyInput = `<label class="crafting-batch-qty">Qty <input type="number" class="crafting-batch-qty-input" data-craft-qty-recipe="${escapeAttr(
+        r.id || ""
+      )}" min="1" max="999" value="${batchQty}" /></label>`;
       const resultImg = escapeAttr(getItemImage(r.resultItem));
       return `<div class="${rowCls}">
         <div class="crafting-recipe-head"><strong class="crafting-result-name" data-item-name="${escapeAttr(
           r.resultItem
         )}"><img class="crafting-result-img" src="${resultImg}" alt="" draggable="false" />${escapeHtml(
           r.resultItem
-        )}</strong>${tierBadge}${craftBtn}</div>
-        <div class="crafting-recipe-sub">Required level: ${avail.requiredLevel}</div>
-        <div class="crafting-recipe-sub crafting-ingredients">${ingHtml || "No ingredients listed."}</div>${
-          statusText ? `<div class="crafting-recipe-sub">${escapeHtml(statusText)}</div>` : ""
-        }
+        )}</strong>${tierBadge}${qtyInput}${craftBtn}</div>
+        <div class="crafting-recipe-sub">Required ${escapeHtml(profLabel)} level: ${avail.requiredLevel}</div>
+        <div class="crafting-recipe-sub crafting-ingredients">${ingHtml || "No ingredients listed."}</div>
       </div>`;
     })
     .join("");
   return `<div class="game-page">${
     intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
-  }<div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
+  }<p class="crafting-prof-summary">${escapeHtml(profLabel)}: level <strong>${crafterProfLevel}</strong></p>
+  <div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
     <div class="crafting-recipe-list">${recipeRows || '<p class="crafting-empty">No recipes found for this profession.</p>'}</div>
   </div>`;
 }

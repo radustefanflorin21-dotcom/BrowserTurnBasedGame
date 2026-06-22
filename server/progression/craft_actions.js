@@ -1,5 +1,5 @@
 /**
- * Server-authoritative crafting (Phase B).
+ * Server-authoritative crafting with profession levels, batch qty, and craft XP.
  */
 
 import { loadGameConfig } from "../load_game_config.js";
@@ -11,6 +11,7 @@ import {
   resolveItemDef,
   rollLootGearRarityTier
 } from "./item_helpers.js";
+import { computeCraftXp, getRecipeItemLevel, normalizeProfessionProgress, ProfessionProgression } from "./craft_helpers.js";
 
 function getCraftingConfig() {
   const cfg = loadGameConfig();
@@ -32,7 +33,7 @@ function getAllCraftingRecipes() {
   return out;
 }
 
-function getCraftRecipeById(recipeId) {
+export function getCraftRecipeById(recipeId) {
   const id = String(recipeId || "").trim();
   if (!id) return null;
   return getAllCraftingRecipes().find((r) => r && typeof r.id === "string" && r.id === id) || null;
@@ -47,7 +48,7 @@ function getItemEquipCategory(def) {
   return rawCategory.trim().toLowerCase();
 }
 
-function getCraftingProfessionIdForRecipe(recipe) {
+export function getCraftingProfessionIdForRecipe(recipe) {
   const def = resolveItemDef(recipe?.resultItem);
   if (!def) return "armor_smith";
   if (def.type === "consumable" || String(def.category || "").trim().toLowerCase() === "key") return "provisioner";
@@ -63,43 +64,51 @@ function getProfessionDefs() {
   return Array.isArray(prof?.available) ? prof.available.filter((d) => d && typeof d.id === "string") : [];
 }
 
-function getActorSelectedProfessions(actor) {
-  return Array.isArray(actor?.professions) ? actor.professions.slice() : [];
-}
-
 function getActorCraftingProfessionIds(actor) {
   const defs = new Map(getProfessionDefs().map((d) => [d.id, d]));
-  return getActorSelectedProfessions(actor).filter((id) => defs.get(id)?.kind === "crafting");
+  const selected = Array.isArray(actor?.professions) ? actor.professions.slice() : [];
+  return selected.filter((id) => defs.get(id)?.kind === "crafting");
 }
 
-function evaluateCraftRecipeAvailability(recipe, invCounts, actor) {
-  const requiredLevel =
-    recipe && typeof recipe.resultLevel === "number" && Number.isFinite(recipe.resultLevel)
-      ? Math.max(1, Math.floor(recipe.resultLevel))
-      : 1;
-  const crafterLevel =
-    typeof actor?.level === "number" && Number.isFinite(actor.level) ? Math.max(1, Math.floor(actor.level)) : 1;
-  const levelOk = crafterLevel >= requiredLevel;
+export function evaluateCraftRecipeAvailability(recipe, invCounts, actor, quantity = 1) {
+  const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
+  const professionId = getCraftingProfessionIdForRecipe(recipe);
+  const requiredLevel = getRecipeItemLevel(recipe);
+  normalizeProfessionProgress(actor);
+  const profLevel = ProfessionProgression.getProfessionLevel(actor, professionId);
+  const levelOk = profLevel >= requiredLevel;
   const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const missing = [];
   ingredients.forEach((ing) => {
     const itemName = ing && typeof ing.item === "string" ? ing.item.trim() : "";
     if (!itemName) return;
-    const need = ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    const perCraft =
+      ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    const need = perCraft * qty;
     const have = invCounts.get(itemName) || 0;
     if (have < need) missing.push({ item: itemName, need, have });
   });
-  return { levelOk, requiredLevel, missing, craftable: levelOk && missing.length === 0 };
+  return {
+    levelOk,
+    requiredLevel,
+    professionId,
+    professionLevel: profLevel,
+    missing,
+    craftable: levelOk && missing.length === 0,
+    quantity: qty
+  };
 }
 
-function removeIngredientsForRecipe(player, recipe) {
+function removeIngredientsForRecipe(player, recipe, quantity = 1) {
   if (!Array.isArray(player.inventory)) player.inventory = [];
+  const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
   const ingredients = recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   for (const ing of ingredients) {
     const itemName = ing && typeof ing.item === "string" ? ing.item.trim() : "";
     if (!itemName) continue;
-    const need = ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
-    let left = need;
+    const perCraft =
+      ing && typeof ing.qty === "number" && Number.isFinite(ing.qty) ? Math.max(1, Math.floor(ing.qty)) : 1;
+    let left = perCraft * qty;
     for (let i = player.inventory.length - 1; i >= 0 && left > 0; i--) {
       if (getItemBaseName(player.inventory[i]) !== itemName) continue;
       player.inventory.splice(i, 1);
@@ -111,6 +120,15 @@ function removeIngredientsForRecipe(player, recipe) {
       throw err;
     }
   }
+}
+
+function craftOneResultItem(recipe) {
+  const resultBaseName = recipe.resultItem;
+  const resultDef = resolveItemDef(resultBaseName);
+  if (resultDef && isEquippableItemDef(resultDef)) {
+    return makeRarityItemInstanceName(resultBaseName, rollLootGearRarityTier());
+  }
+  return resultBaseName;
 }
 
 export function resolveCrafter(player, { crafterTarget = "hero", companionSlotIndex = null }) {
@@ -127,12 +145,74 @@ export function resolveCrafter(player, { crafterTarget = "hero", companionSlotIn
       err.status = 400;
       throw err;
     }
+    normalizeProfessionProgress(comp);
     return comp;
   }
+  normalizeProfessionProgress(player);
   return player;
 }
 
-export function applyCraftRecipe(player, { recipeId, crafterTarget = "hero", companionSlotIndex = null }) {
+/**
+ * Craft from inventoryOwner (ingredients removed) to resultOwner (items added). XP goes to crafter.
+ */
+export function executeCraftBatch({
+  recipe,
+  quantity = 1,
+  inventoryOwner,
+  resultOwner,
+  crafter
+}) {
+  const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
+  const professionId = getCraftingProfessionIdForRecipe(recipe);
+  if (!getActorCraftingProfessionIds(crafter).includes(professionId)) {
+    const err = new Error("Crafter does not have the required profession.");
+    err.status = 400;
+    throw err;
+  }
+  const invCounts = inventoryBaseCounts(inventoryOwner.inventory);
+  const avail = evaluateCraftRecipeAvailability(recipe, invCounts, crafter, qty);
+  if (!avail.craftable) {
+    const err = new Error(
+      !avail.levelOk
+        ? `Requires ${professionId.replace(/_/g, " ")} level ${avail.requiredLevel} (you have ${avail.professionLevel}).`
+        : "Missing crafting ingredients."
+    );
+    err.status = 400;
+    throw err;
+  }
+  removeIngredientsForRecipe(inventoryOwner, recipe, qty);
+  if (!Array.isArray(resultOwner.inventory)) resultOwner.inventory = [];
+  const craftedItems = [];
+  let totalXp = 0;
+  let levelsGained = 0;
+  for (let i = 0; i < qty; i++) {
+    const itemName = craftOneResultItem(recipe);
+    resultOwner.inventory.push(itemName);
+    craftedItems.push(itemName);
+    const profLevel = ProfessionProgression.getProfessionLevel(crafter, professionId);
+    const xpGain = computeCraftXp(recipe, profLevel);
+    if (xpGain > 0) {
+      const res = ProfessionProgression.addProfessionXp(crafter, professionId, xpGain);
+      totalXp += res.xpGained;
+      levelsGained += res.levelsGained;
+    }
+  }
+  return {
+    recipeId: recipe.id,
+    quantity: qty,
+    items: craftedItems,
+    itemName: craftedItems[craftedItems.length - 1] || recipe.resultItem,
+    professionId,
+    xpGained: totalXp,
+    professionLevelsGained: levelsGained,
+    professionLevel: ProfessionProgression.getProfessionLevel(crafter, professionId)
+  };
+}
+
+export function applyCraftRecipe(
+  player,
+  { recipeId, crafterTarget = "hero", companionSlotIndex = null, quantity = 1 }
+) {
   const recipe = getCraftRecipeById(recipeId);
   if (!recipe) {
     const err = new Error("Unknown recipe.");
@@ -140,29 +220,11 @@ export function applyCraftRecipe(player, { recipeId, crafterTarget = "hero", com
     throw err;
   }
   const crafter = resolveCrafter(player, { crafterTarget, companionSlotIndex });
-  const requiredProfId = getCraftingProfessionIdForRecipe(recipe);
-  if (!getActorCraftingProfessionIds(crafter).includes(requiredProfId)) {
-    const err = new Error("Crafter does not have the required profession.");
-    err.status = 400;
-    throw err;
-  }
-  const invCounts = inventoryBaseCounts(player.inventory);
-  const avail = evaluateCraftRecipeAvailability(recipe, invCounts, crafter);
-  if (!avail.craftable) {
-    const err = new Error(
-      !avail.levelOk ? `Requires crafter level ${avail.requiredLevel}.` : "Missing crafting ingredients."
-    );
-    err.status = 400;
-    throw err;
-  }
-  removeIngredientsForRecipe(player, recipe);
-  const resultBaseName = recipe.resultItem;
-  const resultDef = resolveItemDef(resultBaseName);
-  let craftedName = resultBaseName;
-  if (resultDef && isEquippableItemDef(resultDef)) {
-    craftedName = makeRarityItemInstanceName(resultBaseName, rollLootGearRarityTier());
-  }
-  if (!Array.isArray(player.inventory)) player.inventory = [];
-  player.inventory.push(craftedName);
-  return { recipeId: recipe.id, itemName: craftedName };
+  return executeCraftBatch({
+    recipe,
+    quantity,
+    inventoryOwner: player,
+    resultOwner: player,
+    crafter
+  });
 }

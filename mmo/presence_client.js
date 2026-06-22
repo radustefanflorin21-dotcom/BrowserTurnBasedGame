@@ -244,6 +244,49 @@
     }
   }
 
+  function sendCraftInvite(payload) {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    if (!payload || typeof payload !== "object") return;
+    try {
+      socket.send(
+        JSON.stringify({
+          type: "craft_invite",
+          targetUserId: payload.targetUserId,
+          requesterSlotIndex: payload.requesterSlotIndex,
+          recipeId: payload.recipeId,
+          quantity: payload.quantity,
+          goldOffer: payload.goldOffer
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function acceptCraftInvite(payload) {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    try {
+      socket.send(
+        JSON.stringify({
+          type: "craft_accept",
+          crafterTarget: payload?.crafterTarget,
+          companionSlotIndex: payload?.companionSlotIndex
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function declineCraftInvite() {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    try {
+      socket.send(JSON.stringify({ type: "craft_decline" }));
+    } catch {
+      /* ignore */
+    }
+  }
+
   function schedulePublishLoop() {
     if (publishTimer) return;
     publishTimer = setInterval(() => publishPresence(), PUBLISH_INTERVAL_MS);
@@ -260,6 +303,14 @@
     if (!msg || typeof msg !== "object") return;
     if (msg.type === "party_invite" && typeof root.onPartyInvite === "function") {
       root.onPartyInvite(msg);
+      return;
+    }
+    if (msg.type === "craft_invite" && typeof root.onCraftInvite === "function") {
+      root.onCraftInvite(msg);
+      return;
+    }
+    if (msg.type === "craft_commission_complete" && typeof root.onCraftCommissionComplete === "function") {
+      root.onCraftCommissionComplete(msg);
       return;
     }
     if (msg.type === "fight_invite" && typeof root.onFightInvite === "function") {
@@ -303,6 +354,7 @@
       if (typeof root.onPartyState === "function") root.onPartyState(currentParty);
     }
     if (msg.type === "party_result" && typeof root.onPartyResult === "function") root.onPartyResult(msg);
+    if (msg.type === "craft_result" && typeof root.onCraftResult === "function") root.onCraftResult(msg);
   }
 
   function connect() {
@@ -440,6 +492,9 @@
     sendPartyInvite,
     acceptPartyInvite,
     declinePartyInvite,
+    sendCraftInvite,
+    acceptCraftInvite,
+    declineCraftInvite,
     publishPartyFightStarted,
     getNearby,
     getSameMap,

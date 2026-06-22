@@ -6,6 +6,7 @@ import { loadGameConfig, getEnemyDefByName } from "../load_game_config.js";
 import { buildFoeFromUnit } from "./formulas.js";
 import { initFoeCombatRuntime } from "./enemy_ai.js";
 import { applyPartyMemberBlind, applyPartyMemberCripple, ensureCombatStatus, applyPlayerBurn } from "./status.js";
+import { pickMoodIdFromEnemyDef } from "./enemy_moods.js";
 
 function getDungeonDef(dungeonId) {
   const cfg = loadGameConfig();
@@ -28,9 +29,7 @@ function maxLevelForEnemyName(name) {
 
 function randomMoodIdForEnemy(name, rng) {
   const def = getEnemyDefByName(name);
-  const moods = Array.isArray(def?.possibleMoods) ? def.possibleMoods : ["berserk"];
-  const idx = Math.floor((rng?.next?.() ?? Math.random()) * moods.length);
-  return moods[Math.max(0, Math.min(moods.length - 1, idx))];
+  return pickMoodIdFromEnemyDef(def, rng);
 }
 
 export function spawnReinforcement(st, name, rng) {

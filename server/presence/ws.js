@@ -23,6 +23,7 @@ import {
   declinePartyInvite,
   notifyPartyFightStarted
 } from "./party.js";
+import { sendCraftInvite, acceptCraftInvite, declineCraftInvite } from "./commission_craft.js";
 import { getWorldShardInfo } from "../world/shard.js";
 
 const WS_PATH = "/presence";
@@ -154,6 +155,32 @@ export function attachPresenceWebSocket(httpServer) {
 
       if (msg.type === "party_decline") {
         declinePartyInvite(authedUser.id);
+        return;
+      }
+
+      if (msg.type === "craft_invite") {
+        const result = sendCraftInvite(authedUser.id, {
+          targetUserId: msg.targetUserId,
+          requesterSlotIndex: msg.requesterSlotIndex,
+          recipeId: msg.recipeId,
+          quantity: msg.quantity,
+          goldOffer: msg.goldOffer
+        });
+        socket.send(JSON.stringify({ type: "craft_result", ...result }));
+        return;
+      }
+
+      if (msg.type === "craft_accept") {
+        const result = acceptCraftInvite(authedUser.id, {
+          crafterTarget: msg.crafterTarget,
+          companionSlotIndex: msg.companionSlotIndex
+        });
+        socket.send(JSON.stringify({ type: "craft_result", ...result }));
+        return;
+      }
+
+      if (msg.type === "craft_decline") {
+        declineCraftInvite(authedUser.id);
         return;
       }
 
