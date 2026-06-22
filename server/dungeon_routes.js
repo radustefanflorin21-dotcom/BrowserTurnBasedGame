@@ -1,6 +1,6 @@
 import { requireAuth } from "./auth.js";
-import { getRosterJson, getRosterRevision } from "./db.js";
-import { saveRosterDocument } from "./progression/roster_save.js";
+import { getRosterJson } from "./db.js";
+import { savePlayerForSlot } from "./progression/roster_ops.js";
 import { getPartyMemberIds } from "./presence/party.js";
 import { byUserId, updatePresence } from "./presence/hub.js";
 import {
@@ -113,8 +113,7 @@ export function registerDungeonRoutes(app) {
         }
         consumeDungeonKey(pl, keyName);
         applyDungeonEnterToPlayer(pl, dungeonId, entrance);
-        roster.slots[sIdx] = pl;
-        const { revision } = saveRosterDocument(userId, roster);
+        const saved = savePlayerForSlot(userId, roster, sIdx, pl);
         updatePresence(userId, {
           x: entrance.x,
           y: entrance.y,
@@ -127,9 +126,10 @@ export function registerDungeonRoutes(app) {
           slotIndex: sIdx,
           dungeonRun: { ...pl.worldMap.dungeonRun }
         });
+        return saved;
       };
 
-      enterSlotForUser(hostUserId, hostRoster, slotIndex);
+      const hostSaved = enterSlotForUser(hostUserId, hostRoster, slotIndex);
       if (!entered.some((e) => e.userId === hostUserId)) {
         res.status(400).json({ error: `You need ${keyName}.` });
         return;
@@ -150,6 +150,8 @@ export function registerDungeonRoutes(app) {
 
       notifyPartyDungeonEnterInvite(hostUserId, { dungeonId, dungeonName, entrance, keyName });
 
+      const hostRosterOut = hostSaved?.roster || hostRoster;
+      const hostSlot = hostRosterOut.slots[slotIndex];
       res.json({
         ok: true,
         dungeonId,
@@ -157,9 +159,9 @@ export function registerDungeonRoutes(app) {
         entrance,
         entered,
         skipped,
-        dungeonRun: hostPlayer.worldMap.dungeonRun,
-        roster: hostRoster,
-        revision: getRosterRevision(hostUserId)
+        dungeonRun: hostSlot?.worldMap?.dungeonRun || null,
+        roster: hostRosterOut,
+        revision: hostSaved?.revision ?? 0
       });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Failed to enter dungeon." });
@@ -201,7 +203,7 @@ export function registerDungeonRoutes(app) {
       }
 
       roster.slots[slotIndex] = player;
-      const { revision } = saveRosterDocument(userId, roster);
+      const { roster: saved, revision } = savePlayerForSlot(userId, roster, slotIndex, player);
       updatePresence(userId, {
         x: leaveResult.entrance.x,
         y: leaveResult.entrance.y,
@@ -214,7 +216,7 @@ export function registerDungeonRoutes(app) {
         ok: true,
         dungeonId,
         entrance: leaveResult.entrance,
-        roster,
+        roster: saved,
         revision
       });
     } catch (err) {

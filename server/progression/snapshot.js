@@ -1,6 +1,6 @@
 /** Extract and store authoritative progression fingerprints from player records. */
 
-import { loadGameConfig, getItemDef } from "../load_game_config.js";
+import { resolveItemDef } from "./item_helpers.js";
 
 const MAX_LEVEL = 60;
 
@@ -56,9 +56,7 @@ export function extractEconomy(player) {
 
 export function isKnownItemName(name) {
   if (!name || typeof name !== "string") return false;
-  const cfg = loadGameConfig();
-  if (cfg?.items && cfg.items[name]) return true;
-  return !!getItemDef(name);
+  return !!resolveItemDef(name.trim());
 }
 
 /**

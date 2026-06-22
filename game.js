@@ -24565,6 +24565,20 @@ function refreshCharacterPanelHpInPlace() {
   if (fill) fill.style.width = `${hpPct}%`;
 }
 
+function applyLocalOutOfCombatFullHeal() {
+  if (!player) return;
+  player.maxHp = computeMaxHp(player);
+  player.hp = player.maxHp;
+  if (Array.isArray(player.companions)) {
+    player.companions.forEach((c) => {
+      if (!c || !c.enabled) return;
+      c.maxHp = computeMaxHp(c);
+      if (typeof c.hp !== "number" || c.hp <= 0) return;
+      c.hp = c.maxHp;
+    });
+  }
+}
+
 function tickOutOfCombatHpRegen() {
   if (typeof player === "undefined" || !player) return;
   if (combatState || isFightOverlayOpen()) return;
@@ -25127,9 +25141,24 @@ function onDocumentKeydown(e) {
   }
   if (k === "h" && e.shiftKey) {
     e.preventDefault();
-    player.hp = player.maxHp;
+    if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerHeal) {
+      void (async () => {
+        try {
+          const body = await window.GameStorage.playerHeal({ slotIndex: activeCharacterSlotIndex });
+          await applyOnlineActionResponse(body);
+          renderBottomHud();
+          refreshCharacterPanelHpInPlace();
+        } catch (err) {
+          showModal(err && err.message ? err.message : "Could not heal.");
+        }
+      })();
+      return;
+    }
+    applyLocalOutOfCombatFullHeal();
     save();
     render();
+    renderBottomHud();
+    refreshCharacterPanelHpInPlace();
     return;
   }
   if (k !== "m") return;

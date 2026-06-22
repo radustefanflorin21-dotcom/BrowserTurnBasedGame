@@ -312,6 +312,11 @@
     return apiFetch("/api/player/craft", { method: "POST", body: JSON.stringify(body) });
   }
 
+  async function playerHeal(body) {
+    if (!isOnlineMode()) return null;
+    return apiFetch("/api/player/heal", { method: "POST", body: JSON.stringify(body) });
+  }
+
   async function worldMove(body) {
     if (!isOnlineMode()) return null;
     return apiFetch("/api/world/move", { method: "POST", body: JSON.stringify(body) });
@@ -393,6 +398,7 @@
     playerSpendStat,
     playerUpgradeSkill,
     playerCraft,
+    playerHeal,
     worldMove,
     worldPickup,
     fetchMarketListings,

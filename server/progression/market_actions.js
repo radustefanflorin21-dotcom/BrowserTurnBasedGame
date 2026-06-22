@@ -110,7 +110,11 @@ function collectStackFromInventory(inventory, itemName, quantity) {
     err.status = 400;
     throw err;
   }
-  const idx = inv.indexOf(itemName);
+  const want = String(itemName || "").trim();
+  let idx = inv.indexOf(want);
+  if (idx === -1) {
+    idx = inv.findIndex((entry) => typeof entry === "string" && entry.trim() === want);
+  }
   if (idx === -1) {
     const err = new Error("Item not in inventory.");
     err.status = 400;
