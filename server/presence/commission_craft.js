@@ -1,5 +1,5 @@
 /**
- * Online commission crafting: requester invites crafter, gold reserved on accept, craft atomically.
+ * Online commission crafting / enhancing: requester invites crafter, gold reserved on accept.
  */
 
 import { getRosterJson } from "../db.js";
@@ -14,6 +14,8 @@ import {
   getCraftingProfessionIdForRecipe,
   resolveCrafter
 } from "../progression/craft_actions.js";
+import { executeEnhance } from "../progression/enhance_actions.js";
+import Enhancing from "../../shared/enhancing.js";
 import { upsertSnapshot } from "../progression/store.js";
 import { saveRosterDocument } from "../progression/roster_save.js";
 import { byUserId, displayLabel, sendJsonToUser } from "./hub.js";
@@ -64,14 +66,9 @@ export function sendCraftInvite(fromUserId, payload) {
   const targetEntry = byUserId.get(targetUserId);
   if (!targetEntry) return { ok: false, message: "That player is not online." };
 
-  const recipeId = String(payload?.recipeId || "").trim();
-  const recipe = getCraftRecipeById(recipeId);
-  if (!recipe) return { ok: false, message: "Unknown recipe." };
-
   const requesterSlotIndex = validateSlotIndex(Number(payload?.requesterSlotIndex ?? fromEntry.slotIndex));
-  const quantity = normalizeQuantity(payload?.quantity);
   const goldOffer = normalizeGoldOffer(payload?.goldOffer);
-  const professionId = getCraftingProfessionIdForRecipe(recipe);
+  const kind = payload?.kind === "enhance" ? "enhance" : "craft";
 
   let requesterLoad;
   try {
@@ -85,7 +82,55 @@ export function sendCraftInvite(fromUserId, payload) {
     return { ok: false, message: `Not enough gold (have ${requesterGold}, offered ${goldOffer}).` };
   }
 
+  if (kind === "enhance") {
+    const itemInstanceName = String(payload?.itemInstanceName || "").trim();
+    const runeBaseName = String(payload?.runeBaseName || "").trim();
+    const professionId = String(payload?.professionId || "").trim();
+    if (!itemInstanceName || !runeBaseName || !professionId) {
+      return { ok: false, message: "Invalid enhance commission." };
+    }
+    if (!Enhancing.isEquipmentCraftingProfessionId(professionId)) {
+      return { ok: false, message: "Invalid enhancing profession." };
+    }
+
+    const { baseName } = Enhancing.splitItemInstanceName(itemInstanceName);
+    pendingCraftInvites.set(targetUserId, {
+      kind: "enhance",
+      fromUserId,
+      fromName: displayLabel(fromEntry),
+      requesterSlotIndex,
+      itemInstanceName,
+      itemBaseName: baseName,
+      runeBaseName,
+      professionId,
+      goldOffer,
+      t: Date.now()
+    });
+
+    sendJsonToUser(targetUserId, {
+      type: "craft_invite",
+      kind: "enhance",
+      fromUserId,
+      fromName: displayLabel(fromEntry),
+      itemInstanceName,
+      itemBaseName: baseName,
+      runeBaseName,
+      professionId,
+      goldOffer
+    });
+
+    return { ok: true, message: `Enhance invite sent to ${displayLabel(targetEntry)}.` };
+  }
+
+  const recipeId = String(payload?.recipeId || "").trim();
+  const recipe = getCraftRecipeById(recipeId);
+  if (!recipe) return { ok: false, message: "Unknown recipe." };
+
+  const quantity = normalizeQuantity(payload?.quantity);
+  const professionId = getCraftingProfessionIdForRecipe(recipe);
+
   pendingCraftInvites.set(targetUserId, {
+    kind: "craft",
     fromUserId,
     fromName: displayLabel(fromEntry),
     requesterSlotIndex,
@@ -99,6 +144,7 @@ export function sendCraftInvite(fromUserId, payload) {
 
   sendJsonToUser(targetUserId, {
     type: "craft_invite",
+    kind: "craft",
     fromUserId,
     fromName: displayLabel(fromEntry),
     recipeId,
@@ -121,9 +167,6 @@ export function acceptCraftInvite(crafterUserId, payload) {
 
   const crafterEntry = byUserId.get(crafterUserId);
   if (!crafterEntry) return { ok: false, message: "You are not connected." };
-
-  const recipe = getCraftRecipeById(invite.recipeId);
-  if (!recipe) return { ok: false, message: "Recipe no longer exists." };
 
   const crafterTarget = payload?.crafterTarget === "companion" ? "companion" : "hero";
   const companionSlotIndex =
@@ -158,22 +201,41 @@ export function acceptCraftInvite(crafterUserId, payload) {
     return { ok: false, message: err.message || "Invalid crafter." };
   }
 
-  let craftResult;
+  let commissionResult;
   try {
-    craftResult = executeCraftBatch({
-      recipe,
-      quantity: invite.quantity,
-      inventoryOwner: requesterLoad.player,
-      resultOwner: requesterLoad.player,
-      crafter: crafterActor
-    });
+    if (invite.kind === "enhance") {
+      commissionResult = executeEnhance({
+        itemInstanceName: invite.itemInstanceName,
+        runeBaseName: invite.runeBaseName,
+        professionId: invite.professionId,
+        inventoryOwner: requesterLoad.player,
+        crafter: crafterActor
+      });
+    } else {
+      const recipe = getCraftRecipeById(invite.recipeId);
+      if (!recipe) {
+        sendJsonToUser(invite.fromUserId, {
+          type: "craft_result",
+          ok: false,
+          message: "Recipe no longer exists."
+        });
+        return { ok: false, message: "Recipe no longer exists." };
+      }
+      commissionResult = executeCraftBatch({
+        recipe,
+        quantity: invite.quantity,
+        inventoryOwner: requesterLoad.player,
+        resultOwner: requesterLoad.player,
+        crafter: crafterActor
+      });
+    }
   } catch (err) {
     sendJsonToUser(invite.fromUserId, {
       type: "craft_result",
       ok: false,
-      message: err.message || "Commission craft failed."
+      message: err.message || "Commission failed."
     });
-    return { ok: false, message: err.message || "Commission craft failed." };
+    return { ok: false, message: err.message || "Commission failed." };
   }
 
   requesterLoad.player.gold = requesterGold - invite.goldOffer;
@@ -195,15 +257,19 @@ export function acceptCraftInvite(crafterUserId, payload) {
     crafterLoad.player
   );
 
+  const isEnhance = invite.kind === "enhance";
   const successPayload = {
     type: "craft_commission_complete",
     ok: true,
-    recipeName: invite.recipeName,
-    quantity: invite.quantity,
+    kind: invite.kind,
+    recipeName: isEnhance ? invite.itemBaseName : invite.recipeName,
+    quantity: isEnhance ? 1 : invite.quantity,
     goldOffer: invite.goldOffer,
-    xpGained: craftResult.xpGained,
-    professionLevel: craftResult.professionLevel,
-    fromName: invite.fromName
+    xpGained: commissionResult.xpGained,
+    professionLevel: commissionResult.professionLevel,
+    fromName: invite.fromName,
+    enhanceSuccess: isEnhance ? commissionResult.success : undefined,
+    enhanceDowngraded: isEnhance ? commissionResult.downgraded : undefined
   };
 
   sendJsonToUser(crafterUserId, {
@@ -221,12 +287,16 @@ export function acceptCraftInvite(crafterUserId, payload) {
     crafterName: displayLabel(crafterEntry)
   });
 
+  const doneMessage = isEnhance
+    ? `Enhanced ${invite.itemBaseName} for ${invite.fromName}.`
+    : `Crafted ${invite.quantity}× ${invite.recipeName} for ${invite.fromName}.`;
+
   return {
     ok: true,
-    message: `Crafted ${invite.quantity}× ${invite.recipeName} for ${invite.fromName}.`,
+    message: doneMessage,
     roster: crafterSave.roster,
     revision: crafterSave.revision,
-    result: craftResult
+    result: commissionResult
   };
 }
 

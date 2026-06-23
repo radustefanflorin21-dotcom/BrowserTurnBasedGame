@@ -21,6 +21,10 @@ let overviewSkillsScrollTop = 0;
 let overviewSkillsScrollAnchor = null;
 /** Active crafting tab: `hero|weapon_smith` or `c0|armor_smith` (companion slot + profession). */
 let activeCraftingTabKey = null;
+/** Crafting panel inner tab: `craft` or `enhance` (enhance only for equipment professions). */
+let activeCraftingSubTab = "craft";
+let selectedEnhanceItemInstance = null;
+let selectedEnhanceRuneBase = null;
 /** recipeId -> batch quantity (1–999) in crafting panel */
 const craftBatchQtyByRecipe = new Map();
 /** @type {null | object} */
@@ -675,6 +679,31 @@ function isOnlineGameplayMode() {
   );
 }
 
+/** Online layout edit (`?devEdit=1`): scene/portrait tools only — no item spawn or stat cheats. */
+function isOnlineLayoutEditEnabled() {
+  return (
+    isOnlineGameplayMode() &&
+    typeof window !== "undefined" &&
+    window.MMO_RUNTIME &&
+    window.MMO_RUNTIME.allowLayoutEdit === true
+  );
+}
+
+function isLayoutEditActive() {
+  if (!player || !player.editMode) return false;
+  if (!isOnlineGameplayMode()) return true;
+  return isOnlineLayoutEditEnabled();
+}
+
+function isCheatEditActive() {
+  return !!(player && player.editMode && !isOnlineGameplayMode());
+}
+
+function persistLayoutEditState() {
+  if (isOnlineLayoutEditEnabled()) void save({ flush: true });
+  else save();
+}
+
 function canPerformServerPlayerAction() {
   return isOnlineGameplayMode() && inGameSession && activeCharacterSlotIndex != null && !!window.GameStorage;
 }
@@ -1168,9 +1197,18 @@ function showCraftInviteModal(payload) {
   pendingCraftInvitePayload = payload;
   const modal = document.getElementById("craftInviteModal");
   const text = document.getElementById("craftInviteText");
+  const acceptBtn = document.getElementById("craftInviteAcceptBtn");
+  const isEnhance = payload && payload.kind === "enhance";
   if (text && payload) {
     const profLabel = getProfessionLabel(payload.professionId);
-    text.textContent = `${payload.fromName || "A player"} wants you to craft ${payload.quantity || 1}× ${payload.recipeName || "item"} (${profLabel}) for ${payload.goldOffer || 0} gold. Your ingredients are not used — theirs are.`;
+    if (isEnhance) {
+      text.textContent = `${payload.fromName || "A player"} wants you to enhance ${formatItemDisplayLabel(payload.itemInstanceName || payload.itemBaseName || "equipment")} with ${payload.runeBaseName || "a rune"} (${profLabel}) for ${payload.goldOffer || 0} gold. Their item and rune are used.`;
+    } else {
+      text.textContent = `${payload.fromName || "A player"} wants you to craft ${payload.quantity || 1}× ${payload.recipeName || "item"} (${profLabel}) for ${payload.goldOffer || 0} gold. Your ingredients are not used — theirs are.`;
+    }
+  }
+  if (acceptBtn) {
+    acceptBtn.textContent = isEnhance ? "Accept & enhance" : "Accept & craft";
   }
   const pick = document.getElementById("craftInviteCrafterPick");
   if (pick) {
@@ -1209,18 +1247,54 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
     const bLvl = typeof b.resultLevel === "number" ? b.resultLevel : 1;
     return aLvl - bLvl || String(a.resultItem || "").localeCompare(String(b.resultItem || ""));
   });
-  const options = recipes
+  const recipeOptions = recipes
     .map((r) => {
       const profId = getCraftingProfessionIdForRecipe(r);
       return `<option value="${escapeAttr(r.id || "")}">${escapeHtml(r.resultItem || r.id)} (${escapeHtml(getProfessionLabel(profId))}, lv ${typeof r.resultLevel === "number" ? r.resultLevel : 1})</option>`;
     })
     .join("");
+
+  const enhanceItems = [];
+  if (typeof Enhancing !== "undefined") {
+    const equipped = getEquippedItemNamesSetForEnhance();
+    const seen = new Set();
+    (Array.isArray(player.inventory) ? player.inventory : []).forEach((entry) => {
+      if (!entry || equipped.has(entry) || seen.has(entry)) return;
+      const { baseName } = splitItemInstanceName(entry);
+      const def = getItemDef(baseName);
+      if (!def || !isEquippableItemDef(def)) return;
+      const itemProf = Enhancing.getCraftingProfessionIdForItemBase(baseName, getEnhanceDepsClient());
+      if (!itemProf || !Enhancing.isEquipmentCraftingProfessionId(itemProf)) return;
+      if (!Enhancing.getNextRarityId(getItemRarityIdForItem(def, entry))) return;
+      seen.add(entry);
+      enhanceItems.push({ entry, itemProf });
+    });
+  }
+  const enhanceItemOptions = enhanceItems.length
+    ? enhanceItems
+        .map(({ entry, itemProf }) => {
+          const profLabel = getProfessionLabel(itemProf);
+          return `<option value="${escapeAttr(entry)}" data-enhance-prof="${escapeAttr(itemProf)}">${escapeHtml(formatItemDisplayLabel(entry))} (${escapeHtml(profLabel)})</option>`;
+        })
+        .join("")
+    : `<option value="">No enhanceable equipment in bag</option>`;
+
   showModalHtml(
     `<div class="craft-commission-request">
-      <h3 class="modal-compact-title">Invite ${escapeHtml(targetName || "player")} to craft</h3>
-      <p class="muted">You supply ingredients and gold; they craft into your inventory.</p>
-      <label class="craft-commission-field">Recipe<select id="craftCommissionRecipe" class="craft-commission-select">${options}</select></label>
-      <label class="craft-commission-field">Quantity<input id="craftCommissionQty" type="number" min="1" max="999" value="1" class="craft-commission-input" /></label>
+      <h3 class="modal-compact-title">Invite ${escapeHtml(targetName || "player")} to craft or enhance</h3>
+      <p class="muted">You supply materials and gold; they perform the work into your inventory.</p>
+      <div class="stats-tabs crafting-sub-tabs craft-commission-kind-tabs">
+        <button type="button" class="stats-tab active" data-commission-kind="craft">Craft</button>
+        <button type="button" class="stats-tab" data-commission-kind="enhance">Enhance</button>
+      </div>
+      <div id="craftCommissionCraftPane">
+        <label class="craft-commission-field">Recipe<select id="craftCommissionRecipe" class="craft-commission-select">${recipeOptions}</select></label>
+        <label class="craft-commission-field">Quantity<input id="craftCommissionQty" type="number" min="1" max="999" value="1" class="craft-commission-input" /></label>
+      </div>
+      <div id="craftCommissionEnhancePane" class="hidden">
+        <label class="craft-commission-field">Equipment<select id="craftCommissionEnhanceItem" class="craft-commission-select">${enhanceItemOptions}</select></label>
+        <label class="craft-commission-field">Rune<select id="craftCommissionEnhanceRune" class="craft-commission-select"><option value="">Select equipment first</option></select></label>
+      </div>
       <label class="craft-commission-field">Gold offer<input id="craftCommissionGold" type="number" min="0" value="0" class="craft-commission-input" /></label>
       <p class="muted">Your gold: ${player?.gold || 0}</p>
       <div class="modal-compact-actions">
@@ -1229,22 +1303,77 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
       </div>
     </div>`
   );
+
+  function refreshCommissionEnhanceRunes() {
+    const itemEl = document.getElementById("craftCommissionEnhanceItem");
+    const runeEl = document.getElementById("craftCommissionEnhanceRune");
+    if (!itemEl || !runeEl) return;
+    const itemInstance = itemEl.value || "";
+    const runes = itemInstance ? getAvailableEnhanceRunes(itemInstance, player.inventory) : [];
+    runeEl.innerHTML = runes.length
+      ? runes
+          .map((r) => `<option value="${escapeAttr(r.item)}">${escapeHtml(r.item)} (Lv ${r.level})</option>`)
+          .join("")
+      : `<option value="">No suitable rune in bag</option>`;
+  }
+
   setTimeout(() => {
+    const craftPane = document.getElementById("craftCommissionCraftPane");
+    const enhancePane = document.getElementById("craftCommissionEnhancePane");
+    const itemEl = document.getElementById("craftCommissionEnhanceItem");
+    if (itemEl) {
+      itemEl.addEventListener("change", refreshCommissionEnhanceRunes);
+      refreshCommissionEnhanceRunes();
+    }
+    document.querySelectorAll("[data-commission-kind]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const kind = btn.getAttribute("data-commission-kind");
+        document.querySelectorAll("[data-commission-kind]").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+        });
+        if (craftPane) craftPane.classList.toggle("hidden", kind !== "craft");
+        if (enhancePane) enhancePane.classList.toggle("hidden", kind !== "enhance");
+      });
+    });
+
     const sendBtn = document.getElementById("craftCommissionSendBtn");
     if (!sendBtn || sendBtn.dataset.bound === "1") return;
     sendBtn.dataset.bound = "1";
     sendBtn.addEventListener("click", () => {
-      const recipeEl = document.getElementById("craftCommissionRecipe");
-      const qtyEl = document.getElementById("craftCommissionQty");
       const goldEl = document.getElementById("craftCommissionGold");
-      const recipeId = recipeEl && recipeEl.value ? recipeEl.value : "";
-      const quantity = qtyEl ? Math.max(1, Math.min(999, Math.floor(Number(qtyEl.value) || 1))) : 1;
       const goldOffer = goldEl ? Math.max(0, Math.floor(Number(goldEl.value) || 0)) : 0;
-      if (!recipeId) return;
-      if (window.MMOPresence?.sendCraftInvite) {
+      const activeKindBtn = document.querySelector("[data-commission-kind].active");
+      const kind = activeKindBtn && activeKindBtn.getAttribute("data-commission-kind") === "enhance" ? "enhance" : "craft";
+      if (!window.MMOPresence?.sendCraftInvite) return;
+      if (kind === "enhance") {
+        const itemEl2 = document.getElementById("craftCommissionEnhanceItem");
+        const runeEl2 = document.getElementById("craftCommissionEnhanceRune");
+        const itemInstanceName = itemEl2 && itemEl2.value ? itemEl2.value : "";
+        const runeBaseName = runeEl2 && runeEl2.value ? runeEl2.value : "";
+        const profId =
+          itemEl2 && itemEl2.selectedOptions && itemEl2.selectedOptions[0]
+            ? itemEl2.selectedOptions[0].getAttribute("data-enhance-prof") || ""
+            : "";
+        if (!itemInstanceName || !runeBaseName || !profId) return;
         window.MMOPresence.sendCraftInvite({
           targetUserId,
           requesterSlotIndex: activeCharacterSlotIndex,
+          kind: "enhance",
+          itemInstanceName,
+          runeBaseName,
+          professionId: profId,
+          goldOffer
+        });
+      } else {
+        const recipeEl = document.getElementById("craftCommissionRecipe");
+        const qtyEl = document.getElementById("craftCommissionQty");
+        const recipeId = recipeEl && recipeEl.value ? recipeEl.value : "";
+        const quantity = qtyEl ? Math.max(1, Math.min(999, Math.floor(Number(qtyEl.value) || 1))) : 1;
+        if (!recipeId) return;
+        window.MMOPresence.sendCraftInvite({
+          targetUserId,
+          requesterSlotIndex: activeCharacterSlotIndex,
+          kind: "craft",
           recipeId,
           quantity,
           goldOffer
@@ -1683,10 +1812,20 @@ function initOnlinePresence() {
     if (msg.roster && typeof applyOnlineActionResponse === "function") {
       await applyOnlineActionResponse({ roster: msg.roster, revision: msg.revision });
     }
-    const line =
-      msg.role === "crafter"
-        ? `Commission complete: crafted ${msg.quantity}× ${msg.recipeName} for ${msg.fromName}. +${msg.xpGained || 0} profession XP.`
-        : `${msg.crafterName || "Crafter"} delivered ${msg.quantity}× ${msg.recipeName}.`;
+    let line = "";
+    if (msg.kind === "enhance") {
+      if (msg.role === "crafter") {
+        line = msg.enhanceSuccess
+          ? `Commission complete: enhanced ${formatItemDisplayLabel(msg.recipeName)} for ${msg.fromName}. +${msg.xpGained || 0} profession XP.`
+          : `Commission complete: enhance failed for ${msg.fromName}. +${msg.xpGained || 0} profession XP.`;
+      } else {
+        line = `${msg.crafterName || "Crafter"} finished enhancing ${formatItemDisplayLabel(msg.recipeName)}.`;
+      }
+    } else if (msg.role === "crafter") {
+      line = `Commission complete: crafted ${msg.quantity}× ${msg.recipeName} for ${msg.fromName}. +${msg.xpGained || 0} profession XP.`;
+    } else {
+      line = `${msg.crafterName || "Crafter"} delivered ${msg.quantity}× ${msg.recipeName}.`;
+    }
     if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(line);
     render();
   };
@@ -3087,12 +3226,7 @@ function migratePlayer(p) {
   }
   if (p.worldMap.cityPortalCoords && typeof p.worldMap.cityPortalCoords === "object") delete p.worldMap.cityPortalCoords;
   if (typeof p.editMode !== "boolean") p.editMode = false;
-  if (
-    typeof window !== "undefined" &&
-    window.GameStorage &&
-    typeof window.GameStorage.isOnlineMode === "function" &&
-    window.GameStorage.isOnlineMode()
-  ) {
+  if (isOnlineGameplayMode() && !isOnlineLayoutEditEnabled()) {
     p.editMode = false;
   }
   if (p.worldMap && p.worldMap.cells && typeof p.worldMap.cells === "object") {
@@ -14668,7 +14802,7 @@ function addSceneEditableObjectFromCatalog(catalogId) {
   if (!player.worldMap.sceneLayout || typeof player.worldMap.sceneLayout !== "object") player.worldMap.sceneLayout = {};
   const lk = sceneLayoutStorageKey(x, y, el.id);
   player.worldMap.sceneLayout[lk] = { leftPct: 50, topPct: 50, scalePct: 100 };
-  save();
+  persistLayoutEditState();
   render();
 }
 
@@ -14682,7 +14816,7 @@ function removeSceneEditableObject(elId) {
   rec.elements = rec.elements.filter((e) => e && e.id !== elId);
   const lk = sceneLayoutStorageKey(x, y, elId);
   if (player.worldMap.sceneLayout && player.worldMap.sceneLayout[lk]) delete player.worldMap.sceneLayout[lk];
-  save();
+  persistLayoutEditState();
   render();
 }
 
@@ -14882,7 +15016,7 @@ function saveSceneLayoutPosition(x, y, elId, leftPct, topPct) {
   const prev = player.worldMap.sceneLayout[key] || {};
   const scalePct = typeof prev.scalePct === "number" ? clampSceneScalePct(prev.scalePct) : 100;
   player.worldMap.sceneLayout[key] = { leftPct: clampScenePct(leftPct), topPct: clampScenePct(topPct), scalePct };
-  save();
+  persistLayoutEditState();
 }
 
 function saveSceneLayoutScale(x, y, elId, scalePct) {
@@ -14892,7 +15026,7 @@ function saveSceneLayoutScale(x, y, elId, scalePct) {
   const leftPct = typeof prev.leftPct === "number" ? clampScenePct(prev.leftPct) : 50;
   const topPct = typeof prev.topPct === "number" ? clampScenePct(prev.topPct) : 50;
   player.worldMap.sceneLayout[key] = { leftPct, topPct, scalePct: clampSceneScalePct(scalePct) };
-  save();
+  persistLayoutEditState();
 }
 
 /**
@@ -15177,14 +15311,14 @@ function readPortraitLayerLayoutFromElement(layerEl) {
 }
 
 function onPortraitLayerContextMenu(e) {
-  if (!player.editMode) return;
+  if (!isLayoutEditActive()) return;
   const stack = e.target.closest(".portrait-stack");
   if (!stack) return;
   e.preventDefault();
 }
 
 function onPortraitLayerPointerDown(e) {
-  if (!player.editMode) return;
+  if (!isLayoutEditActive()) return;
   const stackFromTarget = e.target.closest(".portrait-stack");
   const layer = e.target.closest(".portrait-equip-layer[data-portrait-slot]");
   if (stackFromTarget && !layer) {
@@ -15242,7 +15376,7 @@ function onPortraitLayerPointerDown(e) {
       const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
       if (dist > 2) portraitLayoutDragSuppressedClick = true;
       setPortraitBaseLayout(last, layoutOwner);
-      save();
+      persistLayoutEditState();
     };
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", done);
@@ -15308,7 +15442,7 @@ function onPortraitLayerPointerDown(e) {
     const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
     if (dist > 2) portraitLayoutDragSuppressedClick = true;
     setPortraitEquipLayout(slotId, last, layoutOwner);
-    save();
+    persistLayoutEditState();
   };
   document.addEventListener("pointermove", move);
   document.addEventListener("pointerup", done);
@@ -15316,7 +15450,7 @@ function onPortraitLayerPointerDown(e) {
 }
 
 function onPortraitLayerWheel(e) {
-  if (!player.editMode) return;
+  if (!isLayoutEditActive()) return;
   const layer = e.target.closest(".portrait-equip-layer[data-portrait-slot]");
   const stack = e.target.closest(".portrait-stack");
   if (stack && !layer) {
@@ -15339,7 +15473,7 @@ function onPortraitLayerWheel(e) {
     if (root) {
       root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
     }
-    save();
+    persistLayoutEditState();
     return;
   }
   if (!layer) return;
@@ -15367,16 +15501,16 @@ function onPortraitLayerWheel(e) {
     rotDeg: cur.rotDeg,
     scalePct: nextScale
   });
-  save();
+  persistLayoutEditState();
 }
 
 function onBottomHudPortraitContextMenu(e) {
-  if (!player.editMode) return;
+  if (!isLayoutEditActive()) return;
   if (e.target && e.target.closest && e.target.closest("#bottomHudPortrait")) e.preventDefault();
 }
 
 function onBottomHudPortraitPointerDown(e) {
-  if (!player.editMode || currentPage !== "adventure") return;
+  if (!isLayoutEditActive() || currentPage !== "adventure") return;
   const portrait = e.target.closest("#bottomHudPortrait");
   if (!portrait) return;
   if (e.button !== 0 && e.button !== 2) return;
@@ -15433,7 +15567,7 @@ function onBottomHudPortraitPointerDown(e) {
       portrait.releasePointerCapture(ev.pointerId);
     } catch (_) {}
     setBottomHudPortraitLayout(last);
-    save();
+    persistLayoutEditState();
   };
   document.addEventListener("pointermove", move);
   document.addEventListener("pointerup", done);
@@ -15441,7 +15575,7 @@ function onBottomHudPortraitPointerDown(e) {
 }
 
 function onBottomHudPortraitWheel(e) {
-  if (!player.editMode || currentPage !== "adventure") return;
+  if (!isLayoutEditActive() || currentPage !== "adventure") return;
   const portrait = e.target.closest("#bottomHudPortrait");
   if (!portrait) return;
   e.preventDefault();
@@ -15459,7 +15593,7 @@ function onBottomHudPortraitWheel(e) {
   if (root) {
     root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
   }
-  save();
+  persistLayoutEditState();
 }
 
 function parseSceneLayoutStorageKey(key) {
@@ -15476,7 +15610,7 @@ function parseSceneLayoutStorageKey(key) {
 }
 
 function onSceneResizePointerDown(e) {
-  if (!player.editMode) return;
+  if (!isLayoutEditActive()) return;
   const handle = e.target.closest(".scene-object-resize[data-scene-resize]");
   if (!handle) return;
   if (e.button !== 0) return;
@@ -15519,7 +15653,7 @@ function onSceneResizePointerDown(e) {
 }
 
 function onSceneLayoutPointerDown(e) {
-  if (!player.editMode) return;
+  if (!isLayoutEditActive()) return;
   if (e.target.closest(".scene-object-remove") || e.target.closest(".scene-object-resize")) return;
   const anchor = e.target.closest(".scene-object-anchor[data-scene-layout-key]");
   if (!anchor) return;
@@ -15574,19 +15708,21 @@ function onSceneLayoutPointerDown(e) {
 }
 
 function syncEditModeUi() {
-  const online =
-    typeof window !== "undefined" &&
-    window.GameStorage &&
-    typeof window.GameStorage.isOnlineMode === "function" &&
-    window.GameStorage.isOnlineMode();
-  if (online && player) player.editMode = false;
-  const on = !!(player && player.editMode && !online);
+  const online = isOnlineGameplayMode();
+  const layoutOnline = isOnlineLayoutEditEnabled();
+  if (online && !layoutOnline && player) player.editMode = false;
+  const on = isLayoutEditActive();
   document.body.classList.toggle("edit-mode-on", on);
   const btn = document.getElementById("editModeToggle");
   if (btn) {
-    btn.hidden = online;
+    btn.hidden = online && !layoutOnline;
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     btn.classList.toggle("sidebar-edit-mode-btn--active", on);
+    btn.title = layoutOnline
+      ? "Layout edit (online dev): scene and portrait tools only"
+      : on
+        ? "Edit mode on"
+        : "Edit mode (Shift+E)";
   }
   const addPanel = document.getElementById("editModeAddPanel");
   if (addPanel) addPanel.classList.toggle("hidden", !on);
@@ -15595,19 +15731,16 @@ function syncEditModeUi() {
 }
 
 function setEditMode(on) {
-  if (
-    on &&
-    typeof window !== "undefined" &&
-    window.GameStorage &&
-    typeof window.GameStorage.isOnlineMode === "function" &&
-    window.GameStorage.isOnlineMode()
-  ) {
-    showModal("Edit mode is disabled while playing online.");
+  if (on && isOnlineGameplayMode() && !isOnlineLayoutEditEnabled()) {
+    showModal("Edit mode is disabled while playing online. Add ?devEdit=1 to the URL for layout edit.");
     return;
   }
   player.editMode = !!on;
   save();
   syncEditModeUi();
+  if (on && isOnlineLayoutEditEnabled()) {
+    showModal("Layout edit enabled. Scene/portrait layout tools only — item spawn and stat cheats stay disabled online.");
+  }
 }
 
 /** Unique SVG defs id per portal instance (avoids duplicate ids if multiple SVGs). */
@@ -15906,7 +16039,7 @@ function onAdventureSceneButtonClick(e) {
   }
   const btn = e.target.closest(".world-scene-btn[data-world-scene]");
   if (!btn) return false;
-  if (player.editMode) return true;
+  if (isLayoutEditActive()) return true;
   const raw = btn.getAttribute("data-world-scene");
   if (!raw) return false;
   let payload;
@@ -16177,7 +16310,7 @@ function moveWorldMap(dx, dy) {
   if (adventureMapFadeInFlight) return;
   if (
     currentPage === "adventure" &&
-    !player.editMode &&
+    !isLayoutEditActive() &&
     (dx !== 0 || dy !== 0) &&
     (dx === 0 || dy === 0) &&
     !prefersAdventureMapReducedMotion()
@@ -22226,6 +22359,21 @@ function onContentInput(e) {
   applyPortraitAddItemFilter(host);
 }
 
+function onContentChange(e) {
+  const enhanceItemSelect = e.target.closest("[data-enhance-item-select]");
+  if (enhanceItemSelect) {
+    selectedEnhanceItemInstance = enhanceItemSelect.value || null;
+    selectedEnhanceRuneBase = null;
+    if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
+    return;
+  }
+  const enhanceRuneSelect = e.target.closest("[data-enhance-rune-select]");
+  if (enhanceRuneSelect) {
+    selectedEnhanceRuneBase = enhanceRuneSelect.value || null;
+    if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
+  }
+}
+
 function statBarNumberSpanHtml(value, gearBonus) {
   const g =
     typeof gearBonus === "number" && Number.isFinite(gearBonus) ? Math.round(gearBonus) : 0;
@@ -22579,7 +22727,7 @@ function buildOverviewHtml() {
       inner = `<span class="slot-placeholder">—</span>`;
     }
     const petEditRow =
-      s.id === "pet" && player.editMode && name ? buildPetLevelEditHtml(name, actor) : "";
+      s.id === "pet" && isCheatEditActive() && name ? buildPetLevelEditHtml(name, actor) : "";
     return `<div class="paper-slot ${s.cls}" data-slot="${s.id}">
       <span class="slot-label">${s.label}</span>
       <div class="slot-drop${blockedCls}${petFeedCls}" data-slot="${s.id}"${itemAttr} ${drag}>${inner}</div>
@@ -22619,11 +22767,17 @@ function buildOverviewHtml() {
     : `<div class="character-roster-tabs character-roster-tabs--empty">${closePanelBtnHtml}</div>`;
 
   const editInvOptions = buildEditInventoryOptionsHtml(getEditableInventoryItemNames());
-  const portraitEditControlsHtml = player.editMode
-    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay">${buildPortraitGenderSwitchHtml()}<button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button><input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button></div>
-      <p class="portrait-edit-hint">Edit mode: Male/Female switches layout preset. Equip = left move, right rotate, Shift+drag/wheel resize. Pet slot: set level to preview Young/Grown/Mature stages. Export JSON → paste into portrait_character_presets.js for that gender.</p>`
+  const cheatInventoryToolsHtml = isCheatEditActive()
+    ? `<input type="text" class="portrait-edit-select" data-portrait-add-item-filter placeholder="Search item..." autocomplete="off" /><select class="portrait-edit-select" data-portrait-add-item-select>${editInvOptions}</select><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-add-item>Add to inventory</button>`
     : "";
-  const resetCharacterBtnHtml = player.editMode && actor === player
+  const portraitEditHint = isCheatEditActive()
+    ? "Edit mode: Male/Female switches layout preset. Equip = left move, right rotate, Shift+drag/wheel resize. Pet slot: set level to preview Young/Grown/Mature stages. Export JSON → paste into portrait_character_presets.js for that gender."
+    : "Layout edit: Male/Female switches layout preset. Equip = left move, right rotate, Shift+drag/wheel resize. Export JSON → paste into portrait_character_presets.js for that gender.";
+  const portraitEditControlsHtml = isLayoutEditActive()
+    ? `<div class="portrait-edit-tools portrait-edit-tools-overlay">${buildPortraitGenderSwitchHtml()}<button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-export>Export equip layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-portrait-layout-reset>Reset equip layout</button>${cheatInventoryToolsHtml}</div>
+      <p class="portrait-edit-hint">${escapeHtml(portraitEditHint)}</p>`
+    : "";
+  const resetCharacterBtnHtml = isCheatEditActive() && actor === player
     ? `<button type="button" class="btn-reset-char" data-reset-character>Reset character</button>`
     : "";
 
@@ -22681,7 +22835,7 @@ function buildOverviewHtml() {
   const staminaPoolMax = getActorCombatMaxStamina(actor);
 
   const characteristicsTabHtml = `
-    ${player.editMode ? statBarRowLevelEditable(actor.level, getPlayerMaxLevel(), "level") : statBarRow("Level", actor.level, getPlayerMaxLevel(), "level", "level")}
+    ${isCheatEditActive() ? statBarRowLevelEditable(actor.level, getPlayerMaxLevel(), "level") : statBarRow("Level", actor.level, getPlayerMaxLevel(), "level", "level")}
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
@@ -23072,7 +23226,8 @@ function getCraftRecipeById(recipeId) {
 function getCraftingProfessionIdForRecipe(recipe) {
   const def = getItemDef(recipe && recipe.resultItem);
   if (!def) return "armor_smith";
-  if (def.type === "consumable" || String(def.category || "").trim().toLowerCase() === "key") return "provisioner";
+  const category = String(def.category || "").trim().toLowerCase();
+  if (def.type === "consumable" || category === "key" || category === "enhancing_rune") return "provisioner";
   if (def.type === "weapon") return "weapon_smith";
   const cat = getItemEquipCategory(def);
   if (cat === "ring" || cat === "amulet" || cat === "bracelet" || cat === "wristband") return "jeweller";
@@ -23290,6 +23445,255 @@ function buildProfessionXpBarHtml(actor, professionId, profLabel) {
   </div>`;
 }
 
+function isEquipmentCraftingProfessionId(professionId) {
+  if (typeof Enhancing !== "undefined" && Enhancing.isEquipmentCraftingProfessionId) {
+    return Enhancing.isEquipmentCraftingProfessionId(professionId);
+  }
+  const id = String(professionId || "").trim();
+  return id === "weapon_smith" || id === "armor_smith" || id === "jeweller";
+}
+
+function getCraftRecipeForResultItem(baseName) {
+  const want = String(baseName || "").trim();
+  if (!want) return null;
+  return getAllCraftingRecipes().find((r) => r && r.resultItem === want) || null;
+}
+
+function getEnhanceDepsClient() {
+  return {
+    getItemDef: (name) => getItemDef(name),
+    getRecipeForBaseName: (baseName) => getCraftRecipeForResultItem(baseName),
+    getCraftingProfessionIdForRecipe: (recipe) => getCraftingProfessionIdForRecipe(recipe),
+    isEquippableItemDef: (def) => isEquippableItemDef(def)
+  };
+}
+
+function getEquippedItemNamesSetForEnhance() {
+  const out = new Set();
+  const collect = (actor) => {
+    if (!actor || !actor.equipment) return;
+    Object.values(actor.equipment).forEach((v) => {
+      if (typeof v === "string" && v.trim()) out.add(v.trim());
+    });
+  };
+  collect(player);
+  if (player && Array.isArray(player.companions)) player.companions.forEach(collect);
+  return out;
+}
+
+function evaluateEnhanceLocal(itemInstanceName, runeBaseName, professionId, crafterActor, inventoryOwner) {
+  if (typeof Enhancing === "undefined") return { ok: false, message: "Enhancing unavailable." };
+  ensureActorProfessionProgress(crafterActor);
+  const profLevel = ProfessionProgression.getProfessionLevel(crafterActor, professionId);
+  return Enhancing.evaluateEnhanceAttempt({
+    itemInstanceName,
+    runeBaseName,
+    professionId,
+    crafterProfessionLevel: profLevel,
+    inventory: inventoryOwner?.inventory,
+    equippedNames: getEquippedItemNamesSetForEnhance(),
+    cfg: GAME_CONFIG,
+    deps: getEnhanceDepsClient()
+  });
+}
+
+function getEnhanceableInventoryItems(professionId, inventory) {
+  const inv = Array.isArray(inventory) ? inventory : [];
+  const equipped = getEquippedItemNamesSetForEnhance();
+  const out = [];
+  const seen = new Set();
+  inv.forEach((entry) => {
+    if (!entry || equipped.has(entry) || seen.has(entry)) return;
+    const { baseName } = splitItemInstanceName(entry);
+    const def = getItemDef(baseName);
+    if (!def || !isEquippableItemDef(def)) return;
+    const itemProf = Enhancing.getCraftingProfessionIdForItemBase(baseName, getEnhanceDepsClient());
+    if (itemProf !== professionId) return;
+    if (!Enhancing.getNextRarityId(getItemRarityIdForItem(def, entry))) return;
+    seen.add(entry);
+    out.push(entry);
+  });
+  out.sort((a, b) => {
+    const la = getItemLevelForEnhanceDisplay(a);
+    const lb = getItemLevelForEnhanceDisplay(b);
+    if (la !== lb) return la - lb;
+    return formatItemDisplayLabel(a).localeCompare(formatItemDisplayLabel(b));
+  });
+  return out;
+}
+
+function getItemLevelForEnhanceDisplay(itemInstanceName) {
+  const { baseName } = splitItemInstanceName(itemInstanceName);
+  const def = getItemDef(baseName);
+  const recipe = getCraftRecipeForResultItem(baseName);
+  return typeof Enhancing !== "undefined"
+    ? Enhancing.getItemLevelForEnhance(def, recipe)
+    : def?.itemLevel || 1;
+}
+
+function getAvailableEnhanceRunes(itemInstanceName, inventory) {
+  if (!itemInstanceName || typeof Enhancing === "undefined") return [];
+  const itemLevel = getItemLevelForEnhanceDisplay(itemInstanceName);
+  const inv = Array.isArray(inventory) ? inventory : [];
+  const counts = getInventoryBaseItemCountsFrom(inv);
+  const enhancing = Enhancing.getEnhancingConfig(GAME_CONFIG);
+  return enhancing.runes
+    .map((row) => {
+      const item = row && typeof row.item === "string" ? row.item.trim() : "";
+      const level = row && typeof row.level === "number" ? row.level : Enhancing.getRuneLevelFromDef(getItemDef(item));
+      if (!item || level < itemLevel) return null;
+      const have = counts.get(item) || 0;
+      if (have < 1) return null;
+      return { item, level, have };
+    })
+    .filter(Boolean);
+}
+
+function getRarityLabelForInstance(itemInstanceName) {
+  const { baseName } = splitItemInstanceName(itemInstanceName);
+  const def = getItemDef(baseName);
+  const rule = getItemRarityRule(def, itemInstanceName);
+  return rule && rule.label ? rule.label : "Common";
+}
+
+function performEnhance(itemInstanceName, runeBaseName) {
+  const tab = getActiveCraftingTabEntry();
+  if (!tab) return false;
+  const professionId = tab.professionId;
+  if (!isEquipmentCraftingProfessionId(professionId)) return false;
+  const evalResult = evaluateEnhanceLocal(itemInstanceName, runeBaseName, professionId, tab.actor, player);
+  if (!evalResult.ok) {
+    showModal(evalResult.message || "Cannot enhance this item.");
+    return false;
+  }
+  if (canPerformServerPlayerAction() && window.GameStorage?.playerEnhance) {
+    void (async () => {
+      try {
+        const body = await window.GameStorage.playerEnhance({
+          slotIndex: activeCharacterSlotIndex,
+          itemInstanceName,
+          runeBaseName,
+          professionId,
+          crafterTarget: tab.ownerKey === "hero" ? "hero" : "companion",
+          companionSlotIndex: typeof tab.companionSlotIndex === "number" ? tab.companionSlotIndex : null
+        });
+        await applyOnlineActionResponse(body);
+        const res = body?.result;
+        if (res && window.MMOChat?.appendSystem) {
+          const profLabel = getProfessionLabel(res.professionId || professionId);
+          let line = "";
+          if (res.success) {
+            line = `Enhancement succeeded! ${profLabel} +${res.xpGained || 0} XP.`;
+          } else if (res.downgraded) {
+            line = `Enhancement failed. Quality decreased. ${profLabel} +${res.xpGained || 0} XP.`;
+          } else {
+            line = `Enhancement failed. Quality unchanged. ${profLabel} +${res.xpGained || 0} XP.`;
+          }
+          if (res.professionLevelsGained) line += " (level up!)";
+          window.MMOChat.appendSystem(line);
+        }
+        selectedEnhanceItemInstance = body?.result?.itemInstanceName || itemInstanceName;
+        renderMenuPanelContent();
+        render();
+      } catch (err) {
+        showModal(err && err.message ? err.message : "Could not enhance item.");
+      }
+    })();
+    return true;
+  }
+  showServerActionRequired();
+  return false;
+}
+
+function buildEnhancingPanelHtml(activeProfId, crafterActor) {
+  const cfg = getCraftingConfig();
+  const enhancingCfg = cfg.enhancing && typeof cfg.enhancing === "object" ? cfg.enhancing : {};
+  const intro =
+    typeof enhancingCfg.intro === "string" && enhancingCfg.intro.trim()
+      ? enhancingCfg.intro.trim()
+      : "Use enhancing runes to raise equipment quality.";
+  const items = getEnhanceableInventoryItems(activeProfId, player.inventory);
+  if (selectedEnhanceItemInstance && !items.includes(selectedEnhanceItemInstance)) {
+    selectedEnhanceItemInstance = items[0] || null;
+  }
+  if (!selectedEnhanceItemInstance && items.length) selectedEnhanceItemInstance = items[0];
+
+  const itemOptions = items.length
+    ? items
+        .map((name) => {
+          const sel = name === selectedEnhanceItemInstance ? " selected" : "";
+          const lvl = getItemLevelForEnhanceDisplay(name);
+          const rarity = getRarityLabelForInstance(name);
+          return `<option value="${escapeAttr(name)}"${sel}>${escapeHtml(formatItemDisplayLabel(name))} (Lv ${lvl}, ${rarity})</option>`;
+        })
+        .join("")
+    : `<option value="">No enhanceable equipment</option>`;
+
+  const runes = selectedEnhanceItemInstance
+    ? getAvailableEnhanceRunes(selectedEnhanceItemInstance, player.inventory)
+    : [];
+  if (selectedEnhanceRuneBase && !runes.some((r) => r.item === selectedEnhanceRuneBase)) {
+    selectedEnhanceRuneBase = runes.length ? runes[0].item : null;
+  }
+  if (!selectedEnhanceRuneBase && runes.length) selectedEnhanceRuneBase = runes[0].item;
+
+  const runeOptions = runes.length
+    ? runes
+        .map((r) => {
+          const sel = r.item === selectedEnhanceRuneBase ? " selected" : "";
+          return `<option value="${escapeAttr(r.item)}"${sel}>${escapeHtml(r.item)} (Lv ${r.level}, ×${r.have})</option>`;
+        })
+        .join("")
+    : `<option value="">No suitable rune in bag</option>`;
+
+  let previewHtml = "";
+  if (selectedEnhanceItemInstance && selectedEnhanceRuneBase && typeof Enhancing !== "undefined") {
+    const evalResult = evaluateEnhanceLocal(
+      selectedEnhanceItemInstance,
+      selectedEnhanceRuneBase,
+      activeProfId,
+      crafterActor,
+      player
+    );
+    if (evalResult.ok) {
+      const fromLabel = getRarityLabelForInstance(selectedEnhanceItemInstance);
+      const toRule = ITEM_RARITY_RULES[evalResult.nextRarity];
+      const toLabel = toRule && toRule.label ? toRule.label : evalResult.nextRarity;
+      const pct = Math.round((evalResult.successChance || 0) * 100);
+      const xpPreview =
+        typeof ProfessionProgression !== "undefined" && typeof CraftXp !== "undefined"
+          ? Enhancing.computeEnhanceXp(
+              evalResult.itemLevel,
+              ProfessionProgression.getProfessionLevel(crafterActor, activeProfId),
+              CraftXp
+            )
+          : 0;
+      previewHtml = `<div class="crafting-enhance-preview">
+        <p><strong>${escapeHtml(fromLabel)}</strong> → <strong>${escapeHtml(toLabel)}</strong></p>
+        <p class="muted">Success chance: ${pct}% · Rune is consumed either way.</p>
+        <p class="muted">On failure: 50% chance quality drops by one tier (minimum Common).</p>
+        ${xpPreview > 0 ? `<p class="muted">Profession XP on attempt: ~${xpPreview}</p>` : ""}
+      </div>`;
+    } else {
+      previewHtml = `<p class="crafting-empty">${escapeHtml(evalResult.message || "Cannot enhance.")}</p>`;
+    }
+  }
+
+  const canEnhance =
+    selectedEnhanceItemInstance &&
+    selectedEnhanceRuneBase &&
+    evaluateEnhanceLocal(selectedEnhanceItemInstance, selectedEnhanceRuneBase, activeProfId, crafterActor, player)
+      .ok;
+
+  return `<div class="crafting-enhance-panel">
+    <p class="game-page-lead muted">${escapeHtml(intro)}</p>
+    <label class="crafting-enhance-field">Equipment<select class="crafting-enhance-select" data-enhance-item-select>${itemOptions}</select></label>
+    <label class="crafting-enhance-field">Rune<select class="crafting-enhance-select" data-enhance-rune-select>${runeOptions}</select></label>
+    ${previewHtml}
+    <button type="button" class="btn-secondary crafting-enhance-btn" data-enhance-submit${canEnhance ? "" : " disabled"}>Enhance</button>
+  </div>`;
+}
+
 function buildCraftingPanelHtml() {
   const cfg = getCraftingConfig();
   const intro = typeof cfg.intro === "string" ? cfg.intro.trim() : "";
@@ -23320,6 +23724,19 @@ function buildCraftingPanelHtml() {
   const recipes = getAllCraftingRecipes().filter((r) => getCraftingProfessionIdForRecipe(r) === activeProfId);
   const profLabel = getProfessionLabel(activeProfId);
   const professionProgressHtml = buildProfessionXpBarHtml(crafterActor, activeProfId, profLabel);
+  const showEnhanceTab = isEquipmentCraftingProfessionId(activeProfId);
+  if (!showEnhanceTab && activeCraftingSubTab === "enhance") activeCraftingSubTab = "craft";
+  const subTabsHtml = showEnhanceTab
+    ? `<div class="stats-tabs crafting-sub-tabs">
+        <button type="button" class="stats-tab${activeCraftingSubTab === "craft" ? " active" : ""}" data-crafting-subtab="craft">Crafting</button>
+        <button type="button" class="stats-tab${activeCraftingSubTab === "enhance" ? " active" : ""}" data-crafting-subtab="enhance">Enhancing</button>
+      </div>`
+    : "";
+
+  let bodyHtml = "";
+  if (activeCraftingSubTab === "enhance" && showEnhanceTab) {
+    bodyHtml = buildEnhancingPanelHtml(activeProfId, crafterActor);
+  } else {
   const evaluated = recipes
     .map((r) => {
       const batchQty = getCraftBatchQuantity(r.id);
@@ -23375,11 +23792,15 @@ function buildCraftingPanelHtml() {
       </div>`;
     })
     .join("");
+  bodyHtml = `<div class="crafting-recipe-list">${recipeRows || '<p class="crafting-empty">No recipes found for this profession.</p>'}</div>`;
+  }
+
   return `<div class="game-page">${
     intro ? `<p class="game-page-lead muted">${escapeHtml(intro)}</p>` : ""
   }${professionProgressHtml}
   <div class="stats-tabs crafting-profession-tabs">${tabsHtml}</div>
-    <div class="crafting-recipe-list">${recipeRows || '<p class="crafting-empty">No recipes found for this profession.</p>'}</div>
+  ${subTabsHtml}
+  ${bodyHtml}
   </div>`;
 }
 
@@ -25058,7 +25479,7 @@ function onDocumentKeydown(e) {
   if (tryFightEndTurnHotkey(e)) return;
   const k = String(e.key || "").toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === "s") {
-    if (player.editMode) {
+    if (isLayoutEditActive()) {
       e.preventDefault();
       void copyPortraitLayoutExportToClipboard({ onlyIfChanged: true });
       return;
@@ -25066,8 +25487,12 @@ function onDocumentKeydown(e) {
   }
   if (k === "i" && e.shiftKey) {
     e.preventDefault();
-    if (!player.editMode) {
-      showModal("Enable Edit Mode first (Shift+E).");
+    if (!isLayoutEditActive()) {
+      showModal("Enable layout edit first (Shift+E). Add ?devEdit=1 when playing online.");
+      return;
+    }
+    if (!isCheatEditActive()) {
+      showModal("Item spawn is disabled in online layout edit.");
       return;
     }
     if (isFightOverlayOpen()) return;
@@ -25076,15 +25501,6 @@ function onDocumentKeydown(e) {
   }
   if (k === "e" && e.shiftKey) {
     e.preventDefault();
-    if (
-      typeof window !== "undefined" &&
-      window.GameStorage &&
-      typeof window.GameStorage.isOnlineMode === "function" &&
-      window.GameStorage.isOnlineMode()
-    ) {
-      showModal("Edit mode is disabled while playing online.");
-      return;
-    }
     setEditMode(!player.editMode);
     return;
   }
@@ -25818,7 +26234,7 @@ function onContentClick(e) {
     portraitLayoutDragSuppressedClick = false;
     return;
   }
-  if (player.editMode) {
+  if (isLayoutEditActive()) {
     const rm = e.target.closest(".scene-object-remove[data-scene-remove]");
     if (rm) {
       e.preventDefault();
@@ -25916,6 +26332,7 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-portrait-add-item]")) {
+    if (!isCheatEditActive()) return;
     const host = e.target.closest(".portrait-edit-tools");
     const sel = host ? host.querySelector("[data-portrait-add-item-select]") : null;
     const name = sel && typeof sel.value === "string" ? sel.value : "";
@@ -25932,6 +26349,7 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-character-level-apply]")) {
+    if (!isCheatEditActive()) return;
     const levelActor = resolveOverviewRosterActorFromEvent(e);
     const host = e.target.closest(".stat-bar-row");
     const input = host ? host.querySelector("[data-character-level-input]") : null;
@@ -25950,6 +26368,7 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-pet-level-apply]")) {
+    if (!isCheatEditActive()) return;
     const levelActor = resolveOverviewRosterActorFromEvent(e);
     const host = e.target.closest(".paper-slot--pet") || e.target.closest(".paper-slot");
     const input = host ? host.querySelector("[data-pet-level-input]") : null;
@@ -25964,6 +26383,7 @@ function onContentClick(e) {
     return;
   }
   if (e.target.closest("[data-reset-character]")) {
+    if (!isCheatEditActive()) return;
     if (
       window.confirm(
         "Reset this hero? All progress (level, items, gold, stats) will be permanently deleted."
@@ -26145,7 +26565,26 @@ function onContentClick(e) {
   const craftingProfTab = e.target.closest("[data-crafting-tab]");
   if (craftingProfTab && craftingProfTab.dataset.craftingTab) {
     activeCraftingTabKey = craftingProfTab.dataset.craftingTab;
+    selectedEnhanceItemInstance = null;
+    selectedEnhanceRuneBase = null;
     renderMenuPanelContent();
+    return;
+  }
+  const craftingSubTab = e.target.closest("[data-crafting-subtab]");
+  if (craftingSubTab && craftingSubTab.dataset.craftingSubtab) {
+    activeCraftingSubTab = craftingSubTab.dataset.craftingSubtab;
+    renderMenuPanelContent();
+    return;
+  }
+  const enhanceItemSelect = e.target.closest("[data-enhance-item-select]");
+  if (enhanceItemSelect) return;
+  const enhanceRuneSelect = e.target.closest("[data-enhance-rune-select]");
+  if (enhanceRuneSelect) return;
+  const enhanceSubmit = e.target.closest("[data-enhance-submit]");
+  if (enhanceSubmit && !enhanceSubmit.disabled) {
+    if (selectedEnhanceItemInstance && selectedEnhanceRuneBase) {
+      performEnhance(selectedEnhanceItemInstance, selectedEnhanceRuneBase);
+    }
     return;
   }
   const craftBtn = e.target.closest("[data-craft-recipe-id]");
@@ -26825,6 +27264,7 @@ function initUi() {
     menuPanelContent.addEventListener("mouseout", onContentTooltipOut);
     menuPanelContent.addEventListener("mousemove", onContentTooltipMove);
     menuPanelContent.addEventListener("input", onContentInput);
+    menuPanelContent.addEventListener("change", onContentChange);
   }
 
   const bottomMini = document.getElementById("bottomHudMinimapSlot");

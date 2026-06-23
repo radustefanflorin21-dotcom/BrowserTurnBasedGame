@@ -1,6 +1,7 @@
 /**
  * Runtime MMO mode. Default: online (server-authoritative).
  * Dev offline: add ?mmo=local to the URL or set window.MMO_CONFIG.mode = "local" before scripts load.
+ * Layout edit online: add ?devEdit=1 (scene/portrait layout tools only; no item spawn or stat cheats).
  *
  * API URL resolution (first match wins):
  * 1. window.MMO_CONFIG.apiBaseUrl
@@ -40,8 +41,15 @@
     return "http://localhost:3001";
   }
 
+  const devEditParam = params.get("devEdit");
+  const allowLayoutEdit =
+    devEditParam === "1" ||
+    devEditParam === "true" ||
+    preset.allowLayoutEdit === true;
+
   root.MMO_RUNTIME = Object.freeze({
     mode,
-    apiBaseUrl: resolveApiBaseUrl()
+    apiBaseUrl: resolveApiBaseUrl(),
+    allowLayoutEdit: !!allowLayoutEdit
   });
 })(typeof window !== "undefined" ? window : globalThis);

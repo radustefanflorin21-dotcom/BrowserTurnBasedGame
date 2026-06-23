@@ -291,6 +291,10 @@
     return apiFetch("/api/player/craft", { method: "POST", body: JSON.stringify(body) });
   }
 
+  async function playerEnhance(body) {
+    return apiFetch("/api/player/enhance", { method: "POST", body: JSON.stringify(body) });
+  }
+
   async function playerHeal(body) {
     return apiFetch("/api/player/heal", { method: "POST", body: JSON.stringify(body) });
   }
@@ -366,6 +370,7 @@
     playerSpendStat,
     playerUpgradeSkill,
     playerCraft,
+    playerEnhance,
     playerHeal,
     worldMove,
     worldPickup,

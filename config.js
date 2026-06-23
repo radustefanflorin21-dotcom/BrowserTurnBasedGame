@@ -1305,6 +1305,72 @@ const GAME_CONFIG = {
       bonusStats: {},
       useHint: "Click to use outside combat. Teleports you to the nearest waygate."
     },
+    "Rune of Refinement": {
+      type: "resource",
+      category: "enhancing_rune",
+      enhancingRuneLevel: 10,
+      value: 20,
+      image: "Assets/Resources/rune_of_refinement.png",
+      description:
+        "A simple stabilizing rune used to refine low-level equipment. It carries weak tidal energy and helps bind early magical improvements safely into gear.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rune of Tempering": {
+      type: "resource",
+      category: "enhancing_rune",
+      enhancingRuneLevel: 20,
+      value: 35,
+      image: "Assets/Resources/rune_of_tempering.png",
+      description:
+        "A stronger rune used to temper equipment with durability and force. The Rootquake Core gives the rune a heavy, stabilizing pressure suitable for level 20 crafting.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rune of Ascendance": {
+      type: "resource",
+      category: "enhancing_rune",
+      enhancingRuneLevel: 30,
+      value: 50,
+      image: "Assets/Resources/rune_of_ascendance.png",
+      description:
+        "A mid-tier rune used to raise equipment beyond ordinary crafting. It combines cold control, protection, and living fiber binding to create a stable ascension mark.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rune of Radiance": {
+      type: "resource",
+      category: "enhancing_rune",
+      enhancingRuneLevel: 40,
+      value: 70,
+      image: "Assets/Resources/rune_of_radiance.png",
+      description:
+        "A high-tier rune carrying battlefield memory and command energy. It is used to radiate stronger enhancement power through advanced equipment.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rune of Masterwork": {
+      type: "resource",
+      category: "enhancing_rune",
+      enhancingRuneLevel: 50,
+      value: 95,
+      image: "Assets/Resources/rune_of_masterwork.png",
+      description:
+        "A powerful endgame rune used for masterwork enhancement. The Tyrant Forge Core acts as the central furnace-stabilizer, allowing extreme heat and pressure to bind into gear.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
+    "Rune of Transcendence": {
+      type: "resource",
+      category: "enhancing_rune",
+      enhancingRuneLevel: 60,
+      value: 120,
+      image: "Assets/Resources/rune_of_transcendence.png",
+      description:
+        "The highest-tier rune currently available. It uses the strongest endgame boss materials to transcend normal enhancement limits.",
+      bonusSkills: [],
+      bonusStats: {}
+    },
     "Sunken Grotto Key": {
       type: "resource",
       category: "key",
@@ -6132,6 +6198,25 @@ const GAME_CONFIG = {
   },
 
   crafting: {
+    enhancing: {
+      intro:
+        "Raise equipment quality using enhancing runes. Only the profession that crafts an item can enhance it. Runes are always consumed; a failed attempt may lower quality by one tier.",
+      failureDowngradeChance: 0.5,
+      successChanceByFromRarity: {
+        common: 0.8,
+        uncommon: 0.65,
+        rare: 0.5,
+        epic: 0.35
+      },
+      runes: [
+        { level: 10, item: "Rune of Refinement" },
+        { level: 20, item: "Rune of Tempering" },
+        { level: 30, item: "Rune of Ascendance" },
+        { level: 40, item: "Rune of Radiance" },
+        { level: 50, item: "Rune of Masterwork" },
+        { level: 60, item: "Rune of Transcendence" }
+      ]
+    },
     recipeTiers: [
       {
         id: "early",
@@ -6325,6 +6410,18 @@ const GAME_CONFIG = {
               { item: "Salt Flesh", qty: 5, source: "monster_loot" },
               { item: "Residue", qty: 4, source: "gathering_loot" },
               { item: "Bone Fragment", qty: 3, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "rune_of_refinement",
+            resultItem: "Rune of Refinement",
+            resultLevel: 10,
+            ingredients: [
+              { item: "Tidemother Core", qty: 1, source: "monster_loot" },
+              { item: "Ripple Core", qty: 2, source: "monster_loot" },
+              { item: "Defensive Core", qty: 2, source: "monster_loot" },
+              { item: "Water Essence", qty: 4, source: "monster_loot" },
+              { item: "Residue", qty: 6, source: "gathering_loot" }
             ]
           }
         ]
@@ -7013,6 +7110,18 @@ const GAME_CONFIG = {
               { item: "Soft Fur", qty: 5, source: "monster_loot" },
               { item: "Bone Shard", qty: 3, source: "monster_loot" }
             ]
+          },
+          {
+            id: "rune_of_tempering",
+            resultItem: "Rune of Tempering",
+            resultLevel: 20,
+            ingredients: [
+              { item: "Rootquake Core", qty: 1, source: "monster_loot" },
+              { item: "Endurance Core", qty: 3, source: "monster_loot" },
+              { item: "Predator Core", qty: 2, source: "monster_loot" },
+              { item: "Earth Essence", qty: 5, source: "monster_loot" },
+              { item: "Thick Hide", qty: 6, source: "monster_loot" }
+            ]
           }]
       },
       {
@@ -7411,6 +7520,18 @@ const GAME_CONFIG = {
               { item: "Cliff Moss", qty: 3, source: "gathering_loot" },
               { item: "Distorted Core", qty: 3, source: "monster_loot" },
               { item: "Living Fiber", qty: 2, source: "gathering_loot" }
+            ]
+          },
+          {
+            id: "rune_of_ascendance",
+            resultItem: "Rune of Ascendance",
+            resultLevel: 30,
+            ingredients: [
+              { item: "Innocent Winter Core", qty: 1, source: "monster_loot" },
+              { item: "Control Core", qty: 3, source: "monster_loot" },
+              { item: "Defense Core", qty: 3, source: "monster_loot" },
+              { item: "Ice Essence", qty: 6, source: "monster_loot" },
+              { item: "Living Fiber", qty: 6, source: "gathering_loot" }
             ]
           }]
       },
@@ -7929,6 +8050,18 @@ const GAME_CONFIG = {
               { item: "Plant Fiber", qty: 5, source: "gathering_loot" },
               { item: "Growth Seed", qty: 4, source: "gathering_loot" },
               { item: "Nature Essence", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "rune_of_radiance",
+            resultItem: "Rune of Radiance",
+            resultLevel: 40,
+            ingredients: [
+              { item: "Last Order Core", qty: 1, source: "monster_loot" },
+              { item: "Command Core", qty: 3, source: "monster_loot" },
+              { item: "Wraith Core", qty: 3, source: "monster_loot" },
+              { item: "Shadow Essence", qty: 6, source: "monster_loot" },
+              { item: "Rusted Metal", qty: 8, source: "monster_loot" }
             ]
           }]
       },
@@ -8736,6 +8869,31 @@ const GAME_CONFIG = {
               { item: "Ice Essence", qty: 8, source: "monster_loot" },
               { item: "Chill Residue", qty: 8, source: "monster_loot" },
               { item: "Control Core", qty: 2, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "rune_of_masterwork",
+            resultItem: "Rune of Masterwork",
+            resultLevel: 50,
+            ingredients: [
+              { item: "Tyrant Forge Core", qty: 1, source: "monster_loot" },
+              { item: "Fire Core", qty: 4, source: "monster_loot" },
+              { item: "Ember Core", qty: 4, source: "monster_loot" },
+              { item: "Fire Essence", qty: 8, source: "monster_loot" },
+              { item: "Molten Scale", qty: 8, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "rune_of_transcendence",
+            resultItem: "Rune of Transcendence",
+            resultLevel: 60,
+            ingredients: [
+              { item: "Apathy Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Frozen Void Core", qty: 2, source: "monster_loot" },
+              { item: "Worldhate Soulcore", qty: 1, source: "monster_loot" },
+              { item: "Tyrant Forge Core", qty: 1, source: "monster_loot" },
+              { item: "Absolute Rime Crystal", qty: 4, source: "monster_loot" },
+              { item: "Hatred Emberstone", qty: 4, source: "monster_loot" }
             ]
           }]
       }

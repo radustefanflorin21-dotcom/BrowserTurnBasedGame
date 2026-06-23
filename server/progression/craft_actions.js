@@ -51,7 +51,8 @@ function getItemEquipCategory(def) {
 export function getCraftingProfessionIdForRecipe(recipe) {
   const def = resolveItemDef(recipe?.resultItem);
   if (!def) return "armor_smith";
-  if (def.type === "consumable" || String(def.category || "").trim().toLowerCase() === "key") return "provisioner";
+  const category = String(def.category || "").trim().toLowerCase();
+  if (def.type === "consumable" || category === "key" || category === "enhancing_rune") return "provisioner";
   if (def.type === "weapon") return "weapon_smith";
   const cat = getItemEquipCategory(def);
   if (cat === "ring" || cat === "amulet" || cat === "bracelet" || cat === "wristband") return "jeweller";

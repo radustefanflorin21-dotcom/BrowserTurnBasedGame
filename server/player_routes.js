@@ -1,6 +1,7 @@
 import { requireAuth } from "./auth.js";
 import { applyEquipItem, applyUnequipItem } from "./progression/equip_actions.js";
 import { applyCraftRecipe } from "./progression/craft_actions.js";
+import { applyEnhance } from "./progression/enhance_actions.js";
 import { applyOutOfCombatFullHeal } from "./progression/heal_actions.js";
 import { applySpendCharacteristicPoints } from "./progression/stat_actions.js";
 import { applyUpgradeClassSkill } from "./progression/skill_actions.js";
@@ -114,6 +115,29 @@ export function registerPlayerRoutes(app) {
       finishAction(req, res, idx, roster, player, result, "craft");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Craft failed." });
+    }
+  });
+
+  app.post("/api/player/enhance", requireAuth, (req, res) => {
+    try {
+      const slotIndex = Number(req.body?.slotIndex);
+      const crafterTarget = req.body?.crafterTarget === "companion" ? "companion" : "hero";
+      const companionSlotIndex =
+        crafterTarget === "companion" && req.body?.companionSlotIndex != null
+          ? Number(req.body.companionSlotIndex)
+          : null;
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
+      const result = applyEnhance(player, {
+        itemInstanceName: req.body?.itemInstanceName,
+        runeBaseName: req.body?.runeBaseName,
+        professionId: req.body?.professionId,
+        crafterTarget,
+        companionSlotIndex
+      });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "enhance");
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Enhance failed." });
     }
   });
 

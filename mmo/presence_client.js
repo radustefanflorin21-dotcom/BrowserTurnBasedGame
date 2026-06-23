@@ -248,16 +248,29 @@
     if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
     if (!payload || typeof payload !== "object") return;
     try {
-      socket.send(
-        JSON.stringify({
-          type: "craft_invite",
-          targetUserId: payload.targetUserId,
-          requesterSlotIndex: payload.requesterSlotIndex,
-          recipeId: payload.recipeId,
-          quantity: payload.quantity,
-          goldOffer: payload.goldOffer
-        })
-      );
+      const kind = payload.kind === "enhance" ? "enhance" : "craft";
+      const body =
+        kind === "enhance"
+          ? {
+              type: "craft_invite",
+              kind: "enhance",
+              targetUserId: payload.targetUserId,
+              requesterSlotIndex: payload.requesterSlotIndex,
+              itemInstanceName: payload.itemInstanceName,
+              runeBaseName: payload.runeBaseName,
+              professionId: payload.professionId,
+              goldOffer: payload.goldOffer
+            }
+          : {
+              type: "craft_invite",
+              kind: "craft",
+              targetUserId: payload.targetUserId,
+              requesterSlotIndex: payload.requesterSlotIndex,
+              recipeId: payload.recipeId,
+              quantity: payload.quantity,
+              goldOffer: payload.goldOffer
+            };
+      socket.send(JSON.stringify(body));
     } catch {
       /* ignore */
     }

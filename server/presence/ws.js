@@ -168,10 +168,14 @@ export function attachPresenceWebSocket(httpServer) {
 
       if (msg.type === "craft_invite") {
         const result = sendCraftInvite(authedUser.id, {
+          kind: msg.kind,
           targetUserId: msg.targetUserId,
           requesterSlotIndex: msg.requesterSlotIndex,
           recipeId: msg.recipeId,
           quantity: msg.quantity,
+          itemInstanceName: msg.itemInstanceName,
+          runeBaseName: msg.runeBaseName,
+          professionId: msg.professionId,
           goldOffer: msg.goldOffer
         });
         socket.send(JSON.stringify({ type: "craft_result", ...result }));

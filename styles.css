@@ -2068,6 +2068,44 @@ body.edit-mode-on .portrait-equip-layer--pet {
   color: var(--overview-muted);
 }
 
+.crafting-sub-tabs {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.crafting-enhance-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 36rem;
+}
+
+.crafting-enhance-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.crafting-enhance-select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.crafting-enhance-preview {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.crafting-enhance-btn {
+  align-self: flex-start;
+}
+
+.craft-commission-kind-tabs {
+  margin-bottom: 0.75rem;
+}
+
 .atlas-search-row {
   margin-bottom: 8px;
 }
