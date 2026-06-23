@@ -25,6 +25,9 @@ let activeCraftingTabKey = null;
 let activeCraftingSubTab = "craft";
 let selectedEnhanceItemInstance = null;
 let selectedEnhanceRuneBase = null;
+let commissionEnhanceItemInstance = null;
+let commissionEnhanceRuneBase = null;
+let commissionEnhanceProfessionId = null;
 /** recipeId -> batch quantity (1–999) in crafting panel */
 const craftBatchQtyByRecipe = new Map();
 /** @type {null | object} */
@@ -1242,6 +1245,10 @@ function buildCraftInviteCrafterPickHtml() {
 }
 
 function showCraftCommissionRequestModal(targetUserId, targetName) {
+  commissionEnhanceItemInstance = null;
+  commissionEnhanceRuneBase = null;
+  commissionEnhanceProfessionId = null;
+
   const recipes = getAllCraftingRecipes().slice().sort((a, b) => {
     const aLvl = typeof a.resultLevel === "number" ? a.resultLevel : 1;
     const bLvl = typeof b.resultLevel === "number" ? b.resultLevel : 1;
@@ -1254,30 +1261,7 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
     })
     .join("");
 
-  const enhanceItems = [];
-  if (typeof Enhancing !== "undefined") {
-    const equipped = getEquippedItemNamesSetForEnhance();
-    const seen = new Set();
-    (Array.isArray(player.inventory) ? player.inventory : []).forEach((entry) => {
-      if (!entry || equipped.has(entry) || seen.has(entry)) return;
-      const { baseName } = splitItemInstanceName(entry);
-      const def = getItemDef(baseName);
-      if (!def || !isEquippableItemDef(def)) return;
-      const itemProf = Enhancing.getCraftingProfessionIdForItemBase(baseName, getEnhanceDepsClient());
-      if (!itemProf || !Enhancing.isEquipmentCraftingProfessionId(itemProf)) return;
-      if (!Enhancing.getNextRarityId(getItemRarityIdForItem(def, entry))) return;
-      seen.add(entry);
-      enhanceItems.push({ entry, itemProf });
-    });
-  }
-  const enhanceItemOptions = enhanceItems.length
-    ? enhanceItems
-        .map(({ entry, itemProf }) => {
-          const profLabel = getProfessionLabel(itemProf);
-          return `<option value="${escapeAttr(entry)}" data-enhance-prof="${escapeAttr(itemProf)}">${escapeHtml(formatItemDisplayLabel(entry))} (${escapeHtml(profLabel)})</option>`;
-        })
-        .join("")
-    : `<option value="">No enhanceable equipment in bag</option>`;
+  const enhanceWorkbenchHtml = buildEnhanceWorkbenchHtml({ context: "commission" });
 
   showModalHtml(
     `<div class="craft-commission-request">
@@ -1291,10 +1275,7 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
         <label class="craft-commission-field">Recipe<select id="craftCommissionRecipe" class="craft-commission-select">${recipeOptions}</select></label>
         <label class="craft-commission-field">Quantity<input id="craftCommissionQty" type="number" min="1" max="999" value="1" class="craft-commission-input" /></label>
       </div>
-      <div id="craftCommissionEnhancePane" class="hidden">
-        <label class="craft-commission-field">Equipment<select id="craftCommissionEnhanceItem" class="craft-commission-select">${enhanceItemOptions}</select></label>
-        <label class="craft-commission-field">Rune<select id="craftCommissionEnhanceRune" class="craft-commission-select"><option value="">Select equipment first</option></select></label>
-      </div>
+      <div id="craftCommissionEnhancePane" class="hidden">${enhanceWorkbenchHtml}</div>
       <label class="craft-commission-field">Gold offer<input id="craftCommissionGold" type="number" min="0" value="0" class="craft-commission-input" /></label>
       <p class="muted">Your gold: ${player?.gold || 0}</p>
       <div class="modal-compact-actions">
@@ -1304,27 +1285,9 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
     </div>`
   );
 
-  function refreshCommissionEnhanceRunes() {
-    const itemEl = document.getElementById("craftCommissionEnhanceItem");
-    const runeEl = document.getElementById("craftCommissionEnhanceRune");
-    if (!itemEl || !runeEl) return;
-    const itemInstance = itemEl.value || "";
-    const runes = itemInstance ? getAvailableEnhanceRunes(itemInstance, player.inventory) : [];
-    runeEl.innerHTML = runes.length
-      ? runes
-          .map((r) => `<option value="${escapeAttr(r.item)}">${escapeHtml(r.item)} (Lv ${r.level})</option>`)
-          .join("")
-      : `<option value="">No suitable rune in bag</option>`;
-  }
-
   setTimeout(() => {
     const craftPane = document.getElementById("craftCommissionCraftPane");
     const enhancePane = document.getElementById("craftCommissionEnhancePane");
-    const itemEl = document.getElementById("craftCommissionEnhanceItem");
-    if (itemEl) {
-      itemEl.addEventListener("change", refreshCommissionEnhanceRunes);
-      refreshCommissionEnhanceRunes();
-    }
     document.querySelectorAll("[data-commission-kind]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const kind = btn.getAttribute("data-commission-kind");
@@ -1337,8 +1300,7 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
     });
 
     const sendBtn = document.getElementById("craftCommissionSendBtn");
-    if (!sendBtn || sendBtn.dataset.bound === "1") return;
-    sendBtn.dataset.bound = "1";
+    if (!sendBtn) return;
     sendBtn.addEventListener("click", () => {
       const goldEl = document.getElementById("craftCommissionGold");
       const goldOffer = goldEl ? Math.max(0, Math.floor(Number(goldEl.value) || 0)) : 0;
@@ -1346,22 +1308,17 @@ function showCraftCommissionRequestModal(targetUserId, targetName) {
       const kind = activeKindBtn && activeKindBtn.getAttribute("data-commission-kind") === "enhance" ? "enhance" : "craft";
       if (!window.MMOPresence?.sendCraftInvite) return;
       if (kind === "enhance") {
-        const itemEl2 = document.getElementById("craftCommissionEnhanceItem");
-        const runeEl2 = document.getElementById("craftCommissionEnhanceRune");
-        const itemInstanceName = itemEl2 && itemEl2.value ? itemEl2.value : "";
-        const runeBaseName = runeEl2 && runeEl2.value ? runeEl2.value : "";
-        const profId =
-          itemEl2 && itemEl2.selectedOptions && itemEl2.selectedOptions[0]
-            ? itemEl2.selectedOptions[0].getAttribute("data-enhance-prof") || ""
-            : "";
-        if (!itemInstanceName || !runeBaseName || !profId) return;
+        if (!commissionEnhanceItemInstance || !commissionEnhanceRuneBase || !commissionEnhanceProfessionId) {
+          showModal("Drag equipment and an enhancing rune into the slots.");
+          return;
+        }
         window.MMOPresence.sendCraftInvite({
           targetUserId,
           requesterSlotIndex: activeCharacterSlotIndex,
           kind: "enhance",
-          itemInstanceName,
-          runeBaseName,
-          professionId: profId,
+          itemInstanceName: commissionEnhanceItemInstance,
+          runeBaseName: commissionEnhanceRuneBase,
+          professionId: commissionEnhanceProfessionId,
           goldOffer
         });
       } else {
@@ -1958,6 +1915,10 @@ function initEarlyModalUi() {
   if (!modalEl || modalEl.dataset.earlyUiBound === "1") return;
   modalEl.dataset.earlyUiBound = "1";
   modalEl.addEventListener("click", onPortalNetworkModalClick);
+  modalEl.addEventListener("dragstart", onDragStart);
+  modalEl.addEventListener("dragend", onDragEnd);
+  modalEl.addEventListener("dragover", onDragOver);
+  modalEl.addEventListener("drop", onDrop);
   modalEl.addEventListener("submit", (ev) => {
     const form = ev.target;
     if (!form || !form.matches || !form.matches("form[data-char-spend-form]")) return;
@@ -22176,7 +22137,7 @@ function hideItemTooltip() {
 }
 
 const TOOLTIP_HOST_SEL =
-  ".inv-cell[data-item-name], .slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], .skill-bar-slot-drop[data-skill-name], [data-stat-tip], [data-profession-xp-current], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
+  ".inv-cell[data-item-name], .slot-drop[data-item-name], .enhance-slot-drop[data-item-name], .skill-tile[data-skill-name], .class-skill-row[data-skill-name], .skill-bar-slot-drop[data-skill-name], [data-stat-tip], [data-profession-xp-current], .fight-loot-cell[data-item-name], .fight-skill-btn[data-fight-skill], .fight-enemy-card[data-fight-target], .fight-ally-card[data-party-member], .minimap-cell[data-map-x], .world-camp[data-camp-enemies], .crafting-result-name[data-item-name], .crafting-ingredient-chip[data-item-name], .atlas-loot-chip[data-item-name], .atlas-finding-resource[data-item-name], [data-item-name]";
 
 function onContentTooltipOver(e) {
   const tipPinnedEl = document.getElementById("itemTooltip");
@@ -22360,18 +22321,57 @@ function onContentInput(e) {
 }
 
 function onContentChange(e) {
-  const enhanceItemSelect = e.target.closest("[data-enhance-item-select]");
-  if (enhanceItemSelect) {
-    selectedEnhanceItemInstance = enhanceItemSelect.value || null;
-    selectedEnhanceRuneBase = null;
-    if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
-    return;
+  void e;
+}
+
+function handleEnhanceWorkbenchClick(e) {
+  const clearBtn = e.target.closest("[data-enhance-slot-clear]");
+  if (!clearBtn) return false;
+  const slotKind = clearBtn.getAttribute("data-enhance-slot-clear");
+  const context = clearBtn.getAttribute("data-enhance-context") || "crafting";
+  if (slotKind) clearEnhanceSlot(slotKind, context);
+  return true;
+}
+
+function syncEnhanceWorkbenchAfterDrop(context) {
+  if (context === "commission") refreshCraftCommissionEnhancePane();
+  else if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
+}
+
+function handleEnhanceWorkbenchDrop(e) {
+  if (!dragPayload) return false;
+
+  const enhanceInv = e.target.closest("[data-enhance-inventory]");
+  if (enhanceInv && dragPayload.kind === "enhanceSlot") {
+    clearEnhanceSlot(dragPayload.slot, dragPayload.context || "crafting");
+    dragPayload = null;
+    return true;
   }
-  const enhanceRuneSelect = e.target.closest("[data-enhance-rune-select]");
-  if (enhanceRuneSelect) {
-    selectedEnhanceRuneBase = enhanceRuneSelect.value || null;
-    if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
+
+  const enhanceSlotEl = e.target.closest("[data-enhance-slot]");
+  if (!enhanceSlotEl) return false;
+
+  const slotKind = enhanceSlotEl.dataset.enhanceSlot;
+  const context = enhanceSlotEl.dataset.enhanceContext || "crafting";
+  const professionId = context === "crafting" ? getActiveCraftingTabEntry()?.professionId : null;
+
+  if (dragPayload.kind === "inventory" && dragPayload.item) {
+    const result =
+      slotKind === "equipment"
+        ? tryAssignEnhanceEquipmentSlot(dragPayload.item, context, professionId)
+        : tryAssignEnhanceRuneSlot(dragPayload.item, context);
+    if (!result.ok) showModal(result.message || "Cannot place that item.");
+    syncEnhanceWorkbenchAfterDrop(context);
+    dragPayload = null;
+    return true;
   }
+
+  if (dragPayload.kind === "enhanceSlot" && dragPayload.slot === slotKind) {
+    dragPayload = null;
+    return true;
+  }
+
+  return false;
 }
 
 function statBarNumberSpanHtml(value, gearBonus) {
@@ -23593,6 +23593,7 @@ function performEnhance(itemInstanceName, runeBaseName) {
           window.MMOChat.appendSystem(line);
         }
         selectedEnhanceItemInstance = body?.result?.itemInstanceName || itemInstanceName;
+        selectedEnhanceRuneBase = null;
         renderMenuPanelContent();
         render();
       } catch (err) {
@@ -23605,93 +23606,259 @@ function performEnhance(itemInstanceName, runeBaseName) {
   return false;
 }
 
-function buildEnhancingPanelHtml(activeProfId, crafterActor) {
+function isEnhancingRuneDef(def) {
+  return !!(def && String(def.category || "").trim().toLowerCase() === "enhancing_rune");
+}
+
+function isEnhancingRuneItemName(itemName) {
+  return isEnhancingRuneDef(getItemDef(getItemBaseName(itemName)));
+}
+
+function revalidateEnhanceRuneSelection(context) {
+  if (context === "commission") {
+    if (!commissionEnhanceRuneBase || !commissionEnhanceItemInstance) return;
+    const avail = getAvailableEnhanceRunes(commissionEnhanceItemInstance, player.inventory);
+    if (!avail.some((r) => r.item === commissionEnhanceRuneBase)) commissionEnhanceRuneBase = null;
+    return;
+  }
+  if (!selectedEnhanceRuneBase || !selectedEnhanceItemInstance) return;
+  const avail = getAvailableEnhanceRunes(selectedEnhanceItemInstance, player.inventory);
+  if (!avail.some((r) => r.item === selectedEnhanceRuneBase)) selectedEnhanceRuneBase = null;
+}
+
+function clearEnhanceSlot(slotKind, context) {
+  if (context === "commission") {
+    if (slotKind === "equipment") {
+      commissionEnhanceItemInstance = null;
+      commissionEnhanceProfessionId = null;
+      commissionEnhanceRuneBase = null;
+    } else if (slotKind === "rune") {
+      commissionEnhanceRuneBase = null;
+    }
+    refreshCraftCommissionEnhancePane();
+    return;
+  }
+  if (slotKind === "equipment") {
+    selectedEnhanceItemInstance = null;
+    selectedEnhanceRuneBase = null;
+  } else if (slotKind === "rune") {
+    selectedEnhanceRuneBase = null;
+  }
+  if (isMenuPanelOpen() && activeMenuPanel === "crafting") renderMenuPanelContent();
+}
+
+function tryAssignEnhanceEquipmentSlot(itemName, context, professionId) {
+  const name = String(itemName || "").trim();
+  if (!name) return { ok: false, message: "Invalid item." };
+  const equipped = getEquippedItemNamesSetForEnhance();
+  if (equipped.has(name)) return { ok: false, message: "Unequip the item before enhancing." };
+  if (!Array.isArray(player.inventory) || !player.inventory.includes(name)) {
+    return { ok: false, message: "That item is not in your inventory." };
+  }
+  const { baseName } = splitItemInstanceName(name);
+  const def = getItemDef(baseName);
+  if (!def || !isEquippableItemDef(def)) return { ok: false, message: "Drop equipment here." };
+  if (typeof Enhancing === "undefined") return { ok: false, message: "Enhancing unavailable." };
+  if (!Enhancing.getNextRarityId(getItemRarityIdForItem(def, name))) {
+    return { ok: false, message: "This item is already at maximum quality." };
+  }
+  const itemProf = Enhancing.getCraftingProfessionIdForItemBase(baseName, getEnhanceDepsClient());
+  if (!itemProf || !Enhancing.isEquipmentCraftingProfessionId(itemProf)) {
+    return { ok: false, message: "This item cannot be enhanced." };
+  }
+  if (professionId && itemProf !== professionId) {
+    return { ok: false, message: "Only equipment your active profession crafts can be placed here." };
+  }
+  if (context === "commission") {
+    commissionEnhanceItemInstance = name;
+    commissionEnhanceProfessionId = itemProf;
+    revalidateEnhanceRuneSelection("commission");
+  } else {
+    selectedEnhanceItemInstance = name;
+    revalidateEnhanceRuneSelection("crafting");
+  }
+  return { ok: true };
+}
+
+function tryAssignEnhanceRuneSlot(itemName, context) {
+  const name = String(itemName || "").trim();
+  if (!name) return { ok: false, message: "Invalid rune." };
+  const base = getItemBaseName(name);
+  if (!isEnhancingRuneItemName(name)) return { ok: false, message: "Drop an enhancing rune here." };
+  const inv = Array.isArray(player.inventory) ? player.inventory : [];
+  if (!inv.some((entry) => getItemBaseName(entry) === base)) {
+    return { ok: false, message: "You do not have that rune." };
+  }
+  const itemInstance = context === "commission" ? commissionEnhanceItemInstance : selectedEnhanceItemInstance;
+  if (itemInstance) {
+    const avail = getAvailableEnhanceRunes(itemInstance, player.inventory);
+    if (!avail.some((r) => r.item === base)) {
+      return { ok: false, message: "This rune is not suitable for the selected equipment." };
+    }
+  }
+  if (context === "commission") commissionEnhanceRuneBase = base;
+  else selectedEnhanceRuneBase = base;
+  return { ok: true };
+}
+
+function refreshCraftCommissionEnhancePane() {
+  const pane = document.getElementById("craftCommissionEnhancePane");
+  if (!pane) return;
+  pane.innerHTML = buildEnhanceWorkbenchHtml({ context: "commission" });
+}
+
+function buildEnhanceSlotHtml(slotKind, itemName, context) {
+  const filled = !!(itemName && String(itemName).trim());
+  const esc = filled ? escapeAttr(itemName) : "";
+  const label = slotKind === "equipment" ? "Equipment" : "Rune";
+  const inner = filled
+    ? `${invCellImg(itemName)}<button type="button" class="enhance-slot-clear" data-enhance-slot-clear="${slotKind}" data-enhance-context="${escapeAttr(
+        context
+      )}" aria-label="Clear slot">&times;</button>`
+    : `<span class="enhance-slot-placeholder">${escapeHtml(label)}</span>`;
+  const filledCls = filled ? " enhance-slot-drop--filled" : "";
+  return `<div class="enhance-slot-wrap">
+    <span class="enhance-slot-label">${escapeHtml(label)}</span>
+    <div class="enhance-slot-drop${filledCls}" data-enhance-slot="${slotKind}" data-enhance-context="${escapeAttr(context)}"${
+    filled ? ` data-enhance-item="${esc}" data-item-name="${esc}" draggable="true"` : ""
+  }>${inner}</div>
+  </div>`;
+}
+
+function buildEnhanceWorkbenchInventoryHtml(inventory) {
+  const stacks = buildInventoryStacks(Array.isArray(inventory) ? inventory : []);
+  const total = Math.max(stacks.length, INV_VISIBLE_SLOTS);
+  const cells = [];
+  for (let i = 0; i < total; i++) {
+    const stack = stacks[i];
+    if (!stack) {
+      cells.push('<div class="inv-cell inv-empty" aria-hidden="true"></div>');
+      continue;
+    }
+    const name = stack.name;
+    const qty = stack.qty;
+    const base = getItemBaseName(name);
+    const def = getItemDef(base);
+    const canDrag = isEquippableItemDef(def) || isEnhancingRuneDef(def);
+    const esc = escapeAttr(name);
+    const img = invCellImg(name);
+    const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
+    const dimCls = canDrag ? "" : " inv-cell--enhance-muted";
+    const dragAttr = canDrag ? ' draggable="true"' : "";
+    cells.push(
+      `<div class="inv-cell${dimCls}"${dragAttr} data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`
+    );
+  }
+  return `<div class="enhance-workbench-inv" data-enhance-inventory>
+    <div class="enhance-workbench-inv-title">Inventory</div>
+    <div class="inv-grid-scroll enhance-workbench-inv-scroll"><div class="inv-grid">${cells.join("")}</div></div>
+  </div>`;
+}
+
+function evaluateEnhancePreview(itemInstance, runeBase, professionId, crafterActor, isCommission) {
+  if (typeof Enhancing === "undefined" || !itemInstance || !runeBase || !professionId) {
+    return { ok: false, message: "Select equipment and a rune." };
+  }
+  const profLevel = isCommission
+    ? getItemLevelForEnhanceDisplay(itemInstance)
+    : ProfessionProgression.getProfessionLevel(crafterActor, professionId);
+  return Enhancing.evaluateEnhanceAttempt({
+    itemInstanceName: itemInstance,
+    runeBaseName: runeBase,
+    professionId,
+    crafterProfessionLevel: profLevel,
+    inventory: player.inventory,
+    equippedNames: getEquippedItemNamesSetForEnhance(),
+    cfg: GAME_CONFIG,
+    deps: getEnhanceDepsClient()
+  });
+}
+
+function buildEnhanceWorkbenchPreviewHtml(itemInstance, runeBase, professionId, crafterActor, isCommission) {
+  if (!itemInstance || !runeBase) {
+    return `<p class="muted enhance-workbench-hint">Drag equipment and a rune from your inventory into the slots.</p>`;
+  }
+  const profId = isCommission ? commissionEnhanceProfessionId || professionId : professionId;
+  const actor = crafterActor || player;
+  const evalResult = evaluateEnhancePreview(itemInstance, runeBase, profId, actor, isCommission);
+  if (evalResult.ok) {
+    const fromLabel = getRarityLabelForInstance(itemInstance);
+    const toRule = ITEM_RARITY_RULES[evalResult.nextRarity];
+    const toLabel = toRule && toRule.label ? toRule.label : evalResult.nextRarity;
+    const pct = Math.round((evalResult.successChance || 0) * 100);
+    const xpPreview =
+      !isCommission &&
+      typeof ProfessionProgression !== "undefined" &&
+      typeof CraftXp !== "undefined" &&
+      crafterActor
+        ? Enhancing.computeEnhanceXp(
+            evalResult.itemLevel,
+            ProfessionProgression.getProfessionLevel(crafterActor, profId),
+            CraftXp
+          )
+        : 0;
+    return `<div class="crafting-enhance-preview">
+      <p><strong>${escapeHtml(fromLabel)}</strong> → <strong>${escapeHtml(toLabel)}</strong></p>
+      <p class="muted">Success chance: ${pct}% · Rune is consumed either way.</p>
+      <p class="muted">On failure: 50% chance quality drops by one tier (minimum Common).</p>
+      ${xpPreview > 0 ? `<p class="muted">Profession XP on attempt: ~${xpPreview}</p>` : ""}
+      ${isCommission && profId ? `<p class="muted">Requires ${escapeHtml(getProfessionLabel(profId))} crafter.</p>` : ""}
+    </div>`;
+  }
+  return `<p class="crafting-empty">${escapeHtml(evalResult.message || "Cannot enhance.")}</p>`;
+}
+
+function buildEnhanceWorkbenchHtml({ context, professionId, crafterActor }) {
+  const isCommission = context === "commission";
+  const itemInstance = isCommission ? commissionEnhanceItemInstance : selectedEnhanceItemInstance;
+  const runeBase = isCommission ? commissionEnhanceRuneBase : selectedEnhanceRuneBase;
   const cfg = getCraftingConfig();
   const enhancingCfg = cfg.enhancing && typeof cfg.enhancing === "object" ? cfg.enhancing : {};
   const intro =
     typeof enhancingCfg.intro === "string" && enhancingCfg.intro.trim()
       ? enhancingCfg.intro.trim()
       : "Use enhancing runes to raise equipment quality.";
-  const items = getEnhanceableInventoryItems(activeProfId, player.inventory);
-  if (selectedEnhanceItemInstance && !items.includes(selectedEnhanceItemInstance)) {
-    selectedEnhanceItemInstance = items[0] || null;
-  }
-  if (!selectedEnhanceItemInstance && items.length) selectedEnhanceItemInstance = items[0];
-
-  const itemOptions = items.length
-    ? items
-        .map((name) => {
-          const sel = name === selectedEnhanceItemInstance ? " selected" : "";
-          const lvl = getItemLevelForEnhanceDisplay(name);
-          const rarity = getRarityLabelForInstance(name);
-          return `<option value="${escapeAttr(name)}"${sel}>${escapeHtml(formatItemDisplayLabel(name))} (Lv ${lvl}, ${rarity})</option>`;
-        })
-        .join("")
-    : `<option value="">No enhanceable equipment</option>`;
-
-  const runes = selectedEnhanceItemInstance
-    ? getAvailableEnhanceRunes(selectedEnhanceItemInstance, player.inventory)
-    : [];
-  if (selectedEnhanceRuneBase && !runes.some((r) => r.item === selectedEnhanceRuneBase)) {
-    selectedEnhanceRuneBase = runes.length ? runes[0].item : null;
-  }
-  if (!selectedEnhanceRuneBase && runes.length) selectedEnhanceRuneBase = runes[0].item;
-
-  const runeOptions = runes.length
-    ? runes
-        .map((r) => {
-          const sel = r.item === selectedEnhanceRuneBase ? " selected" : "";
-          return `<option value="${escapeAttr(r.item)}"${sel}>${escapeHtml(r.item)} (Lv ${r.level}, ×${r.have})</option>`;
-        })
-        .join("")
-    : `<option value="">No suitable rune in bag</option>`;
-
-  let previewHtml = "";
-  if (selectedEnhanceItemInstance && selectedEnhanceRuneBase && typeof Enhancing !== "undefined") {
-    const evalResult = evaluateEnhanceLocal(
-      selectedEnhanceItemInstance,
-      selectedEnhanceRuneBase,
-      activeProfId,
-      crafterActor,
-      player
-    );
-    if (evalResult.ok) {
-      const fromLabel = getRarityLabelForInstance(selectedEnhanceItemInstance);
-      const toRule = ITEM_RARITY_RULES[evalResult.nextRarity];
-      const toLabel = toRule && toRule.label ? toRule.label : evalResult.nextRarity;
-      const pct = Math.round((evalResult.successChance || 0) * 100);
-      const xpPreview =
-        typeof ProfessionProgression !== "undefined" && typeof CraftXp !== "undefined"
-          ? Enhancing.computeEnhanceXp(
-              evalResult.itemLevel,
-              ProfessionProgression.getProfessionLevel(crafterActor, activeProfId),
-              CraftXp
-            )
-          : 0;
-      previewHtml = `<div class="crafting-enhance-preview">
-        <p><strong>${escapeHtml(fromLabel)}</strong> → <strong>${escapeHtml(toLabel)}</strong></p>
-        <p class="muted">Success chance: ${pct}% · Rune is consumed either way.</p>
-        <p class="muted">On failure: 50% chance quality drops by one tier (minimum Common).</p>
-        ${xpPreview > 0 ? `<p class="muted">Profession XP on attempt: ~${xpPreview}</p>` : ""}
-      </div>`;
-    } else {
-      previewHtml = `<p class="crafting-empty">${escapeHtml(evalResult.message || "Cannot enhance.")}</p>`;
-    }
-  }
-
+  const equipmentSlotItem = itemInstance;
+  const runeSlotItem = runeBase || null;
+  const previewHtml = buildEnhanceWorkbenchPreviewHtml(
+    itemInstance,
+    runeBase,
+    professionId,
+    crafterActor,
+    isCommission
+  );
   const canEnhance =
-    selectedEnhanceItemInstance &&
-    selectedEnhanceRuneBase &&
-    evaluateEnhanceLocal(selectedEnhanceItemInstance, selectedEnhanceRuneBase, activeProfId, crafterActor, player)
-      .ok;
+    itemInstance &&
+    runeBase &&
+    evaluateEnhancePreview(
+      itemInstance,
+      runeBase,
+      isCommission ? commissionEnhanceProfessionId : professionId,
+      crafterActor || player,
+      isCommission
+    ).ok;
+  const actionHtml = isCommission
+    ? ""
+    : `<button type="button" class="btn-secondary crafting-enhance-btn" data-enhance-submit${
+        canEnhance ? "" : " disabled"
+      }>Enhance</button>`;
 
-  return `<div class="crafting-enhance-panel">
-    <p class="game-page-lead muted">${escapeHtml(intro)}</p>
-    <label class="crafting-enhance-field">Equipment<select class="crafting-enhance-select" data-enhance-item-select>${itemOptions}</select></label>
-    <label class="crafting-enhance-field">Rune<select class="crafting-enhance-select" data-enhance-rune-select>${runeOptions}</select></label>
-    ${previewHtml}
-    <button type="button" class="btn-secondary crafting-enhance-btn" data-enhance-submit${canEnhance ? "" : " disabled"}>Enhance</button>
+  return `<div class="enhance-workbench" data-enhance-workbench data-enhance-context="${escapeAttr(context)}">
+    ${buildEnhanceWorkbenchInventoryHtml(player.inventory)}
+    <div class="enhance-workbench-main">
+      <p class="game-page-lead muted">${escapeHtml(intro)}</p>
+      <div class="enhance-slots">
+        ${buildEnhanceSlotHtml("equipment", equipmentSlotItem, context)}
+        ${buildEnhanceSlotHtml("rune", runeSlotItem, context)}
+      </div>
+      ${previewHtml}
+      ${actionHtml}
+    </div>
   </div>`;
+}
+
+function buildEnhancingPanelHtml(activeProfId, crafterActor) {
+  return buildEnhanceWorkbenchHtml({ context: "crafting", professionId: activeProfId, crafterActor });
 }
 
 function buildCraftingPanelHtml() {
@@ -25965,6 +26132,18 @@ function onDragStart(e) {
   }
   const cell = e.target.closest(".inv-cell[draggable=\"true\"]");
   const slot = e.target.closest(".slot-drop[draggable=\"true\"]");
+  const enhanceSlot = e.target.closest(".enhance-slot-drop[draggable=\"true\"]");
+  if (enhanceSlot && enhanceSlot.dataset.enhanceItem) {
+    dragPayload = {
+      kind: "enhanceSlot",
+      slot: enhanceSlot.dataset.enhanceSlot,
+      item: enhanceSlot.dataset.enhanceItem,
+      context: enhanceSlot.dataset.enhanceContext || "crafting"
+    };
+    e.dataTransfer.setData("text/plain", enhanceSlot.dataset.enhanceItem);
+    e.dataTransfer.effectAllowed = "move";
+    return;
+  }
   if (cell && cell.dataset.item) {
     const def = getItemDef(cell.dataset.item);
     const qtyEl = cell.querySelector(".inv-cell-qty");
@@ -26045,7 +26224,10 @@ function onDragOver(e) {
   const tradeSlot =
     typeof window !== "undefined" && window.MMOTrade?.isActive?.() ? e.target.closest(".trade-slot-drop") : null;
   const quickslotDrop = e.target.closest(".bottom-quickslot-drop");
-  if (drop || inv || skBarSlot || skPool || skRemoveZone || tradeSlot || quickslotDrop) e.preventDefault();
+  const enhanceSlot = e.target.closest("[data-enhance-slot]");
+  const enhanceInv = e.target.closest("[data-enhance-inventory]");
+  if (drop || inv || skBarSlot || skPool || skRemoveZone || tradeSlot || quickslotDrop || enhanceSlot || enhanceInv)
+    e.preventDefault();
   if (tradeSlot && e.dataTransfer) e.dataTransfer.dropEffect = "copy";
   if (quickslotDrop && dragPayload && e.dataTransfer) {
     if (dragPayload.kind === "inventory" && dragPayload.item) {
@@ -26058,11 +26240,16 @@ function onDragOver(e) {
   document.querySelectorAll(".bottom-quickslot-drop").forEach((el) => {
     el.classList.toggle("bottom-quickslot--drag-over", quickslotDrop === el);
   });
+  document.querySelectorAll("[data-enhance-slot]").forEach((el) => {
+    el.classList.toggle("enhance-slot-drop--drag-over", enhanceSlot === el);
+  });
 }
 
 function onDrop(e) {
   e.preventDefault();
   if (!dragPayload) return;
+
+  if (handleEnhanceWorkbenchDrop(e)) return;
 
   const tradeSlotEl =
     typeof window !== "undefined" && window.MMOTrade?.isActive?.() ? e.target.closest(".trade-slot-drop") : null;
@@ -26166,6 +26353,10 @@ function onDrop(e) {
   }
 
   const invGrid = e.target.closest(".inv-grid") || e.target.closest(".inv-grid-scroll");
+  if (invGrid && invGrid.closest("[data-enhance-inventory]")) {
+    dragPayload = null;
+    return;
+  }
   if (invGrid && dragPayload.kind === "inventory") {
     dragPayload = null;
     return;
@@ -26180,6 +26371,9 @@ function onDrop(e) {
 function onDragEnd(e) {
   document.querySelectorAll(".bottom-quickslot-drop").forEach((el) => {
     el.classList.remove("bottom-quickslot--drag-over");
+  });
+  document.querySelectorAll("[data-enhance-slot]").forEach((el) => {
+    el.classList.remove("enhance-slot-drop--drag-over");
   });
   if (!dragPayload) {
     return;
@@ -26230,6 +26424,7 @@ function onContentDblClick(e) {
 }
 
 function onContentClick(e) {
+  if (handleEnhanceWorkbenchClick(e)) return;
   if (portraitLayoutDragSuppressedClick) {
     portraitLayoutDragSuppressedClick = false;
     return;
@@ -26576,10 +26771,6 @@ function onContentClick(e) {
     renderMenuPanelContent();
     return;
   }
-  const enhanceItemSelect = e.target.closest("[data-enhance-item-select]");
-  if (enhanceItemSelect) return;
-  const enhanceRuneSelect = e.target.closest("[data-enhance-rune-select]");
-  if (enhanceRuneSelect) return;
   const enhanceSubmit = e.target.closest("[data-enhance-submit]");
   if (enhanceSubmit && !enhanceSubmit.disabled) {
     if (selectedEnhanceItemInstance && selectedEnhanceRuneBase) {
@@ -26867,6 +27058,7 @@ function closeModal() {
 }
 
 function onPortalNetworkModalClick(e) {
+  if (handleEnhanceWorkbenchClick(e)) return;
   if (e.target.closest("[data-char-spend-cancel]")) {
     pendingCharSpend = null;
     closeModal();
@@ -27173,6 +27365,10 @@ function initUi() {
   if (modalEl && modalEl.dataset.earlyUiBound !== "1") {
     modalEl.dataset.earlyUiBound = "1";
     modalEl.addEventListener("click", onPortalNetworkModalClick);
+    modalEl.addEventListener("dragstart", onDragStart);
+    modalEl.addEventListener("dragend", onDragEnd);
+    modalEl.addEventListener("dragover", onDragOver);
+    modalEl.addEventListener("drop", onDrop);
     modalEl.addEventListener("submit", (ev) => {
       const form = ev.target;
       if (!form || !form.matches || !form.matches("form[data-char-spend-form]")) return;
@@ -27260,6 +27456,10 @@ function initUi() {
   const menuPanelContent = document.getElementById("menuPanelContent");
   if (menuPanelContent) {
     menuPanelContent.addEventListener("click", onContentClick);
+    menuPanelContent.addEventListener("dragstart", onDragStart);
+    menuPanelContent.addEventListener("dragend", onDragEnd);
+    menuPanelContent.addEventListener("dragover", onDragOver);
+    menuPanelContent.addEventListener("drop", onDrop);
     menuPanelContent.addEventListener("mouseover", onContentTooltipOver);
     menuPanelContent.addEventListener("mouseout", onContentTooltipOut);
     menuPanelContent.addEventListener("mousemove", onContentTooltipMove);

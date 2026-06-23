@@ -2072,6 +2072,121 @@ body.edit-mode-on .portrait-equip-layer--pet {
   margin: 0.5rem 0 0.75rem;
 }
 
+.enhance-workbench {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(200px, 1.15fr);
+  gap: 0.85rem;
+  align-items: start;
+  max-width: 100%;
+}
+
+.enhance-workbench-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.enhance-workbench-inv-title {
+  font-size: 0.78rem;
+  color: var(--overview-muted);
+  margin: 0 0 0.35rem;
+}
+
+.enhance-workbench-inv-scroll {
+  max-height: calc(10 * var(--inv-cell, 40px) + 9px);
+}
+
+.enhance-workbench-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.enhance-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.enhance-slot-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.enhance-slot-label {
+  font-size: 0.78rem;
+  color: var(--overview-muted);
+}
+
+.enhance-slot-drop {
+  position: relative;
+  width: 4.25rem;
+  height: 4.25rem;
+  box-sizing: border-box;
+  padding: 3px;
+  border: 1px dashed var(--overview-stone-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.enhance-slot-drop--filled {
+  cursor: grab;
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.enhance-slot-drop--drag-over {
+  border-color: rgba(120, 200, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(120, 200, 255, 0.35);
+  background: rgba(120, 200, 255, 0.12);
+}
+
+.enhance-slot-placeholder {
+  font-size: 0.62rem;
+  line-height: 1.2;
+  text-align: center;
+  opacity: 0.45;
+  user-select: none;
+  pointer-events: none;
+  padding: 0 2px;
+}
+
+.enhance-slot-clear {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.enhance-slot-clear:hover {
+  background: rgba(120, 40, 40, 0.85);
+}
+
+.inv-cell--enhance-muted {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.craft-commission-request .enhance-workbench {
+  margin-bottom: 0.5rem;
+}
+
 .crafting-enhance-panel {
   display: flex;
   flex-direction: column;
