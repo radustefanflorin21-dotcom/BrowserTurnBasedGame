@@ -1298,7 +1298,7 @@ const GAME_CONFIG = {
       effect: "teleport_portal",
       useInCombat: false,
       outOfCombatOnly: true,
-      image: "Assets/Resources/lesser_healing_draught.png",
+      image: "Assets/Resources/teleport_potion.png",
       description:
         "A swirling coastal draught that folds space toward the nearest known waygate. Drink it outside combat to travel instantly to the closest portal.",
       bonusSkills: [],
