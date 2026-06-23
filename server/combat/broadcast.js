@@ -34,6 +34,9 @@ export function broadcastCoopCombatFinished(
           ...(Array.isArray(hitExtra.lastHits) && hitExtra.lastHits.length
             ? { lastHits: hitExtra.lastHits, actorPartyUid: hitExtra.actorPartyUid }
             : {}),
+          ...(Array.isArray(hitExtra.lastHeals) && hitExtra.lastHeals.length
+            ? { lastHeals: hitExtra.lastHeals }
+            : {}),
           ...(Array.isArray(hitExtra.lastEnemyHits)
             ? { lastEnemyHits: hitExtra.lastEnemyHits }
             : {}),

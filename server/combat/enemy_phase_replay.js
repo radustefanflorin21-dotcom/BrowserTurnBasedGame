@@ -44,16 +44,19 @@ export function createEnemyPhaseStepRecorder(st) {
   const preEnemySnapshot = capturePreEnemySnapshot(st);
   let pendingLogs = [];
   let pendingHits = [];
+  let pendingHeals = [];
 
   function flushStep() {
-    if (!pendingLogs.length && !pendingHits.length) return;
+    if (!pendingLogs.length && !pendingHits.length && !pendingHeals.length) return;
     steps.push({
       logLines: pendingLogs.slice(),
       hits: pendingHits.map((h) => ({ ...h })),
+      heals: pendingHeals.map((h) => ({ ...h })),
       ...captureStepSnapshot(st)
     });
     pendingLogs = [];
     pendingHits = [];
+    pendingHeals = [];
   }
 
   function wrapAppendLog(baseAppend) {
@@ -70,10 +73,21 @@ export function createEnemyPhaseStepRecorder(st) {
     pendingHits.push({ ...hit });
   }
 
+  function recordHeal(heal) {
+    if (!heal || typeof heal !== "object") return;
+    const amount = Math.max(0, Math.floor(Number(heal.amount) || 0));
+    if (amount <= 0) return;
+    if (heal.foeUid != null) {
+      pendingHeals.push({ foeUid: heal.foeUid, amount });
+    } else if (heal.memberUid != null) {
+      pendingHeals.push({ memberUid: heal.memberUid, amount });
+    }
+  }
+
   function finish() {
     flushStep();
     return { steps, preEnemySnapshot };
   }
 
-  return { wrapAppendLog, recordHit, flushStep, finish, steps, preEnemySnapshot };
+  return { wrapAppendLog, recordHit, recordHeal, flushStep, finish, steps, preEnemySnapshot };
 }

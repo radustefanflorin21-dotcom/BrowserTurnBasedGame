@@ -334,6 +334,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     if (!ally) return { ok: false, error: "Select a living ally." };
     const vit = totalStat(actor, "vit");
     const supportLogs = [];
+    const heals = [];
 
     if (pattern === "ward_shield" && row?.shieldVitPct) {
       const shield = Math.max(1, Math.floor(vit * row.shieldVitPct));
@@ -348,8 +349,10 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
         const amt = Math.max(1, Math.floor(vit * (healPct / 100)));
         const before = ally.hp;
         ally.hp = Math.min(ally.maxHp, ally.hp + amt);
+        const restored = ally.hp - before;
+        if (restored > 0) heals.push({ memberUid: ally.uid, amount: restored });
         supportLogs.push(
-          `${member.name} encourages ${ally.name} (+${ally.hp - before} HP, +${row.ally.acc || 0}% accuracy).`
+          `${member.name} encourages ${ally.name} (+${restored} HP, +${row.ally.acc || 0}% accuracy).`
         );
       } else {
         supportLogs.push(
@@ -363,8 +366,10 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
         const amt = Math.max(1, Math.floor(vit * row.vitHealPct));
         const before = ally.hp;
         ally.hp = Math.min(ally.maxHp, ally.hp + amt);
+        const restored = ally.hp - before;
+        if (restored > 0) heals.push({ memberUid: ally.uid, amount: restored });
         supportLogs.push(
-          `${member.name} cleanses ${ally.name} and restores ${ally.hp - before} HP.`
+          `${member.name} cleanses ${ally.name} and restores ${restored} HP.`
         );
       } else {
         supportLogs.push(`${member.name} cleanses ${ally.name}.`);
@@ -374,7 +379,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     }
 
     setSkillCooldown(st, skillName, getSkillCooldown(def));
-    return { ok: true, heals: [], supportLogs };
+    return { ok: true, heals, supportLogs };
   }
 
   if (pattern === "taunt_all" && row?.debuff) {

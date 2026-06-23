@@ -6508,6 +6508,7 @@ function applyDungeonJungleBloomIfDue(st, round) {
   const amt = Math.max(1, Math.floor(target.maxHp * 0.05));
   target.hp = Math.min(target.maxHp, target.hp + amt);
   appendFightLog(`Jungle Bloom mends ${target.name} for ${amt}.`);
+  playCombatHealFloat("foe", target.uid, amt);
 }
 
 function applyPartyMemberBurn(st, member, dmgPerTurn, turns) {
@@ -7420,6 +7421,7 @@ function healLowestHpFractionAlly(st, healer, pctOfMax) {
   const amt = Math.max(1, Math.floor(target.maxHp * pctOfMax));
   target.hp = Math.min(target.maxHp, target.hp + amt);
   appendFightLog(`${healer.name} heals ${target.name} for ${amt}.`);
+  playCombatHealFloat("foe", target.uid, amt);
   return true;
 }
 
@@ -7432,6 +7434,7 @@ function healLowestHpAllyByHealerVit(st, healer, vitMult) {
   const amt = Math.max(1, Math.floor((healer.vit || 20) * vitMult * bonus));
   target.hp = Math.min(target.maxHp, target.hp + amt);
   appendFightLog(`${healer.name} heals ${target.name} for ${amt}.`);
+  playCombatHealFloat("foe", target.uid, amt);
   return true;
 }
 
@@ -7580,6 +7583,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
         const heal = Math.max(1, Math.floor(lowAlly.maxHp * 0.2 * (1 + intSkillPowerBonus)));
         lowAlly.hp = Math.min(lowAlly.maxHp, lowAlly.hp + heal);
         appendFightLog(`${foe.name} uses Tidal Mend on ${lowAlly.name}.`);
+        playCombatHealFloat("foe", lowAlly.uid, heal);
         return true;
       }
     }
@@ -10541,8 +10545,11 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (ready("heartroot_pulse")) {
       setCd("heartroot_pulse", 3);
       for (const ally of (st.foes || []).filter((f) => f && f.hp > 0)) {
+        const before = ally.hp;
         const amt = Math.max(1, Math.floor((foe.vit || 20) * 0.55 * (1 + (ally.combat?.healReceivedBonusPct || 0) / 100)));
         ally.hp = Math.min(ally.maxHp, ally.hp + amt);
+        const restored = ally.hp - before;
+        if (restored > 0) playCombatHealFloat("foe", ally.uid, restored);
         if (!ally.combat) initFoeCombatRuntime(ally);
         ally.combat.statusResBonusPct = Math.max(ally.combat.statusResBonusPct || 0, 5);
         ally.combat.statusResBonusTurns = Math.max(ally.combat.statusResBonusTurns || 0, 1);
@@ -17800,6 +17807,24 @@ function spawnFightCardFloat(layer, field, card, effectType, text, positive, cri
 }
 
 /**
+ * Green +N float rising from a combat card when HP is restored.
+ * @param {'ally'|'foe'} targetSide
+ * @param {number} targetUid
+ * @param {number} amount
+ */
+function playCombatHealFloat(targetSide, targetUid, amount) {
+  const amt = Math.max(0, Math.floor(Number(amount) || 0));
+  if (amt <= 0 || typeof playCombatCardStatusEffect !== "function") return;
+  playCombatCardStatusEffect({
+    targetSide: targetSide === "foe" ? "foe" : "ally",
+    targetUid,
+    effectType: "heal",
+    damage: amt,
+    heal: true
+  });
+}
+
+/**
  * Status / heal / DoT VFX on a single combat card (shake + themed overlay).
  * @param {{ targetSide?: 'ally'|'foe', targetUid?: number, effectType?: string, damage?: number, heal?: boolean }} opts
  */
@@ -17890,6 +17915,7 @@ function playCombatStrikeEffect(opts) {
 
 window.playCombatStrikeEffect = playCombatStrikeEffect;
 window.playCombatCardStatusEffect = playCombatCardStatusEffect;
+window.playCombatHealFloat = playCombatHealFloat;
 window.FIGHT_CARD_FX_MS = FIGHT_CARD_FX_MS;
 window.COMBAT_HIT_UI_DELAY_MS = COMBAT_HIT_UI_DELAY_MS;
 
@@ -18908,6 +18934,8 @@ function applyPlayerClassSkillCast(st, skillName, targetFoe) {
         st.playerHp = Math.min(st.playerMax, st.playerHp + heal);
         syncHeroHpFromPlayerMirror(st);
         appendFightLog(`Heal restores ${heal} HP.`);
+        const heroMember = (st.party || []).find((m) => m && m.kind === "hero");
+        if (heroMember) playCombatHealFloat("ally", heroMember.uid, heal);
       }
       break;
     default:
@@ -23366,12 +23394,16 @@ function evaluateCraftRecipeAvailability(recipe, invCounts, actor, quantity = 1)
   const crafter = actor && typeof actor === "object" ? actor : player;
   const professionId = getCraftingProfessionIdForRecipe(recipe);
   const itemDef = getItemDef(recipe && recipe.resultItem);
-  const requiredLevel =
+  const itemLevel =
     typeof ProfessionProgression !== "undefined"
       ? ProfessionProgression.getRecipeItemLevel(recipe, itemDef)
       : recipe && typeof recipe.resultLevel === "number" && Number.isFinite(recipe.resultLevel)
         ? Math.max(1, Math.floor(recipe.resultLevel))
         : 1;
+  const requiredLevel =
+    typeof ProfessionProgression !== "undefined"
+      ? ProfessionProgression.getRequiredProfessionLevelForItemLevel(itemLevel)
+      : itemLevel;
   ensureActorProfessionProgress(crafter);
   const profLevel =
     typeof ProfessionProgression !== "undefined"
@@ -23393,6 +23425,7 @@ function evaluateCraftRecipeAvailability(recipe, invCounts, actor, quantity = 1)
   return {
     levelOk,
     requiredLevel,
+    itemLevel,
     professionId,
     professionLevel: profLevel,
     missing,

@@ -345,6 +345,7 @@
     applyCombatVisualSnapshot(st, step);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
     if (step.hits && step.hits.length) playServerEnemyHitEffects(step.hits);
+    if (step.heals && step.heals.length) playServerHealEffects(step.heals);
     if (typeof shakeFightOverlay === "function") shakeFightOverlay();
   }
 
@@ -395,9 +396,13 @@
     if (typeof renderTurnBattle === "function") renderTurnBattle();
 
     const allyHits = Array.isArray(payload.lastHits) ? payload.lastHits : [];
-    const allyLeadMs = allyHits.length ? 420 : 0;
-    if (allyHits.length) {
-      requestAnimationFrame(() => playServerHitEffects(allyHits, ctx.actorMember));
+    const allyHeals = Array.isArray(payload.lastHeals) ? payload.lastHeals : [];
+    const allyLeadMs = allyHits.length || allyHeals.length ? 420 : 0;
+    if (allyHits.length || allyHeals.length) {
+      requestAnimationFrame(() => {
+        if (allyHits.length) playServerHitEffects(allyHits, ctx.actorMember);
+        if (allyHeals.length) playServerHealEffects(allyHeals);
+      });
     }
 
     const totalMs = allyLeadMs + steps.length * ENEMY_ACTION_STEP_MS + 300;
@@ -593,6 +598,7 @@
     const st = combatState;
     if (!st) return;
     const allyHits = Array.isArray(payload.lastHits) ? payload.lastHits : [];
+    const allyHeals = Array.isArray(payload.lastHeals) ? payload.lastHeals : [];
     const enemyPhaseRan = Array.isArray(payload.enemyActionSteps) && payload.preEnemySnapshot;
 
     if (enemyPhaseRan) return;
@@ -609,13 +615,14 @@
       const hitCount = enemyHits.length;
       const animMs =
         hitCount > 0 ? Math.max(ENEMY_PHASE_MIN_MS, hitCount * ENEMY_ACTION_STEP_MS) : ENEMY_PHASE_MIN_MS;
-      const allyLeadMs = allyHits.length ? 420 : 0;
+      const allyLeadMs = allyHits.length || allyHeals.length ? 420 : 0;
       beginEnemyPhaseUi(allyLeadMs + animMs);
     }
 
     requestAnimationFrame(() => {
       if (allyHits.length) playServerHitEffects(allyHits, actor);
-      const allyLeadMs = allyHits.length ? 420 : 0;
+      if (allyHeals.length) playServerHealEffects(allyHeals);
+      const allyLeadMs = allyHits.length || allyHeals.length ? 420 : 0;
       if (Array.isArray(payload.lastEnemyHits) && payload.lastEnemyHits.length) {
         payload.lastEnemyHits.forEach((hit, i) => {
           setTimeout(() => playServerEnemyHitEffects([hit]), allyLeadMs + i * ENEMY_ACTION_STEP_MS);
@@ -668,6 +675,32 @@
         btn.disabled = !!isPending;
       });
     }
+  }
+
+  function playServerHealEffects(heals) {
+    if (!heals || !heals.length || typeof playCombatCardStatusEffect !== "function") return;
+    heals.forEach((heal) => {
+      if (!heal) return;
+      const amount = Math.max(0, Math.floor(Number(heal.amount) || 0));
+      if (amount <= 0) return;
+      if (heal.foeUid != null) {
+        playCombatCardStatusEffect({
+          targetSide: "foe",
+          targetUid: heal.foeUid,
+          effectType: "heal",
+          damage: amount,
+          heal: true
+        });
+      } else if (heal.memberUid != null) {
+        playCombatCardStatusEffect({
+          targetSide: "ally",
+          targetUid: heal.memberUid,
+          effectType: "heal",
+          damage: amount,
+          heal: true
+        });
+      }
+    });
   }
 
   function playServerHitEffects(hits, actorMember) {

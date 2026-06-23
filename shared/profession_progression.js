@@ -80,6 +80,25 @@
   }
 
   /**
+   * Profession level required to craft/enhance an item of the given item level.
+   * Tier gates: 1 → items 1–9, 10 → 10–19, 20 → 20–29, … 50 → 50–59, 60 → 60+.
+   */
+  function getRequiredProfessionLevelForItemLevel(itemLevel) {
+    const lv = Math.max(1, Math.floor(itemLevel));
+    if (lv < 10) return 1;
+    return Math.floor(lv / 10) * 10;
+  }
+
+  function getRequiredProfessionLevelForRecipe(recipe, itemDef) {
+    return getRequiredProfessionLevelForItemLevel(getRecipeItemLevel(recipe, itemDef));
+  }
+
+  function meetsProfessionLevelForItem(professionLevel, itemLevel) {
+    const profLv = Math.max(1, Math.floor(professionLevel));
+    return profLv >= getRequiredProfessionLevelForItemLevel(itemLevel);
+  }
+
+  /**
    * @returns {{ xpGained: number, levelsGained: number, level: number, xp: number }}
    */
   function addProfessionXp(actor, professionId, amount) {
@@ -116,6 +135,9 @@
     setProfessionProgressEntry,
     getProfessionLevel,
     getRecipeItemLevel,
+    getRequiredProfessionLevelForItemLevel,
+    getRequiredProfessionLevelForRecipe,
+    meetsProfessionLevelForItem,
     addProfessionXp
   });
 

@@ -216,7 +216,11 @@
       return { ok: false, message: "This item is already at maximum quality." };
     }
 
-    const requiredProfLevel = itemLevel;
+    const PP = root.ProfessionProgression;
+    const requiredProfLevel =
+      PP && typeof PP.getRequiredProfessionLevelForItemLevel === "function"
+        ? PP.getRequiredProfessionLevelForItemLevel(itemLevel)
+        : itemLevel;
     const profLevel = Math.max(1, Math.floor(Number(crafterProfessionLevel) || 1));
     if (profLevel < requiredProfLevel) {
       return {

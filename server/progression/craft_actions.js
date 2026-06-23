@@ -74,7 +74,8 @@ function getActorCraftingProfessionIds(actor) {
 export function evaluateCraftRecipeAvailability(recipe, invCounts, actor, quantity = 1) {
   const qty = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
   const professionId = getCraftingProfessionIdForRecipe(recipe);
-  const requiredLevel = getRecipeItemLevel(recipe);
+  const itemLevel = getRecipeItemLevel(recipe);
+  const requiredLevel = ProfessionProgression.getRequiredProfessionLevelForItemLevel(itemLevel);
   normalizeProfessionProgress(actor);
   const profLevel = ProfessionProgression.getProfessionLevel(actor, professionId);
   const levelOk = profLevel >= requiredLevel;
@@ -92,6 +93,7 @@ export function evaluateCraftRecipeAvailability(recipe, invCounts, actor, quanti
   return {
     levelOk,
     requiredLevel,
+    itemLevel,
     professionId,
     professionLevel: profLevel,
     missing,

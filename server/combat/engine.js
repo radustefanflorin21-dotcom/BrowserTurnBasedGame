@@ -596,7 +596,12 @@ export function processCombatAction(session, action, actingUserId = null) {
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     const out = afterPlayerAction(session, rng, member);
-    return { ...out, lastHits: resolved.hits || [], actorPartyUid: member.uid };
+    return {
+      ...out,
+      lastHits: resolved.hits || [],
+      lastHeals: resolved.heals || [],
+      actorPartyUid: member.uid
+    };
   }
 
   if (type === "pass") {

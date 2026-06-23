@@ -236,8 +236,23 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       const amt = Math.max(1, Math.floor(foe.maxHp * pct));
       const before = foe.hp;
       foe.hp = Math.min(foe.maxHp, foe.hp + amt);
-      if (foe.hp > before) appendLog(`${foe.name} recovers ${foe.hp - before} HP.`);
+      const restored = foe.hp - before;
+      if (restored > 0) {
+        appendLog(`${foe.name} recovers ${restored} HP.`);
+        if (recorder) recorder.recordHeal({ foeUid: foe.uid, amount: restored });
+      }
       if (recorder) recorder.flushStep();
+    },
+    healFoe(targetFoe, amount) {
+      if (!targetFoe || targetFoe.hp <= 0) return 0;
+      const before = targetFoe.hp;
+      const amt = Math.max(1, Math.floor(amount));
+      targetFoe.hp = Math.min(targetFoe.maxHp, targetFoe.hp + amt);
+      const restored = targetFoe.hp - before;
+      if (restored > 0 && recorder) {
+        recorder.recordHeal({ foeUid: targetFoe.uid, amount: restored });
+      }
+      return restored;
     }
   };
 }

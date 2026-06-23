@@ -267,6 +267,7 @@ async function finalizeCoopVictoryFromOut(session, out) {
   const rosters = await persistCoopResults(session, coopResults);
   broadcastCoopCombatFinished(session, coopResults, rosters, {
     lastHits: out.lastHits,
+    lastHeals: out.lastHeals,
     lastEnemyHits: out.lastEnemyHits,
     actorPartyUid: out.actorPartyUid,
     enemyActionSteps: out.enemyActionSteps,
@@ -349,6 +350,9 @@ export function runAction(sessionId, action, actingUserId) {
     if (Array.isArray(out.lastHits) && out.lastHits.length) {
       extra.lastHits = out.lastHits;
       if (out.actorPartyUid != null) extra.actorPartyUid = out.actorPartyUid;
+    }
+    if (Array.isArray(out.lastHeals) && out.lastHeals.length) {
+      extra.lastHeals = out.lastHeals;
     }
     broadcastCoopCombat(session, extra, uid);
   }
