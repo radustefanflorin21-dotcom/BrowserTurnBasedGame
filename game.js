@@ -779,7 +779,6 @@ let rosterPersistInFlight = false;
 
 async function persistCharacterRoster() {
   if (!characterRoster) return;
-  if (rosterPersistInFlight) return;
   if (
     typeof window !== "undefined" &&
     window.ServerCombat &&
@@ -788,15 +787,17 @@ async function persistCharacterRoster() {
   ) {
     return;
   }
-  if (inGameSession && activeCharacterSlotIndex != null && player) {
-    ensureCharacterRoster();
-    characterRoster.slots[activeCharacterSlotIndex] = player;
-  }
-  const json = JSON.stringify(characterRoster);
-  if (typeof window !== "undefined" && window.GameStorage) {
-    rosterPersistChain = rosterPersistChain.then(async () => {
+  if (typeof window === "undefined" || !window.GameStorage) return;
+  rosterPersistChain = rosterPersistChain
+    .catch(() => {})
+    .then(async () => {
       rosterPersistInFlight = true;
       try {
+        if (inGameSession && activeCharacterSlotIndex != null && player) {
+          ensureCharacterRoster();
+          characterRoster.slots[activeCharacterSlotIndex] = player;
+        }
+        const json = JSON.stringify(characterRoster);
         const result = await window.GameStorage.saveRosterJson(json);
         const saved =
           result && typeof result === "object" && result.rosterJson != null
@@ -807,12 +808,12 @@ async function persistCharacterRoster() {
         syncPlayerWorldMapFromSavedRoster(saved);
       } catch (err) {
         console.error("Failed to save roster to server:", err);
+        throw err;
       } finally {
         rosterPersistInFlight = false;
       }
     });
-    await rosterPersistChain;
-  }
+  await rosterPersistChain;
 }
 
 function ensureCharacterRoster() {
@@ -2786,6 +2787,9 @@ function applyCityPortalsFromConfig() {
         elements: [portalEl]
       };
     }
+    if (typeof p.bg === "string" && p.bg.trim()) {
+      wm.coordinateBackgrounds[anchorKey] = p.bg.trim();
+    }
   }
 }
 
@@ -3124,7 +3128,7 @@ function migratePlayer(p) {
 let onlineSaveDebounceTimer = null;
 
 function save(opts) {
-  if (!inGameSession || activeCharacterSlotIndex == null || !player) return;
+  if (!inGameSession || activeCharacterSlotIndex == null || !player) return Promise.resolve();
   ensureCharacterRoster();
   characterRoster.slots[activeCharacterSlotIndex] = player;
   const flush = !!(opts && opts.flush);
@@ -3139,13 +3143,13 @@ function save(opts) {
       onlineSaveDebounceTimer = null;
       void persistCharacterRoster();
     }, 500);
-    return;
+    return Promise.resolve();
   }
   if (onlineSaveDebounceTimer) {
     clearTimeout(onlineSaveDebounceTimer);
     onlineSaveDebounceTimer = null;
   }
-  void persistCharacterRoster();
+  return persistCharacterRoster();
 }
 
 function addEquipmentBonusStat(out, key, value) {
@@ -11340,10 +11344,11 @@ function useConsumable(itemName) {
     }
     removeOneFromInventory(itemName);
     reconcileQuickslotsWithInventory(player);
-    save();
-    render();
-    renderBottomQuickslots();
-    if (result.message) showModal(result.message);
+    void save({ flush: true }).then(() => {
+      render();
+      renderBottomQuickslots();
+      if (result.message) showModal(result.message);
+    });
     return;
   }
   if (def.effect === "heal") {
@@ -11353,9 +11358,10 @@ function useConsumable(itemName) {
     player.hp = Math.min(player.maxHp, player.hp + amt);
     removeOneFromInventory(itemName);
     reconcileQuickslotsWithInventory(player);
-    save();
-    render();
-    renderBottomQuickslots();
+    void save({ flush: true }).then(() => {
+      render();
+      renderBottomQuickslots();
+    });
     return;
   }
   if (def.effect === "teleport_portal") {
@@ -11377,18 +11383,33 @@ function useConsumable(itemName) {
       showModal("You cannot travel to the nearest waygate.");
       return;
     }
-    void commitWorldMapPosition(dest.x, dest.y, "teleport_potion").then((ok) => {
-      if (!ok) {
-        showModal("The potion fizzles — you could not travel.");
+    removeOneFromInventory(itemName);
+    reconcileQuickslotsWithInventory(player);
+    void (async () => {
+      try {
+        await save({ flush: true });
+      } catch {
+        tryAddInventoryItemByName(itemName);
+        reconcileQuickslotsWithInventory(player);
+        renderBottomQuickslots();
+        showModal("Could not save — the potion was not consumed.");
         return;
       }
-      removeOneFromInventory(itemName);
-      reconcileQuickslotsWithInventory(player);
-      save();
-      render();
+      const ok = await commitWorldMapPosition(dest.x, dest.y, "teleport_potion");
+      if (!ok) {
+        tryAddInventoryItemByName(itemName);
+        reconcileQuickslotsWithInventory(player);
+        try {
+          await save({ flush: true });
+        } catch {
+          /* ignore refund save failure */
+        }
+        renderBottomQuickslots();
+        return;
+      }
       renderBottomQuickslots();
       showModal(`You arrive at ${dest.label}.`);
-    });
+    })();
   }
 }
 
@@ -13047,23 +13068,7 @@ function tryAdventureBackgroundExtensions(pathBase, onUrl) {
  * Resolves the same URL as adventure background (override, city, or biome).
  * @param {(url: string | null, isCityArt: boolean) => void} onResolved isCityArt true only for city folder images.
  */
-function resolveAdventureBackgroundUrl(x, y, coordBgUrl, onResolved) {
-  const override = coordBgUrl && String(coordBgUrl).trim() ? String(coordBgUrl).trim() : "";
-  if (override) {
-    onResolved(override, false);
-    return;
-  }
-  const cityNm = getWorldMapCityName(x, y);
-  if (cityNm) {
-    const base = cityBackgroundFolderBaseUrl(cityNm);
-    if (!base) {
-      onResolved(null, false);
-      return;
-    }
-    const variant = getCityAdventureBackgroundVariant(x, y, cityNm);
-    tryAdventureBackgroundExtensions(`${base}/${variant}`, (url) => onResolved(url, true));
-    return;
-  }
+function resolveAdventureBackgroundBiomeFallback(x, y, onResolved) {
   const biome = getWorldBiomeDefAt(x, y);
   if (!biome || !biome.name) {
     onResolved(null, false);
@@ -13076,6 +13081,35 @@ function resolveAdventureBackgroundUrl(x, y, coordBgUrl, onResolved) {
   }
   const variant = biomeBackgroundVariantIndex(x, y);
   tryAdventureBackgroundExtensions(`${base}/${variant}`, (url) => onResolved(url, false));
+}
+
+function resolveAdventureBackgroundUrl(x, y, coordBgUrl, onResolved) {
+  const override = coordBgUrl && String(coordBgUrl).trim() ? String(coordBgUrl).trim() : "";
+  if (override) {
+    const img = new Image();
+    img.onload = () => onResolved(override, false);
+    img.onerror = () => resolveAdventureBackgroundBiomeFallback(x, y, onResolved);
+    img.src = override;
+    return;
+  }
+  const cityNm = getWorldMapCityName(x, y);
+  if (cityNm) {
+    const base = cityBackgroundFolderBaseUrl(cityNm);
+    if (!base) {
+      resolveAdventureBackgroundBiomeFallback(x, y, onResolved);
+      return;
+    }
+    const variant = getCityAdventureBackgroundVariant(x, y, cityNm);
+    tryAdventureBackgroundExtensions(`${base}/${variant}`, (url) => {
+      if (url) {
+        onResolved(url, true);
+        return;
+      }
+      resolveAdventureBackgroundBiomeFallback(x, y, onResolved);
+    });
+    return;
+  }
+  resolveAdventureBackgroundBiomeFallback(x, y, onResolved);
 }
 
 /**
