@@ -3460,70 +3460,10 @@ const PROFESSION_GATHERING_MATERIALS = new Set([
   "Bound Soul"
 ]);
 
-const PROFESSION_GATHERING_TABLES = Object.freeze({
-  skinner: Object.freeze({
-    beast: Object.freeze({
-      t1: Object.freeze(["Raw Hide", "Thin Fur", "Soft Leather"]),
-      t2: Object.freeze(["Tough Hide", "Thick Fur", "Treated Leather"]),
-      t3: Object.freeze(["Reinforced Hide", "Dense Fur", "Hardened Leather"]),
-      t4: Object.freeze(["Elite Hide", "Primal Fur", "Flexible Reinforced Leather"]),
-      t5: Object.freeze(["Mythic Hide", "Alpha Pelt", "Perfected Leather"])
-    })
-  }),
-  extractor: Object.freeze({
-    beast: Object.freeze({
-      t1: Object.freeze(["Bone Fragment", "Small Tooth"]),
-      t2: Object.freeze(["Dense Bone", "Sharp Fang"]),
-      t3: Object.freeze(["Reinforced Bone", "Heavy Fang"]),
-      t4: Object.freeze(["Elite Bone", "Predator Fang"]),
-      t5: Object.freeze(["Titan Bone", "Apex Core"])
-    }),
-    stone: Object.freeze({
-      t1: Object.freeze(["Stone Fragment", "Rough Core"]),
-      t2: Object.freeze(["Dense Stone", "Solid Core"]),
-      t3: Object.freeze(["Reinforced Stone", "Stable Core"]),
-      t4: Object.freeze(["Crystal Stone", "Hardened Core"]),
-      t5: Object.freeze(["Titan Core", "Crystalized Core"])
-    }),
-    construct: Object.freeze({
-      t1: Object.freeze(["Metal Scrap"]),
-      t2: Object.freeze(["Reinforced Scrap"]),
-      t3: Object.freeze(["Mechanism Part"]),
-      t4: Object.freeze(["Advanced Mechanism"]),
-      t5: Object.freeze(["Perfect Core"])
-    }),
-    undead: Object.freeze({
-      t1: Object.freeze(["Bone Dust"]),
-      t2: Object.freeze(["Fragmented Core"]),
-      t3: Object.freeze(["Spirit Core"]),
-      t4: Object.freeze(["Condensed Soul"]),
-      t5: Object.freeze(["Ancient Soul Core"])
-    })
-  }),
-  harvester: Object.freeze({
-    nature: Object.freeze({
-      t1: Object.freeze(["Seeds", "Plant Fiber"]),
-      t2: Object.freeze(["Growth Seed", "Bark"]),
-      t3: Object.freeze(["Living Fiber", "Bark Fragment"]),
-      t4: Object.freeze(["Ancient Seed", "Vital Growth"]),
-      t5: Object.freeze(["World Seed", "Life Core"])
-    }),
-    elemental: Object.freeze({
-      t1: Object.freeze(["Residue"]),
-      t2: Object.freeze(["Infused Dust"]),
-      t3: Object.freeze(["Elemental Fragment"]),
-      t4: Object.freeze(["Charged Core"]),
-      t5: Object.freeze(["Pure Essence"])
-    }),
-    undead: Object.freeze({
-      t1: Object.freeze(["Faint Residue"]),
-      t2: Object.freeze(["Soul Dust"]),
-      t3: Object.freeze(["Spirit Thread"]),
-      t4: Object.freeze(["Echo Fragment"]),
-      t5: Object.freeze(["Bound Soul"])
-    })
-  })
-});
+const PROFESSION_GATHERING_TABLES =
+  typeof GatheringTables !== "undefined" && GatheringTables.PROFESSION_GATHERING_TABLES
+    ? GatheringTables.PROFESSION_GATHERING_TABLES
+    : Object.freeze({});
 
 function isConfiguredMonsterMaterialName(name) {
   const n = String(name || "").trim();
@@ -16359,47 +16299,55 @@ function getGatheringDropChancePctForLevel(level) {
   return 5;
 }
 
-function collectProfessionGatheringLootForFoe(foe, def, moodLootMult, actor, chanceMultiplier) {
-  if (!def) return [];
-  const selected = getActorGatheringProfessionIds(actor || player);
-  if (!selected.length) return [];
-  const cats = getMonsterGatheringCategories(def);
-  if (!cats.length) return [];
-  const mlRaw =
-    foe && typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
-  const ml = Math.max(1, Math.floor(mlRaw));
-  const tier = getGatheringTierIdByLevel(ml);
-  const basePct = getGatheringDropChancePctForLevel(ml);
-  const materialPool = new Set();
-  selected.forEach((profId) => {
-    const profTbl = PROFESSION_GATHERING_TABLES[profId];
-    if (!profTbl) return;
-    cats.forEach((c) => {
-      if (!canProfessionGatherFromCategory(profId, c)) return;
-      const byTier = profTbl[c];
-      if (!byTier || !Array.isArray(byTier[tier])) return;
-      byTier[tier].forEach((n) => {
-        const k = String(n || "").trim();
-        if (k) materialPool.add(k);
-      });
-    });
-    if (profId === "skinner" && cats.includes("beast") && cats.includes("nature")) {
-      if (tier === "t2" || tier === "t3" || tier === "t4" || tier === "t5") materialPool.add("Bark Fiber");
-      if (tier === "t4" || tier === "t5") materialPool.add("Living Bark");
-      if (tier === "t5") materialPool.add("Ancient Bark");
+function clientGatherRng() {
+  return {
+    chance(pct) {
+      return Math.random() * 100 < pct;
     }
-  });
-  if (!materialPool.size) return [];
-  const out = [];
-  const baseMult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
-  const actorMult = Number.isFinite(chanceMultiplier) && chanceMultiplier > 0 ? chanceMultiplier : 1;
-  const mult = baseMult * actorMult;
-  materialPool.forEach((matName) => {
-    const rolled = rollItemDropEntry({ name: matName, dropRate: basePct }, mult);
-    if (rolled) out.push(rolled);
-  });
-  return out;
+  };
 }
+
+function getGatheringDepsClient() {
+  return {
+    config: GAME_CONFIG,
+    PP: typeof ProfessionProgression !== "undefined" ? ProfessionProgression : null,
+    GatherXp: typeof GatherXp !== "undefined" ? GatherXp : null,
+    tables: PROFESSION_GATHERING_TABLES
+  };
+}
+
+function applyGatherProfessionXpFromMemberRewards(memberRewards) {
+  if (typeof GatheringLoot === "undefined" || typeof ProfessionProgression === "undefined") return;
+  (memberRewards || []).forEach((row) => {
+    if (!row?.gatherEvents?.length) return;
+    let actor = player;
+    if (row.kind === "companion" && typeof row.companionSlotIndex === "number") {
+      actor = player?.companions?.[row.companionSlotIndex];
+    }
+    if (actor) GatheringLoot.applyGatherEventsToActor(actor, row.gatherEvents, ProfessionProgression);
+  });
+}
+
+function canRollLegacyConditionedMonsterMaterialForActor(mat, actor) {
+  if (typeof GatheringLoot === "undefined") {
+    const condRaw =
+      mat && typeof mat.condition === "string"
+        ? mat.condition
+        : mat && typeof mat.requiredProfession === "string"
+          ? mat.requiredProfession
+          : "";
+    const cond = condRaw.trim().toLowerCase();
+    if (!cond || cond === "none" || cond === "any") return true;
+    const selected = getActorSelectedProfessions(actor || player).map((id) => String(id).trim().toLowerCase());
+    return selected.includes(cond);
+  }
+  const cond = GatheringLoot.getMaterialCondition(mat);
+  if (!cond || cond === "none" || cond === "any") return true;
+  if (GatheringLoot.isGatheringProfessionCondition(cond)) return false;
+  const selected = getActorSelectedProfessions(actor || player).map((id) => String(id).trim().toLowerCase());
+  return selected.includes(cond);
+}
+
 /** In-fight companions eligible for bonus loot rolls (`{ comp, slotIndex }`). */
 function getCompanionLootEntriesFromParty(party) {
   const out = [];
@@ -16416,78 +16364,33 @@ function getCompanionLootEntriesFromParty(party) {
   });
   return out;
 }
-function collectCompanionProfessionLootForFoeAttributed(foe, def, moodLootMult, perKillMaterials, companionEntries) {
-  const bySlot = {};
-  if (!def || !Array.isArray(companionEntries) || !companionEntries.length) return bySlot;
-  const baseMult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
-  companionEntries.forEach(({ comp, slotIndex }) => {
-    if (!comp || !comp.enabled) return;
-    const bucket = bySlot[slotIndex] || (bySlot[slotIndex] = []);
-    const selectedGathering = getActorGatheringProfessionIds(comp);
-    if (!selectedGathering.length) return;
-    if (Array.isArray(perKillMaterials) && perKillMaterials.length) {
-      perKillMaterials.forEach((mat) => {
-        if (!mat || typeof mat.name !== "string") return;
-        const cond = getMonsterMaterialCondition(mat);
-        if (!cond || cond === "none" || cond === "any") return;
-        if (!canRollConditionedMonsterMaterialForActor(mat, comp)) return;
-        const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, baseMult * COMPANION_LOOT_CHANCE_MULT);
-        if (rolled) bucket.push(rolled);
-      });
-    }
-    collectProfessionGatheringLootForFoe(foe, def, baseMult, comp, COMPANION_LOOT_CHANCE_MULT).forEach((n) => bucket.push(n));
-  });
-  return bySlot;
-}
 
-function getMonsterMaterialCondition(mat) {
-  if (!mat || typeof mat !== "object") return false;
-  const condRaw =
-    typeof mat.condition === "string"
-      ? mat.condition
-      : typeof mat.requiredProfession === "string"
-        ? mat.requiredProfession
-        : "";
-  return condRaw.trim().toLowerCase();
-}
-
-function canRollConditionedMonsterMaterialForActor(mat, actor) {
-  const cond = getMonsterMaterialCondition(mat);
-  if (!cond || cond === "none" || cond === "any") return true;
-  const selected = getActorSelectedProfessions(actor || player).map((id) => String(id || "").trim().toLowerCase());
-  return selected.includes(cond);
-}
-
-function canRollConditionedMonsterMaterial(mat) {
-  return canRollConditionedMonsterMaterialForActor(mat, player);
-}
-/** @returns {{ hero: string[], companionBySlot: Record<number, string[]> }} */
+/** @returns {{ hero: string[], companionBySlot: Record<number, string[]>, heroGatherEvents: Array, companionGatherEventsBySlot: Record<number, Array> }} */
 function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, companionEntries) {
   const table = getMonsterLootDropTable(def);
-  const hero = [];
-  const companionBySlot = {};
-  if (!table) return { hero, companionBySlot };
+  const empty = { hero: [], companionBySlot: {}, heroGatherEvents: [], companionGatherEventsBySlot: {} };
+  if (!table) return empty;
+  if (typeof GatheringLoot === "undefined") return empty;
 
-  const mlRaw =
-    typeof foe.level === "number" && foe.level > 0 ? foe.level : def ? pickLevelFromEnemyDef(def) : 1;
-  const ml = Math.max(1, Math.floor(mlRaw));
   const mult = Number.isFinite(moodLootMult) && moodLootMult > 0 ? moodLootMult : 1;
   const entries = Array.isArray(companionEntries) ? companionEntries : [];
+  const deps = getGatheringDepsClient();
+  const rng = clientGatherRng();
+  const { normal, gathering } = GatheringLoot.splitMonsterMaterials(table);
+
+  const hero = [];
+  const companionBySlot = {};
   entries.forEach(({ slotIndex }) => {
     if (typeof slotIndex === "number") companionBySlot[slotIndex] = [];
   });
 
-  const allMats = Array.isArray(table.materials) ? table.materials : [];
   const passMaterials = [];
   const perKillMaterials = [];
-  allMats.forEach((mat) => {
-    if (!mat || typeof mat.name !== "string") return;
-    const isConditioned =
-      (typeof mat.condition === "string" && mat.condition.trim()) ||
-      (typeof mat.requiredProfession === "string" && mat.requiredProfession.trim());
-    if (mat.perKill || isConditioned) perKillMaterials.push(mat);
+  normal.forEach((mat) => {
+    if (mat.perKill) perKillMaterials.push(mat);
     else passMaterials.push(mat);
   });
+
   const passes = rollMaterialPassCount();
   for (let p = 0; p < passes; p++) {
     passMaterials.forEach((mat) => {
@@ -16497,10 +16400,11 @@ function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, compani
     });
   }
   perKillMaterials.forEach((mat) => {
-    if (!canRollConditionedMonsterMaterial(mat)) return;
+    if (!canRollLegacyConditionedMonsterMaterialForActor(mat, player)) return;
     const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, mult);
     if (rolled) hero.push(rolled);
   });
+
   entries.forEach(({ comp, slotIndex }) => {
     if (!comp || !comp.enabled || typeof slotIndex !== "number") return;
     const bucket = companionBySlot[slotIndex] || (companionBySlot[slotIndex] = []);
@@ -16515,13 +16419,34 @@ function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, compani
     }
     perKillMaterials.forEach((mat) => {
       if (!mat || typeof mat.name !== "string") return;
-      const cond = getMonsterMaterialCondition(mat);
+      const cond = GatheringLoot.getMaterialCondition(mat);
       if (cond && cond !== "none" && cond !== "any") return;
       const rolled = rollItemDropEntry({ name: mat.name.trim(), dropRate: mat.dropRate }, companionMult);
       if (rolled) bucket.push(rolled);
     });
   });
-  collectProfessionGatheringLootForFoe(foe, def, mult, player, 1).forEach((n) => hero.push(n));
+
+  const heroGather = GatheringLoot.collectGatheringLootForActor(rng, foe, def, player, gathering, deps, mult);
+  hero.push(...heroGather.items);
+
+  const companionGatherEventsBySlot = {};
+  entries.forEach(({ comp, slotIndex }) => {
+    if (!comp || !comp.enabled || typeof slotIndex !== "number") return;
+    const bucket = companionBySlot[slotIndex] || (companionBySlot[slotIndex] = []);
+    const compGather = GatheringLoot.collectGatheringLootForActor(
+      rng,
+      foe,
+      def,
+      comp,
+      gathering,
+      deps,
+      mult * COMPANION_LOOT_CHANCE_MULT
+    );
+    bucket.push(...compGather.items);
+    if (compGather.gatherEvents.length) companionGatherEventsBySlot[slotIndex] = compGather.gatherEvents;
+  });
+
+  const allMats = Array.isArray(table.materials) ? table.materials : [];
   if ((foe?.isBoss === true || (def && def.isBoss === true)) && !hero.length && allMats.length) {
     let sig = allMats[0];
     for (const mat of allMats) {
@@ -16531,13 +16456,13 @@ function collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, compani
     }
     if (sig?.name) hero.push(String(sig.name).trim());
   }
-  const profBySlot = collectCompanionProfessionLootForFoeAttributed(foe, def, mult, perKillMaterials, entries);
-  Object.keys(profBySlot).forEach((slot) => {
-    const idx = Number(slot);
-    const bucket = companionBySlot[idx] || (companionBySlot[idx] = []);
-    bucket.push(...(profBySlot[slot] || []));
-  });
-  return { hero, companionBySlot };
+
+  return {
+    hero,
+    companionBySlot,
+    heroGatherEvents: heroGather.gatherEvents,
+    companionGatherEventsBySlot
+  };
 }
 
 /**
@@ -16747,7 +16672,7 @@ function computeVictoryLoot(foes, party, lootContext) {
   /** @type {Record<string, { key: string, kind: string, name: string, level?: number, xp: number, gold: number, items: string[], companionSlotIndex?: number }>} */
   const byKey = {};
   xpByMember.forEach((row) => {
-    byKey[row.key] = { ...row, gold: 0, items: [] };
+    byKey[row.key] = { ...row, gold: 0, items: [], gatherEvents: [] };
   });
 
   const companionEntries = getCompanionLootEntriesFromParty(party);
@@ -16767,16 +16692,18 @@ function computeVictoryLoot(foes, party, lootContext) {
       if (Math.random() < COMPANION_LOOT_CHANCE_MULT) byKey[key].gold += rollGoldDrop(goldSpec);
     });
     if (table) {
-      const { hero, companionBySlot } = collectMonsterTableLootForFoeAttributed(
-        foe,
-        def,
-        moodLootMult,
-        companionEntries
-      );
-      if (byKey.hero) byKey.hero.items.push(...hero);
-      Object.keys(companionBySlot).forEach((slot) => {
+      const loot = collectMonsterTableLootForFoeAttributed(foe, def, moodLootMult, companionEntries);
+      if (byKey.hero) {
+        byKey.hero.items.push(...loot.hero);
+        if (loot.heroGatherEvents?.length) byKey.hero.gatherEvents.push(...loot.heroGatherEvents);
+      }
+      Object.keys(loot.companionBySlot || {}).forEach((slot) => {
         const key = `c${slot}`;
-        if (byKey[key]) byKey[key].items.push(...(companionBySlot[slot] || []));
+        if (byKey[key]) {
+          byKey[key].items.push(...(loot.companionBySlot[slot] || []));
+          const evts = loot.companionGatherEventsBySlot?.[slot];
+          if (evts?.length) byKey[key].gatherEvents.push(...evts);
+        }
       });
     }
     const eggDrop = rollPetEggLootForFoe(foe, def, lootContext);
@@ -20629,6 +20556,7 @@ function applyFightResult(result) {
     player.gold += result.gold;
     result.items.forEach((it) => player.inventory.push(it));
     awardVictoryXpToParty(result.memberRewards);
+    applyGatherProfessionXpFromMemberRewards(result.memberRewards);
   } else {
     player.hp = Math.max(1, result.finalPlayerHp);
   }
