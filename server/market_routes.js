@@ -59,6 +59,7 @@ export function registerMarketRoutes(app) {
           expiresAt: l.expiresAt
         })),
         listable,
+        inventory: Array.isArray(player.inventory) ? player.inventory.slice() : [],
         maxListings: MARKET_MAX_LISTINGS,
         activeCount: listings.length
       });

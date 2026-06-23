@@ -30,10 +30,30 @@ export function getItemBaseName(name) {
   return raw.slice(0, sep);
 }
 
+/** Renamed items: old base names in saves still resolve to the new definition. */
+const ITEM_DEF_LEGACY_BASE_NAMES = Object.freeze({
+  "Mirage Hood": "Mirage Helm",
+  "Thick Scale": "Stone Scale",
+  "Spirit Bark": "Bark Fragment",
+  "Antler Fragment": "Antler Piece",
+  "Toxic Extract": "Toxic Essence",
+  "Illusion Fragment": "Illusion Essence",
+  "Claw Gloves": "Claw Ring",
+  "Rockstep Boots": "Rock Serpent Boots",
+  "Earth Loop": "Serpent Grip",
+  "Stone Helm": "Stone Lizzard Helmet",
+  "Stonehide Armor": "Stonescale Armor",
+  "Core Leggings": "Stonescale Leggings",
+  "Earthpulse Amulet": "Stonepulse Amulet",
+  "Earthcaller Staff": "Stonecaller",
+  "Crystal Band": "Stonekind Band"
+});
+
 export function resolveItemDef(name) {
   const base = getItemBaseName(name);
   if (!base) return null;
-  return lookupItemDef(base);
+  const lookup = ITEM_DEF_LEGACY_BASE_NAMES[base] || base;
+  return lookupItemDef(lookup);
 }
 
 export function getItemEquipCategory(def) {

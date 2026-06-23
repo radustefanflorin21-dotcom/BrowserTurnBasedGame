@@ -24422,6 +24422,7 @@ function buildAtlasPanelHtml() {
 let marketPanelTab = "browse";
 let marketBrowseCache = null;
 let marketSellCache = null;
+let marketAuthoritativeInventory = null;
 let marketMailCache = null;
 let marketSearchText = "";
 let marketFilterCategory = "";
@@ -24477,28 +24478,77 @@ function isMarketStackableItemName(itemName) {
 
 function getMarketEquippedItemNamesSet() {
   const equipped = new Set();
+  const add = (v) => {
+    if (typeof v !== "string") return;
+    const s = v.trim();
+    if (s) equipped.add(s);
+  };
   const eq = player && player.equipment;
   if (eq && typeof eq === "object") {
-    Object.values(eq).forEach((v) => {
-      if (typeof v === "string" && v.trim()) equipped.add(v);
-    });
+    Object.values(eq).forEach(add);
   }
   if (player && Array.isArray(player.companions)) {
     player.companions.forEach((c) => {
       if (!c || !c.equipment) return;
-      Object.values(c.equipment).forEach((v) => {
-        if (typeof v === "string" && v.trim()) equipped.add(v);
-      });
+      Object.values(c.equipment).forEach(add);
     });
   }
   return equipped;
 }
 
-function getMarketListableInventoryNames() {
+function getMarketBagInventory() {
+  if (Array.isArray(marketAuthoritativeInventory)) return marketAuthoritativeInventory;
+  return Array.isArray(player?.inventory) ? player.inventory : [];
+}
+
+function isMarketBagItemEquipped(name) {
+  if (!name) return false;
   const equipped = getMarketEquippedItemNamesSet();
-  return (Array.isArray(player.inventory) ? player.inventory : []).filter(
-    (name) => name && !equipped.has(name) && getItemDef(getItemBaseName(name))
-  );
+  const raw = String(name);
+  return equipped.has(raw) || equipped.has(raw.trim());
+}
+
+function categorizeMarketBagInventory() {
+  const equipment = [];
+  const resources = [];
+  const consumables = [];
+  getMarketBagInventory().forEach((name) => {
+    if (!name || isMarketBagItemEquipped(name)) return;
+    const def = getItemDef(name);
+    if (!def) return;
+    if (def.type === "consumable") consumables.push(name);
+    else if (def.type === "resource") resources.push(name);
+    else if (def.type === "pet" || isEquippableItemDef(def)) equipment.push(name);
+    else resources.push(name);
+  });
+  return { equipment, resources, consumables };
+}
+
+function getMarketListablePlayerSnapshot() {
+  if (!player) return null;
+  return { ...player, inventory: getMarketBagInventory() };
+}
+
+function getMergedMarketListableGroups() {
+  const byKey = new Map();
+  const add = (g) => {
+    if (!g) return;
+    const key = g.stackable ? g.baseName : g.itemName;
+    if (!key) return;
+    const prev = byKey.get(key);
+    if (!prev || (Number(g.count) || 0) > (Number(prev.count) || 0)) byKey.set(key, g);
+  };
+  const serverList = marketSellCache && Array.isArray(marketSellCache.listable) ? marketSellCache.listable : [];
+  serverList.forEach(add);
+  const snapshot = getMarketListablePlayerSnapshot();
+  if (typeof MarketListable !== "undefined" && snapshot) {
+    MarketListable.getMarketListableInventory(snapshot, {
+      getItemBaseName,
+      getMarketItemMeta: getClientMarketItemMeta,
+      stackSizes: [1, 10, 100]
+    }).forEach(add);
+  }
+  return [...byKey.values()];
 }
 
 function buildMarketCellRarityHtml(itemName, { show } = { show: true }) {
@@ -24559,40 +24609,28 @@ function getClientMarketItemMeta(itemName) {
 
 function getMarketListableKeysFromCache() {
   const keys = new Set();
-  const listable =
-    marketSellCache && Array.isArray(marketSellCache.listable) ? marketSellCache.listable : [];
-  listable.forEach((g) => {
+  getMergedMarketListableGroups().forEach((g) => {
     if (!g) return;
     keys.add(g.stackable ? g.baseName : g.itemName);
   });
-  if (typeof MarketListable !== "undefined" && player) {
-    const local = MarketListable.getMarketListableInventory(player, {
-      getItemBaseName,
-      getMarketItemMeta: getClientMarketItemMeta,
-      stackSizes: [1, 10, 100]
-    });
-    local.forEach((g) => {
-      if (!g) return;
-      keys.add(g.stackable ? g.baseName : g.itemName);
-    });
-  }
   return keys;
 }
 
 function getMarketInventoryDisplayNames() {
-  const equipped = getMarketEquippedItemNamesSet();
-  return (Array.isArray(player.inventory) ? player.inventory : []).filter(
-    (name) => name && !equipped.has(name) && getItemDef(getItemBaseName(name))
-  );
+  const cat = categorizeMarketBagInventory();
+  return [...cat.equipment, ...cat.consumables, ...cat.resources];
 }
 
 function filterMarketInventoryNames(names, categoryFilter) {
   const cat = typeof categoryFilter === "string" ? categoryFilter.trim().toLowerCase() : "";
   if (!cat) return names;
+  if (cat === "equip") {
+    const equipSet = new Set(categorizeMarketBagInventory().equipment);
+    return names.filter((name) => equipSet.has(name));
+  }
   return names.filter((name) => {
-    const def = getItemDef(getItemBaseName(name));
+    const def = getItemDef(name);
     if (!def) return false;
-    if (cat === "equip") return isEquippableItemDef(def);
     const t = String(def.type || "").trim().toLowerCase();
     if (cat === "consumable") return t === "consumable";
     if (cat === "resource") return t === "resource";
@@ -24715,6 +24753,15 @@ async function refreshMarketPanelData(tab) {
     }
     if (tab === "sell" || tab === "all") {
       marketSellCache = await gs.fetchMyMarketListings(activeCharacterSlotIndex);
+      marketAuthoritativeInventory =
+        marketSellCache && Array.isArray(marketSellCache.inventory)
+          ? marketSellCache.inventory.slice()
+          : null;
+      if (marketAuthoritativeInventory && player && activeCharacterSlotIndex != null) {
+        player.inventory = marketAuthoritativeInventory.slice();
+        ensureCharacterRoster();
+        characterRoster.slots[activeCharacterSlotIndex] = player;
+      }
     }
     if (tab === "mail" || tab === "all") {
       marketMailCache = await gs.fetchMail(50);
@@ -24807,8 +24854,7 @@ function buildMarketPurchaseTableHtml() {
 }
 
 function buildMarketSaleListFormHtml() {
-  const data = marketSellCache;
-  const listable = data && Array.isArray(data.listable) ? data.listable : [];
+  const listable = getMergedMarketListableGroups();
   const selected = listable.find((g) => {
     const key = g.stackable ? g.baseName : g.itemName;
     return key === marketSelectedSellKey;
@@ -24931,7 +24977,7 @@ function buildMarketInventoryColumnHtml() {
   }).join("");
   const sellHint =
     marketPanelTab === "sell"
-      ? `<p class="market-sidebar-hint">Click a highlighted slot to list it.</p>`
+      ? `<p class="market-sidebar-hint">Click a highlighted slot to list it. Dimmed items cannot be sold (equipped or unknown). Unequip gear first if needed.</p>`
       : `<p class="market-sidebar-hint">Switch to Sale to list items from your bag.</p>`;
   return `<aside class="market-col market-col--inventory" aria-label="Inventory">
     <header class="market-inventory-head">
@@ -25058,6 +25104,7 @@ function closeMenuPanel() {
   if (!modal) return;
   hideItemTooltip();
   activeMenuPanel = null;
+  marketAuthoritativeInventory = null;
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   const host = document.getElementById("menuPanelContent");
@@ -26804,6 +26851,7 @@ function onContentClick(e) {
   const marketTabBtn = e.target.closest("[data-market-tab]");
   if (marketTabBtn && marketTabBtn.dataset.marketTab) {
     marketPanelTab = marketTabBtn.dataset.marketTab;
+    if (marketPanelTab === "sell") marketInvFilterCategory = "";
     void refreshMarketPanelData(marketPanelTab).then(() => renderMenuPanelContent());
     return;
   }
