@@ -22566,9 +22566,22 @@ function buildOverviewHtml() {
       </div>`;
     })
     .join("");
+  const selectedProfProgressHtml =
+    selectedProfIds.length > 0
+      ? `<div class="professions-progress-section">
+          <p class="professions-progress-heading">Progression</p>
+          <div class="professions-progress-list">${selectedProfIds
+            .map((id) => {
+              const d = getProfessionDefById(id);
+              return buildProfessionXpBarHtml(actor, id, d?.label || id);
+            })
+            .join("")}</div>
+        </div>`
+      : "";
   const professionsTabHtml = `<div class="professions-tab-inner">
     <div class="stat-plain-row"><span>Chosen</span><strong>${selectedProfIds.length}/${maxProf}</strong></div>
     ${profRows}
+    ${selectedProfProgressHtml}
   </div>`;
 
   let statsBodyHtml = "";

@@ -1871,6 +1871,38 @@ body.edit-mode-on .portrait-equip-layer--pet {
   border-radius: 2px;
 }
 
+.professions-progress-section {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.professions-progress-heading {
+  margin: 0 0 6px;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: var(--overview-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.professions-tab-inner .professions-progress-list .crafting-prof-progress {
+  margin-bottom: 8px;
+}
+
+.professions-tab-inner .professions-progress-list .crafting-prof-progress:last-child {
+  margin-bottom: 0;
+}
+
+.professions-tab-inner .crafting-prof-summary {
+  font-size: 0.58rem;
+  margin-bottom: 4px;
+}
+
+.professions-tab-inner .crafting-prof-progress .stat-bar-row {
+  font-size: 0.5rem;
+}
+
 .crafting-profession-tabs {
   margin-bottom: 10px;
 }
