@@ -21086,9 +21086,15 @@ function buildInventoryStacks(names, stackLimit = INVENTORY_STACK_LIMIT) {
   return out;
 }
 
-function buildInventoryGridHtml(names, tabKind) {
+function buildInventoryGridHtml(names, tabKind, options) {
+  const opts = options && typeof options === "object" ? options : {};
   const stacks = buildInventoryStacks(names);
-  const total = Math.max(stacks.length, INV_VISIBLE_SLOTS);
+  const minSlots =
+    typeof opts.minSlots === "number" && Number.isFinite(opts.minSlots)
+      ? Math.max(0, Math.floor(opts.minSlots))
+      : INV_VISIBLE_SLOTS;
+  const total = Math.max(stacks.length, minSlots);
+  const listableKeys = opts.listableKeys instanceof Set ? opts.listableKeys : null;
   const cells = [];
   for (let i = 0; i < total; i++) {
     const stack = stacks[i];
@@ -21101,7 +21107,26 @@ function buildInventoryGridHtml(names, tabKind) {
     const esc = escapeAttr(name);
     const img = invCellImg(name);
     const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
-    if (tabKind === "equipment") {
+    if (tabKind === "market-sell") {
+      const stackable = isMarketStackableItemName(name);
+      const pickKey = stackable ? getItemBaseName(name) : name;
+      const listable = listableKeys ? listableKeys.has(pickKey) : false;
+      const selected =
+        listable &&
+        opts.selectedKey === pickKey &&
+        (stackable || !opts.selectedItemName || opts.selectedItemName === name);
+      const dimClass = listable ? "" : " market-inv-cell--dim";
+      const selClass = selected ? " is-selected" : "";
+      if (listable) {
+        cells.push(
+          `<button type="button" class="inv-cell market-sell-cell${selClass}${dimClass}" data-market-pick-item="${escapeAttr(pickKey)}" data-market-pick-name="${esc}" data-item-name="${esc}">${img}${qtyBadge}</button>`
+        );
+      } else {
+        cells.push(
+          `<div class="inv-cell inv-cell--no-sell${dimClass}" data-item-name="${esc}" aria-hidden="false">${img}${qtyBadge}</div>`
+        );
+      }
+    } else if (tabKind === "equipment") {
       cells.push(
         `<div class="inv-cell" draggable="true" data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`
       );
@@ -24635,40 +24660,14 @@ const MARKET_INV_FILTERS = [
 
 function buildMarketInventorySidebarGridHtml() {
   const names = getMarketInventoryDisplayNames();
-  const stacks = buildInventoryStacks(names);
-  const listableKeys = getMarketListableKeysFromCache();
   const sellMode = marketPanelTab === "sell";
-  const rowCount = Math.max(1, Math.ceil(stacks.length / INV_COLS));
-  const total = Math.max(stacks.length, rowCount * INV_COLS);
-  const cells = [];
-  for (let i = 0; i < total; i++) {
-    const stack = stacks[i];
-    if (!stack) {
-      cells.push('<div class="inv-cell inv-empty" aria-hidden="true"></div>');
-      continue;
-    }
-    const name = stack.name;
-    const stackable = isMarketStackableItemName(name);
-    const pickKey = stackable ? getItemBaseName(name) : name;
-    const listable = listableKeys.has(pickKey);
-    const selected =
-      sellMode &&
-      listable &&
-      marketSelectedSellKey === pickKey &&
-      (stackable || marketSelectedSellItemName === name || !marketSelectedSellItemName);
-    const dimClass = sellMode && !listable ? " market-inv-cell--dim" : "";
-    cells.push(
-      buildMarketInvCellHtml(name, {
-        qty: stack.qty,
-        showRarityText: !stackable,
-        asButton: sellMode && listable,
-        extraClass: `market-sidebar-cell${dimClass}${sellMode && listable ? " market-sell-cell" : ""}`,
-        selected,
-        pickKey: sellMode && listable ? pickKey : null
-      })
-    );
-  }
-  return `<div class="inv-grid-wrap market-sidebar-inv-wrap"><div class="inv-grid-scroll"><div class="inv-grid market-sidebar-inv-grid">${cells.join("")}</div></div></div>`;
+  const tabKind = sellMode ? "market-sell" : "equipment";
+  const grid = buildInventoryGridHtml(names, tabKind, {
+    listableKeys: sellMode ? getMarketListableKeysFromCache() : null,
+    selectedKey: marketSelectedSellKey,
+    selectedItemName: marketSelectedSellItemName
+  });
+  return `<div class="inv-grid-wrap market-inventory-grid-wrap">${grid}</div>`;
 }
 
 function buildMarketBrowseItemCellHtml(itemName) {
@@ -24935,23 +24934,19 @@ function buildMarketCenterColumnHtml() {
 
 function buildMarketInventoryColumnHtml() {
   const invTabs = MARKET_INV_FILTERS.map((f) => {
-    const active = marketInvFilterCategory === f.id ? " is-active" : "";
-    return `<button type="button" class="market-inv-filter-btn${active}" data-market-inv-filter="${escapeAttr(f.id)}" title="${escapeAttr(f.label)}">${escapeHtml(f.label)}</button>`;
+    const active = marketInvFilterCategory === f.id ? " active" : "";
+    return `<button type="button" class="inv-tab${active}" data-market-inv-filter="${escapeAttr(f.id)}" title="${escapeAttr(f.label)}">${escapeHtml(f.label)}</button>`;
   }).join("");
   const sellHint =
     marketPanelTab === "sell"
-      ? `<p class="market-sidebar-hint">Click a highlighted slot to list it. Dimmed items cannot be sold (equipped or unknown). Unequip gear first if needed.</p>`
+      ? `<p class="market-sidebar-hint">Click an item in your bag to list it. Dimmed slots are equipped or cannot be sold.</p>`
       : `<p class="market-sidebar-hint">Switch to Sale to list items from your bag.</p>`;
-  return `<aside class="market-col market-col--inventory" aria-label="Inventory">
-    <header class="market-inventory-head">
-      <h3 class="market-inventory-title">Inventory</h3>
-      <div class="market-inv-filter-row">${invTabs}</div>
-    </header>
+  return `<aside class="market-col market-col--inventory panel-inventory inventory-panel" aria-label="Inventory">
+    <div class="inventory-panel-head">Inventory</div>
+    <div class="inv-tabs" role="tablist">${invTabs}</div>
     ${sellHint}
     ${buildMarketInventorySidebarGridHtml()}
-    <footer class="market-inventory-foot">
-      <span class="market-inventory-gold">Your gold: <strong>${player.gold || 0}</strong></span>
-    </footer>
+    <div class="currency-bar market-inventory-foot">Gold: <strong>${player.gold || 0}</strong></div>
   </aside>`;
 }
 
