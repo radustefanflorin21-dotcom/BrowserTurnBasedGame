@@ -168,6 +168,23 @@ export function mergePlayerProgression(authoritative, incoming, pendingGrants) {
     authoritative.companions.forEach((authC, idx) => {
       const outC = out.companions[idx];
       if (!authC || !outC) return;
+      const authLv = Math.max(1, Math.floor(Number(authC.level) || 1));
+      const incLv = Math.max(1, Math.floor(Number(outC.level) || 1));
+      if (incLv < authLv) {
+        outC.level = authLv;
+        violations.push({
+          severity: "clamp",
+          code: "COMPANION_LEVEL_DOWN",
+          message: `Companion ${idx + 1} level cannot decrease.`
+        });
+      } else if (incLv > authLv + MAX_LEVEL_JUMP) {
+        outC.level = authLv + MAX_LEVEL_JUMP;
+        violations.push({
+          severity: "clamp",
+          code: "COMPANION_LEVEL",
+          message: `Companion ${idx + 1} level increased too quickly.`
+        });
+      }
       if (authC.equipment && typeof authC.equipment === "object") {
         outC.equipment = JSON.parse(JSON.stringify(authC.equipment));
       }

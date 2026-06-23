@@ -5,6 +5,7 @@
 
 import { loadGameConfig } from "../load_game_config.js";
 import { sumEquippedBonusStats } from "../combat/formulas.js";
+import { reconcileActorLevelFromXp } from "./leveling.js";
 
 const STAT_CHAR_ALLOC_FLOOR = 5;
 const STAT_CHAR_PREMIUM_THRESHOLD = 100;
@@ -149,6 +150,7 @@ function clampSkillLevels(actor, auth, level, violations) {
  */
 export function sanitizePlayerProgressionStats(actor, auth, violations = []) {
   if (!actor || typeof actor !== "object") return;
+  reconcileActorLevelFromXp(actor);
   const level = Math.max(
     1,
     Math.min(MAX_LEVEL, Math.floor(Number(actor.level) || 1))

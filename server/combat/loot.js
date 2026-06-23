@@ -398,6 +398,8 @@ export function computeVictoryRewards(foes, party, player, rng, lootContext) {
   return { gold, xp, items, memberRewards };
 }
 
+import { levelUpActor } from "../progression/leveling.js";
+
 export function applyRewardsToPlayer(player, result) {
   if (!player || !result) return player;
   if (result.victory) {
@@ -412,6 +414,12 @@ export function applyRewardsToPlayer(player, result) {
         if (c) c.xp = (c.xp || 0) + (row.xp || 0);
       }
     });
+    levelUpActor(player);
+    if (Array.isArray(player.companions)) {
+      player.companions.forEach((c) => {
+        if (c) levelUpActor(c);
+      });
+    }
   } else {
     player.hp = Math.max(1, result.finalPlayerHp);
   }

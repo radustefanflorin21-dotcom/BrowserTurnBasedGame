@@ -346,6 +346,7 @@ function ensurePlayerCompanions(p) {
       c.allocPoolsBindToLevelV2 = true;
     }
     recomputeAllocPoolsFromLevel(c);
+    levelUpActor(c);
     c.maxHp = computeMaxHp(c);
     if (typeof c.hp !== "number" || !Number.isFinite(c.hp)) c.hp = c.maxHp;
     c.hp = Math.min(c.maxHp, Math.max(1, c.hp));

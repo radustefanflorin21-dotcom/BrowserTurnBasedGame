@@ -376,14 +376,11 @@
       );
       if (typeof renderTurnBattle === "function") renderTurnBattle();
       playCombatHitsFromPayload(msg);
+      clearServerSession();
       mergeServerPlayer(msg.player, msg.roster);
       if (typeof applyServerFightResult === "function") {
         applyServerFightResult(msg.result);
       }
-      sessionId = null;
-      hostUserId = null;
-      prepEndsAt = null;
-      combatLocked = false;
       return;
     }
 
@@ -539,11 +536,11 @@
         }
         renderTurnBattle();
         playCombatHitsFromPayload(data);
+        clearServerSession();
         mergeServerPlayer(data.player, data.roster);
         if (typeof applyServerFightResult === "function") {
           applyServerFightResult(data.result);
         }
-        clearServerSession();
       }
 
       if (data.finished && data.result) {
