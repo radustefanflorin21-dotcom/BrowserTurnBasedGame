@@ -78,7 +78,12 @@
     const selected = getActorSelectedProfessions(actor).map((id) => id.toLowerCase());
     if (!selected.includes(profId.toLowerCase())) return false;
     const profLevel = PP && typeof PP.getProfessionLevel === "function" ? PP.getProfessionLevel(actor, profId) : 1;
-    return profLevel >= Math.max(1, Math.floor(resourceLevel));
+    const resLv = Math.max(1, Math.floor(resourceLevel));
+    const requiredLevel =
+      PP && typeof PP.getRequiredProfessionLevelForItemLevel === "function"
+        ? PP.getRequiredProfessionLevelForItemLevel(resLv)
+        : resLv;
+    return profLevel >= requiredLevel;
   }
 
   function getMonsterGatheringCategories(def, config) {

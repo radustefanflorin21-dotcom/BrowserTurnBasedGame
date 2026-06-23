@@ -21,6 +21,10 @@ import {
   setMemberCombatStamina,
   isCoopMultiHeroStamina
 } from "./stamina.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const SkillBar = require("../../shared/skill_bar.js");
 
 const CLASS_ONLY_BUFF_SKILLS = new Set([
   "Fortress",
@@ -93,13 +97,21 @@ function getActorSkillLevel(actor, skillName) {
   return typeof lv === "number" && lv > 0 ? Math.min(5, Math.floor(lv)) : 0;
 }
 
+function getSkillBarDeps() {
+  const catalog = getSkillCatalog();
+  const skillOrder = Array.isArray(global.UNIFIED_SKILL_ORDER)
+    ? global.UNIFIED_SKILL_ORDER
+    : Object.keys(catalog);
+  return { catalog, skillOrder };
+}
+
 function isSkillSlotted(actor, skillName) {
-  const slots = Array.isArray(actor?.skillBarSlots) ? actor.skillBarSlots : [];
-  if (slots.includes(skillName)) return true;
-  const bar = Array.isArray(actor?.skillBar) ? actor.skillBar : [];
-  if (bar.includes(skillName)) return true;
-  const skills = Array.isArray(actor?.skills) ? actor.skills : [];
-  return skills.includes(skillName);
+  const { catalog, skillOrder } = getSkillBarDeps();
+  if (CLASS_ONLY_BUFF_SKILLS.has(skillName)) {
+    SkillBar.ensureActorSkillBar(actor, catalog, skillOrder);
+    return (actor?.skillBarSlots || []).includes(skillName);
+  }
+  return SkillBar.isSkillSlottedOnBar(actor, skillName, catalog, skillOrder);
 }
 
 function scaleTurns(actor, skillName, base) {

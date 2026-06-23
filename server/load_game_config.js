@@ -37,6 +37,10 @@ export function loadGameConfig() {
     "typeof SKILL_CATALOG !== 'undefined' ? SKILL_CATALOG : null",
     context
   );
+  global.UNIFIED_SKILL_ORDER = vm.runInContext(
+    "typeof UNIFIED_SKILL_ORDER !== 'undefined' ? UNIFIED_SKILL_ORDER : null",
+    context
+  );
   global.PET_EGG_DROPS = vm.runInContext(
     "typeof PET_EGG_DROPS !== 'undefined' ? PET_EGG_DROPS : null",
     context

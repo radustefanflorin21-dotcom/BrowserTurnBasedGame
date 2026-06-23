@@ -40,6 +40,18 @@ import {
   setMemberCombatStamina,
   isCoopMultiHeroStamina
 } from "./stamina.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const SkillBar = require("../../shared/skill_bar.js");
+
+function getSkillBarDeps() {
+  const catalog = getSkillCatalog();
+  const skillOrder = Array.isArray(global.UNIFIED_SKILL_ORDER)
+    ? global.UNIFIED_SKILL_ORDER
+    : Object.keys(catalog);
+  return { catalog, skillOrder };
+}
 
 function getSkillCatalog() {
   return typeof global.SKILL_CATALOG === "object" && global.SKILL_CATALOG ? global.SKILL_CATALOG : {};
@@ -57,13 +69,8 @@ function getActorSkillLevel(actor, skillName) {
 }
 
 function isSkillSlotted(actor, skillName) {
-  if (skillName === "Basic Physical Attack" || skillName === "Basic Magical Attack") return true;
-  const slots = Array.isArray(actor?.skillBarSlots) ? actor.skillBarSlots : [];
-  if (slots.includes(skillName)) return true;
-  const bar = Array.isArray(actor?.skillBar) ? actor.skillBar : [];
-  if (bar.includes(skillName)) return true;
-  const skills = Array.isArray(actor?.skills) ? actor.skills : [];
-  return skills.includes(skillName);
+  const { catalog, skillOrder } = getSkillBarDeps();
+  return SkillBar.isSkillSlottedOnBar(actor, skillName, catalog, skillOrder);
 }
 
 function getLevelRow(def, skillName, actor) {

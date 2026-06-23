@@ -445,6 +445,23 @@
     );
   }
 
+  function getCombatSkillBarPayload() {
+    const payload = {};
+    if (typeof player === "undefined" || !player) return payload;
+    if (typeof ensureActorSkillBar === "function") ensureActorSkillBar(player);
+    if (Array.isArray(player.skillBarSlots)) {
+      payload.skillBarSlots = player.skillBarSlots.slice();
+    }
+    if (Array.isArray(player.companions)) {
+      payload.companionSkillBars = player.companions.map((c) => {
+        if (!c) return null;
+        if (typeof ensureActorSkillBar === "function") ensureActorSkillBar(c);
+        return Array.isArray(c.skillBarSlots) ? { skillBarSlots: c.skillBarSlots.slice() } : null;
+      });
+    }
+    return payload;
+  }
+
   async function start(region, mob, worldMapContext) {
     if (!isOnlineCombat()) return false;
 
@@ -460,7 +477,8 @@
         slotIndex: activeCharacterSlotIndex,
         encounter: { units, worldMapContext: worldMapContext || null },
         region: region ? { name: region.name, enemyScale: region.enemyScale } : null,
-        rngSeed: (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0
+        rngSeed: (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0,
+        ...getCombatSkillBarPayload()
       });
     } catch (err) {
       if (err.shouldJoin && err.sessionId) {
@@ -488,7 +506,10 @@
     const idx = Number(slotIndex);
     if (!Number.isFinite(idx)) return false;
     try {
-      const data = await api("/api/combat/resume", { slotIndex: idx });
+      const data = await api("/api/combat/resume", {
+        slotIndex: idx,
+        ...getCombatSkillBarPayload()
+      });
       if (!data?.sessionId || !data.state) return false;
       sessionId = data.sessionId;
       applyServerMeta(data);
@@ -516,7 +537,8 @@
     if (!isOnlineCombat() || !existingSessionId) return false;
     const data = await api("/api/combat/join", {
       sessionId: existingSessionId,
-      slotIndex: activeCharacterSlotIndex
+      slotIndex: activeCharacterSlotIndex,
+      ...getCombatSkillBarPayload()
     });
     sessionId = data.sessionId;
     applyServerMeta(data);

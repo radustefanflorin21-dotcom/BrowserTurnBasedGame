@@ -62,6 +62,7 @@ export function getItemEquipCategory(def) {
       "chest_armor",
       "robe",
       "veil",
+      "helmet",
       "leg_armor",
       "feet_armor",
       "pet"
@@ -89,7 +90,7 @@ export function getAllowedEquipSlotsForDef(def) {
   if (category === "bracelet" || category === "wristband") return ["bracelet"];
   if (category === "ring") return ["ring1", "ring2"];
   if (category === "chest_armor" || category === "robe") return ["chest"];
-  if (category === "veil") return ["head"];
+  if (category === "veil" || category === "helmet") return ["head"];
   if (category === "leg_armor") return ["legs"];
   if (category === "feet_armor") return ["feet"];
   if (category === "pet") return ["pet"];

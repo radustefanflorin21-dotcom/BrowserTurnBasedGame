@@ -168,6 +168,12 @@ export function mergePlayerProgression(authoritative, incoming, pendingGrants) {
     );
   }
 
+  if (Array.isArray(incoming.skillBarSlots)) {
+    out.skillBarSlots = incoming.skillBarSlots.map((name) =>
+      name == null || name === "" ? null : String(name)
+    );
+  }
+
   sanitizePlayerProgressionStats(out, authoritative, violations);
 
   if (authoritative && Array.isArray(authoritative.companions) && Array.isArray(out.companions)) {
@@ -193,6 +199,12 @@ export function mergePlayerProgression(authoritative, incoming, pendingGrants) {
       }
       if (authC.equipment && typeof authC.equipment === "object") {
         outC.equipment = JSON.parse(JSON.stringify(authC.equipment));
+      }
+      const incC = Array.isArray(incoming.companions) ? incoming.companions[idx] : null;
+      if (incC && Array.isArray(incC.skillBarSlots)) {
+        outC.skillBarSlots = incC.skillBarSlots.map((name) =>
+          name == null || name === "" ? null : String(name)
+        );
       }
     });
   }

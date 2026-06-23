@@ -17,7 +17,7 @@ import {
 } from "./combat/sessions.js";
 import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./combat/broadcast.js";
 import { publicParticipantsList } from "./combat/coop.js";
-import { preparePlayerForCombat } from "./combat/player_prep.js";
+import { preparePlayerForCombat, applySkillBarPayloadToPlayer } from "./combat/player_prep.js";
 import { applyCombatWorldMapOutcome, resolveAuthoritativeEncounter } from "./progression/world_map.js";
 import { syncPresenceDungeonRun } from "./progression/dungeon.js";
 import { setSharedDefeat } from "./presence/map_cells.js";
@@ -88,6 +88,7 @@ export function registerCombatRoutes(app) {
         });
         return;
       }
+      applySkillBarPayloadToPlayer(playerCopy, req.body || {});
       resumeCoopSession(session.sessionId, req.user.id, {
         player: playerCopy,
         slotIndex: idx
@@ -162,6 +163,7 @@ export function registerCombatRoutes(app) {
         res.status(400).json({ error: "No character in that slot." });
         return;
       }
+      applySkillBarPayloadToPlayer(playerCopy, req.body || {});
       snapshotCombatStart(req.user.id, idx, playerCopy);
       const resolvedEncounter = resolveAuthoritativeEncounter(playerCopy, encounter || {});
       const session = startCoopSession(req.user.id, {
@@ -204,6 +206,7 @@ export function registerCombatRoutes(app) {
         res.status(400).json({ error: "No character in that slot." });
         return;
       }
+      applySkillBarPayloadToPlayer(playerCopy, req.body || {});
       const session = joinCoopSession(sessionId, req.user.id, {
         player: playerCopy,
         slotIndex: idx

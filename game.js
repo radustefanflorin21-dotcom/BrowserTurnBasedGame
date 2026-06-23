@@ -3857,6 +3857,7 @@ function getItemEquipCategory(def) {
     category === "chest_armor" ||
     category === "robe" ||
     category === "veil" ||
+    category === "helmet" ||
     category === "leg_armor" ||
     category === "feet_armor" ||
     category === "pet"
@@ -3889,7 +3890,7 @@ function getAllowedEquipSlotsForDef(def) {
   if (category === "bracelet" || category === "wristband") return ["bracelet"];
   if (category === "ring") return ["ring1", "ring2"];
   if (category === "chest_armor" || category === "robe") return ["chest"];
-  if (category === "veil") return ["head"];
+  if (category === "veil" || category === "helmet") return ["head"];
   if (category === "leg_armor") return ["legs"];
   if (category === "feet_armor") return ["feet"];
   if (category === "pet") return ["pet"];
@@ -11626,7 +11627,9 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
   const actorLevel =
     typeof target.level === "number" && Number.isFinite(target.level) ? Math.max(1, Math.floor(target.level)) : 1;
   if (reqLevel > actorLevel) {
-    showModal(`Cannot equip ${itemName}. Required level: ${reqLevel} (this character's level: ${actorLevel}).`);
+    showModal(
+      `Cannot equip ${getItemBaseName(itemName)}. Required level: ${reqLevel} (this character's level: ${actorLevel}).`
+    );
     return false;
   }
   const i = player.inventory.indexOf(itemName);
@@ -24527,6 +24530,33 @@ function buildMarketInvCellHtml(itemName, opts) {
   return `<${tag}${typeAttr} class="inv-cell market-inv-cell${extraClass}${sel}" data-item-name="${esc}"${pickAttrs} tabindex="0">${invCellImg(name)}${qtyBadge}${rarityHtml}</${tag}>`;
 }
 
+function getClientMarketItemMeta(itemName) {
+  const def = getItemDef(getItemBaseName(itemName));
+  if (!def) return null;
+  const stackable = isMarketStackableItemName(itemName);
+  let category = "resource";
+  if (isEquippableItemDef(def)) category = "equip";
+  else {
+    const t = String(def.type || "").trim().toLowerCase();
+    if (t === "consumable") category = "consumable";
+    else if (t === "resource") category = "resource";
+  }
+  let subcategory = "other";
+  if (category === "equip") {
+    subcategory = getItemEquipCategory(def) || String(def.type || "equip").trim().toLowerCase() || "other";
+  } else if (category === "consumable") {
+    subcategory = (typeof def.effect === "string" ? def.effect.trim().toLowerCase() : "") || "other";
+  } else if (category === "resource") {
+    subcategory = (typeof def.category === "string" ? def.category.trim().toLowerCase() : "") || "other";
+  }
+  return {
+    category,
+    subcategory,
+    stackable,
+    displayName: getItemBaseName(itemName) || itemName
+  };
+}
+
 function getMarketListableKeysFromCache() {
   const keys = new Set();
   const listable =
@@ -24535,6 +24565,17 @@ function getMarketListableKeysFromCache() {
     if (!g) return;
     keys.add(g.stackable ? g.baseName : g.itemName);
   });
+  if (typeof MarketListable !== "undefined" && player) {
+    const local = MarketListable.getMarketListableInventory(player, {
+      getItemBaseName,
+      getMarketItemMeta: getClientMarketItemMeta,
+      stackSizes: [1, 10, 100]
+    });
+    local.forEach((g) => {
+      if (!g) return;
+      keys.add(g.stackable ? g.baseName : g.itemName);
+    });
+  }
   return keys;
 }
 

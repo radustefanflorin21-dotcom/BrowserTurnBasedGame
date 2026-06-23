@@ -17,6 +17,10 @@ import {
   getMarketItemMeta,
   listingMatchesSearch
 } from "./market_catalog.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const MarketListable = require("../../shared/market_listable.js");
 import {
   formatBoughtMail,
   formatExpiredMail,
@@ -238,48 +242,10 @@ export function getMyMarketListings(userId, slotIndex) {
 }
 
 export function getMarketListableInventory(player) {
-  const inv = Array.isArray(player?.inventory) ? player.inventory : [];
-  const equipped = new Set();
-  const eq = player?.equipment;
-  if (eq && typeof eq === "object") {
-    Object.values(eq).forEach((v) => {
-      if (typeof v === "string" && v.trim()) equipped.add(v);
-    });
-  }
-  if (Array.isArray(player?.companions)) {
-    player.companions.forEach((c) => {
-      if (!c?.equipment) return;
-      Object.values(c.equipment).forEach((v) => {
-        if (typeof v === "string" && v.trim()) equipped.add(v);
-      });
-    });
-  }
-  const groups = new Map();
-  inv.forEach((entry) => {
-    if (!entry || equipped.has(entry)) return;
-    const meta = getMarketItemMeta(entry);
-    if (!meta) return;
-    const key = meta.stackable ? getItemBaseName(entry) : entry;
-    const g = groups.get(key) || {
-      itemName: entry,
-      baseName: getItemBaseName(entry),
-      displayName: meta.displayName,
-      category: meta.category,
-      subcategory: meta.subcategory,
-      stackable: meta.stackable,
-      count: 0,
-      stackOptions: meta.stackable ? MARKET_STACK_SIZES.map((n) => ({ qty: n, available: false })) : [{ qty: 1, available: true }]
-    };
-    g.count += 1;
-    groups.set(key, g);
-  });
-  return [...groups.values()].map((g) => {
-    if (g.stackable) {
-      g.stackOptions = MARKET_STACK_SIZES.map((n) => ({ qty: n, available: g.count >= n }));
-    } else {
-      g.stackOptions = [{ qty: 1, available: g.count >= 1 }];
-    }
-    return g;
+  return MarketListable.getMarketListableInventory(player, {
+    getItemBaseName,
+    getMarketItemMeta,
+    stackSizes: MARKET_STACK_SIZES
   });
 }
 
