@@ -1,4 +1,5 @@
-import { getEnemyDefByName, getItemDef, loadGameConfig } from "../load_game_config.js";
+import { getEnemyDefByName, loadGameConfig } from "../load_game_config.js";
+import { sumEquippedBonusStats } from "../progression/equipment_stats.js";
 import { buildEnemySpawnStats } from "./monster_stats.js";
 import {
   getFoeEvasionPenalty,
@@ -9,38 +10,7 @@ import {
 } from "./status.js";
 import { isCompanionEnabledForCombat } from "./player_prep.js";
 
-const EQUIP_SLOTS = [
-  "head",
-  "amulet",
-  "weapon",
-  "chest",
-  "offhand",
-  "bracelet",
-  "legs",
-  "feet",
-  "ring1",
-  "ring2",
-  "pet"
-];
-
-function emptyEquipment() {
-  return Object.fromEntries(EQUIP_SLOTS.map((id) => [id, null]));
-}
-
-export function sumEquippedBonusStats(equipment) {
-  const out = {};
-  const eq = equipment && typeof equipment === "object" ? equipment : emptyEquipment();
-  EQUIP_SLOTS.forEach((slot) => {
-    const name = eq[slot];
-    if (!name) return;
-    const def = getItemDef(name);
-    if (!def || !def.stats || typeof def.stats !== "object") return;
-    Object.entries(def.stats).forEach(([k, v]) => {
-      if (typeof v === "number" && Number.isFinite(v)) out[k] = (out[k] || 0) + v;
-    });
-  });
-  return out;
-}
+export { sumEquippedBonusStats };
 
 function getStatSystem() {
   const cfg = loadGameConfig();
