@@ -299,6 +299,10 @@
     return apiFetch("/api/player/heal", { method: "POST", body: JSON.stringify(body) });
   }
 
+  async function playerUseConsumable(body) {
+    return apiFetch("/api/player/use-consumable", { method: "POST", body: JSON.stringify(body) });
+  }
+
   async function worldMove(body) {
     return apiFetch("/api/world/move", { method: "POST", body: JSON.stringify(body) });
   }
@@ -372,6 +376,7 @@
     playerCraft,
     playerEnhance,
     playerHeal,
+    playerUseConsumable,
     worldMove,
     worldPickup,
     fetchMarketListings,

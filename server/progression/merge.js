@@ -162,6 +162,12 @@ export function mergePlayerProgression(authoritative, incoming, pendingGrants) {
   out.inventory = invEq.inventory;
   out.equipment = invEq.equipment;
 
+  if (Array.isArray(incoming.quickSlots)) {
+    out.quickSlots = incoming.quickSlots.map((name) =>
+      typeof name === "string" && name.trim() ? name.trim() : null
+    );
+  }
+
   sanitizePlayerProgressionStats(out, authoritative, violations);
 
   if (authoritative && Array.isArray(authoritative.companions) && Array.isArray(out.companions)) {

@@ -2,6 +2,7 @@ import { requireAuth } from "./auth.js";
 import { applyEquipItem, applyUnequipItem } from "./progression/equip_actions.js";
 import { applyCraftRecipe } from "./progression/craft_actions.js";
 import { applyEnhance } from "./progression/enhance_actions.js";
+import { applyUseConsumable } from "./progression/consumable_actions.js";
 import { applyOutOfCombatFullHeal } from "./progression/heal_actions.js";
 import { applySpendCharacteristicPoints } from "./progression/stat_actions.js";
 import { applyUpgradeClassSkill } from "./progression/skill_actions.js";
@@ -150,6 +151,18 @@ export function registerPlayerRoutes(app) {
       finishAction(req, res, idx, roster, player, result, "heal");
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Heal failed." });
+    }
+  });
+
+  app.post("/api/player/use-consumable", requireAuth, (req, res) => {
+    try {
+      const slotIndex = Number(req.body?.slotIndex);
+      const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
+      const result = applyUseConsumable(player, { itemName: req.body?.itemName });
+      roster.slots[idx] = player;
+      finishAction(req, res, idx, roster, player, result, "use_consumable");
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Could not use item." });
     }
   });
 }

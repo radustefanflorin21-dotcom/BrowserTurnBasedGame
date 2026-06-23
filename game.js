@@ -657,7 +657,11 @@ function applyAuthoritativeRosterJson(json, options) {
       slots: slots.map((entry) => hydrateRosterSlot(entry))
     };
     if (inGameSession && activeCharacterSlotIndex != null && characterRoster.slots[activeCharacterSlotIndex]) {
+      const prevPlayer = player;
       player = characterRoster.slots[activeCharacterSlotIndex];
+      if (prevPlayer && prevPlayer !== player) {
+        mergeQuickSlotsFromLocal(prevPlayer, player);
+      }
       migratePlayer(player);
     }
     if (noRender) {
@@ -755,6 +759,7 @@ async function ensureMmoFeatureCatalog() {
 async function commitWorldMapPositionOnline(nx, ny, reason) {
   if (activeCharacterSlotIndex == null || !window.GameStorage?.worldMove) return false;
   try {
+    await save({ flush: true });
     const body = await window.GameStorage.worldMove({
       slotIndex: activeCharacterSlotIndex,
       x: nx,
@@ -11333,6 +11338,17 @@ function getBottomMenuQuickslotCount() {
   return visible.length > 0 ? visible.length : 7;
 }
 
+function mergeQuickSlotsFromLocal(prevPlayer, nextPlayer) {
+  if (!prevPlayer || !nextPlayer) return;
+  ensurePlayerQuickSlots(nextPlayer);
+  const prev = Array.isArray(prevPlayer.quickSlots) ? prevPlayer.quickSlots : [];
+  const next = Array.isArray(nextPlayer.quickSlots) ? nextPlayer.quickSlots : [];
+  if (prev.some(Boolean) && !next.some(Boolean)) {
+    nextPlayer.quickSlots = prev.slice();
+    reconcileQuickslotsWithInventory(nextPlayer);
+  }
+}
+
 function reconcileQuickslotsWithInventory(actor) {
   if (!actor || !Array.isArray(actor.quickSlots)) return;
   actor.quickSlots.forEach((name, i) => {
@@ -11366,7 +11382,7 @@ function setQuickslotItem(slotIndex, itemName) {
   if (!def || def.type !== "consumable") return false;
   if (!player.inventory.includes(name)) return false;
   player.quickSlots[si] = name;
-  save();
+  save({ flush: true });
   renderBottomQuickslots();
   return true;
 }
@@ -11377,7 +11393,7 @@ function clearQuickslot(slotIndex) {
   if (si < 0 || si >= player.quickSlots.length) return;
   if (!player.quickSlots[si]) return;
   player.quickSlots[si] = null;
-  save();
+  save({ flush: true });
   renderBottomQuickslots();
 }
 
@@ -11427,6 +11443,72 @@ function useConsumable(itemName) {
     showModal("This item can only be used outside combat.");
     return;
   }
+  if (canPerformServerPlayerAction() && window.GameStorage?.playerUseConsumable) {
+    void useConsumableOnline(itemName, def);
+    return;
+  }
+  useConsumableLocal(itemName, def);
+}
+
+async function useConsumableOnline(itemName, def) {
+  if (def.effect === "teleport_portal") {
+    if (currentPage !== "adventure") {
+      showModal("You can only use this potion while exploring the world map.");
+      return;
+    }
+    const dr = getActiveDungeonRun();
+    if (dr && !dr.epilogue) {
+      showModal("You cannot use this potion inside a dungeon.");
+      return;
+    }
+    const dest = findClosestPortalDestination();
+    if (!dest) {
+      showModal("You are already at the nearest waygate, or no other waygate is known.");
+      return;
+    }
+    if (!canEnterMap(dest.x, dest.y)) {
+      showModal("You cannot travel to the nearest waygate.");
+      return;
+    }
+    try {
+      const body = await window.GameStorage.playerUseConsumable({
+        slotIndex: activeCharacterSlotIndex,
+        itemName
+      });
+      await applyOnlineActionResponse(body);
+      const ok = await commitWorldMapPosition(dest.x, dest.y, "teleport_potion");
+      if (!ok) {
+        showModal("Teleport failed after consuming the potion.");
+      } else {
+        showModal(`You arrive at ${dest.label}.`);
+      }
+      renderBottomQuickslots();
+    } catch (err) {
+      showModal(err && err.message ? err.message : "Could not use item.");
+    }
+    return;
+  }
+
+  try {
+    const body = await window.GameStorage.playerUseConsumable({
+      slotIndex: activeCharacterSlotIndex,
+      itemName
+    });
+    const res = body?.result;
+    if (!res || !res.effect) {
+      showModal("Could not use item.");
+      return;
+    }
+    await applyOnlineActionResponse(body);
+    reconcileQuickslotsWithInventory(player);
+    render();
+    renderBottomQuickslots();
+  } catch (err) {
+    showModal(err && err.message ? err.message : "Could not use item.");
+  }
+}
+
+function useConsumableLocal(itemName, def) {
   if (def.effect === "hatch_pet_egg") {
     if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM || typeof PET_SYSTEM.hatchPetFromEgg !== "function") {
       showModal("Pet system unavailable.");
@@ -23725,9 +23807,48 @@ function buildEnhanceSlotHtml(slotKind, itemName, context) {
   </div>`;
 }
 
-function buildEnhanceWorkbenchInventoryHtml(inventory) {
-  const stacks = buildInventoryStacks(Array.isArray(inventory) ? inventory : []);
-  const total = Math.max(stacks.length, INV_VISIBLE_SLOTS);
+function getEnhanceWorkbenchInventoryEntries(inventory, options = {}) {
+  const inv = Array.isArray(inventory) ? inventory : [];
+  const professionId = options.professionId || null;
+  const isCommission = !!options.isCommission;
+  const equipped = getEquippedItemNamesSetForEnhance();
+  const out = [];
+  const seenEquip = new Set();
+
+  inv.forEach((entry) => {
+    if (!entry || equipped.has(entry)) return;
+    const base = getItemBaseName(entry);
+    const def = getItemDef(base);
+    if (!def) return;
+
+    if (isEnhancingRuneDef(def)) {
+      out.push(entry);
+      return;
+    }
+
+    if (!isEquippableItemDef(def) || typeof Enhancing === "undefined") return;
+    if (seenEquip.has(entry)) return;
+    const itemProf = Enhancing.getCraftingProfessionIdForItemBase(base, getEnhanceDepsClient());
+    if (!itemProf || !Enhancing.isEquipmentCraftingProfessionId(itemProf)) return;
+    if (!Enhancing.getNextRarityId(getItemRarityIdForItem(def, entry))) return;
+    if (!isCommission && professionId && itemProf !== professionId) return;
+    seenEquip.add(entry);
+    out.push(entry);
+  });
+
+  return out;
+}
+
+function buildEnhanceWorkbenchInventoryHtml(inventory, options = {}) {
+  const filtered = getEnhanceWorkbenchInventoryEntries(inventory, options);
+  const stacks = buildInventoryStacks(filtered);
+  if (!stacks.length) {
+    return `<div class="enhance-workbench-inv" data-enhance-inventory>
+    <div class="enhance-workbench-inv-title">Inventory</div>
+    <p class="muted enhance-workbench-hint">No unequipped equipment or enhancing runes in your bag.</p>
+  </div>`;
+  }
+  const total = stacks.length;
   const cells = [];
   for (let i = 0; i < total; i++) {
     const stack = stacks[i];
@@ -23737,16 +23858,11 @@ function buildEnhanceWorkbenchInventoryHtml(inventory) {
     }
     const name = stack.name;
     const qty = stack.qty;
-    const base = getItemBaseName(name);
-    const def = getItemDef(base);
-    const canDrag = isEquippableItemDef(def) || isEnhancingRuneDef(def);
     const esc = escapeAttr(name);
     const img = invCellImg(name);
     const qtyBadge = qty > 1 ? `<span class="inv-cell-qty">${qty}</span>` : "";
-    const dimCls = canDrag ? "" : " inv-cell--enhance-muted";
-    const dragAttr = canDrag ? ' draggable="true"' : "";
     cells.push(
-      `<div class="inv-cell${dimCls}"${dragAttr} data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`
+      `<div class="inv-cell" draggable="true" data-item="${esc}" data-item-name="${esc}">${img}${qtyBadge}</div>`
     );
   }
   return `<div class="enhance-workbench-inv" data-enhance-inventory>
@@ -23844,7 +23960,10 @@ function buildEnhanceWorkbenchHtml({ context, professionId, crafterActor }) {
       }>Enhance</button>`;
 
   return `<div class="enhance-workbench" data-enhance-workbench data-enhance-context="${escapeAttr(context)}">
-    ${buildEnhanceWorkbenchInventoryHtml(player.inventory)}
+    ${buildEnhanceWorkbenchInventoryHtml(player.inventory, {
+      isCommission,
+      professionId: isCommission ? null : professionId
+    })}
     <div class="enhance-workbench-main">
       <p class="game-page-lead muted">${escapeHtml(intro)}</p>
       <div class="enhance-slots">
@@ -26274,7 +26393,7 @@ function onDrop(e) {
           const moving = player.quickSlots[from];
           player.quickSlots[from] = player.quickSlots[si];
           player.quickSlots[si] = moving;
-          save();
+          save({ flush: true });
           renderBottomQuickslots();
         }
       }
