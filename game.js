@@ -2717,6 +2717,7 @@ const defaultPlayer = () => {
     professions: [],
     professionProgress: {},
     inventory: buildStartingInventory(),
+    quickSlots: [],
     equipment: getStarterEquipment(),
     portraitGender: "male",
     portraitLayouts: {},
@@ -2901,6 +2902,7 @@ function migratePlayer(p) {
   if (typeof p.int !== "number") p.int = STAT_CHAR_ALLOC_FLOOR;
   if (!p.theme || !GAME_CONFIG.themes[p.theme]) p.theme = "medieval";
   if (!Array.isArray(p.inventory)) p.inventory = [];
+  ensurePlayerQuickSlots(p);
   ensurePlayerPetState(p);
   reconcilePetInventoryInstances(p);
   if (!p.classSkillLevels || typeof p.classSkillLevels !== "object") p.classSkillLevels = {};
@@ -11224,6 +11226,95 @@ function removeOneFromInventory(itemName) {
   if (i !== -1) player.inventory.splice(i, 1);
 }
 
+function getBottomMenuQuickslotCount() {
+  if (typeof document === "undefined") return 7;
+  const menu = document.querySelector(".bottom-menu");
+  if (!menu) return 7;
+  const visible = menu.querySelectorAll(".bottom-menu-btn:not(.hidden)");
+  return visible.length > 0 ? visible.length : 7;
+}
+
+function reconcileQuickslotsWithInventory(actor) {
+  if (!actor || !Array.isArray(actor.quickSlots)) return;
+  actor.quickSlots.forEach((name, i) => {
+    if (!name || typeof name !== "string") {
+      actor.quickSlots[i] = null;
+      return;
+    }
+    const def = getItemDef(name);
+    if (!def || def.type !== "consumable" || !actor.inventory.includes(name)) {
+      actor.quickSlots[i] = null;
+    }
+  });
+}
+
+function ensurePlayerQuickSlots(actor) {
+  if (!actor || typeof actor !== "object") return;
+  const n = getBottomMenuQuickslotCount();
+  if (!Array.isArray(actor.quickSlots)) actor.quickSlots = [];
+  while (actor.quickSlots.length < n) actor.quickSlots.push(null);
+  if (actor.quickSlots.length > n) actor.quickSlots.length = n;
+  reconcileQuickslotsWithInventory(actor);
+}
+
+function setQuickslotItem(slotIndex, itemName) {
+  if (!player) return false;
+  const si = Math.floor(slotIndex);
+  ensurePlayerQuickSlots(player);
+  if (si < 0 || si >= player.quickSlots.length) return false;
+  const name = String(itemName || "").trim();
+  const def = getItemDef(name);
+  if (!def || def.type !== "consumable") return false;
+  if (!player.inventory.includes(name)) return false;
+  player.quickSlots[si] = name;
+  save();
+  renderBottomQuickslots();
+  return true;
+}
+
+function clearQuickslot(slotIndex) {
+  if (!player || !Array.isArray(player.quickSlots)) return;
+  const si = Math.floor(slotIndex);
+  if (si < 0 || si >= player.quickSlots.length) return;
+  if (!player.quickSlots[si]) return;
+  player.quickSlots[si] = null;
+  save();
+  renderBottomQuickslots();
+}
+
+function buildBottomQuickslotsHtml() {
+  ensurePlayerQuickSlots(player);
+  return player.quickSlots
+    .map((name, i) => {
+      if (!name) {
+        return `<div class="bottom-quickslot bottom-quickslot-drop bottom-quickslot--empty" data-quickslot="${i}" aria-label="Quick slot ${
+          i + 1
+        }"></div>`;
+      }
+      const esc = escapeAttr(name);
+      const qty = player.inventory.filter((n) => n === name).length;
+      const qtyBadge = qty > 1 ? `<span class="bottom-quickslot-qty">${qty}</span>` : "";
+      return `<div class="bottom-quickslot bottom-quickslot-drop" data-quickslot="${i}" data-quickslot-item="${esc}" data-item-name="${esc}" draggable="true" aria-label="Use ${escapeHtml(
+        name
+      )}">${invCellImg(name)}${qtyBadge}</div>`;
+    })
+    .join("");
+}
+
+function syncBottomQuickslotsVisibility() {
+  const host = document.getElementById("bottomQuickslots");
+  if (!host) return;
+  const show = !!(inGameSession && player && !isFightOverlayOpen());
+  host.classList.toggle("hidden", !show);
+}
+
+function renderBottomQuickslots() {
+  const host = document.getElementById("bottomQuickslots");
+  if (!host || !player) return;
+  host.innerHTML = buildBottomQuickslotsHtml();
+  syncBottomQuickslotsVisibility();
+}
+
 function isConsumableBlockedInCombat(def) {
   if (!def || def.type !== "consumable") return false;
   if (def.useInCombat !== false && def.outOfCombatOnly !== true) return false;
@@ -11248,8 +11339,10 @@ function useConsumable(itemName) {
       return;
     }
     removeOneFromInventory(itemName);
+    reconcileQuickslotsWithInventory(player);
     save();
     render();
+    renderBottomQuickslots();
     if (result.message) showModal(result.message);
     return;
   }
@@ -11259,8 +11352,10 @@ function useConsumable(itemName) {
     const amt = Math.max(1, Math.floor(base * (1 + bonus)));
     player.hp = Math.min(player.maxHp, player.hp + amt);
     removeOneFromInventory(itemName);
+    reconcileQuickslotsWithInventory(player);
     save();
     render();
+    renderBottomQuickslots();
   }
 }
 
@@ -20487,6 +20582,7 @@ function closeFightOverlay() {
       mirror.classList.remove("fight-scene-backdrop__img--city");
     }
   }
+  renderBottomQuickslots();
   if (dungeonPost && dungeonPost.victory && dungeonPost.dungeonId) {
     const def = getDungeonDef(dungeonPost.dungeonId);
     const run = getActiveDungeonRun();
@@ -20732,7 +20828,7 @@ function buildInventoryGridHtml(names, tabKind) {
       );
     } else if (tabKind === "consumables") {
       cells.push(
-        `<div class="inv-cell inv-use" data-item="${esc}" data-item-name="${esc}" data-use-consumable="${esc}">${img}${qtyBadge}</div>`
+        `<div class="inv-cell inv-use" draggable="true" data-item="${esc}" data-item-name="${esc}" data-use-consumable="${esc}">${img}${qtyBadge}</div>`
       );
     } else if (tabKind === "resources") {
       cells.push(
@@ -25328,6 +25424,7 @@ function renderBottomHud() {
 
   syncMinimapSlots();
   updateMapPlayersPanel();
+  renderBottomQuickslots();
 }
 
 function render() {
@@ -25367,6 +25464,18 @@ function render() {
 
 function onDragStart(e) {
   hideItemTooltip();
+  const quickslotCell = e.target.closest(".bottom-quickslot[draggable=\"true\"]");
+  if (quickslotCell && quickslotCell.dataset.quickslotItem) {
+    const si = parseInt(quickslotCell.getAttribute("data-quickslot") || "", 10);
+    dragPayload = {
+      kind: "quickslot",
+      slotIndex: Number.isFinite(si) ? si : -1,
+      item: quickslotCell.dataset.quickslotItem
+    };
+    e.dataTransfer.setData("text/plain", quickslotCell.dataset.quickslotItem);
+    e.dataTransfer.effectAllowed = "move";
+    return;
+  }
   const cell = e.target.closest(".inv-cell[draggable=\"true\"]");
   const slot = e.target.closest(".slot-drop[draggable=\"true\"]");
   if (cell && cell.dataset.item) {
@@ -25374,6 +25483,7 @@ function onDragStart(e) {
     const qtyEl = cell.querySelector(".inv-cell-qty");
     const stackQty = qtyEl ? Math.max(1, parseInt(qtyEl.textContent, 10) || 1) : 1;
     const tradeActive = typeof window !== "undefined" && window.MMOTrade?.isActive?.();
+    const isConsumable = !!(def && def.type === "consumable");
     dragPayload = {
       kind: "inventory",
       item: cell.dataset.item,
@@ -25382,7 +25492,7 @@ function onDragStart(e) {
     };
     e.dataTransfer.setData("text/plain", cell.dataset.item);
     e.dataTransfer.setData("application/x-trade-qty", String(stackQty));
-    e.dataTransfer.effectAllowed = tradeActive ? "copy" : dragPayload.isResource ? "copy" : "move";
+    e.dataTransfer.effectAllowed = tradeActive || dragPayload.isResource || isConsumable ? "copy" : "move";
   } else if (slot) {
     const slotId = slot.dataset.slot;
     const overview = slot.closest("[data-overview-roster-tab]");
@@ -25447,8 +25557,20 @@ function onDragOver(e) {
       : null;
   const tradeSlot =
     typeof window !== "undefined" && window.MMOTrade?.isActive?.() ? e.target.closest(".trade-slot-drop") : null;
-  if (drop || inv || skBarSlot || skPool || skRemoveZone || tradeSlot) e.preventDefault();
+  const quickslotDrop = e.target.closest(".bottom-quickslot-drop");
+  if (drop || inv || skBarSlot || skPool || skRemoveZone || tradeSlot || quickslotDrop) e.preventDefault();
   if (tradeSlot && e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  if (quickslotDrop && dragPayload && e.dataTransfer) {
+    if (dragPayload.kind === "inventory" && dragPayload.item) {
+      const def = getItemDef(dragPayload.item);
+      if (def && def.type === "consumable") e.dataTransfer.dropEffect = "copy";
+    } else if (dragPayload.kind === "quickslot") {
+      e.dataTransfer.dropEffect = "move";
+    }
+  }
+  document.querySelectorAll(".bottom-quickslot-drop").forEach((el) => {
+    el.classList.toggle("bottom-quickslot--drag-over", quickslotDrop === el);
+  });
 }
 
 function onDrop(e) {
@@ -25460,6 +25582,29 @@ function onDrop(e) {
   if (tradeSlotEl && dragPayload.kind === "inventory" && dragPayload.item) {
     const qty = Math.max(1, Math.floor(Number(dragPayload.stackQty) || 1));
     if (window.MMOTrade?.addItem) window.MMOTrade.addItem(dragPayload.item, qty);
+    dragPayload = null;
+    return;
+  }
+
+  const quickslotEl = e.target.closest(".bottom-quickslot-drop");
+  if (quickslotEl && (dragPayload.kind === "inventory" || dragPayload.kind === "quickslot")) {
+    const si = parseInt(quickslotEl.getAttribute("data-quickslot") || "", 10);
+    if (Number.isFinite(si)) {
+      if (dragPayload.kind === "inventory" && dragPayload.item) {
+        const def = getItemDef(dragPayload.item);
+        if (def && def.type === "consumable") setQuickslotItem(si, dragPayload.item);
+      } else if (dragPayload.kind === "quickslot" && Number.isFinite(dragPayload.slotIndex)) {
+        const from = dragPayload.slotIndex;
+        if (from !== si) {
+          ensurePlayerQuickSlots(player);
+          const moving = player.quickSlots[from];
+          player.quickSlots[from] = player.quickSlots[si];
+          player.quickSlots[si] = moving;
+          save();
+          renderBottomQuickslots();
+        }
+      }
+    }
     dragPayload = null;
     return;
   }
@@ -25546,6 +25691,9 @@ function onDrop(e) {
 }
 
 function onDragEnd(e) {
+  document.querySelectorAll(".bottom-quickslot-drop").forEach((el) => {
+    el.classList.remove("bottom-quickslot--drag-over");
+  });
   if (!dragPayload) {
     return;
   }
@@ -25556,8 +25704,13 @@ function onDragEnd(e) {
       applySkillBarClearSlot(actor, fi);
       refreshSkillBarUiAfterChange();
     }
+  } else if (dragPayload.kind === "quickslot" && e.dataTransfer && e.dataTransfer.dropEffect === "none") {
+    clearQuickslot(dragPayload.slotIndex);
   } else if (dragPayload.kind === "inventory" && dragPayload.item && !dragPayload.isResource) {
-    promptDiscardDraggedInventoryItem(dragPayload.item);
+    const def = getItemDef(dragPayload.item);
+    if (!def || def.type !== "consumable") {
+      promptDiscardDraggedInventoryItem(dragPayload.item);
+    }
   }
   dragPayload = null;
 }
@@ -25970,6 +26123,12 @@ function onContentClick(e) {
   if (tab) {
     inventoryTab = tab.dataset.invTab;
     render();
+    return;
+  }
+  const quickUse = e.target.closest(".bottom-quickslot[data-quickslot-item]");
+  if (quickUse && !isFightOverlayOpen()) {
+    const name = quickUse.getAttribute("data-quickslot-item");
+    if (name) useConsumable(name);
     return;
   }
   const use = e.target.closest("[data-use-consumable]");
@@ -26570,6 +26729,18 @@ function initUi() {
     bottomMini.addEventListener("mouseover", onContentTooltipOver);
     bottomMini.addEventListener("mouseout", onContentTooltipOut);
     bottomMini.addEventListener("mousemove", onContentTooltipMove);
+  }
+  const bottomHud = document.getElementById("bottomHud");
+  if (bottomHud && bottomHud.dataset.quickslotBound !== "1") {
+    bottomHud.dataset.quickslotBound = "1";
+    bottomHud.addEventListener("dragstart", onDragStart);
+    bottomHud.addEventListener("dragend", onDragEnd);
+    bottomHud.addEventListener("dragover", onDragOver);
+    bottomHud.addEventListener("drop", onDrop);
+    bottomHud.addEventListener("click", onContentClick);
+    bottomHud.addEventListener("mouseover", onContentTooltipOver);
+    bottomHud.addEventListener("mouseout", onContentTooltipOut);
+    bottomHud.addEventListener("mousemove", onContentTooltipMove);
   }
   const fightMini = document.getElementById("fightMinimapSlot");
   if (fightMini) {

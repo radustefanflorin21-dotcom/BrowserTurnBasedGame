@@ -239,6 +239,7 @@
     hideFightResults();
     logEl.innerHTML = "";
     renderTurnBattle();
+    if (typeof syncBottomQuickslotsVisibility === "function") syncBottomQuickslotsVisibility();
   }
 
   function isPrepPhase() {
