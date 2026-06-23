@@ -1447,9 +1447,7 @@ function refreshAdventureEncountersOnly() {
     if (!adventureCampWanderTick) startAdventureCampWanderTimer();
   } else {
     delete campsWrap.dataset.campSig;
-    campsHtml = getWorldMapCityName(x, y)
-      ? ""
-      : `<p class="world-camps-none muted">No hostile encounters here.</p>`;
+    campsHtml = "";
     campsWrap.className = "world-camps";
     campsWrap.innerHTML = campsHtml;
     clearAdventureCampWanderTimer();
@@ -25141,9 +25139,7 @@ function renderAdventure() {
     }
     const encounterSlots = getEncounterSlotCountForCell(x, y, cellCfg);
     if (encounterSlots === 0) {
-      campsHtml = getWorldMapCityName(x, y)
-        ? ""
-        : `<p class="world-camps-none muted">No hostile encounters here.</p>`;
+      campsHtml = "";
     } else {
       let visibleCount = 0;
       for (let si = 0; si < encounterSlots; si++) {
