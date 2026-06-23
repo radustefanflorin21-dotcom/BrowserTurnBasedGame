@@ -5,6 +5,38 @@
 
 import { getEncounterSlotCountForCell, worldMapKey } from "../progression/world_map.js";
 import { rollSharedMobPreview } from "../world/mob_roll.js";
+import { loadGameConfig } from "../load_game_config.js";
+
+function getMobRespawnMs() {
+  const cfg = loadGameConfig();
+  const wm = cfg?.worldMap;
+  return typeof wm?.mobRespawnMs === "number" && wm.mobRespawnMs > 0 ? wm.mobRespawnMs : 60000;
+}
+
+/** True while a slot is still on post-defeat respawn cooldown. */
+export function isSharedDefeatedSlotOnCooldown(cell, slotIndex) {
+  if (!cell || !Array.isArray(cell.defeated)) return false;
+  const si = Math.max(0, Math.floor(slotIndex));
+  const t = cell.defeated[si];
+  if (t == null || t === 0) return false;
+  return Date.now() - t < getMobRespawnMs();
+}
+
+/** Clear defeat timestamps whose respawn cooldown has elapsed. */
+export function clearExpiredDefeatsInCell(cell) {
+  if (!cell || !Array.isArray(cell.defeated)) return false;
+  let changed = false;
+  for (let si = 0; si < cell.defeated.length; si++) {
+    const t = cell.defeated[si];
+    if (t == null || t === 0) continue;
+    if (Date.now() - t >= getMobRespawnMs()) {
+      cell.defeated[si] = null;
+      if (Array.isArray(cell.defeatedUnits)) cell.defeatedUnits[si] = null;
+      changed = true;
+    }
+  }
+  return changed;
+}
 
 /** @type {Map<string, { defeated: (number|null)[], defeatedUnits: (string[]|null)[], mobPreviews: (object|null)[] }>} */
 const sharedByKey = new Map();
@@ -65,7 +97,8 @@ export function setSharedMobPreview(x, y, slotIndex, preview) {
   const key = worldMapKey(x, y);
   const si = Math.max(0, Math.floor(slotIndex));
   const cell = ensureCell(key, x, y);
-  if (cell.defeated[si] != null && cell.defeated[si] !== 0) {
+  clearExpiredDefeatsInCell(cell);
+  if (isSharedDefeatedSlotOnCooldown(cell, si)) {
     return getSharedMapCellForKey(key);
   }
   if (cell.mobPreviews[si] && cell.mobPreviews[si].units && cell.mobPreviews[si].units.length) {
@@ -86,9 +119,6 @@ export function mergeSharedMapCell(mapCell) {
   if (Array.isArray(mapCell.defeated)) {
     for (let i = 0; i < mapCell.defeated.length; i++) {
       cell.defeated[i] = mapCell.defeated[i];
-      if (cell.defeated[i] != null && cell.defeated[i] !== 0) {
-        cell.mobPreviews[i] = null;
-      }
     }
   }
   if (Array.isArray(mapCell.defeatedUnits)) {
@@ -96,9 +126,10 @@ export function mergeSharedMapCell(mapCell) {
       cell.defeatedUnits[i] = mapCell.defeatedUnits[i];
     }
   }
+  clearExpiredDefeatsInCell(cell);
   if (Array.isArray(mapCell.mobPreviews)) {
     for (let i = 0; i < mapCell.mobPreviews.length; i++) {
-      if (cell.defeated[i] != null && cell.defeated[i] !== 0) {
+      if (isSharedDefeatedSlotOnCooldown(cell, i)) {
         cell.mobPreviews[i] = null;
         continue;
       }
@@ -112,13 +143,6 @@ export function mergeSharedMapCell(mapCell) {
 }
 
 /**
- * @param {number} x
- * @param {number} y
- * @param {number} slotIndex
- * @param {number} timestamp
- * @param {string[]} killedNames
- */
-/**
  * Roll any missing mob previews for a tile (server-authoritative, deterministic).
  * @returns {object | null} full cell snapshot
  */
@@ -130,9 +154,9 @@ export function ensureSharedMapCellRolled(x, y) {
     return mapCell ? { mapCell, changed: false } : null;
   }
   const cell = ensureCell(key, x, y);
-  let changed = false;
+  let changed = clearExpiredDefeatsInCell(cell);
   for (let si = 0; si < slots; si++) {
-    if (cell.defeated[si] != null && cell.defeated[si] !== 0) continue;
+    if (isSharedDefeatedSlotOnCooldown(cell, si)) continue;
     const existing = cell.mobPreviews[si];
     if (existing && existing.units && existing.units.length) continue;
     const roll = rollSharedMobPreview(x, y, si);
@@ -150,10 +174,10 @@ export function ensureSharedMapCellSlotRolled(x, y, slotIndex) {
   const key = worldMapKey(x, y);
   const si = Math.max(0, Math.floor(slotIndex));
   const cell = ensureCell(key, x, y);
-  let changed = false;
-  if (cell.defeated[si] != null && cell.defeated[si] !== 0) {
+  let changed = clearExpiredDefeatsInCell(cell);
+  if (isSharedDefeatedSlotOnCooldown(cell, si)) {
     const mapCell = getSharedMapCellForKey(key);
-    return mapCell ? { mapCell, changed: false } : null;
+    return mapCell ? { mapCell, changed } : null;
   }
   if (cell.mobPreviews[si] && cell.mobPreviews[si].units && cell.mobPreviews[si].units.length) {
     const mapCell = getSharedMapCellForKey(key);

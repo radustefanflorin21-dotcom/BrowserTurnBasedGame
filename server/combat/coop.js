@@ -307,12 +307,9 @@ export function countCoopHumanHeroes(st) {
   ).length;
 }
 
-/** When 2+ players are in the fight, only their heroes take turns (not each other's companions). */
+/** Online fights: only human heroes take manual player-phase turns (companions are skipped). */
 export function coopHeroTurnsOnly(session) {
-  if (!session?.coop) return false;
-  if (session.participants && session.participants.size > 1) return true;
-  const heroes = (session.state?.party || []).filter((m) => m && m.kind === "hero" && m.hp > 0);
-  return heroes.length > 1 || countCoopHumanHeroes(session.state) > 1;
+  return !!session?.coop;
 }
 
 export function markCompanionsSkippedForCoopHeroTurns(st, session) {

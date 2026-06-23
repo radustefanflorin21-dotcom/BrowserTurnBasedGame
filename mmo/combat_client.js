@@ -241,16 +241,7 @@
   }
 
   function coopHeroTurnsOnlyClient(st) {
-    if (!st?.serverAuthoritative) return false;
-    if (typeof st.participantCount === "number" && st.participantCount > 1) return true;
-    const heroControllers = new Set();
-    let heroCount = 0;
-    (st.party || []).forEach((m) => {
-      if (!m || m.kind !== "hero" || m.hp <= 0) return;
-      heroCount += 1;
-      if (typeof m.controllerUserId === "number") heroControllers.add(m.controllerUserId);
-    });
-    return heroControllers.size > 1 || heroCount > 1;
+    return !!st?.serverAuthoritative;
   }
 
   function canControlActiveMember() {
@@ -360,6 +351,23 @@
     return true;
   }
 
+  function syncFightLogFromCombatState() {
+    const logEl = document.getElementById("fightLog");
+    if (!logEl || !combatState || !Array.isArray(combatState.fightLog)) return;
+    logEl.innerHTML = "";
+    combatState.fightLog.forEach((line) => {
+      const row = document.createElement("div");
+      row.className = "fight-log-line";
+      if (typeof formatFightLogPlainTextToHtml === "function") {
+        row.innerHTML = formatFightLogPlainTextToHtml(String(line || ""));
+      } else {
+        row.textContent = String(line || "");
+      }
+      logEl.appendChild(row);
+    });
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
   function applyRemoteCombatState(msg) {
     if (!msg || !msg.state) return;
     if (sessionId && msg.sessionId && msg.sessionId !== sessionId) return;
@@ -374,6 +382,7 @@
         combatState?.worldMapContext,
         { participants: msg.participants, participantCount: msg.participantCount }
       );
+      syncFightLogFromCombatState();
       if (typeof renderTurnBattle === "function") renderTurnBattle();
       playCombatHitsFromPayload(msg);
       clearServerSession();
@@ -391,21 +400,7 @@
       combatState?.worldMapContext,
       { participants: msg.participants, participantCount: msg.participantCount }
     );
-    const logEl = document.getElementById("fightLog");
-    if (logEl && combatState && Array.isArray(combatState.fightLog)) {
-      logEl.innerHTML = "";
-      combatState.fightLog.forEach((line) => {
-        const row = document.createElement("div");
-        row.className = "fight-log-line";
-        if (typeof formatFightLogPlainTextToHtml === "function") {
-          row.innerHTML = formatFightLogPlainTextToHtml(String(line || ""));
-        } else {
-          row.textContent = String(line || "");
-        }
-        logEl.appendChild(row);
-      });
-      logEl.scrollTop = logEl.scrollHeight;
-    }
+    syncFightLogFromCombatState();
     renderTurnBattle();
     playCombatHitsFromPayload(msg);
   }
@@ -534,6 +529,7 @@
             { participants: data.participants, participantCount: data.participantCount }
           );
         }
+        syncFightLogFromCombatState();
         renderTurnBattle();
         playCombatHitsFromPayload(data);
         clearServerSession();
@@ -556,21 +552,7 @@
           combatState?.worldMapContext,
           { participants: data.participants, participantCount: data.participantCount }
         );
-        const logEl = document.getElementById("fightLog");
-        if (logEl && combatState && Array.isArray(combatState.fightLog)) {
-          logEl.innerHTML = "";
-          combatState.fightLog.forEach((line) => {
-            const row = document.createElement("div");
-            row.className = "fight-log-line";
-            if (typeof formatFightLogPlainTextToHtml === "function") {
-              row.innerHTML = formatFightLogPlainTextToHtml(String(line || ""));
-            } else {
-              row.textContent = String(line || "");
-            }
-            logEl.appendChild(row);
-          });
-          logEl.scrollTop = logEl.scrollHeight;
-        }
+        syncFightLogFromCombatState();
       }
       renderTurnBattle();
       playCombatHitsFromPayload(data, actorMember);

@@ -12,7 +12,8 @@ import { isWorldMovementAllowed } from "./movement.js";
 import { loadWorldMapData } from "../load_world_map.js";
 import {
   ensureSharedMapCellSlotRolled,
-  getSharedMapCell
+  getSharedMapCell,
+  isSharedDefeatedSlotOnCooldown
 } from "../presence/map_cells.js";
 
 function deepClone(obj) {
@@ -365,8 +366,7 @@ export function resolveAuthoritativeOverworldEncounter(player, encounter) {
 
   const rolled = ensureSharedMapCellSlotRolled(x, y, setIndex);
   const mapCell = rolled?.mapCell || getSharedMapCell(x, y);
-  const defeated = mapCell?.defeated?.[setIndex];
-  if (defeated != null && defeated !== 0) {
+  if (mapCell && isSharedDefeatedSlotOnCooldown(mapCell, setIndex)) {
     const err = new Error("This encounter was already cleared.");
     err.status = 400;
     throw err;

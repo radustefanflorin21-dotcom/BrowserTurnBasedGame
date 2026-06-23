@@ -990,12 +990,28 @@ function getPresenceStateForClient() {
   };
 }
 
+function isDefeatedTimestampOnCooldown(ts, x, y, setIndex, defeatedUnits) {
+  if (ts == null || ts === 0) return false;
+  let names = [];
+  if (Array.isArray(defeatedUnits) && defeatedUnits.length) {
+    names = defeatedUnits.filter((n) => typeof n === "string" && n.trim());
+  }
+  const wm = GAME_CONFIG.worldMap && typeof GAME_CONFIG.worldMap === "object" ? GAME_CONFIG.worldMap : {};
+  const baseMs = typeof wm.mobRespawnMs === "number" && wm.mobRespawnMs > 0 ? wm.mobRespawnMs : 60000;
+  const spawnRateMult = getSpawnRateMultiplierForMonsterNames(names);
+  const ms = Math.max(1000, Math.floor(baseMs / spawnRateMult));
+  return Date.now() - ts < ms;
+}
+
 function applySharedMapCellFromServer(mapCell) {
   if (!mapCell || !mapCell.key || !player?.worldMap || typeof mapCell !== "object") return;
   if (!player.worldMap.cells || typeof player.worldMap.cells !== "object") {
     player.worldMap.cells = {};
   }
   const key = mapCell.key;
+  const keyParts = String(key).split(",");
+  const cellX = parseInt(keyParts[0], 10);
+  const cellY = parseInt(keyParts[1], 10);
   const existing = player.worldMap.cells[key] || {};
   const slotCount = Math.max(
     Array.isArray(mapCell.defeated) ? mapCell.defeated.length : 0,
@@ -1007,15 +1023,18 @@ function applySharedMapCellFromServer(mapCell) {
   const defeatedUnits = [];
   const mobPreviews = [];
   for (let i = 0; i < slotCount; i++) {
-    const defTs =
+    const defTsRaw =
       mapCell.defeated && i < mapCell.defeated.length ? mapCell.defeated[i] : existing.defeated?.[i];
-    defeated[i] = defTs != null ? defTs : null;
     const du =
       mapCell.defeatedUnits && i < mapCell.defeatedUnits.length
         ? mapCell.defeatedUnits[i]
         : existing.defeatedUnits?.[i];
-    defeatedUnits[i] = Array.isArray(du) ? du.slice() : du != null ? du : null;
-    const onCooldown = defeated[i] != null && defeated[i] !== 0;
+    const onCooldown =
+      Number.isFinite(cellX) && Number.isFinite(cellY)
+        ? isDefeatedTimestampOnCooldown(defTsRaw, cellX, cellY, i, du)
+        : defTsRaw != null && defTsRaw !== 0;
+    defeated[i] = onCooldown ? defTsRaw : null;
+    defeatedUnits[i] = onCooldown ? (Array.isArray(du) ? du.slice() : du != null ? du : null) : null;
     const serverPv = mapCell.mobPreviews?.[i];
     const localPv = existing.mobPreviews?.[i];
     if (onCooldown) {
@@ -19031,16 +19050,7 @@ function playerCombatAction(kind, skillName) {
   partyMemberCombatAction(member, player, kind, skillName);
 }
 function coopHeroTurnsOnlyClient(st) {
-  if (!st?.serverAuthoritative) return false;
-  if (typeof st.participantCount === "number" && st.participantCount > 1) return true;
-  const heroControllers = new Set();
-  let heroCount = 0;
-  (st.party || []).forEach((m) => {
-    if (!m || m.kind !== "hero" || m.hp <= 0) return;
-    heroCount += 1;
-    if (typeof m.controllerUserId === "number") heroControllers.add(m.controllerUserId);
-  });
-  return heroControllers.size > 1 || heroCount > 1;
+  return !!st?.serverAuthoritative;
 }
 
 function eligibleActingMembersClient(st) {
@@ -24191,12 +24201,11 @@ function tickAdventureRespawnOnly() {
   const key = worldMapKey(x, y);
   const rec = player.worldMap.cells[key];
   const defArr = rec && Array.isArray(rec.defeated) ? rec.defeated : [];
-  const ms = GAME_CONFIG.worldMap.mobRespawnMs;
   let needRefresh = false;
   let clearedRespawn = false;
   for (let si = 0; si < encounterSlots; si++) {
     const t = defArr[si];
-    if (t != null && Date.now() - t >= ms) {
+    if (t != null && Date.now() - t >= getWorldMobRespawnMsAt(x, y, si)) {
       needRefresh = true;
       rec.defeated[si] = null;
       if (Array.isArray(rec.defeatedUnits)) rec.defeatedUnits[si] = null;
@@ -24204,7 +24213,13 @@ function tickAdventureRespawnOnly() {
     }
   }
   if (clearedRespawn) save();
-  if (needRefresh) renderAdventure();
+  if (needRefresh) {
+    if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.() && window.MMOPresence) {
+      scheduleAdventureEncountersRefreshFromServer();
+    } else {
+      renderAdventure();
+    }
+  }
 }
 
 function isWorldMapModalOpen() {
