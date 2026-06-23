@@ -3730,6 +3730,19 @@ body.edit-mode-on .portrait-equip-layer--pet {
   opacity: 0.92;
 }
 
+.world-camps .world-camp.world-camp--defeated {
+  cursor: default;
+  opacity: 0.72;
+  filter: grayscale(0.45);
+}
+
+.world-camp-respawn {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
 .world-camp-fight-btn {
   display: block;
   margin: 8px auto 4px;

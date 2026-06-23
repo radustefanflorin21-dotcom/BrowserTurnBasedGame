@@ -89,13 +89,12 @@ function lockCoopSession(session) {
 }
 
 function schedulePrepTimeout(session) {
-  const remaining = Math.max(500, session.prepEndsAt - Date.now());
+  clearPrepTimer(session);
+  const ms = Math.max(0, (session.prepEndsAt || 0) - Date.now());
   session.prepTimer = setTimeout(() => {
-    if (!sessions.has(session.sessionId)) return;
-    if (session.locked) return;
+    session.prepTimer = null;
     lockCoopSession(session);
-  }, remaining);
-  session.prepTimer.unref?.();
+  }, ms);
 }
 
 export function startCoopSession(hostUserId, { player, slotIndex, encounter, rngSeed }) {
@@ -132,8 +131,8 @@ export function startCoopSession(hostUserId, { player, slotIndex, encounter, rng
   };
   sessions.set(sessionId, session);
   prepSessionsByHost.set(hostUserId, sessionId);
-  schedulePrepTimeout(session);
   broadcastCoopCombat(session);
+  schedulePrepTimeout(session);
   return session;
 }
 

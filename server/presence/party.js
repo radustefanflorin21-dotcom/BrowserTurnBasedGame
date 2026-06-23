@@ -16,7 +16,7 @@ const pendingInvites = new Map();
 const pendingFightInvites = new Map();
 
 const INVITE_TTL_MS = 120_000;
-const FIGHT_INVITE_TTL_MS = 45_000;
+const FIGHT_INVITE_TTL_MS = 30_000;
 
 function newPartyId() {
   return `p_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;

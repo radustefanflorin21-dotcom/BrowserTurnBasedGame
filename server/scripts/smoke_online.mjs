@@ -289,16 +289,16 @@ async function abandonActiveCombat(token) {
 }
 
 async function runCoopCombatUntilFinished(hostToken, joinerToken, hostUserId, joinerUserId, sessionId, state, maxTurns = 100) {
-  let ready = await api("/api/combat/action", {
+  let readyHost = await api("/api/combat/action", {
     method: "POST",
     token: hostToken,
     body: { sessionId, action: { type: "ready" } }
   });
-  if (!ready.res.ok) return { error: ready.data?.error || "ready failed" };
+  if (!readyHost.res.ok) return { error: readyHost.data?.error || "host ready failed" };
 
-  let currentState = ready.data?.state || state;
-  let finished = !!ready.data?.finished;
-  let result = ready.data?.result;
+  let currentState = readyHost.data?.state || state;
+  let finished = !!readyHost.data?.finished;
+  let result = readyHost.data?.result;
   let turns = 0;
 
   while (!finished && turns < maxTurns) {

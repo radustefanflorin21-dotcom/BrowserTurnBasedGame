@@ -165,7 +165,7 @@ export function createCoopPrepState(hostUserId, player, encounter, rngSeed) {
     selectedUid: foes[0]?.uid ?? null,
     selectedAllyUid: party[0]?.uid ?? null,
     activePartyUid: null,
-    fightLog: ["— Fight forming — waiting for party (30s) —"],
+    fightLog: ["— Fight forming — waiting for party to join —"],
     enemyNames: foes.map((f) => f.name),
     worldMapContext: encounter?.worldMapContext || null,
     endOutcome: null,
@@ -244,7 +244,6 @@ export function beginCoopFromPrep(session) {
   st.party.forEach((m) => {
     if (m) m.acted = false;
   });
-  markCompanionsSkippedForCoopHeroTurns(st, session);
   const first = firstActingMember(session, st) || st.party.find((m) => m && m.hp > 0);
   st.activePartyUid = first ? first.uid : null;
   st.selectedAllyUid = st.activePartyUid;
@@ -307,13 +306,16 @@ export function countCoopHumanHeroes(st) {
   ).length;
 }
 
-/** @deprecated Companions always take turns when enabled at fight start; kept for call-site compatibility. */
+/** Companions always take manual turns in co-op. */
 export function coopHeroTurnsOnly(_session) {
   return false;
 }
 
-export function markCompanionsSkippedForCoopHeroTurns(_st, _session) {
-  // Enabled companions always receive a player-phase turn (solo and co-op).
+export function markCompanionsSkippedForCoopHeroTurns(st, session) {
+  if (!coopHeroTurnsOnly(session)) return;
+  (st.party || []).forEach((m) => {
+    if (m?.kind === "companion") m.acted = true;
+  });
 }
 
 export function eligibleActingMembers(session, st) {
@@ -456,6 +458,14 @@ export function finishCoopDefeat(session) {
     participantResults[userId] = result;
   }
   return { participantResults, state: cloneState(st), finished: true };
+}
+
+export function allParticipantsReady(session) {
+  if (!session?.participants?.size) return false;
+  for (const part of session.participants.values()) {
+    if (!part?.ready) return false;
+  }
+  return true;
 }
 
 export function publicParticipantsList(session) {

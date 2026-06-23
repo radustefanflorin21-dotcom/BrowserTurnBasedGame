@@ -582,6 +582,7 @@
     getOnSameTile,
     getMapCellCache,
     waitForMapCell,
+    flushPendingMapCellSyncs,
     getParty,
     getMyUserId,
     getWorldShard,

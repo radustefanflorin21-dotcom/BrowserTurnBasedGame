@@ -224,6 +224,9 @@
         characterRoster.slots[activeCharacterSlotIndex] = player;
       }
     }
+    if (typeof rehydrateWorldMapMobPreviewsFromPresenceCache === "function") {
+      rehydrateWorldMapMobPreviewsFromPresenceCache();
+    }
   }
 
   function openFightUi() {
@@ -427,13 +430,11 @@
     const active =
       typeof getActivePartyMember === "function" ? getActivePartyMember(combatState) : null;
     if (active && Number(active.controllerUserId) === myUid) return true;
-    const heroesOnly = coopHeroTurnsOnlyClient(combatState);
     return (combatState.party || []).some(
       (m) =>
         m &&
         m.hp > 0 &&
         !m.acted &&
-        (!heroesOnly || m.kind === "hero") &&
         Number(m.controllerUserId) === myUid
     );
   }

@@ -449,16 +449,21 @@ export function processCombatAction(session, action, actingUserId = null) {
       err.status = 400;
       throw err;
     }
-    if (userId !== session.hostUserId) {
-      const err = new Error("Only the fight host can ready up.");
-      err.status = 403;
-      throw err;
-    }
     if (session.locked) {
       const err = new Error("Fight already started.");
       err.status = 400;
       throw err;
     }
+    if (userId !== session.hostUserId) {
+      const err = new Error("Only the host can start the fight early.");
+      err.status = 403;
+      throw err;
+    }
+    if (session.prepTimer) {
+      clearTimeout(session.prepTimer);
+      session.prepTimer = null;
+    }
+    session.locked = true;
     beginCoopFromPrep(session);
     return { state: cloneState(st), result: null, finished: false, began: true };
   }

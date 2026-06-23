@@ -1050,6 +1050,28 @@ function applySharedMapCellFromServer(mapCell) {
   player.worldMap.cells[key] = { defeated, defeatedUnits, mobPreviews };
 }
 
+/** Restore mob previews from the presence map-cell cache after roster saves wipe local previews. */
+function rehydrateWorldMapMobPreviewsFromPresenceCache() {
+  if (typeof window === "undefined" || !player?.worldMap || !window.MMOPresence?.getMapCellCache) return;
+  if (!player.worldMap.cells || typeof player.worldMap.cells !== "object") player.worldMap.cells = {};
+  const keys = new Set(Object.keys(player.worldMap.cells));
+  if (typeof player.worldMap.x === "number" && typeof player.worldMap.y === "number") {
+    keys.add(worldMapKey(player.worldMap.x, player.worldMap.y));
+  }
+  keys.forEach((key) => {
+    const cached = window.MMOPresence.getMapCellCache(key);
+    if (cached) applySharedMapCellFromServer(cached);
+  });
+}
+
+function getWorldCampRespawnSecondsLeft(x, y, si) {
+  const rec = player?.worldMap?.cells?.[worldMapKey(x, y)];
+  const t = rec?.defeated?.[si];
+  if (t == null) return 0;
+  const ms = getWorldMobRespawnMsAt(x, y, si);
+  return Math.max(0, Math.ceil((ms - (Date.now() - t)) / 1000));
+}
+
 /** Mark a world-map encounter slot defeated immediately (online + offline UI). */
 function applyWorldMapVictoryFromCombatState(st) {
   if (!st || !player?.worldMap) return;
@@ -1083,9 +1105,16 @@ function applyWorldMapVictoryFromCombatState(st) {
   while (cell.defeated.length < slots) cell.defeated.push(null);
   while (cell.defeatedUnits.length < slots) cell.defeatedUnits.push(null);
   while (cell.mobPreviews.length < slots) cell.mobPreviews.push(null);
+  let defeatedNames = killedNamesAll;
+  if (!defeatedNames.length) {
+    const pv = cell.mobPreviews[setIndex];
+    if (pv && Array.isArray(pv.units)) {
+      defeatedNames = pv.units.map((u) => (u && u.name ? u.name : "")).filter(Boolean);
+    }
+  }
   const now = Date.now();
   cell.defeated[setIndex] = now;
-  cell.defeatedUnits[setIndex] = killedNamesAll;
+  cell.defeatedUnits[setIndex] = defeatedNames;
   cell.mobPreviews[setIndex] = null;
   if (typeof window !== "undefined" && window.MMOPresence?.getMapCellCache) {
     const cached = window.MMOPresence.getMapCellCache(key);
@@ -1236,7 +1265,7 @@ function showFightInviteModal(payload) {
       payload.prepEndsAt && payload.prepEndsAt > Date.now()
         ? Math.ceil((payload.prepEndsAt - Date.now()) / 1000)
         : 30;
-    text.textContent = `${payload.hostName || "A party member"} started a fight on this tile (${secs}s to join).`;
+    text.textContent = `${payload.hostName || "A party member"} started a fight on this tile. Party members here can join during preparation (${secs}s).`;
   }
   if (modal) modal.classList.remove("hidden");
 }
@@ -1299,6 +1328,12 @@ function buildWorldCampEncounterCellHtml(si, preview, pool, posStyleAttr) {
         <div class="mob-imgs mob-imgs--world">${thumbsActive}</div>
         ${pendingUi}
       </div>`;
+}
+
+function buildWorldCampCellHtml(x, y, si, pool, posStyleAttr) {
+  if (slotIsWorldMobOnRespawnCooldown(x, y, si)) return "";
+  const preview = ensureMobPreview(x, y, si);
+  return buildWorldCampEncounterCellHtml(si, preview, pool, posStyleAttr);
 }
 
 function tileNeedsServerMobPreviews(x, y) {
@@ -1395,9 +1430,7 @@ function refreshAdventureEncountersOnly() {
     return p ? ` style="left:${p.leftPct}%;top:${p.topPct}%;transform:translate(-50%,-50%);"` : "";
   };
   for (let si = 0; si < encounterSlots; si++) {
-    if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
-    const preview = ensureMobPreview(x, y, si);
-    campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyleForSlot(si));
+    campsHtml += buildWorldCampCellHtml(x, y, si, pool, campPosStyleForSlot(si));
   }
   if (visibleCount > 0) {
     const sig = getWorldCampRenderSignature(x, y, encounterSlots);
@@ -1544,9 +1577,22 @@ function initMapPlayersPanelUi() {
   if (fightJoin && fightJoin.dataset.bound !== "1") {
     fightJoin.dataset.bound = "1";
     fightJoin.addEventListener("click", async () => {
-      const payload = pendingFightInvitePayload;
+      let payload = pendingFightInvitePayload;
       hideFightInviteModal();
-      if (!payload || isFightOverlayOpen()) return;
+      if (isFightOverlayOpen()) return;
+      if ((!payload || !payload.sessionId) && window.ServerCombat?.fetchPartySession) {
+        const open = await window.ServerCombat.fetchPartySession();
+        if (open?.sessionId) {
+          payload = {
+            sessionId: open.sessionId,
+            hostName: "Party member",
+            region: { name: "Encounter", enemyScale: 1 },
+            mob: { units: [] },
+            worldMapContext: null
+          };
+        }
+      }
+      if (!payload) return;
       const region = payload.region || { name: "Encounter", enemyScale: 1 };
       const mob = payload.mob || { units: [] };
       await beginTurnCombat(
@@ -15998,7 +16044,15 @@ async function startWorldMapFight(setIndex) {
   if (cellCfg.kind !== "encounters") return;
   const slots = getEncounterSlotCountForCell(x, y, cellCfg);
   if (setIndex < 0 || setIndex >= slots) return;
-  if (isWorldMobSetDefeated(x, y, setIndex)) return;
+  if (slotIsWorldMobOnRespawnCooldown(x, y, setIndex)) {
+    const secs = getWorldCampRespawnSecondsLeft(x, y, setIndex);
+    showModal(
+      secs > 0
+        ? `This encounter was recently cleared. New enemies arrive in about ${secs}s.`
+        : "This encounter was recently cleared. New enemies are respawning."
+    );
+    return;
+  }
   const biome = getWorldBiomeDefAt(x, y);
   if (!biome.passable) return;
   const pool = biome.possibleEnemies;
@@ -17211,6 +17265,15 @@ function startPlayerTurnTimer() {
   clearPlayerTurnTimer();
   const st = combatState;
   if (!st || st.phase !== "player") return;
+  if (
+    st.serverAuthoritative &&
+    typeof window !== "undefined" &&
+    window.ServerCombat &&
+    typeof window.ServerCombat.canControlActiveMember === "function" &&
+    !window.ServerCombat.canControlActiveMember()
+  ) {
+    return;
+  }
   const el = document.getElementById("fightTurnTimer");
   const endMs = Date.now() + PLAYER_TURN_SECONDS * 1000;
   if (el) {
@@ -17756,28 +17819,26 @@ function renderTurnBattle() {
           </div>`;
     } else if (st.phase === "prep") {
       actionsEl.classList.remove("hidden");
-      const prepEnd = st.prepEndsAt || 0;
-      const secsLeft = prepEnd > Date.now() ? Math.ceil((prepEnd - Date.now()) / 1000) : 0;
+      const prepRoster = Array.isArray(st.participants) ? st.participants : [];
       const isHost =
         typeof window !== "undefined" &&
         window.ServerCombat &&
         typeof window.ServerCombat.isFightHost === "function" &&
         window.ServerCombat.isFightHost();
-      const readyBtn = isHost
-        ? `<button type="button" class="btn-primary fight-ready-btn" data-fight-action="ready" title="Start fight now">Ready</button>`
-        : `<button type="button" class="btn-secondary fight-ready-btn" disabled title="Waiting for host">Waiting for host…</button>`;
-      const prepRoster = Array.isArray(st.participants) ? st.participants : [];
       const rosterHint =
         prepRoster.length > 0
           ? `<p class="fight-hint fight-hint--prep-roster">Fighters: ${prepRoster
               .map((p) => escapeHtml(p.name || "Hero"))
               .join(", ")}</p>`
           : "";
-      actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Prep time</span><span id="fightPrepTimer" class="fight-turn-timer" data-end-at="${prepEnd}">${secsLeft}s</span></div>
-          <p class="fight-hint">Party members on this tile can join. When the host readies up or the timer ends, the fight locks.</p>
+      const hostStartBtn = isHost
+        ? `<button type="button" class="btn-primary fight-ready-btn" data-fight-action="ready" title="Start the fight now">Start now</button>`
+        : "";
+      actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Prep</span><span id="fightPrepTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
+          <p class="fight-hint">Party members on this map tile can join until preparation ends. The fight starts automatically when the timer reaches zero.</p>
           ${rosterHint}
           <div class="fight-action-row fight-action-row--prep">
-            ${readyBtn}
+            ${hostStartBtn}
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave</button>
           </div>`;
     } else if (uiPhase === "player") {
@@ -17793,7 +17854,15 @@ function renderTurnBattle() {
       const active =
         (canAct ? getCombatUiPartyMember(st) : null) || getActivePartyMember(st);
       if (!active) {
-        actionsEl.innerHTML = `<p class="fight-hint">All allies have ended their turn.</p>
+        const waitingForOther =
+          st.serverAuthoritative &&
+          (st.party || []).some((m) => m && m.hp > 0 && !m.acted);
+        actionsEl.innerHTML = waitingForOther
+          ? `<p class="fight-hint">Waiting for another fighter's turn…</p>
+          <div class="fight-action-row">
+            <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
+          </div>`
+          : `<p class="fight-hint">All allies have ended their turn.</p>
           <div class="fight-action-row">
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
           </div>`;
@@ -18159,6 +18228,10 @@ function applyServerFightResult(result) {
     applyWorldMapVictoryFromCombatState(st);
     if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
       publishPresenceDungeonLocation();
+    }
+    rehydrateWorldMapMobPreviewsFromPresenceCache();
+    if (currentPage === "adventure" && !isFightOverlayOpen()) {
+      scheduleAdventureEncountersRefreshFromServer();
     }
     showFightResults(true, result);
   } else {
@@ -18752,9 +18825,8 @@ function getPartyMemberStamina(member, st) {
     member.kind === "hero" && typeof st.stamina === "number" ? st.stamina : null;
   const onlineParty =
     st.serverAuthoritative &&
-    (typeof st.participantCount === "number"
-      ? st.participantCount > 1
-      : coopHeroTurnsOnlyClient(st));
+    typeof st.participantCount === "number" &&
+    st.participantCount > 1;
   if (onlineParty && member.kind === "hero") {
     if (fromMember != null && fromGlobal != null) return Math.max(fromMember, fromGlobal);
     if (fromMember != null) return fromMember;
@@ -18783,7 +18855,6 @@ function getCombatUiPartyMember(st) {
         ? window.MMOPresence.getMyUserId()
         : null;
   if (typeof myUid !== "number") return getActivePartyMember(st);
-  const heroesOnly = coopHeroTurnsOnlyClient(st);
   const active = getActivePartyMember(st);
   if (active && Number(active.controllerUserId) === Number(myUid)) return active;
   const mine = (st.party || []).find(
@@ -18791,8 +18862,7 @@ function getCombatUiPartyMember(st) {
       m &&
       m.hp > 0 &&
       !m.acted &&
-      Number(m.controllerUserId) === Number(myUid) &&
-      (!heroesOnly || m.kind === "hero")
+      Number(m.controllerUserId) === Number(myUid)
   );
   return mine || active;
 }
@@ -19091,19 +19161,12 @@ function coopHeroTurnsOnlyClient(_st) {
 }
 
 function eligibleActingMembersClient(st) {
-  const heroesOnly = coopHeroTurnsOnlyClient(st);
-  return (st.party || []).filter((m) => {
-    if (!m || m.hp <= 0 || m.acted) return false;
-    if (heroesOnly && m.kind !== "hero") return false;
-    return true;
-  });
+  return (st.party || []).filter((m) => m && m.hp > 0 && !m.acted);
 }
 
 function getActivePartyMember(st) {
   if (!st || !Array.isArray(st.party)) return null;
-  const heroesOnly = coopHeroTurnsOnlyClient(st);
   let m = st.party.find((x) => x && x.uid === st.activePartyUid && x.hp > 0 && !x.acted) || null;
-  if (m && heroesOnly && m.kind !== "hero") m = null;
   if (!m && st.phase === "player") {
     const elig = eligibleActingMembersClient(st);
     m = elig[0] || null;
@@ -19203,6 +19266,12 @@ function endActiveActorTurn(auto) {
   if (!st || st.phase !== "player") return;
   clearPlayerTurnTimer();
   if (st.serverAuthoritative && typeof window !== "undefined" && window.ServerCombat) {
+    if (
+      typeof window.ServerCombat.canControlActiveMember === "function" &&
+      !window.ServerCombat.canControlActiveMember()
+    ) {
+      return;
+    }
     void window.ServerCombat.submitAction({ type: "pass" });
     return;
   }
@@ -20465,6 +20534,11 @@ function closeFightOverlay() {
   }
   if (currentPage === "adventure") renderAdventure();
   else render();
+  rehydrateWorldMapMobPreviewsFromPresenceCache();
+  if (typeof window !== "undefined" && window.MMOPresence?.flushPendingMapCellSyncs) {
+    window.MMOPresence.flushPendingMapCellSyncs();
+  }
+  if (currentPage === "adventure") scheduleAdventureEncountersRefreshFromServer();
 }
 function levelUp() {
   return levelUpActor(player);
@@ -22479,7 +22553,7 @@ function buildOverviewHtml() {
       const disabled = blocked ? " disabled" : "";
       const kind = d.kind === "gathering" ? "Gathering" : "Crafting";
       let levelHint = "";
-      if (selected && d.kind === "crafting" && typeof ProfessionProgression !== "undefined") {
+      if (selected && typeof ProfessionProgression !== "undefined") {
         ensureActorProfessionProgress(actor);
         const plv = ProfessionProgression.getProfessionLevel(actor, d.id);
         levelHint = ` · Lv ${plv}`;
@@ -25060,9 +25134,7 @@ function renderAdventure() {
         return p ? ` style="left:${p.leftPct}%;top:${p.topPct}%;transform:translate(-50%,-50%);"` : "";
       };
       for (let si = 0; si < encounterSlots; si++) {
-        if (slotIsWorldMobOnRespawnCooldown(x, y, si)) continue;
-        const preview = ensureMobPreview(x, y, si);
-        campsHtml += buildWorldCampEncounterCellHtml(si, preview, pool, campPosStyleForSlot(si));
+        campsHtml += buildWorldCampCellHtml(x, y, si, pool, campPosStyleForSlot(si));
       }
     }
   }
