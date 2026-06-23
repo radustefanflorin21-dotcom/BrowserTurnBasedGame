@@ -36,7 +36,11 @@ export function broadcastCoopCombatFinished(
             : {}),
           ...(Array.isArray(hitExtra.lastEnemyHits)
             ? { lastEnemyHits: hitExtra.lastEnemyHits }
-            : {})
+            : {}),
+          ...(Array.isArray(hitExtra.enemyActionSteps)
+            ? { enemyActionSteps: hitExtra.enemyActionSteps }
+            : {}),
+          ...(hitExtra.preEnemySnapshot ? { preEnemySnapshot: hitExtra.preEnemySnapshot } : {})
         }
       : {};
   for (const [uid, result] of Object.entries(participantResults || {})) {

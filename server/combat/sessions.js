@@ -269,7 +269,9 @@ async function finalizeCoopVictoryFromOut(session, out) {
   broadcastCoopCombatFinished(session, coopResults, rosters, {
     lastHits: out.lastHits,
     lastEnemyHits: out.lastEnemyHits,
-    actorPartyUid: out.actorPartyUid
+    actorPartyUid: out.actorPartyUid,
+    enemyActionSteps: out.enemyActionSteps,
+    preEnemySnapshot: out.preEnemySnapshot
   });
   endSession(session.sessionId);
 }
@@ -338,6 +340,12 @@ export function runAction(sessionId, action, actingUserId) {
     if (out.began) extra.began = true;
     if (Array.isArray(out.lastEnemyHits)) {
       extra.lastEnemyHits = out.lastEnemyHits;
+    }
+    if (Array.isArray(out.enemyActionSteps)) {
+      extra.enemyActionSteps = out.enemyActionSteps;
+    }
+    if (out.preEnemySnapshot) {
+      extra.preEnemySnapshot = out.preEnemySnapshot;
     }
     if (Array.isArray(out.lastHits) && out.lastHits.length) {
       extra.lastHits = out.lastHits;

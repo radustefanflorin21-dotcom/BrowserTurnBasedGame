@@ -292,7 +292,9 @@ export function registerCombatRoutes(app) {
         broadcastCoopCombatFinished(session, out.participantResults, rosters, {
           lastHits: out.lastHits,
           lastEnemyHits: out.lastEnemyHits,
-          actorPartyUid: out.actorPartyUid
+          actorPartyUid: out.actorPartyUid,
+          enemyActionSteps: out.enemyActionSteps,
+          preEnemySnapshot: out.preEnemySnapshot
         });
         endSession(sessionId);
         const myResult = coopResults[req.user.id];
@@ -304,6 +306,8 @@ export function registerCombatRoutes(app) {
           participantResults: coopResults,
           lastHits: out.lastHits || undefined,
           lastEnemyHits: out.lastEnemyHits || undefined,
+          enemyActionSteps: out.enemyActionSteps,
+          preEnemySnapshot: out.preEnemySnapshot,
           actorPartyUid: out.actorPartyUid,
           player: myPart?.player,
           roster: rosters[req.user.id]
@@ -337,6 +341,8 @@ export function registerCombatRoutes(app) {
         result: out.result || undefined,
         lastHits: out.lastHits || undefined,
         lastEnemyHits: out.lastEnemyHits || undefined,
+        enemyActionSteps: out.enemyActionSteps,
+        preEnemySnapshot: out.preEnemySnapshot,
         actorPartyUid: out.actorPartyUid,
         player: myPart?.player,
         began: !!out.began,

@@ -10,8 +10,18 @@
   let combatLocked = false;
   let enemyPhaseUiUntil = 0;
   let enemyPhaseUiTimer = null;
+  let enemyReplayStepTimer = null;
+  let pendingFinalCombatApply = null;
 
   const ENEMY_PHASE_MIN_MS = 2000;
+  const ENEMY_ACTION_STEP_MS = 1000;
+
+  function clearServerSession() {
+    sessionId = null;
+    hostUserId = null;
+    prepEndsAt = null;
+    combatLocked = false;
+  }
 
   function isOnlineCombat() {
     return !!(
@@ -258,25 +268,149 @@
       clearTimeout(enemyPhaseUiTimer);
       enemyPhaseUiTimer = null;
     }
+    if (enemyReplayStepTimer) {
+      clearTimeout(enemyReplayStepTimer);
+      enemyReplayStepTimer = null;
+    }
+    pendingFinalCombatApply = null;
     if (combatState && combatState.uiPhaseOverride === "enemy") {
       delete combatState.uiPhaseOverride;
     }
   }
 
-  function beginEnemyPhaseUi(totalMs) {
+  function beginEnemyPhaseUi(totalMs, autoFinish) {
     const ms = Math.max(ENEMY_PHASE_MIN_MS, totalMs || ENEMY_PHASE_MIN_MS);
     enemyPhaseUiUntil = Date.now() + ms;
     if (combatState) combatState.uiPhaseOverride = "enemy";
     setFightUiPending(true);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
     if (enemyPhaseUiTimer) clearTimeout(enemyPhaseUiTimer);
-    enemyPhaseUiTimer = setTimeout(() => {
-      enemyPhaseUiTimer = null;
-      enemyPhaseUiUntil = 0;
-      if (combatState) delete combatState.uiPhaseOverride;
-      setFightUiPending(false);
+    if (autoFinish !== false) {
+      enemyPhaseUiTimer = setTimeout(() => {
+        enemyPhaseUiTimer = null;
+        enemyPhaseUiUntil = 0;
+        if (combatState) delete combatState.uiPhaseOverride;
+        setFightUiPending(false);
+        if (typeof renderTurnBattle === "function") renderTurnBattle();
+      }, ms);
+    }
+  }
+
+  function applyCombatVisualSnapshot(st, snap) {
+    if (!st || !snap) return;
+    if (Array.isArray(snap.party)) {
+      snap.party.forEach((p) => {
+        if (!p) return;
+        const m = (st.party || []).find((x) => x && x.uid === p.uid);
+        if (m) {
+          m.hp = p.hp;
+          if (typeof p.maxHp === "number") m.maxHp = p.maxHp;
+        }
+      });
+    }
+    if (Array.isArray(snap.foes)) {
+      snap.foes.forEach((f) => {
+        if (!f) return;
+        const foe = (st.foes || []).find((x) => x && x.uid === f.uid);
+        if (foe) {
+          foe.hp = f.hp;
+          if (typeof f.maxHp === "number") foe.maxHp = f.maxHp;
+        }
+      });
+    }
+    if (typeof snap.playerHp === "number") st.playerHp = snap.playerHp;
+    if (snap.status) st.status = JSON.parse(JSON.stringify(snap.status));
+  }
+
+  function restorePreEnemyVisualState(preEnemySnapshot) {
+    if (!combatState || !preEnemySnapshot) return;
+    if (Array.isArray(preEnemySnapshot.fightLog)) {
+      combatState.fightLog = preEnemySnapshot.fightLog.slice();
+    }
+    applyCombatVisualSnapshot(combatState, preEnemySnapshot);
+    if (typeof syncFightLogFromCombatState === "function") syncFightLogFromCombatState();
+  }
+
+  function applyEnemyActionStep(step) {
+    const st = combatState;
+    if (!st || !step) return;
+    (step.logLines || []).forEach((line) => {
+      if (typeof appendFightLog === "function") appendFightLog(String(line || ""));
+      else st.fightLog.push(String(line || ""));
+    });
+    applyCombatVisualSnapshot(st, step);
+    if (typeof renderTurnBattle === "function") renderTurnBattle();
+    if (step.hits && step.hits.length) playServerEnemyHitEffects(step.hits);
+    if (typeof shakeFightOverlay === "function") shakeFightOverlay();
+  }
+
+  function finishPendingCombatApply() {
+    const pending = pendingFinalCombatApply;
+    pendingFinalCombatApply = null;
+    clearEnemyPhaseUi();
+    setFightUiPending(false);
+    if (!pending) {
       if (typeof renderTurnBattle === "function") renderTurnBattle();
-    }, ms);
+      return;
+    }
+    applyServerStateToCombat(
+      pending.state,
+      pending.region,
+      pending.mob,
+      pending.worldMapContext,
+      pending.extra || {}
+    );
+    if (typeof syncFightLogFromCombatState === "function") syncFightLogFromCombatState();
+    if (typeof renderTurnBattle === "function") renderTurnBattle();
+    if (pending.onApplied) pending.onApplied();
+  }
+
+  function playEnemyPhaseReplay(payload, ctx) {
+    const steps = Array.isArray(payload.enemyActionSteps) ? payload.enemyActionSteps : [];
+    const preEnemy = payload.preEnemySnapshot;
+    if (!preEnemy || !steps.length) return false;
+
+    pendingFinalCombatApply = {
+      state: payload.state,
+      region: ctx.region,
+      mob: ctx.mob,
+      worldMapContext: ctx.worldMapContext,
+      extra: ctx.extra,
+      onApplied: ctx.onApplied
+    };
+
+    applyServerStateToCombat(
+      payload.state,
+      ctx.region,
+      ctx.mob,
+      ctx.worldMapContext,
+      ctx.extra || {}
+    );
+    restorePreEnemyVisualState(preEnemy);
+    combatState.uiPhaseOverride = "enemy";
+    if (typeof renderTurnBattle === "function") renderTurnBattle();
+
+    const allyHits = Array.isArray(payload.lastHits) ? payload.lastHits : [];
+    const allyLeadMs = allyHits.length ? 420 : 0;
+    if (allyHits.length) {
+      requestAnimationFrame(() => playServerHitEffects(allyHits, ctx.actorMember));
+    }
+
+    const totalMs = allyLeadMs + steps.length * ENEMY_ACTION_STEP_MS + 300;
+    beginEnemyPhaseUi(totalMs, false);
+
+    let stepIndex = 0;
+    const playNext = () => {
+      if (!combatState || stepIndex >= steps.length) {
+        finishPendingCombatApply();
+        return;
+      }
+      const step = steps[stepIndex++];
+      applyEnemyActionStep(step);
+      enemyReplayStepTimer = setTimeout(playNext, ENEMY_ACTION_STEP_MS);
+    };
+    enemyReplayStepTimer = setTimeout(playNext, allyLeadMs + 120);
+    return true;
   }
 
   function canControlActiveMember() {
@@ -411,34 +545,26 @@
     applyServerMeta(msg);
 
     if (msg.finished && msg.result) {
-      applyServerStateToCombat(
-        msg.state,
-        combatState?.region,
-        combatState?.mob,
-        combatState?.worldMapContext,
-        { participants: msg.participants, participantCount: msg.participantCount }
-      );
-      syncFightLogFromCombatState();
-      if (typeof renderTurnBattle === "function") renderTurnBattle();
-      playCombatHitsFromPayload(msg);
-      clearServerSession();
-      mergeServerPlayer(msg.player, msg.roster);
-      if (typeof applyServerFightResult === "function") {
-        applyServerFightResult(msg.result);
-      }
+      processCombatPayload(msg, {
+        region: combatState?.region,
+        mob: combatState?.mob,
+        worldMapContext: combatState?.worldMapContext,
+        onApplied: () => {
+          clearServerSession();
+          mergeServerPlayer(msg.player, msg.roster);
+          if (typeof applyServerFightResult === "function") {
+            applyServerFightResult(msg.result);
+          }
+        }
+      });
       return;
     }
 
-    applyServerStateToCombat(
-      msg.state,
-      combatState?.region,
-      combatState?.mob,
-      combatState?.worldMapContext,
-      { participants: msg.participants, participantCount: msg.participantCount }
-    );
-    syncFightLogFromCombatState();
-    renderTurnBattle();
-    playCombatHitsFromPayload(msg);
+    processCombatPayload(msg, {
+      region: combatState?.region,
+      mob: combatState?.mob,
+      worldMapContext: combatState?.worldMapContext
+    });
   }
 
   function playServerEnemyHitEffects(hits) {
@@ -465,35 +591,70 @@
     const st = combatState;
     if (!st) return;
     const allyHits = Array.isArray(payload.lastHits) ? payload.lastHits : [];
-    const enemyPhaseRan = Array.isArray(payload.lastEnemyHits);
-    const enemyHits = enemyPhaseRan ? payload.lastEnemyHits : [];
+    const enemyPhaseRan = Array.isArray(payload.enemyActionSteps) && payload.preEnemySnapshot;
+
+    if (enemyPhaseRan) return;
 
     let actor = fallbackActor || null;
     if (payload.actorPartyUid != null) {
       actor =
         (st.party || []).find((m) => m && m.uid === payload.actorPartyUid) || actor;
     }
-    const actorRef = actor;
 
-    if (enemyPhaseRan) {
+    const enemyPhaseOnly = Array.isArray(payload.lastEnemyHits);
+    if (enemyPhaseOnly) {
+      const enemyHits = payload.lastEnemyHits;
       const hitCount = enemyHits.length;
-      const perHitMs = hitCount > 1 ? Math.max(450, Math.floor(ENEMY_PHASE_MIN_MS / hitCount)) : ENEMY_PHASE_MIN_MS;
       const animMs =
-        hitCount > 0 ? Math.max(ENEMY_PHASE_MIN_MS, (hitCount - 1) * perHitMs + 500) : ENEMY_PHASE_MIN_MS;
+        hitCount > 0 ? Math.max(ENEMY_PHASE_MIN_MS, hitCount * ENEMY_ACTION_STEP_MS) : ENEMY_PHASE_MIN_MS;
       const allyLeadMs = allyHits.length ? 420 : 0;
       beginEnemyPhaseUi(allyLeadMs + animMs);
     }
 
     requestAnimationFrame(() => {
-      if (allyHits.length) playServerHitEffects(allyHits, actorRef);
+      if (allyHits.length) playServerHitEffects(allyHits, actor);
       const allyLeadMs = allyHits.length ? 420 : 0;
-      if (enemyHits.length) {
-        const perHitMs = Math.max(450, Math.floor(ENEMY_PHASE_MIN_MS / enemyHits.length));
-        enemyHits.forEach((hit, i) => {
-          setTimeout(() => playServerEnemyHitEffects([hit]), allyLeadMs + i * perHitMs);
+      if (Array.isArray(payload.lastEnemyHits) && payload.lastEnemyHits.length) {
+        payload.lastEnemyHits.forEach((hit, i) => {
+          setTimeout(() => playServerEnemyHitEffects([hit]), allyLeadMs + i * ENEMY_ACTION_STEP_MS);
         });
       }
     });
+  }
+
+  function processCombatPayload(payload, ctx) {
+    if (!payload || !payload.state) return;
+    const extra = {
+      participants: payload.participants,
+      participantCount: payload.participantCount,
+      ...(ctx.extra || {})
+    };
+    const replayCtx = {
+      region: ctx.region,
+      mob: ctx.mob,
+      worldMapContext: ctx.worldMapContext,
+      extra,
+      actorMember: ctx.actorMember,
+      onApplied: ctx.onApplied
+    };
+
+    if (
+      playEnemyPhaseReplay(payload, replayCtx)
+    ) {
+      return;
+    }
+
+    applyServerStateToCombat(
+      payload.state,
+      ctx.region,
+      ctx.mob,
+      ctx.worldMapContext,
+      extra
+    );
+    syncFightLogFromCombatState();
+    if (typeof renderTurnBattle === "function") renderTurnBattle();
+    playCombatHitsFromPayload(payload, ctx.actorMember);
+    if (ctx.onApplied) ctx.onApplied();
   }
 
   function setFightUiPending(isPending) {
@@ -560,50 +721,32 @@
       const data = await api("/api/combat/action", { sessionId, action });
       applyServerMeta(data);
 
-      function clearServerSession() {
-        sessionId = null;
-        hostUserId = null;
-        prepEndsAt = null;
-        combatLocked = false;
+      function clearServerSessionLocal() {
+        clearServerSession();
       }
 
-      function applyFinishedFightResult(data) {
-        if (data.state) {
-          applyServerStateToCombat(
-            data.state,
-            combatState?.region,
-            combatState?.mob,
-            combatState?.worldMapContext,
-            { participants: data.participants, participantCount: data.participantCount }
-          );
-        }
-        syncFightLogFromCombatState();
-        renderTurnBattle();
-        playCombatHitsFromPayload(data);
-        clearServerSession();
-        mergeServerPlayer(data.player, data.roster);
-        if (typeof applyServerFightResult === "function") {
-          applyServerFightResult(data.result);
-        }
-      }
+      const payloadCtx = {
+        region: combatState?.region,
+        mob: combatState?.mob,
+        worldMapContext: combatState?.worldMapContext,
+        actorMember
+      };
 
       if (data.finished && data.result) {
-        applyFinishedFightResult(data);
+        processCombatPayload(data, {
+          ...payloadCtx,
+          onApplied: () => {
+            clearServerSessionLocal();
+            mergeServerPlayer(data.player, data.roster);
+            if (typeof applyServerFightResult === "function") {
+              applyServerFightResult(data.result);
+            }
+          }
+        });
         return data;
       }
 
-      if (data.state) {
-        applyServerStateToCombat(
-          data.state,
-          combatState?.region,
-          combatState?.mob,
-          combatState?.worldMapContext,
-          { participants: data.participants, participantCount: data.participantCount }
-        );
-        syncFightLogFromCombatState();
-      }
-      renderTurnBattle();
-      playCombatHitsFromPayload(data, actorMember);
+      processCombatPayload(data, payloadCtx);
       return data;
     } catch (err) {
       const msg = err && err.message ? err.message : "Combat action failed.";
@@ -620,7 +763,9 @@
       return null;
     } finally {
       pending = false;
-      setFightUiPending(false);
+      if (!isEnemyPhaseUiActive() && !pendingFinalCombatApply) {
+        setFightUiPending(false);
+      }
     }
   }
 
@@ -633,10 +778,7 @@
   }
 
   function clearSession() {
-    sessionId = null;
-    hostUserId = null;
-    prepEndsAt = null;
-    combatLocked = false;
+    clearServerSession();
     pending = false;
     clearEnemyPhaseUi();
   }

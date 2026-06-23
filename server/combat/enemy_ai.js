@@ -172,7 +172,7 @@ function getAdjacentPartyMembers(st, centerMember, count) {
   return out.slice(0, count);
 }
 
-export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits) {
+export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits, recorder = null) {
   const atk = getFoeEffectiveAttack(foe);
   const outMult = getFoeOutgoingDamageMult(st, foe);
   const cd = foe.combat.skillCd;
@@ -194,16 +194,17 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
     hit(member, raw, verb) {
       if (!member) return;
       const res = dealFoeDamageToMember(st, foe, member, raw, verb, rng, player);
-      if (Array.isArray(enemyHits)) {
-        enemyHits.push({
-          foeUid: foe.uid,
-          targetPartyUid: member.uid,
-          damage: res.evaded ? 0 : Math.max(0, Math.floor(res.dmg || 0)),
-          missed: !!res.evaded
-        });
-      }
+      const hitRecord = {
+        foeUid: foe.uid,
+        targetPartyUid: member.uid,
+        damage: res.evaded ? 0 : Math.max(0, Math.floor(res.dmg || 0)),
+        missed: !!res.evaded
+      };
+      if (Array.isArray(enemyHits)) enemyHits.push(hitRecord);
+      if (recorder) recorder.recordHit(hitRecord);
       if (res.evaded) {
         appendLog(`${foe.name} attacks ${member.name} — ${member.name} evades!`);
+        if (recorder) recorder.flushStep();
         return;
       }
       if (res.shieldLog) appendLog(res.shieldLog);
@@ -211,6 +212,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       if (res.riposteLog) appendLog(res.riposteLog);
       if (res.secondBreathLog) appendLog(res.secondBreathLog);
       if (res.heldColossusLog) appendLog(res.heldColossusLog);
+      if (recorder) recorder.flushStep();
     },
     hitAdjacent(centerMember, raw, verb, adjacentCount = 1, perTargetMult = 1) {
       if (!centerMember) return;
@@ -225,6 +227,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
     },
     log(line) {
       appendLog(line);
+      if (recorder) recorder.flushStep();
     },
     foeHpFrac() {
       return foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
@@ -234,6 +237,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       const before = foe.hp;
       foe.hp = Math.min(foe.maxHp, foe.hp + amt);
       if (foe.hp > before) appendLog(`${foe.name} recovers ${foe.hp - before} HP.`);
+      if (recorder) recorder.flushStep();
     }
   };
 }
@@ -250,10 +254,11 @@ function tickEnemyCooldowns(foe) {
 }
 
 /** Run one enemy's turn (scripted or role fallback). */
-export function runSingleEnemyTurn(foe, st, rng, appendLog, player, enemyHits) {
+export function runSingleEnemyTurn(foe, st, rng, appendLog, player, enemyHits, recorder = null) {
   if (!foe.combat) initFoeCombatRuntime(foe);
   if (isFoeStunned(foe)) {
     appendLog(`${foe.name} is stunned and cannot act.`);
+    if (recorder) recorder.flushStep();
     tickEnemyCooldowns(foe);
     return;
   }
@@ -261,7 +266,7 @@ export function runSingleEnemyTurn(foe, st, rng, appendLog, player, enemyHits) {
 
   const def = getEnemyDefByName(foe.name);
   const scriptId = def?.combatScript?.trim?.() || foe.combat.script || "";
-  const ctx = createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits);
+  const ctx = createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits, recorder);
 
   if (scriptId) {
     const ran = runEnemyScriptTurn(scriptId, foe, st, ctx);
