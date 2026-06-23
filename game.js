@@ -24658,7 +24658,7 @@ const MARKET_INV_FILTERS = [
   { id: "resource", label: "Resources" }
 ];
 
-function buildMarketInventorySidebarGridHtml() {
+function buildMarketInventoryGridHtml() {
   const names = getMarketInventoryDisplayNames();
   const sellMode = marketPanelTab === "sell";
   const tabKind = sellMode ? "market-sell" : "equipment";
@@ -24667,7 +24667,29 @@ function buildMarketInventorySidebarGridHtml() {
     selectedKey: marketSelectedSellKey,
     selectedItemName: marketSelectedSellItemName
   });
-  return `<div class="inv-grid-wrap market-inventory-grid-wrap">${grid}</div>`;
+  return `<div class="inv-grid-wrap">${grid}</div>`;
+}
+
+function buildMarketEmbeddedInventoryHtml() {
+  const invTabs = MARKET_INV_FILTERS.map((f) => {
+    const active = marketInvFilterCategory === f.id ? " active" : "";
+    return `<button type="button" class="inv-tab${active}" data-market-inv-filter="${escapeAttr(f.id)}" title="${escapeAttr(f.label)}">${escapeHtml(f.label)}</button>`;
+  }).join("");
+  return `<section class="market-embedded-inventory panel-inventory inventory-panel" aria-label="Inventory">
+    <div class="inventory-panel-head">Your bag</div>
+    <div class="inv-tabs" role="tablist">${invTabs}</div>
+    <p class="market-embedded-inv-hint">Click an item to list it. Dimmed slots are equipped or cannot be sold.</p>
+    ${buildMarketInventoryGridHtml()}
+  </section>`;
+}
+
+function buildMarketSellTabBodyHtml() {
+  return `<div class="market-sell-layout">
+    ${buildMarketEmbeddedInventoryHtml()}
+    <div class="market-sell-details">${buildMarketSaleListFormHtml()}</div>
+    <h3 class="market-subhead">Your listings</h3>
+    ${buildMarketSaleTableHtml()}
+  </div>`;
 }
 
 function buildMarketBrowseItemCellHtml(itemName) {
@@ -24823,7 +24845,7 @@ function buildMarketSaleListFormHtml() {
   });
   const selectedItemName = marketSelectedSellItemName || (selected && selected.itemName) || "";
   if (!selected || !selectedItemName) {
-    return `<p class="market-empty-msg market-sale-hint">Select an item from your inventory on the right to list it for sale.</p>`;
+    return `<p class="market-empty-msg market-sale-hint">Select an item from your bag above to list it for sale.</p>`;
   }
   const rarityLabel = formatItemRarityLabel(selectedItemName);
   const rid = getItemInstanceRarityId(selectedItemName);
@@ -24897,67 +24919,6 @@ function buildMarketSaleTableHtml() {
   </div>`;
 }
 
-function buildMarketCenterColumnHtml() {
-  const mailBadge = marketUnreadMailCount > 0 ? ` (${marketUnreadMailCount})` : "";
-  const tabs = [
-    { id: "browse", label: "Purchase" },
-    { id: "sell", label: "Sale" },
-    { id: "mail", label: `Mail${mailBadge}` }
-  ]
-    .map((t) => {
-      const cls = marketPanelTab === t.id ? "market-tab is-active" : "market-tab";
-      return `<button type="button" class="${cls}" data-market-tab="${t.id}">${escapeHtml(t.label)}</button>`;
-    })
-    .join("");
-  const active = marketSellCache && typeof marketSellCache.activeCount === "number" ? marketSellCache.activeCount : 0;
-  const max = marketSellCache && typeof marketSellCache.maxListings === "number" ? marketSellCache.maxListings : 20;
-  let body = "";
-  if (marketPanelTab === "browse") {
-    body = buildMarketPurchaseTableHtml();
-  } else if (marketPanelTab === "sell") {
-    body = `${buildMarketSaleListFormHtml()}<h3 class="market-subhead">Your listings</h3>${buildMarketSaleTableHtml()}`;
-  } else {
-    body = buildMarketMailHtml();
-  }
-  const summary =
-    marketPanelTab === "mail"
-      ? `<span class="market-center-summary">${marketUnreadMailCount > 0 ? `${marketUnreadMailCount} unread messages` : "Auction Manager mail"}</span>`
-      : `<span class="market-center-summary">Gold: <strong>${player.gold || 0}</strong> · Listings: <strong>${active}/${max}</strong></span>`;
-  return `<section class="market-col market-col--listings">
-    <div class="market-center-head">
-      <div class="market-tabs" role="tablist">${tabs}</div>
-      ${summary}
-    </div>
-    <div class="market-center-body">${body}</div>
-  </section>`;
-}
-
-function buildMarketInventoryColumnHtml() {
-  const invTabs = MARKET_INV_FILTERS.map((f) => {
-    const active = marketInvFilterCategory === f.id ? " active" : "";
-    return `<button type="button" class="inv-tab${active}" data-market-inv-filter="${escapeAttr(f.id)}" title="${escapeAttr(f.label)}">${escapeHtml(f.label)}</button>`;
-  }).join("");
-  const sellHint =
-    marketPanelTab === "sell"
-      ? `<p class="market-sidebar-hint">Click an item in your bag to list it. Dimmed slots are equipped or cannot be sold.</p>`
-      : `<p class="market-sidebar-hint">Switch to Sale to list items from your bag.</p>`;
-  return `<aside class="market-col market-col--inventory panel-inventory inventory-panel" aria-label="Inventory">
-    <div class="inventory-panel-head">Inventory</div>
-    <div class="inv-tabs" role="tablist">${invTabs}</div>
-    ${sellHint}
-    ${buildMarketInventorySidebarGridHtml()}
-    <div class="currency-bar market-inventory-foot">Gold: <strong>${player.gold || 0}</strong></div>
-  </aside>`;
-}
-
-function buildMarketBrowseHtml() {
-  return buildMarketPurchaseTableHtml();
-}
-
-function buildMarketSellHtml() {
-  return `${buildMarketSaleListFormHtml()}${buildMarketSaleTableHtml()}`;
-}
-
 function buildMarketMailHtml() {
   const mail = marketMailCache && Array.isArray(marketMailCache.mail) ? marketMailCache.mail : [];
   const rows = mail.length
@@ -24979,13 +24940,46 @@ function buildMarketMailHtml() {
   </div>`;
 }
 
+function buildMarketCenterColumnHtml() {
+  const mailBadge = marketUnreadMailCount > 0 ? ` (${marketUnreadMailCount})` : "";
+  const tabs = [
+    { id: "browse", label: "Purchase" },
+    { id: "sell", label: "Sale" },
+    { id: "mail", label: `Mail${mailBadge}` }
+  ]
+    .map((t) => {
+      const cls = marketPanelTab === t.id ? "market-tab is-active" : "market-tab";
+      return `<button type="button" class="${cls}" data-market-tab="${t.id}">${escapeHtml(t.label)}</button>`;
+    })
+    .join("");
+  const active = marketSellCache && typeof marketSellCache.activeCount === "number" ? marketSellCache.activeCount : 0;
+  const max = marketSellCache && typeof marketSellCache.maxListings === "number" ? marketSellCache.maxListings : 20;
+  let body = "";
+  if (marketPanelTab === "browse") {
+    body = buildMarketPurchaseTableHtml();
+  } else if (marketPanelTab === "sell") {
+    body = buildMarketSellTabBodyHtml();
+  } else {
+    body = buildMarketMailHtml();
+  }
+  const summary =
+    marketPanelTab === "mail"
+      ? `<span class="market-center-summary">${marketUnreadMailCount > 0 ? `${marketUnreadMailCount} unread messages` : "Auction Manager mail"}</span>`
+      : `<span class="market-center-summary">Gold: <strong>${player.gold || 0}</strong> · Listings: <strong>${active}/${max}</strong></span>`;
+  return `<section class="market-col market-col--listings">
+    <div class="market-center-head">
+      <div class="market-tabs" role="tablist">${tabs}</div>
+      ${summary}
+    </div>
+    <div class="market-center-body">${body}</div>
+  </section>`;
+}
+
 function buildMarketPanelHtml() {
-  const meta = getMenuPanelMeta("market");
   return `<div class="game-page market-panel market-panel--layout">
     <div class="market-layout">
       ${buildMarketFiltersColumnHtml()}
       ${buildMarketCenterColumnHtml()}
-      ${buildMarketInventoryColumnHtml()}
     </div>
   </div>`;
 }
