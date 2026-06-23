@@ -11315,11 +11315,16 @@ function applyTheme(themeId) {
   document.documentElement.dataset.theme = themeId;
 }
 
-function categorizeInventory() {
+function categorizeInventory(inventory) {
   const equipment = [];
   const resources = [];
   const consumables = [];
-  player.inventory.forEach((name) => {
+  const inv = Array.isArray(inventory)
+    ? inventory
+    : Array.isArray(player?.inventory)
+      ? player.inventory
+      : [];
+  inv.forEach((name) => {
     const def = getItemDef(name);
     if (!def) {
       resources.push(name);
@@ -24422,7 +24427,6 @@ function buildAtlasPanelHtml() {
 let marketPanelTab = "browse";
 let marketBrowseCache = null;
 let marketSellCache = null;
-let marketAuthoritativeInventory = null;
 let marketMailCache = null;
 let marketSearchText = "";
 let marketFilterCategory = "";
@@ -24496,39 +24500,6 @@ function getMarketEquippedItemNamesSet() {
   return equipped;
 }
 
-function getMarketBagInventory() {
-  if (Array.isArray(marketAuthoritativeInventory)) return marketAuthoritativeInventory;
-  return Array.isArray(player?.inventory) ? player.inventory : [];
-}
-
-function isMarketBagItemEquipped(name) {
-  if (!name) return false;
-  const equipped = getMarketEquippedItemNamesSet();
-  const raw = String(name);
-  return equipped.has(raw) || equipped.has(raw.trim());
-}
-
-function categorizeMarketBagInventory() {
-  const equipment = [];
-  const resources = [];
-  const consumables = [];
-  getMarketBagInventory().forEach((name) => {
-    if (!name || isMarketBagItemEquipped(name)) return;
-    const def = getItemDef(name);
-    if (!def) return;
-    if (def.type === "consumable") consumables.push(name);
-    else if (def.type === "resource") resources.push(name);
-    else if (def.type === "pet" || isEquippableItemDef(def)) equipment.push(name);
-    else resources.push(name);
-  });
-  return { equipment, resources, consumables };
-}
-
-function getMarketListablePlayerSnapshot() {
-  if (!player) return null;
-  return { ...player, inventory: getMarketBagInventory() };
-}
-
 function getMergedMarketListableGroups() {
   const byKey = new Map();
   const add = (g) => {
@@ -24540,9 +24511,8 @@ function getMergedMarketListableGroups() {
   };
   const serverList = marketSellCache && Array.isArray(marketSellCache.listable) ? marketSellCache.listable : [];
   serverList.forEach(add);
-  const snapshot = getMarketListablePlayerSnapshot();
-  if (typeof MarketListable !== "undefined" && snapshot) {
-    MarketListable.getMarketListableInventory(snapshot, {
+  if (typeof MarketListable !== "undefined" && player) {
+    MarketListable.getMarketListableInventory(player, {
       getItemBaseName,
       getMarketItemMeta: getClientMarketItemMeta,
       stackSizes: [1, 10, 100]
@@ -24613,29 +24583,28 @@ function getMarketListableKeysFromCache() {
     if (!g) return;
     keys.add(g.stackable ? g.baseName : g.itemName);
   });
+  const equipped = getMarketEquippedItemNamesSet();
+  const cat = categorizeInventory();
+  const addName = (name) => {
+    if (!name) return;
+    const raw = String(name);
+    if (equipped.has(raw) || equipped.has(raw.trim())) return;
+    if (!getItemDef(name)) return;
+    keys.add(isMarketStackableItemName(name) ? getItemBaseName(name) : name);
+  };
+  cat.equipment.forEach(addName);
+  cat.consumables.forEach(addName);
+  cat.resources.forEach(addName);
   return keys;
 }
 
 function getMarketInventoryDisplayNames() {
-  const cat = categorizeMarketBagInventory();
+  const cat = categorizeInventory();
+  const filter = typeof marketInvFilterCategory === "string" ? marketInvFilterCategory.trim().toLowerCase() : "";
+  if (filter === "equip") return cat.equipment;
+  if (filter === "consumable") return cat.consumables;
+  if (filter === "resource") return cat.resources;
   return [...cat.equipment, ...cat.consumables, ...cat.resources];
-}
-
-function filterMarketInventoryNames(names, categoryFilter) {
-  const cat = typeof categoryFilter === "string" ? categoryFilter.trim().toLowerCase() : "";
-  if (!cat) return names;
-  if (cat === "equip") {
-    const equipSet = new Set(categorizeMarketBagInventory().equipment);
-    return names.filter((name) => equipSet.has(name));
-  }
-  return names.filter((name) => {
-    const def = getItemDef(name);
-    if (!def) return false;
-    const t = String(def.type || "").trim().toLowerCase();
-    if (cat === "consumable") return t === "consumable";
-    if (cat === "resource") return t === "resource";
-    return true;
-  });
 }
 
 function getMarketListingTitleStyle(itemName) {
@@ -24665,7 +24634,7 @@ const MARKET_INV_FILTERS = [
 ];
 
 function buildMarketInventorySidebarGridHtml() {
-  const names = filterMarketInventoryNames(getMarketInventoryDisplayNames(), marketInvFilterCategory);
+  const names = getMarketInventoryDisplayNames();
   const stacks = buildInventoryStacks(names);
   const listableKeys = getMarketListableKeysFromCache();
   const sellMode = marketPanelTab === "sell";
@@ -24744,6 +24713,9 @@ async function refreshMarketPanelData(tab) {
   const gs = window.GameStorage;
   if (!gs) return;
   try {
+    if (tab === "sell" || tab === "all") {
+      await save({ flush: true });
+    }
     if (tab === "browse" || tab === "all") {
       marketBrowseCache = await gs.fetchMarketListings({
         search: marketSearchText,
@@ -24753,15 +24725,6 @@ async function refreshMarketPanelData(tab) {
     }
     if (tab === "sell" || tab === "all") {
       marketSellCache = await gs.fetchMyMarketListings(activeCharacterSlotIndex);
-      marketAuthoritativeInventory =
-        marketSellCache && Array.isArray(marketSellCache.inventory)
-          ? marketSellCache.inventory.slice()
-          : null;
-      if (marketAuthoritativeInventory && player && activeCharacterSlotIndex != null) {
-        player.inventory = marketAuthoritativeInventory.slice();
-        ensureCharacterRoster();
-        characterRoster.slots[activeCharacterSlotIndex] = player;
-      }
     }
     if (tab === "mail" || tab === "all") {
       marketMailCache = await gs.fetchMail(50);
@@ -25104,7 +25067,6 @@ function closeMenuPanel() {
   if (!modal) return;
   hideItemTooltip();
   activeMenuPanel = null;
-  marketAuthoritativeInventory = null;
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   const host = document.getElementById("menuPanelContent");
