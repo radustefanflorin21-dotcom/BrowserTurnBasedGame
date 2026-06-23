@@ -1293,6 +1293,18 @@ const GAME_CONFIG = {
       bonusStats: {},
       useHint: "Click to use outside combat."
     },
+    "Teleport Potion": {
+      type: "consumable",
+      effect: "teleport_portal",
+      useInCombat: false,
+      outOfCombatOnly: true,
+      image: "Assets/Resources/lesser_healing_draught.png",
+      description:
+        "A swirling coastal draught that folds space toward the nearest known waygate. Drink it outside combat to travel instantly to the closest portal.",
+      bonusSkills: [],
+      bonusStats: {},
+      useHint: "Click to use outside combat. Teleports you to the nearest waygate."
+    },
     "Sunken Grotto Key": {
       type: "resource",
       category: "key",
@@ -6134,6 +6146,18 @@ const GAME_CONFIG = {
               { item: "Residue", qty: 4, source: "gathering_loot" },
               { item: "Wet Membrane", qty: 3, source: "monster_loot" },
               { item: "Water Essence", qty: 1, source: "monster_loot" }
+            ]
+          },
+          {
+            id: "teleport_potion",
+            resultItem: "Teleport Potion",
+            resultLevel: 5,
+            craftXp: 35,
+            ingredients: [
+              { item: "Residue", qty: 4, source: "gathering_loot" },
+              { item: "Water Essence", qty: 2, source: "monster_loot" },
+              { item: "Wet Membrane", qty: 3, source: "monster_loot" },
+              { item: "Crust Fragment", qty: 2, source: "monster_loot" }
             ]
           },
           {

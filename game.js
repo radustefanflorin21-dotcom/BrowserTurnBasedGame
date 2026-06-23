@@ -11356,6 +11356,39 @@ function useConsumable(itemName) {
     save();
     render();
     renderBottomQuickslots();
+    return;
+  }
+  if (def.effect === "teleport_portal") {
+    if (currentPage !== "adventure") {
+      showModal("You can only use this potion while exploring the world map.");
+      return;
+    }
+    const dr = getActiveDungeonRun();
+    if (dr && !dr.epilogue) {
+      showModal("You cannot use this potion inside a dungeon.");
+      return;
+    }
+    const dest = findClosestPortalDestination();
+    if (!dest) {
+      showModal("You are already at the nearest waygate, or no other waygate is known.");
+      return;
+    }
+    if (!canEnterMap(dest.x, dest.y)) {
+      showModal("You cannot travel to the nearest waygate.");
+      return;
+    }
+    void commitWorldMapPosition(dest.x, dest.y, "teleport_potion").then((ok) => {
+      if (!ok) {
+        showModal("The potion fizzles — you could not travel.");
+        return;
+      }
+      removeOneFromInventory(itemName);
+      reconcileQuickslotsWithInventory(player);
+      save();
+      render();
+      renderBottomQuickslots();
+      showModal(`You arrive at ${dest.label}.`);
+    });
   }
 }
 
@@ -20947,6 +20980,10 @@ function buildItemTooltipHtml(itemName, imageSizePx, tooltipOpts) {
     statParts.push(`Restores ${def.value} HP`);
     if (def.useInCombat === false || def.outOfCombatOnly === true) statParts.push("Outside combat only");
   }
+  if (def.type === "consumable" && def.effect === "teleport_portal") {
+    statParts.push("Teleports to the nearest waygate");
+    if (def.useInCombat === false || def.outOfCombatOnly === true) statParts.push("Outside combat only");
+  }
   const bs = getScaledItemBonusStats(def, itemName);
   Object.keys(bs).forEach((k) => {
     const line = formatEquipmentBonusStatLine(k, bs[k]);
@@ -26257,6 +26294,38 @@ function getPortalWorldCoordsByPortalId(portalId) {
     return { x: stored.x, y: stored.y };
   }
   return null;
+}
+
+/** Nearest known waygate from the hero's current map tile (Manhattan distance). */
+function findClosestPortalDestination() {
+  if (!player?.worldMap) return null;
+  ensureWorldMapPosition();
+  const list = rebuildCityPortalCoordsFromWorld();
+  if (!list.length) return null;
+  const px = player.worldMap.x;
+  const py = player.worldMap.y;
+  let best = null;
+  let bestDist = Infinity;
+  for (const p of list) {
+    const dist = Math.abs(p.x - px) + Math.abs(p.y - py);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p;
+    }
+  }
+  if (best && bestDist === 0 && list.length > 1) {
+    best = null;
+    bestDist = Infinity;
+    for (const p of list) {
+      const dist = Math.abs(p.x - px) + Math.abs(p.y - py);
+      if (dist === 0) continue;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = p;
+      }
+    }
+  }
+  return best;
 }
 
 function openPortalNetworkModal(excludePortalId) {
