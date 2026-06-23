@@ -33,7 +33,7 @@
       <button type="button" id="mmoShowRegister" class="mmo-auth-link">Create an account</button>
       <button type="button" id="mmoShowLogin" class="mmo-auth-link hidden">Already have an account? Log in</button>
     </p>
-    <p class="mmo-auth-hint muted">Local play: open the game without <code>?mmo=online</code></p>
+    <p class="mmo-auth-hint muted">Progress is saved to your account on the game server.</p>
   </div>
 </div>
 
@@ -85,7 +85,7 @@
       </div>
     </div>
     <div id="bottomChatLog" class="bottom-chat-log" aria-live="polite"></div>
-    <input id="bottomChatInput" class="bottom-chat-input" type="text" placeholder="Sign in with ?mmo=online to chat" aria-label="Chat message" disabled>
+    <input id="bottomChatInput" class="bottom-chat-input" type="text" placeholder="Sign in to chat" aria-label="Chat message" disabled>
   </section>
 
   <section class="bottom-hud-center" aria-label="Character status">
@@ -170,7 +170,7 @@
               </div>
             </div>
             <div id="fightChatLog" class="fight-chat-log bottom-chat-log" aria-live="polite"></div>
-            <input class="fight-chat-input bottom-chat-input" type="text" placeholder="Sign in with ?mmo=online to chat" aria-label="Chat message" disabled>
+            <input class="fight-chat-input bottom-chat-input" type="text" placeholder="Sign in to chat" aria-label="Chat message" disabled>
           </section>
           <div class="fight-controls-subpanel" aria-label="Combat actions">
             <div id="fightPlayerActions" class="fight-player-actions hidden"></div>
@@ -285,9 +285,6 @@
 <script src="shared/profession_progression.js"></script>
 <script src="shared/craft_material_tier.js"></script>
 <script src="shared/craft_xp.js"></script>
-<script src="shared/gather_xp.js"></script>
-<script src="shared/gathering_tables.js"></script>
-<script src="shared/gathering_loot.js"></script>
 <script src="pets/pet_progression.js"></script>
 <script src="pets/pets_catalog.js"></script>
 <script src="pets/pet_system.js"></script>

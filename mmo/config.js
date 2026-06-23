@@ -1,11 +1,11 @@
 /**
- * Runtime MMO mode. Default: local-only (current behavior).
- * Online: add ?mmo=online to the URL or set window.MMO_CONFIG before scripts load.
+ * Runtime MMO mode. Default: online (server-authoritative).
+ * Dev offline: add ?mmo=local to the URL or set window.MMO_CONFIG.mode = "local" before scripts load.
  *
  * API URL resolution (first match wins):
  * 1. window.MMO_CONFIG.apiBaseUrl
- * 2. ?api=https://your.domain (online mode)
- * 3. Same origin when ?mmo=online and host is not localhost (VPS / production)
+ * 2. ?api=https://your.domain
+ * 3. Same origin when host is not localhost (VPS / production)
  * 4. http://localhost:3001 (local dev)
  */
 (function (root) {
@@ -13,11 +13,11 @@
   const queryMode = params.get("mmo");
   const preset = root.MMO_CONFIG && typeof root.MMO_CONFIG === "object" ? root.MMO_CONFIG : {};
   const mode =
-    queryMode === "online" || preset.mode === "online"
-      ? "online"
-      : queryMode === "local" || preset.mode === "local"
-        ? "local"
-        : "local";
+    queryMode === "local" || preset.mode === "local"
+      ? "local"
+      : queryMode === "online" || preset.mode === "online"
+        ? "online"
+        : "online";
 
   function trimBaseUrl(url) {
     return String(url || "")

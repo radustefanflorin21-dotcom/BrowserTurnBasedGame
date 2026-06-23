@@ -624,24 +624,15 @@ async function migrateLegacyPlayerToRoster() {
 }
 
 async function loadCharacterRoster() {
-  const online =
-    typeof window !== "undefined" && window.GameStorage && window.GameStorage.isOnlineMode();
-  let raw = null;
-  if (typeof window !== "undefined" && window.GameStorage) {
-    try {
-      raw = await window.GameStorage.loadRosterJson();
-    } catch (err) {
-      console.error("Failed to load roster from server:", err);
-    }
-  } else {
-    try {
-      raw = localStorage.getItem(CHARACTER_ROSTER_KEY);
-    } catch {
-      /* ignore */
-    }
+  if (typeof window === "undefined" || !window.GameStorage) return emptyCharacterRoster();
+  try {
+    const raw = await window.GameStorage.loadRosterJson();
+    const parsedRoster = parseRosterJson(raw);
+    if (rosterHasCharacters(parsedRoster)) return parsedRoster;
+  } catch (err) {
+    console.error("Failed to load roster from server:", err);
   }
-  const parsedRoster = parseRosterJson(raw);
-  if (rosterHasCharacters(parsedRoster)) return parsedRoster;
+  // One-time upload if the account has no server roster yet but legacy browser saves exist.
   return migrateLegacyPlayerToRoster();
 }
 
@@ -682,6 +673,14 @@ function isOnlineGameplayMode() {
     typeof window.GameStorage.isOnlineMode === "function" &&
     window.GameStorage.isOnlineMode()
   );
+}
+
+function canPerformServerPlayerAction() {
+  return isOnlineGameplayMode() && inGameSession && activeCharacterSlotIndex != null && !!window.GameStorage;
+}
+
+function showServerActionRequired(message) {
+  showModal(message || "Log in and select a character to perform this action.");
 }
 
 function resolveOnlineTargetFromActor(actor) {
@@ -741,12 +740,7 @@ async function commitWorldMapPositionOnline(nx, ny, reason) {
 }
 
 async function commitWorldMapPosition(nx, ny, reason) {
-  if (isOnlineGameplayMode()) return commitWorldMapPositionOnline(nx, ny, reason);
-  player.worldMap.x = nx;
-  player.worldMap.y = ny;
-  save({ flush: true });
-  publishOnlinePresenceNow();
-  return true;
+  return commitWorldMapPositionOnline(nx, ny, reason);
 }
 
 /** Apply server-merged world map from a saved roster JSON; keep local mob preview caches. */
@@ -811,25 +805,13 @@ async function persistCharacterRoster() {
               ? result
               : json;
         syncPlayerWorldMapFromSavedRoster(saved);
-      } catch {
-        /* fall through to local backup below */
+      } catch (err) {
+        console.error("Failed to save roster to server:", err);
       } finally {
         rosterPersistInFlight = false;
       }
     });
-    try {
-      await rosterPersistChain;
-      return;
-    } catch (err) {
-      console.error("Failed to save roster to server:", err);
-      if (window.GameStorage.isOnlineMode()) return;
-    }
-  }
-  if (typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.()) return;
-  try {
-    localStorage.setItem(CHARACTER_ROSTER_KEY, json);
-  } catch {
-    /* ignore */
+    await rosterPersistChain;
   }
 }
 
@@ -1456,7 +1438,7 @@ function initMapPlayersPanelUi() {
     craftInviteBtn.addEventListener("click", () => {
       if (!mapPlayerActionTarget) return;
       if (!isOnlineGameplayMode()) {
-        showModal("Commission crafting is only available in online mode.");
+        showServerActionRequired("Commission crafting requires a server connection.");
         return;
       }
       showCraftCommissionRequestModal(mapPlayerActionTarget.userId, mapPlayerActionTarget.name);
@@ -2616,14 +2598,8 @@ function unlockOrUpgradeClassSkill(skillName, sourceEl, actor) {
     })();
     return true;
   }
-  target.classSkillLevels[skillName] = cur + 1;
-  recomputeAllocPoolsFromLevel(target);
-  syncPlayerClassSkillList(target);
-  save();
-  const inPlace = isSkillsPanelOpen() ? refreshSkillsPanelSubpanelInPlace() : false;
-  if (!inPlace) render();
-  restoreOverviewSkillsScroll();
-  return true;
+  showServerActionRequired();
+  return false;
 }
 
 const defaultPlayer = () => {
@@ -11235,7 +11211,7 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
     equipItemName = normalizePetInventoryEntry(player, itemName);
     if (equipItemName !== itemName) player.inventory[i] = equipItemName;
   }
-  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerEquip) {
+  if (canPerformServerPlayerAction() && window.GameStorage?.playerEquip) {
     void (async () => {
       try {
         const body = await window.GameStorage.playerEquip({
@@ -11251,32 +11227,8 @@ function equipFromInventory(itemName, preferredSlot, contextEl) {
     })();
     return true;
   }
-  const eq = target.equipment || emptyEquipment();
-  const slot = pickEquipSlotForDef(def, itemName, preferredSlot, eq);
-  if (!slot) return false;
-  const duplicateSlot = getDuplicateEquipConflictSlot(itemName, slot, eq);
-  if (duplicateSlot) {
-    showModal(`Cannot equip ${getItemBaseName(itemName)} twice.`);
-    return false;
-  }
-  if (!canEquipItemInSlot(equipItemName, slot, eq)) return false;
-  const prev = eq[slot];
-  let displacedOffhand = null;
-  if (slot === "weapon" && isTwoHandedWeaponDef(def) && eq.offhand) {
-    displacedOffhand = eq.offhand;
-    eq.offhand = null;
-  }
-  eq[slot] = equipItemName;
-  target.equipment = eq;
-  player.inventory.splice(i, 1);
-  if (prev) player.inventory.push(prev);
-  if (displacedOffhand) player.inventory.push(displacedOffhand);
-  enforceOffhandRuleForEquipment(target.equipment, player.inventory);
-  target.maxHp = computeMaxHp(target);
-  target.hp = Math.min(target.maxHp, Math.max(1, typeof target.hp === "number" ? target.hp : target.maxHp));
-  save();
-  render();
-  return true;
+  showServerActionRequired();
+  return false;
 }
 
 function unequipToInventory(slotId, contextEl) {
@@ -11284,7 +11236,7 @@ function unequipToInventory(slotId, contextEl) {
   const eq = target.equipment || emptyEquipment();
   const name = eq[slotId];
   if (!name) return;
-  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerUnequip) {
+  if (canPerformServerPlayerAction() && window.GameStorage?.playerUnequip) {
     void (async () => {
       try {
         const body = await window.GameStorage.playerUnequip({
@@ -11299,11 +11251,7 @@ function unequipToInventory(slotId, contextEl) {
     })();
     return;
   }
-  eq[slotId] = null;
-  target.equipment = eq;
-  player.inventory.push(name);
-  save();
-  render();
+  showServerActionRequired();
 }
 
 function getHeroPortraitsForGender(gender) {
@@ -13802,12 +13750,7 @@ async function finishLeavingDungeon(dungeonId, opts) {
       ? def.entrance
       : { x: 37, y: 55 };
 
-  if (
-    typeof window !== "undefined" &&
-    window.GameStorage?.isOnlineMode?.() &&
-    typeof window.GameStorage.leaveDungeon === "function" &&
-    activeCharacterSlotIndex != null
-  ) {
+  if (canPerformServerPlayerAction() && typeof window.GameStorage.leaveDungeon === "function") {
     try {
       const body = await window.GameStorage.leaveDungeon(id, activeCharacterSlotIndex, opts || null);
       if (body?.roster?.slots && activeCharacterSlotIndex != null) {
@@ -13829,15 +13772,7 @@ async function finishLeavingDungeon(dungeonId, opts) {
       return;
     }
   }
-
-  clearDungeonRun();
-  player.worldMap.x = ent.x;
-  player.worldMap.y = ent.y;
-  save({ flush: true });
-  if (typeof persistCharacterRoster === "function") await persistCharacterRoster();
-  publishPresenceDungeonLocation();
-  closeModal();
-  render();
+  showServerActionRequired();
 }
 
 function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
@@ -15767,7 +15702,7 @@ function onAdventureSceneButtonClick(e) {
   if (payload.type === "pickup" && typeof payload.itemName === "string" && payload.itemName) {
     const id = typeof payload.id === "string" ? payload.id : "pickup";
     if (payload.once !== false && isScenePickupTaken(x, y, id)) return true;
-    if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.worldPickup) {
+    if (canPerformServerPlayerAction() && window.GameStorage?.worldPickup) {
       void (async () => {
         try {
           const body = await window.GameStorage.worldPickup({
@@ -15786,11 +15721,7 @@ function onAdventureSceneButtonClick(e) {
       })();
       return true;
     }
-    player.inventory.push(payload.itemName);
-    if (payload.once !== false) markScenePickupTaken(x, y, id);
-    else save();
-    showModal(`You take: ${payload.itemName}.`);
-    renderAdventure();
+    showServerActionRequired();
     return true;
   }
   if (payload.type === "dungeon_epilogue" && typeof payload.dungeonId === "string") {
@@ -15990,22 +15921,6 @@ function moveWorldMap(dx, dy) {
   const ny = player.worldMap.y + dy;
   if (!canEnterMap(nx, ny)) return;
   if (adventureMapFadeInFlight) return;
-  if (isOnlineGameplayMode()) {
-    if (
-      currentPage === "adventure" &&
-      !player.editMode &&
-      (dx !== 0 || dy !== 0) &&
-      (dx === 0 || dy === 0) &&
-      !prefersAdventureMapReducedMotion()
-    ) {
-      beginAdventureMapFade(dx, dy, nx, ny);
-      return;
-    }
-    void commitWorldMapPosition(nx, ny, "step").then((ok) => {
-      if (ok) render();
-    });
-    return;
-  }
   if (
     currentPage === "adventure" &&
     !player.editMode &&
@@ -16016,11 +15931,9 @@ function moveWorldMap(dx, dy) {
     beginAdventureMapFade(dx, dy, nx, ny);
     return;
   }
-  player.worldMap.x = nx;
-  player.worldMap.y = ny;
-  save({ flush: true });
-  publishOnlinePresenceNow();
-  render();
+  void commitWorldMapPosition(nx, ny, "step").then((ok) => {
+    if (ok) render();
+  });
 }
 
 function startDungeonEncounterFromAdventure() {
@@ -16043,15 +15956,11 @@ async function startWorldMapFight(setIndex) {
   const pool = biome.possibleEnemies;
   if (!pool || !pool.length) return;
   const preview =
-    typeof window !== "undefined" &&
-    window.GameStorage?.isOnlineMode?.() &&
-    window.MMOPresence
+    typeof window !== "undefined" && window.MMOPresence
       ? await ensureMobPreviewOnline(x, y, setIndex)
-      : ensureMobPreview(x, y, setIndex);
+      : null;
   if (!preview || !preview.units || !preview.units.length) {
-    if (window.GameStorage?.isOnlineMode?.()) {
-      showModal("Could not load encounter data from the server. Try again in a moment.");
-    }
+    showModal("Could not load encounter data from the server. Try again in a moment.");
     return;
   }
   const region = { name: biome.name, enemyScale: biome.enemyScale || 1 };
@@ -18215,79 +18124,11 @@ function applyServerFightResult(result) {
 window.applyServerFightResult = applyServerFightResult;
 
 function finishCombatVictory() {
-  const st = combatState;
-  if (!st) return;
-  if (st.serverAuthoritative) return;
-  st.phase = "ended";
-  st.endOutcome = "victory";
-  syncCombatPartyHeroMirror(st);
-  syncCompanionHpFromCombatParty(st);
-  const { gold, xp, items, memberRewards } = computeVictoryLoot(st.foes, st.party, getVictoryLootContextFromCombat());
-  const result = {
-    victory: true,
-    finalPlayerHp: Math.max(0, st.playerHp),
-    gold,
-    xp,
-    items,
-    memberRewards,
-    party: st.party
-  };
-  applyFightResult(result);
-  const killedNamesAll = Array.isArray(st.enemyNames) ? st.enemyNames.slice() : [];
-  if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
-    recordMonsterKillsFromNames(killedNamesAll);
-    player.worldMap.dungeonPostCombat = {
-      dungeonId: st.worldMapContext.dungeonId.trim(),
-      roomIndex: typeof st.worldMapContext.roomIndex === "number" ? st.worldMapContext.roomIndex : 0,
-      victory: true
-    };
-    save();
-  } else if (st.worldMapContext && typeof st.worldMapContext.x === "number" && typeof st.worldMapContext.y === "number") {
-    const { x, y, setIndex } = st.worldMapContext;
-    const key = worldMapKey(x, y);
-    const cellCfg = getCoordinateCellConfig(x, y);
-    const slots = getEncounterSlotCountForCell(x, y, cellCfg);
-    if (!player.worldMap.cells[key]) player.worldMap.cells[key] = { defeated: [], defeatedUnits: [], mobPreviews: [] };
-    if (!Array.isArray(player.worldMap.cells[key].defeated)) player.worldMap.cells[key].defeated = [];
-    if (!Array.isArray(player.worldMap.cells[key].defeatedUnits)) player.worldMap.cells[key].defeatedUnits = [];
-    if (!Array.isArray(player.worldMap.cells[key].mobPreviews)) player.worldMap.cells[key].mobPreviews = [];
-    while (player.worldMap.cells[key].defeated.length < slots) player.worldMap.cells[key].defeated.push(null);
-    while (player.worldMap.cells[key].defeatedUnits.length < slots) player.worldMap.cells[key].defeatedUnits.push(null);
-    while (player.worldMap.cells[key].mobPreviews.length < slots) player.worldMap.cells[key].mobPreviews.push(null);
-    recordMonsterKillsFromNames(killedNamesAll);
-    player.worldMap.cells[key].defeated[setIndex] = Date.now();
-    player.worldMap.cells[key].defeatedUnits[setIndex] = killedNamesAll;
-    player.worldMap.cells[key].mobPreviews[setIndex] = null;
-    save();
-  }
-  showFightResults(true, result);
-  renderTurnBattle();
+  console.error("Local combat victory is disabled; all fights must use server combat.");
 }
 
 function finishCombatDefeat() {
-  const st = combatState;
-  if (!st) return;
-  if (st.serverAuthoritative) return;
-  st.phase = "ended";
-  st.endOutcome = "defeat";
-  syncCombatPartyHeroMirror(st);
-  syncCompanionHpFromCombatParty(st);
-  const result = {
-    victory: false,
-    finalPlayerHp: Math.max(1, st.playerHp),
-    gold: 0,
-    xp: 0,
-    items: []
-  };
-  applyFightResult(result);
-  if (st.worldMapContext && typeof st.worldMapContext.dungeonId === "string" && st.worldMapContext.dungeonId.trim()) {
-    const dungeonId = st.worldMapContext.dungeonId.trim();
-    ejectPlayerFromDungeonClient(dungeonId);
-    player.worldMap.dungeonPostCombat = { dungeonId, defeat: true };
-    save();
-  }
-  showFightResults(false, result);
-  renderTurnBattle();
+  console.error("Local combat defeat is disabled; all fights must use server combat.");
 }
 
 function applyReflectDamageToPartyHero(st, dmgDealtToFoe, foe) {
@@ -19980,12 +19821,7 @@ async function beginDungeonRunFromModal(dungeonId) {
       ? def.entrance
       : { x: 37, y: 55 };
 
-  if (
-    typeof window !== "undefined" &&
-    window.GameStorage?.isOnlineMode?.() &&
-    typeof window.GameStorage.enterDungeon === "function" &&
-    activeCharacterSlotIndex != null
-  ) {
+  if (canPerformServerPlayerAction() && typeof window.GameStorage.enterDungeon === "function") {
     try {
       const body = await window.GameStorage.enterDungeon(id, activeCharacterSlotIndex);
       await applyOnlineActionResponse(body);
@@ -19998,15 +19834,7 @@ async function beginDungeonRunFromModal(dungeonId) {
       return;
     }
   }
-
-  player.inventory.splice(idx, 1);
-  player.worldMap.x = ent.x;
-  player.worldMap.y = ent.y;
-  player.worldMap.dungeonRun = { id, roomIndex: 0, epilogue: false };
-  save();
-  publishPresenceDungeonLocation();
-  closeModal();
-  render();
+  showServerActionRequired();
 }
 
 function beginSunkenGrottoDungeonRunFromModal() {
@@ -20477,90 +20305,38 @@ function buildDungeonEpilogueSceneHtml() {
 
 async function beginTurnCombat(region, mob, worldMapContext, coopSessionId) {
   worldMapContext = enrichWorldMapContextForLoot(worldMapContext);
-  if (
-    typeof window !== "undefined" &&
-    window.GameStorage?.isOnlineMode?.() &&
-    window.ServerCombat
-  ) {
-    if (!inGameSession || activeCharacterSlotIndex == null) {
-      showModal("Select a character before starting a fight.");
-      return;
-    }
-    try {
-      save({ flush: true });
-      await persistCharacterRoster();
-
-      const sessionToJoin = coopSessionId || null;
-
-      let ok = false;
-      if (sessionToJoin && typeof window.ServerCombat.join === "function") {
-        ok = await window.ServerCombat.join(sessionToJoin, region, mob, worldMapContext);
-      } else {
-        if (!coopSessionId) hideFightInviteModal();
-        ok = await window.ServerCombat.start(region, mob, worldMapContext);
-      }
-      if (!ok) {
-        showModal("Could not start online combat. Make sure you are logged in with a character selected.");
-      }
-    } catch (err) {
-      console.error("Online combat start failed:", err);
-      showModal(err && err.message ? err.message : "Could not start online combat.");
-    }
+  if (!inGameSession || activeCharacterSlotIndex == null) {
+    showModal("Select a character before starting a fight.");
     return;
   }
-  const cappedUnits = mob.units ? mob.units.slice(0, COMBAT_FOES_MAX) : null;
-  const cappedEnemies = !mob.units && mob.enemies ? mob.enemies.slice(0, COMBAT_FOES_MAX) : [];
-  const foes = mob.units ? spawnEnemiesFromPreview(region, cappedUnits) : spawnEnemies(region, cappedEnemies);
-  const enemyNames = mob.units ? cappedUnits.map((u) => u.name) : cappedEnemies.slice();
-  const party = buildCombatPartyForMob(mob);
-  combatState = {
-    region,
-    mob,
-    enemyNames,
-    foes,
-    party,
-    playerHp: party[0] ? party[0].hp : Math.min(player.hp, player.maxHp),
-    playerMax: party[0] ? party[0].maxHp : player.maxHp,
-    phase: "player",
-    selectedUid: null,
-    selectedAllyUid: party[0] ? party[0].uid : null,
-    activePartyUid: party[0] ? party[0].uid : null,
-    fightLog: [],
-    worldMapContext: worldMapContext || null,
-    status: null,
-    classState: null
-  };
-  ensureCombatStatus(combatState);
-  initCombatStamina(combatState);
-  ensureActivePartyUid(combatState);
-  clearCombatVisualTimer();
-  ensureCombatTarget();
-  ensureCombatAllyTarget(combatState);
+  if (!window.ServerCombat) {
+    showModal("Combat is unavailable. Please refresh the page.");
+    return;
+  }
+  try {
+    save({ flush: true });
+    await persistCharacterRoster();
 
-  const overlay = document.getElementById("fightOverlay");
-  const logEl = document.getElementById("fightLog");
-  if (!overlay || !logEl) return;
+    const sessionToJoin = coopSessionId || null;
 
-  overlay.classList.remove("hidden");
-  overlay.classList.add("fight-active");
-  syncFightSceneBackdropFromAdventure();
-  hideFightResults();
-  logEl.innerHTML = "";
-  appendFightLog("— Fight start —");
-  renderTurnBattle();
+    let ok = false;
+    if (sessionToJoin && typeof window.ServerCombat.join === "function") {
+      ok = await window.ServerCombat.join(sessionToJoin, region, mob, worldMapContext);
+    } else {
+      if (!coopSessionId) hideFightInviteModal();
+      ok = await window.ServerCombat.start(region, mob, worldMapContext);
+    }
+    if (!ok) {
+      showModal("Could not start online combat. Make sure you are logged in with a character selected.");
+    }
+  } catch (err) {
+    console.error("Online combat start failed:", err);
+    showModal(err && err.message ? err.message : "Could not start online combat.");
+  }
 }
 
 function applyFightResult(result) {
-  if (result.victory) {
-    player.hp = Math.min(player.maxHp, result.finalPlayerHp);
-    player.gold += result.gold;
-    result.items.forEach((it) => player.inventory.push(it));
-    awardVictoryXpToParty(result.memberRewards);
-    applyGatherProfessionXpFromMemberRewards(result.memberRewards);
-  } else {
-    player.hp = Math.max(1, result.finalPlayerHp);
-  }
-  save();
+  console.warn("applyFightResult ignored (server-authoritative combat only)", result);
 }
 
 function closeFightOverlay() {
@@ -20692,7 +20468,7 @@ function spendCharPoints(statKey, actor, amount) {
   const budget = Math.max(0, Math.floor(Number(amount)));
   const useBudget = Math.min(budget, pool);
   if (useBudget <= 0) return 0;
-  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerSpendStat) {
+  if (canPerformServerPlayerAction() && window.GameStorage?.playerSpendStat) {
     void (async () => {
       try {
         const body = await window.GameStorage.playerSpendStat({
@@ -20708,35 +20484,8 @@ function spendCharPoints(statKey, actor, amount) {
     })();
     return useBudget;
   }
-
-  let cur =
-    typeof target[statKey] === "number" && Number.isFinite(target[statKey])
-      ? Math.floor(target[statKey])
-      : STAT_CHAR_ALLOC_FLOOR;
-  if (statKey === "dex" && (!Number.isFinite(cur) || cur < STAT_CHAR_ALLOC_FLOOR) && typeof target.agi === "number") {
-    cur = Math.floor(target.agi);
-  }
-  if (!Number.isFinite(cur)) cur = STAT_CHAR_ALLOC_FLOOR;
-
-  let spent = 0;
-  let stat = cur;
-  while (spent < useBudget) {
-    const step = getNextCharPointCostPerBaseStat(stat);
-    if (spent + step > useBudget) break;
-    spent += step;
-    stat += 1;
-  }
-  if (spent <= 0) return 0;
-
-  target.charPoints = pool - spent;
-  target[statKey] = stat;
-  const prevMax = target.maxHp;
-  target.maxHp = computeMaxHp(target);
-  const gained = target.maxHp - prevMax;
-  if (gained > 0) target.hp = Math.min(target.maxHp, (typeof target.hp === "number" ? target.hp : target.maxHp) + gained);
-  save();
-  render();
-  return spent;
+  showServerActionRequired();
+  return 0;
 }
 function openCharPointSpendModal(statKey, rosterTab) {
   if (!["str", "dex", "vit", "int"].includes(statKey)) return;
@@ -23180,7 +22929,7 @@ function craftRecipeById(recipeId) {
   const quantity = getCraftBatchQuantity(recipeId);
   const avail = evaluateCraftRecipeAvailability(recipe, getInventoryBaseItemCounts(), tab.actor, quantity);
   if (!avail.craftable) return false;
-  if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerCraft) {
+  if (canPerformServerPlayerAction() && window.GameStorage?.playerCraft) {
     void (async () => {
       try {
         const body = await window.GameStorage.playerCraft({
@@ -23203,10 +22952,8 @@ function craftRecipeById(recipeId) {
     })();
     return true;
   }
-  const result = executeLocalCraftBatch(recipe, quantity, player, player, tab.actor);
-  if (!result) return false;
-  save();
-  return true;
+  showServerActionRequired();
+  return false;
 }
 
 function buildProfessionXpBarHtml(actor, professionId, profLabel) {
@@ -24137,9 +23884,6 @@ function buildMarketMailHtml() {
 
 function buildMarketPanelHtml() {
   const meta = getMenuPanelMeta("market");
-  if (!isOnlineGameplayMode()) {
-    return `<div class="game-page market-panel"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead market-panel-lead">The player market is available in online mode only.</p></div>`;
-  }
   return `<div class="game-page market-panel market-panel--layout">
     <div class="market-layout">
       ${buildMarketFiltersColumnHtml()}
@@ -25070,7 +24814,7 @@ function onDocumentKeydown(e) {
   }
   if (k === "h" && e.shiftKey) {
     e.preventDefault();
-    if (isOnlineGameplayMode() && activeCharacterSlotIndex != null && window.GameStorage?.playerHeal) {
+    if (canPerformServerPlayerAction() && window.GameStorage?.playerHeal) {
       void (async () => {
         try {
           const body = await window.GameStorage.playerHeal({ slotIndex: activeCharacterSlotIndex });
@@ -25083,11 +24827,7 @@ function onDocumentKeydown(e) {
       })();
       return;
     }
-    applyLocalOutOfCombatFullHeal();
-    save();
-    render();
-    renderBottomHud();
-    refreshCharacterPanelHpInPlace();
+    showServerActionRequired();
     return;
   }
   if (k !== "m") return;
@@ -25692,9 +25432,7 @@ function onContentClick(e) {
       comp.enabled = wantOn;
       if (wantOn) comp.hasBeenEnabled = true;
       if (!wantOn && characterPanelRosterTab === String(si)) characterPanelRosterTab = "hero";
-      save(
-        typeof window !== "undefined" && window.GameStorage?.isOnlineMode?.() ? { flush: true } : undefined
-      );
+      save({ flush: true });
       render();
     }
     return;
@@ -26738,14 +26476,16 @@ function waitForAllImagesToLoad({ idleMs = 400, maxWaitMs = 8000, maxTrack = 800
 async function bootApp() {
   showLoadingOverlay();
   try {
-    if (typeof window !== "undefined" && window.GameStorage && window.GameStorage.isOnlineMode()) {
-      const ready = await window.GameStorage.ensureSession();
-      if (!ready) {
-        hideLoadingOverlay();
-        return;
-      }
-      window.GameStorage.onSessionReady();
+    if (typeof window === "undefined" || !window.GameStorage) {
+      hideLoadingOverlay();
+      return;
     }
+    const ready = await window.GameStorage.ensureSession();
+    if (!ready) {
+      hideLoadingOverlay();
+      return;
+    }
+    window.GameStorage.onSessionReady();
     await initAppAtStartup();
   } catch (err) {
     console.error("Game boot failed:", err);

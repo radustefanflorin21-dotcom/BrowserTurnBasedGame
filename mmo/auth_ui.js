@@ -1,5 +1,5 @@
 /**
- * Login / register UI for online mode (?mmo=online).
+ * Login / register UI (online-only).
  */
 (function (root) {
   function setAuthError(msg) {
@@ -15,7 +15,7 @@
   }
 
   function bindAuthUi() {
-    if (!root.GameStorage || !root.GameStorage.isOnlineMode()) return;
+    if (!root.GameStorage) return;
 
     const loginForm = root.document.getElementById("mmoLoginForm");
     const registerForm = root.document.getElementById("mmoRegisterForm");

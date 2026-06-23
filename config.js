@@ -9169,6 +9169,16 @@ const GAME_CONFIG = {
         description: "Salt wind and a half-buried frame where Hollis has been working.",
         elements: [
           {
+            type: "pickup",
+            id: "shore_salt_crust",
+            label: "Salt crust",
+            itemName: "Residue",
+            once: true,
+            editable: true,
+            leftPct: 28,
+            topPct: 72
+          },
+          {
             type: "npc",
             id: "hollis_dredge",
             label: "Hollis Dredge",

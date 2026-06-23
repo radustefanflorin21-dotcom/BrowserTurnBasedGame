@@ -32,7 +32,7 @@
           : "Local message… (same map tile)";
     for (const el of getInputs()) {
       el.disabled = !on;
-      el.placeholder = on ? ph : "Sign in with ?mmo=online to chat";
+      el.placeholder = on ? ph : "Sign in to chat";
     }
   }
 

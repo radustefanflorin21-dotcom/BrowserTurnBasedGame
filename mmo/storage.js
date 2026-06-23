@@ -1,13 +1,12 @@
 /**
- * Persistence layer for character roster (Phase 1 MMO refactor).
- * - local: browser localStorage (default)
- * - online: REST API + JWT (see server/)
+ * Persistence layer for character roster — online-only (REST API + JWT).
+ * Scoped localStorage is used only as a read cache after server responses.
  */
 (function (root) {
   const C = root.MMO_CONSTANTS;
   if (!C) throw new Error("mmo/storage.js requires shared/mmo_constants.js");
 
-  const runtime = root.MMO_RUNTIME || { mode: "local", apiBaseUrl: "http://localhost:3001" };
+  const runtime = root.MMO_RUNTIME || { mode: "online", apiBaseUrl: "http://localhost:3001" };
 
   let rosterRevision = 0;
   let cachedMmoFeatures = null;
@@ -57,7 +56,7 @@
     }
   }
 
-  /** Per-account local cache key (online only). Prevents roster bleed between logins on one browser. */
+  /** Per-account local cache key. Prevents roster bleed between logins on one browser. */
   function getScopedRosterStorageKey() {
     const email = getAuthEmail();
     if (!email) return C.ROSTER_STORAGE_KEY;
@@ -111,24 +110,6 @@
     return body;
   }
 
-  const LocalStorageAdapter = {
-    async loadRosterJson() {
-      try {
-        return localStorage.getItem(C.ROSTER_STORAGE_KEY);
-      } catch {
-        return null;
-      }
-    },
-    async saveRosterJson(json) {
-      try {
-        localStorage.setItem(C.ROSTER_STORAGE_KEY, json);
-      } catch {
-        /* ignore quota / private mode */
-      }
-      return { rosterJson: json, warnings: [] };
-    }
-  };
-
   const ApiStorageAdapter = {
     async loadRosterJson() {
       const data = await apiFetch("/api/roster", { method: "GET" });
@@ -166,23 +147,25 @@
     }
   };
 
-  function getAdapter() {
-    return isOnlineMode() ? ApiStorageAdapter : LocalStorageAdapter;
-  }
-
   async function loadRosterJson() {
-    return getAdapter().loadRosterJson();
+    if (!isOnlineMode()) {
+      throw new Error("Local-only mode is disabled. Remove ?mmo=local or use the online server.");
+    }
+    return ApiStorageAdapter.loadRosterJson();
   }
 
   async function saveRosterJson(json) {
+    if (!isOnlineMode()) {
+      throw new Error("Local-only mode is disabled. Remove ?mmo=local or use the online server.");
+    }
     try {
-      const out = await getAdapter().saveRosterJson(json);
+      const out = await ApiStorageAdapter.saveRosterJson(json);
       if (out && typeof out === "object" && out.rosterJson != null) {
         return out;
       }
       return { rosterJson: out || json, warnings: [] };
     } catch (err) {
-      if (isOnlineMode() && err.status === 409 && err.body && err.body.roster) {
+      if (err.status === 409 && err.body && err.body.roster) {
         const restored = JSON.stringify(err.body.roster);
         if (err.body.revision != null) setRosterRevision(err.body.revision);
         if (typeof root.applyAuthoritativeRosterJson === "function") {
@@ -248,12 +231,15 @@
     if (selectEl) selectEl.classList.add("hidden");
   }
 
-  /**
-   * Online: show auth UI until logged in. Local: always ready.
-   * @returns {Promise<boolean>}
-   */
+  /** Show auth UI until logged in. @returns {Promise<boolean>} */
   async function ensureSession() {
-    if (!isOnlineMode()) return true;
+    if (!isOnlineMode()) {
+      const authEl = root.document.getElementById("mmoAuthScreen");
+      const selectEl = root.document.getElementById("characterSelectScreen");
+      if (authEl) authEl.classList.remove("hidden");
+      if (selectEl) selectEl.classList.add("hidden");
+      return false;
+    }
     if (await validateSession()) return true;
     const authEl = root.document.getElementById("mmoAuthScreen");
     const selectEl = root.document.getElementById("characterSelectScreen");
@@ -270,7 +256,6 @@
   }
 
   async function enterDungeon(dungeonId, slotIndex) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/dungeon/enter", {
       method: "POST",
       body: JSON.stringify({ dungeonId, slotIndex })
@@ -278,7 +263,6 @@
   }
 
   async function leaveDungeon(dungeonId, slotIndex, opts) {
-    if (!isOnlineMode()) return null;
     const body = { dungeonId, slotIndex };
     if (opts && opts.afterDefeat) body.afterDefeat = true;
     return apiFetch("/api/dungeon/leave", {
@@ -288,47 +272,38 @@
   }
 
   async function playerEquip(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/player/equip", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function playerUnequip(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/player/unequip", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function playerSpendStat(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/player/spend-stat", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function playerUpgradeSkill(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/player/upgrade-skill", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function playerCraft(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/player/craft", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function playerHeal(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/player/heal", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function worldMove(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/world/move", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function worldPickup(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/world/pickup", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function fetchMarketListings(query) {
-    if (!isOnlineMode()) return null;
     const params = new URLSearchParams();
     if (query?.search) params.set("search", query.search);
     if (query?.category) params.set("category", query.category);
@@ -338,38 +313,31 @@
   }
 
   async function fetchMyMarketListings(slotIndex) {
-    if (!isOnlineMode()) return null;
     return apiFetch(`/api/market/my-listings?slotIndex=${encodeURIComponent(slotIndex)}`, { method: "GET" });
   }
 
   async function marketList(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/market/list", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function marketBuy(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/market/buy", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function marketCancel(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/market/cancel", { method: "POST", body: JSON.stringify(body) });
   }
 
   async function fetchMail(limit) {
-    if (!isOnlineMode()) return null;
     const q = limit != null ? `?limit=${encodeURIComponent(limit)}` : "";
     return apiFetch(`/api/mail${q}`, { method: "GET" });
   }
 
   async function markMailRead(body) {
-    if (!isOnlineMode()) return null;
     return apiFetch("/api/mail/read", { method: "POST", body: JSON.stringify(body || {}) });
   }
 
   async function fetchMmoFeatures(force) {
-    if (!isOnlineMode()) return null;
     if (cachedMmoFeatures && !force) return cachedMmoFeatures;
     cachedMmoFeatures = await apiFetch("/api/mmo/features", { method: "GET" });
     return cachedMmoFeatures;

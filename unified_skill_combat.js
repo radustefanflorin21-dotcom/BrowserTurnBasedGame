@@ -443,6 +443,7 @@
 
     function afterCommit() {
       if (!st.foes.some((f) => f.hp > 0)) {
+        if (st.serverAuthoritative) return;
         if (typeof finishCombatVictory === "function") finishCombatVictory();
         return;
       }

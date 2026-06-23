@@ -9,7 +9,10 @@
   "description": "Phase 1 API: accounts + character roster persistence",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "smoke": "node scripts/smoke_online.mjs",
+    "smoke:browser": "node scripts/smoke_browser.mjs",
+    "smoke:all": "node scripts/smoke_online.mjs && node scripts/smoke_browser.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
