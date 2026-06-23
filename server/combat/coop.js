@@ -307,16 +307,13 @@ export function countCoopHumanHeroes(st) {
   ).length;
 }
 
-/** Online fights: only human heroes take manual player-phase turns (companions are skipped). */
-export function coopHeroTurnsOnly(session) {
-  return !!session?.coop;
+/** @deprecated Companions always take turns when enabled at fight start; kept for call-site compatibility. */
+export function coopHeroTurnsOnly(_session) {
+  return false;
 }
 
-export function markCompanionsSkippedForCoopHeroTurns(st, session) {
-  if (!coopHeroTurnsOnly(session)) return;
-  (st.party || []).forEach((m) => {
-    if (m && m.kind === "companion") m.acted = true;
-  });
+export function markCompanionsSkippedForCoopHeroTurns(_st, _session) {
+  // Enabled companions always receive a player-phase turn (solo and co-op).
 }
 
 export function eligibleActingMembers(session, st) {

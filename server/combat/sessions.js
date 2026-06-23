@@ -336,7 +336,7 @@ export function runAction(sessionId, action, actingUserId) {
   if (session.coop && !hasCoopResults && !out.abandoned) {
     const extra = {};
     if (out.began) extra.began = true;
-    if (Array.isArray(out.lastEnemyHits) && out.lastEnemyHits.length) {
+    if (Array.isArray(out.lastEnemyHits)) {
       extra.lastEnemyHits = out.lastEnemyHits;
     }
     if (Array.isArray(out.lastHits) && out.lastHits.length) {

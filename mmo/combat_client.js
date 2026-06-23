@@ -8,6 +8,10 @@
   let hostUserId = null;
   let prepEndsAt = null;
   let combatLocked = false;
+  let enemyPhaseUiUntil = 0;
+  let enemyPhaseUiTimer = null;
+
+  const ENEMY_PHASE_MIN_MS = 2000;
 
   function isOnlineCombat() {
     return !!(
@@ -240,12 +244,44 @@
     return false;
   }
 
-  function coopHeroTurnsOnlyClient(st) {
-    return !!st?.serverAuthoritative;
+  function coopHeroTurnsOnlyClient(_st) {
+    return false;
+  }
+
+  function isEnemyPhaseUiActive() {
+    return Date.now() < enemyPhaseUiUntil;
+  }
+
+  function clearEnemyPhaseUi() {
+    enemyPhaseUiUntil = 0;
+    if (enemyPhaseUiTimer) {
+      clearTimeout(enemyPhaseUiTimer);
+      enemyPhaseUiTimer = null;
+    }
+    if (combatState && combatState.uiPhaseOverride === "enemy") {
+      delete combatState.uiPhaseOverride;
+    }
+  }
+
+  function beginEnemyPhaseUi(totalMs) {
+    const ms = Math.max(ENEMY_PHASE_MIN_MS, totalMs || ENEMY_PHASE_MIN_MS);
+    enemyPhaseUiUntil = Date.now() + ms;
+    if (combatState) combatState.uiPhaseOverride = "enemy";
+    setFightUiPending(true);
+    if (typeof renderTurnBattle === "function") renderTurnBattle();
+    if (enemyPhaseUiTimer) clearTimeout(enemyPhaseUiTimer);
+    enemyPhaseUiTimer = setTimeout(() => {
+      enemyPhaseUiTimer = null;
+      enemyPhaseUiUntil = 0;
+      if (combatState) delete combatState.uiPhaseOverride;
+      setFightUiPending(false);
+      if (typeof renderTurnBattle === "function") renderTurnBattle();
+    }, ms);
   }
 
   function canControlActiveMember() {
     if (!combatState || combatState.phase !== "player") return false;
+    if (isEnemyPhaseUiActive()) return false;
     const uid = resolveMyUserId();
     if (typeof uid !== "number") return false;
     if (!combatState.serverAuthoritative) {
@@ -429,8 +465,8 @@
     const st = combatState;
     if (!st) return;
     const allyHits = Array.isArray(payload.lastHits) ? payload.lastHits : [];
-    const enemyHits = Array.isArray(payload.lastEnemyHits) ? payload.lastEnemyHits : [];
-    if (!allyHits.length && !enemyHits.length) return;
+    const enemyPhaseRan = Array.isArray(payload.lastEnemyHits);
+    const enemyHits = enemyPhaseRan ? payload.lastEnemyHits : [];
 
     let actor = fallbackActor || null;
     if (payload.actorPartyUid != null) {
@@ -439,12 +475,24 @@
     }
     const actorRef = actor;
 
+    if (enemyPhaseRan) {
+      const hitCount = enemyHits.length;
+      const perHitMs = hitCount > 1 ? Math.max(450, Math.floor(ENEMY_PHASE_MIN_MS / hitCount)) : ENEMY_PHASE_MIN_MS;
+      const animMs =
+        hitCount > 0 ? Math.max(ENEMY_PHASE_MIN_MS, (hitCount - 1) * perHitMs + 500) : ENEMY_PHASE_MIN_MS;
+      const allyLeadMs = allyHits.length ? 420 : 0;
+      beginEnemyPhaseUi(allyLeadMs + animMs);
+    }
+
     requestAnimationFrame(() => {
       if (allyHits.length) playServerHitEffects(allyHits, actorRef);
-      const enemyDelay = allyHits.length ? 420 : 0;
-      enemyHits.forEach((hit, i) => {
-        setTimeout(() => playServerEnemyHitEffects([hit]), enemyDelay + i * 320);
-      });
+      const allyLeadMs = allyHits.length ? 420 : 0;
+      if (enemyHits.length) {
+        const perHitMs = Math.max(450, Math.floor(ENEMY_PHASE_MIN_MS / enemyHits.length));
+        enemyHits.forEach((hit, i) => {
+          setTimeout(() => playServerEnemyHitEffects([hit]), allyLeadMs + i * perHitMs);
+        });
+      }
     });
   }
 
@@ -500,7 +548,7 @@
       !isPrepPhase() &&
       !isLeave &&
       combatState?.phase === "player" &&
-      !canControlActiveMember()
+      (isEnemyPhaseUiActive() || !canControlActiveMember())
     ) {
       return null;
     }
@@ -590,6 +638,7 @@
     prepEndsAt = null;
     combatLocked = false;
     pending = false;
+    clearEnemyPhaseUi();
   }
 
   root.ServerCombat = {
@@ -599,6 +648,7 @@
     isPrepPhase,
     isFightHost,
     canControlActiveMember,
+    isEnemyPhaseUiActive,
     getSessionId: () => sessionId,
     getMyUserId: resolveMyUserId,
     fetchPartySession,

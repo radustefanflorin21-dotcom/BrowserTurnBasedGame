@@ -17587,11 +17587,18 @@ function initFightMinimapLayoutObserver() {
   ro.observe(body);
 }
 
+function getEffectiveFightPhase(st) {
+  if (!st) return "ended";
+  if (st.uiPhaseOverride === "enemy" || st.uiPhaseOverride === "player") return st.uiPhaseOverride;
+  return st.phase;
+}
+
 function renderTurnBattle() {
   const st = combatState;
   const hud = document.getElementById("fightHud");
   const actionsEl = document.getElementById("fightPlayerActions");
   if (!hud || !st) return;
+  const uiPhase = getEffectiveFightPhase(st);
 
   /** Replacing fight DOM drops hovered elements without firing mouseout — clear stale tooltips. */
   hideItemTooltip();
@@ -17606,9 +17613,9 @@ function renderTurnBattle() {
     .filter((m) => m && (st.phase === "prep" || m.hp > 0))
     .forEach((m) => {
       const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
-      const isActive = st.phase === "player" && st.activePartyUid === m.uid && !m.acted;
-      const hasActed = st.phase === "player" && !!m.acted;
-      const isTargeted = st.phase === "player" && st.selectedAllyUid === m.uid && m.hp > 0;
+      const isActive = uiPhase === "player" && st.activePartyUid === m.uid && !m.acted;
+      const hasActed = uiPhase === "player" && !!m.acted;
+      const isTargeted = uiPhase === "player" && st.selectedAllyUid === m.uid && m.hp > 0;
       const auraTypes = getCombatStatusAuraTypesForAlly(m, st);
       const portraitHtml = buildFightAllyPortraitHtml(m, st);
       const cardCls = [
@@ -17620,7 +17627,7 @@ function renderTurnBattle() {
       ]
         .filter(Boolean)
         .join(" ");
-      const clickable = st.phase === "player" && m.hp > 0;
+      const clickable = uiPhase === "player" && m.hp > 0;
       const roleAttrs = clickable ? ' role="button" tabindex="0"' : "";
       partyHtml += `<div class="${cardCls}" data-party-member="${m.uid}"${roleAttrs}>
       ${portraitHtml}
@@ -17744,14 +17751,15 @@ function renderTurnBattle() {
             ${readyBtn}
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave</button>
           </div>`;
-    } else if (st.phase === "player") {
+    } else if (uiPhase === "player") {
       actionsEl.classList.remove("hidden");
       const canAct =
-        !st.serverAuthoritative ||
-        (typeof window !== "undefined" &&
-          window.ServerCombat &&
-          typeof window.ServerCombat.canControlActiveMember === "function" &&
-          window.ServerCombat.canControlActiveMember());
+        uiPhase === "player" &&
+        (!st.serverAuthoritative ||
+          (typeof window !== "undefined" &&
+            window.ServerCombat &&
+            typeof window.ServerCombat.canControlActiveMember === "function" &&
+            window.ServerCombat.canControlActiveMember()));
       if (st.serverAuthoritative && canAct) syncCombatStaminaUiForServerState(st);
       const active =
         (canAct ? getCombatUiPartyMember(st) : null) || getActivePartyMember(st);
@@ -17818,10 +17826,10 @@ function renderTurnBattle() {
     startPrepPhaseTimer();
     const fightTitleElPrep = document.querySelector("#fightOverlay .fight-title");
     if (fightTitleElPrep) fightTitleElPrep.textContent = "Preparation";
-  } else if (st.phase === "player") {
+  } else if (uiPhase === "player") {
     clearPrepPhaseTimer();
     startPlayerTurnTimer();
-  } else if (st.phase === "enemy") {
+  } else if (uiPhase === "enemy") {
     clearPrepPhaseTimer();
     clearPlayerTurnTimer();
     startEnemyTurnTimer();
@@ -17848,7 +17856,7 @@ function renderTurnBattle() {
         st.endOutcome === "defeat" ? "Defeat" : st.endOutcome === "abandoned" ? "Left fight" : "Victory";
     } else if (st.phase === "prep") {
       fightTitleEl.textContent = "Preparation";
-    } else if (st.phase === "player" && st.serverAuthoritative) {
+    } else if (uiPhase === "player" && st.serverAuthoritative) {
       const turnMember = getActivePartyMember(st);
       fightTitleEl.textContent = turnMember
         ? `${turnMember.name || "Ally"}'s turn`
@@ -19049,8 +19057,8 @@ function playerCombatAction(kind, skillName) {
   if (!member || member.kind !== "hero") return;
   partyMemberCombatAction(member, player, kind, skillName);
 }
-function coopHeroTurnsOnlyClient(st) {
-  return !!st?.serverAuthoritative;
+function coopHeroTurnsOnlyClient(_st) {
+  return false;
 }
 
 function eligibleActingMembersClient(st) {

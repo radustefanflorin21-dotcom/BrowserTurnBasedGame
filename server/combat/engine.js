@@ -98,9 +98,6 @@ function isPartyAlive(st) {
 
 function getActiveMember(st, session = null) {
   let member = st.party.find((m) => m && m.uid === st.activePartyUid && m.hp > 0 && !m.acted) || null;
-  if (member && session?.coop && coopHeroTurnsOnly(session) && member.kind !== "hero") {
-    member = null;
-  }
   if (!member && session?.coop) {
     member = findNextActingMember(session, st);
     if (member) {
@@ -353,8 +350,7 @@ function afterPlayerAction(session, rng, actingMember = null) {
   const enemyPlayer = primaryPlayerForEnemyPhase(session);
   const enemyHits = [];
   const enemyOutcome = runEnemyPhase(st, enemyPlayer, rng, enemyHits, session);
-  const withEnemyHits = (out) =>
-    enemyHits.length ? { ...out, lastEnemyHits: enemyHits } : out;
+  const withEnemyHits = (out) => ({ ...out, lastEnemyHits: enemyHits });
   if (enemyOutcome.outcome === "victory") {
     if (session.coop) return withEnemyHits(finishCoopVictory(session, rng));
     const result = finishVictory(st, session.player, rng);
