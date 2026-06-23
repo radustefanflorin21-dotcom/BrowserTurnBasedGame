@@ -6152,7 +6152,6 @@ const GAME_CONFIG = {
             id: "teleport_potion",
             resultItem: "Teleport Potion",
             resultLevel: 5,
-            craftXp: 35,
             ingredients: [
               { item: "Residue", qty: 4, source: "gathering_loot" },
               { item: "Water Essence", qty: 2, source: "monster_loot" },

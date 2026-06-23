@@ -62,9 +62,6 @@
     const itemLevel = PP ? PP.getRecipeItemLevel(recipe, itemDef) : 1;
     const relevance = getLevelRelevanceMultiplier(itemLevel, professionLevel);
     if (relevance <= 0) return 0;
-    if (recipe && typeof recipe.craftXp === "number" && Number.isFinite(recipe.craftXp) && recipe.craftXp > 0) {
-      return roundXpToNearest5(recipe.craftXp);
-    }
     const base = computeBaseItemXp(itemLevel);
     const complexity = getRecipeComplexityMultiplier(recipe);
     const material =
