@@ -22558,30 +22558,24 @@ function buildOverviewHtml() {
         const plv = ProfessionProgression.getProfessionLevel(actor, d.id);
         levelHint = ` · Lv ${plv}`;
       }
-      return `<div class="stat-plain-row">
-        <span>${escapeHtml(d.label)} <small>(${kind}${levelHint})</small></span>
-        <button type="button" class="${cls} profession-toggle-btn" data-profession-toggle="${escapeAttr(d.id)}"${disabled}>${
-          selected ? "Selected" : "Select"
-        }</button>
+      const progressBar =
+        selected && typeof ProfessionProgression !== "undefined"
+          ? buildProfessionXpBarInlineHtml(actor, d.id)
+          : "";
+      return `<div class="profession-row${selected ? " profession-row--selected" : ""}">
+        <div class="stat-plain-row profession-row-head">
+          <span>${escapeHtml(d.label)} <small>(${kind}${levelHint})</small></span>
+          <button type="button" class="${cls} profession-toggle-btn" data-profession-toggle="${escapeAttr(d.id)}"${disabled}>${
+            selected ? "Selected" : "Select"
+          }</button>
+        </div>
+        ${progressBar}
       </div>`;
     })
     .join("");
-  const selectedProfProgressHtml =
-    selectedProfIds.length > 0
-      ? `<div class="professions-progress-section">
-          <p class="professions-progress-heading">Progression</p>
-          <div class="professions-progress-list">${selectedProfIds
-            .map((id) => {
-              const d = getProfessionDefById(id);
-              return buildProfessionXpBarHtml(actor, id, d?.label || id);
-            })
-            .join("")}</div>
-        </div>`
-      : "";
   const professionsTabHtml = `<div class="professions-tab-inner">
     <div class="stat-plain-row"><span>Chosen</span><strong>${selectedProfIds.length}/${maxProf}</strong></div>
     ${profRows}
-    ${selectedProfProgressHtml}
   </div>`;
 
   let statsBodyHtml = "";
@@ -23092,6 +23086,21 @@ function craftRecipeById(recipeId) {
   }
   showServerActionRequired();
   return false;
+}
+
+function buildProfessionXpBarInlineHtml(actor, professionId) {
+  if (typeof ProfessionProgression === "undefined") return "";
+  ensureActorProfessionProgress(actor);
+  const entry = ProfessionProgression.getProfessionProgressEntry(actor, professionId);
+  const maxLv = ProfessionProgression.PROFESSION_MAX_LEVEL;
+  const xpNeed = entry.level >= maxLv ? 0 : ProfessionProgression.xpToNextProfessionLevel(entry.level);
+  const xpPct = entry.level >= maxLv ? 100 : xpNeed > 0 ? Math.min(100, (entry.xp / xpNeed) * 100) : 0;
+  const xpNum = entry.level >= maxLv ? `Max L${maxLv}` : `${entry.xp} / ${xpNeed}`;
+  const xpNeedAttr = entry.level >= maxLv ? "max" : String(xpNeed);
+  return `<div class="profession-row-xp stat-tip-row" data-profession-xp-current="${entry.xp}" data-profession-xp-need="${escapeAttr(xpNeedAttr)}">
+    <span class="profession-row-xp-num">${xpNum}</span>
+    <div class="stat-bar-track stat-bar-xp"><div class="stat-bar-fill" style="width:${xpPct}%"></div></div>
+  </div>`;
 }
 
 function buildProfessionXpBarHtml(actor, professionId, profLabel) {

@@ -1871,36 +1871,37 @@ body.edit-mode-on .portrait-equip-layer--pet {
   border-radius: 2px;
 }
 
-.professions-progress-section {
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+.profession-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin-top: 2px;
+  padding: 0.06rem 0 3px;
 }
 
-.professions-progress-heading {
-  margin: 0 0 6px;
-  font-size: 0.52rem;
-  font-weight: 600;
+.profession-row-head {
+  border-top: none;
+  margin-top: 0;
+  padding-bottom: 0;
+}
+
+.profession-row-xp {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.profession-row-xp-num {
+  display: block;
+  text-align: right;
+  font-size: 0.45rem;
+  font-variant-numeric: tabular-nums;
   color: var(--overview-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  margin-bottom: 1px;
 }
 
-.professions-tab-inner .professions-progress-list .crafting-prof-progress {
-  margin-bottom: 8px;
-}
-
-.professions-tab-inner .professions-progress-list .crafting-prof-progress:last-child {
-  margin-bottom: 0;
-}
-
-.professions-tab-inner .crafting-prof-summary {
-  font-size: 0.58rem;
-  margin-bottom: 4px;
-}
-
-.professions-tab-inner .crafting-prof-progress .stat-bar-row {
-  font-size: 0.5rem;
+.profession-row-xp .stat-bar-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
 }
 
 .crafting-profession-tabs {
