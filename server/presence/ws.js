@@ -24,6 +24,14 @@ import {
   notifyPartyFightStarted
 } from "./party.js";
 import { sendCraftInvite, acceptCraftInvite, declineCraftInvite } from "./commission_craft.js";
+import {
+  sendTradeRequest,
+  acceptTradeInvite,
+  declineTradeInvite,
+  updateTradeOffer,
+  confirmTrade,
+  cancelTrade
+} from "./trade.js";
 import { getWorldShardInfo } from "../world/shard.js";
 
 const WS_PATH = "/presence";
@@ -181,6 +189,44 @@ export function attachPresenceWebSocket(httpServer) {
 
       if (msg.type === "craft_decline") {
         declineCraftInvite(authedUser.id);
+        return;
+      }
+
+      if (msg.type === "trade_request") {
+        const result = sendTradeRequest(authedUser.id, {
+          targetUserId: msg.targetUserId,
+          slotIndex: msg.slotIndex
+        });
+        socket.send(JSON.stringify({ type: "trade_result", ...result }));
+        return;
+      }
+
+      if (msg.type === "trade_accept") {
+        const result = acceptTradeInvite(authedUser.id, { slotIndex: msg.slotIndex });
+        socket.send(JSON.stringify({ type: "trade_result", ...result }));
+        return;
+      }
+
+      if (msg.type === "trade_decline") {
+        declineTradeInvite(authedUser.id);
+        return;
+      }
+
+      if (msg.type === "trade_offer") {
+        const result = updateTradeOffer(authedUser.id, { gold: msg.gold, items: msg.items });
+        socket.send(JSON.stringify({ type: "trade_result", ...result }));
+        return;
+      }
+
+      if (msg.type === "trade_confirm") {
+        const result = confirmTrade(authedUser.id);
+        socket.send(JSON.stringify({ type: "trade_result", ...result }));
+        return;
+      }
+
+      if (msg.type === "trade_cancel") {
+        const result = cancelTrade(authedUser.id);
+        socket.send(JSON.stringify({ type: "trade_result", ...result }));
         return;
       }
 

@@ -287,6 +287,76 @@
     }
   }
 
+  function sendTradeRequest(targetUserId) {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    const uid = Number(targetUserId);
+    if (!Number.isFinite(uid)) return;
+    const slotIndex =
+      typeof activeCharacterSlotIndex !== "undefined" && activeCharacterSlotIndex != null
+        ? activeCharacterSlotIndex
+        : 0;
+    try {
+      socket.send(JSON.stringify({ type: "trade_request", targetUserId: uid, slotIndex }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function acceptTradeInvite() {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    const slotIndex =
+      typeof activeCharacterSlotIndex !== "undefined" && activeCharacterSlotIndex != null
+        ? activeCharacterSlotIndex
+        : 0;
+    try {
+      socket.send(JSON.stringify({ type: "trade_accept", slotIndex }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function declineTradeInvite() {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    try {
+      socket.send(JSON.stringify({ type: "trade_decline" }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function sendTradeOffer(offer) {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    try {
+      socket.send(
+        JSON.stringify({
+          type: "trade_offer",
+          gold: offer?.gold,
+          items: Array.isArray(offer?.items) ? offer.items : []
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function confirmTrade() {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    try {
+      socket.send(JSON.stringify({ type: "trade_confirm" }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function cancelTrade() {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !authed) return;
+    try {
+      socket.send(JSON.stringify({ type: "trade_cancel" }));
+    } catch {
+      /* ignore */
+    }
+  }
+
   function schedulePublishLoop() {
     if (publishTimer) return;
     publishTimer = setInterval(() => publishPresence(), PUBLISH_INTERVAL_MS);
@@ -355,6 +425,11 @@
     }
     if (msg.type === "party_result" && typeof root.onPartyResult === "function") root.onPartyResult(msg);
     if (msg.type === "craft_result" && typeof root.onCraftResult === "function") root.onCraftResult(msg);
+    if (msg.type === "trade_invite" && typeof root.onTradeInvite === "function") root.onTradeInvite(msg);
+    if (msg.type === "trade_state" && msg.trade && root.MMOTrade?.applyState) root.MMOTrade.applyState(msg.trade);
+    if (msg.type === "trade_complete" && root.MMOTrade?.onComplete) root.MMOTrade.onComplete(msg);
+    if (msg.type === "trade_closed" && root.MMOTrade?.onClosed) root.MMOTrade.onClosed(msg);
+    if (msg.type === "trade_result" && typeof root.onTradeResult === "function") root.onTradeResult(msg);
   }
 
   function connect() {
@@ -495,6 +570,12 @@
     sendCraftInvite,
     acceptCraftInvite,
     declineCraftInvite,
+    sendTradeRequest,
+    acceptTradeInvite,
+    declineTradeInvite,
+    sendTradeOffer,
+    confirmTrade,
+    cancelTrade,
     publishPartyFightStarted,
     getNearby,
     getSameMap,

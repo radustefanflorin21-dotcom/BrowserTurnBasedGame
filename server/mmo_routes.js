@@ -18,9 +18,9 @@ const MMO_FEATURES = Object.freeze({
     message: "Buy and sell items with other players. Listings expire after 30 days."
   },
   trade: {
-    status: "planned",
+    status: "live",
     title: "Trade",
-    message: "Direct player trade will use a two-phase server escrow session."
+    message: "Request trade from players on your map tile. Both players must confirm."
   }
 });
 

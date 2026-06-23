@@ -55,6 +55,7 @@
   <div id="mapPlayerActions" class="map-player-actions hidden">
     <p id="mapPlayerActionsName" class="map-player-actions-name"></p>
     <button type="button" id="mapPlayerPartyInviteBtn" class="btn-primary map-player-action-btn">Party invite</button>
+    <button type="button" id="mapPlayerTradeBtn" class="btn-secondary map-player-action-btn">Trade request</button>
     <button type="button" id="mapPlayerCraftInviteBtn" class="btn-secondary map-player-action-btn">Invite to craft</button>
     <button type="button" id="mapPlayerMessageBtn" class="btn-secondary map-player-action-btn">Send message</button>
     <button type="button" id="mapPlayerActionsClose" class="map-player-action-btn map-player-action-btn--ghost">Cancel</button>
@@ -80,6 +81,7 @@
       <span class="bottom-chat-head">Chat</span>
       <div class="bottom-chat-tabs" role="tablist" aria-label="Chat channel">
         <button type="button" class="bottom-chat-tab is-active" data-chat-tab="local">Local</button>
+        <button type="button" class="bottom-chat-tab" data-chat-tab="party">Party</button>
         <button type="button" class="bottom-chat-tab" data-chat-tab="world">World</button>
         <button type="button" class="bottom-chat-tab" data-chat-tab="private">Private</button>
       </div>
@@ -165,6 +167,7 @@
               <span class="fight-chat-head bottom-chat-head">Chat</span>
               <div class="bottom-chat-tabs fight-chat-tabs" role="tablist" aria-label="Chat channel">
                 <button type="button" class="bottom-chat-tab is-active" data-chat-tab="local">Local</button>
+                <button type="button" class="bottom-chat-tab" data-chat-tab="party">Party</button>
                 <button type="button" class="bottom-chat-tab" data-chat-tab="world">World</button>
                 <button type="button" class="bottom-chat-tab" data-chat-tab="private">Private</button>
               </div>
@@ -221,6 +224,24 @@
       <button type="button" id="craftInviteAcceptBtn" class="btn-primary">Accept &amp; craft</button>
       <button type="button" id="craftInviteDeclineBtn" class="btn-secondary">Decline</button>
     </div>
+  </div>
+</div>
+
+<div id="tradeInviteModal" class="modal hidden" role="dialog" aria-labelledby="tradeInviteTitle">
+  <div class="modal-box modal-box--compact">
+    <h3 id="tradeInviteTitle" class="modal-compact-title">Trade request</h3>
+    <p id="tradeInviteText" class="modal-compact-lead"></p>
+    <div class="modal-compact-actions">
+      <button type="button" id="tradeInviteAcceptBtn" class="btn-primary">Accept</button>
+      <button type="button" id="tradeInviteDeclineBtn" class="btn-secondary">Decline</button>
+    </div>
+  </div>
+</div>
+
+<div id="tradeSessionModal" class="modal hidden" role="dialog" aria-labelledby="tradeSessionTitle">
+  <div class="modal-box modal-box--trade">
+    <h3 id="tradeSessionTitle" class="modal-compact-title">Trade</h3>
+    <div id="tradeSessionBody"></div>
   </div>
 </div>
 
@@ -292,6 +313,7 @@
 <script src="mmo/storage.js"></script>
 <script src="mmo/presence_client.js"></script>
 <script src="mmo/chat_client.js"></script>
+<script src="mmo/trade_client.js"></script>
 <script src="world_map_data.js"></script>
 <script src="config.js"></script>
 <script src="portrait_character_presets.js"></script>

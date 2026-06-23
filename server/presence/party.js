@@ -28,7 +28,21 @@ function getPartySnapshot(partyId) {
   const members = [];
   for (const uid of party.memberIds) {
     const entry = byUserId.get(uid);
-    members.push({ userId: uid, name: entry ? displayLabel(entry) : `Player ${uid}` });
+    const member = {
+      userId: uid,
+      name: entry ? displayLabel(entry) : `Player ${uid}`
+    };
+    if (entry) {
+      member.x = Math.floor(entry.x);
+      member.y = Math.floor(entry.y);
+      member.page = entry.page || "menu";
+      if (entry.dungeonId) {
+        member.dungeonId = entry.dungeonId;
+        member.dungeonRoomIndex =
+          typeof entry.dungeonRoomIndex === "number" ? Math.floor(entry.dungeonRoomIndex) : 0;
+      }
+    }
+    members.push(member);
   }
   return { partyId, leaderId: party.leaderId, members };
 }

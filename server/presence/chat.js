@@ -1,4 +1,5 @@
 import { byUserId, displayLabel, sendJsonToUser } from "./hub.js";
+import { getPartyMemberIds } from "./party.js";
 import { canReceiveLocalChatFrom, normalizeDungeonId } from "./location.js";
 
 const MAX_CHAT_LEN = 500;
@@ -35,12 +36,31 @@ export function deliverChatMessage(senderEntry, opts) {
     return;
   }
 
-  const channel = opts.channel === "world" || opts.channel === "private" ? opts.channel : "local";
+  const channel =
+    opts.channel === "world" || opts.channel === "private" || opts.channel === "party"
+      ? opts.channel
+      : "local";
   const from = displayLabel(senderEntry);
   const base = { type: "chat", channel, from, fromUserId: senderEntry.userId, text, t: Date.now() };
 
   if (channel === "world") {
     broadcastJson({ ...base });
+    return;
+  }
+
+  if (channel === "party") {
+    const memberIds = getPartyMemberIds(senderEntry.userId);
+    if (memberIds.length <= 1) {
+      sendJsonToUser(senderEntry.userId, {
+        type: "chat_error",
+        message: "Party chat is only available while you are in a party."
+      });
+      return;
+    }
+    const payload = { ...base };
+    for (const uid of memberIds) {
+      sendJsonToUser(uid, payload);
+    }
     return;
   }
 
@@ -70,6 +90,7 @@ export function deliverChatMessage(senderEntry, opts) {
   }
 
   // Local: same overworld tile or same dungeon chamber.
+  if (channel !== "local") return;
   if (senderEntry.page !== "adventure") {
     sendJsonToUser(senderEntry.userId, {
       type: "chat_error",

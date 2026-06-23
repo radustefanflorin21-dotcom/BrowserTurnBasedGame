@@ -536,13 +536,15 @@ async function main() {
   const features = await api("/api/mmo/features", { token: userA.token });
   if (features.res.ok && features.data?.features?.market) ok("GET /api/mmo/features");
   else fail("GET /api/mmo/features");
+  if (features.data?.features?.trade?.status === "live") ok("trade feature live (WebSocket)");
+  else fail("trade feature status", features.data?.features?.trade?.status);
 
   const arena = await api("/api/arena/queue", { method: "POST", token: userA.token, body: {} });
   if (arena.res.status === 501) ok("POST /api/arena/queue (planned stub)");
   else fail("POST /api/arena/queue", arena.res.status);
 
   const trade = await api("/api/trade/offer", { method: "POST", token: userA.token, body: {} });
-  if (trade.res.status === 501) ok("POST /api/trade/offer (planned stub)");
+  if (trade.res.status === 501) ok("POST /api/trade/offer (REST stub; use WebSocket)");
   else fail("POST /api/trade/offer", trade.res.status);
 
   const alliance = await api("/api/alliance/create", { method: "POST", token: userA.token, body: {} });

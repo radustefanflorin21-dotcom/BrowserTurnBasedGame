@@ -3,7 +3,8 @@
  */
 
 import { getSharedMapCell } from "./map_cells.js";
-import { onUserDisconnected } from "./party.js";
+import { onUserDisconnected as onPartyUserDisconnected } from "./party.js";
+import { onUserDisconnected as onTradeUserDisconnected } from "./trade.js";
 import { handleCombatUserDisconnect } from "../combat/sessions.js";
 import { getSameLocationPlayers, normalizeDungeonId, normalizeDungeonRoomIndex } from "./location.js";
 
@@ -132,7 +133,8 @@ export function detachSocket(socket) {
   entry.sockets.delete(socket);
   if (entry.sockets.size === 0) {
     byUserId.delete(userId);
-    onUserDisconnected(userId);
+    onPartyUserDisconnected(userId);
+    onTradeUserDisconnected(userId);
     handleCombatUserDisconnect(userId);
   }
   return userId;

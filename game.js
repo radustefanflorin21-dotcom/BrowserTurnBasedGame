@@ -1463,6 +1463,21 @@ function initMapPlayersPanelUi() {
       showCraftCommissionRequestModal(mapPlayerActionTarget.userId, mapPlayerActionTarget.name);
     });
   }
+  const tradeBtn = document.getElementById("mapPlayerTradeBtn");
+  if (tradeBtn && tradeBtn.dataset.bound !== "1") {
+    tradeBtn.dataset.bound = "1";
+    tradeBtn.addEventListener("click", () => {
+      if (!mapPlayerActionTarget) return;
+      if (!isOnlineGameplayMode()) {
+        showServerActionRequired("Trading requires a server connection.");
+        return;
+      }
+      if (window.MMOPresence?.sendTradeRequest) {
+        window.MMOPresence.sendTradeRequest(mapPlayerActionTarget.userId);
+        hideMapPlayerActions();
+      }
+    });
+  }
   const msgBtn = document.getElementById("mapPlayerMessageBtn");
   if (msgBtn && msgBtn.dataset.bound !== "1") {
     msgBtn.dataset.bound = "1";
@@ -1578,7 +1593,10 @@ function initOnlinePresence() {
       }
     }
   };
-  window.onPartyState = () => updateMapPlayersPanel();
+  window.onPartyState = () => {
+    updateMapPlayersPanel();
+    syncMinimapSlots();
+  };
   window.onDungeonEnterInvite = (msg) => {
     const text =
       msg && typeof msg.message === "string" && msg.message.trim()
@@ -1603,12 +1621,23 @@ function initOnlinePresence() {
     if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(msg.message);
     if (!msg.ok && typeof showModal === "function") showModal(msg.message);
   };
+  window.onTradeInvite = (msg) => {
+    if (!msg) return;
+    if (window.MMOTrade?.showInvite) window.MMOTrade.showInvite(msg.fromName);
+    if (window.MMOChat?.appendSystem) {
+      window.MMOChat.appendSystem(`${msg.fromName || "A player"} wants to trade.`);
+    }
+  };
+  window.onTradeResult = (msg) => {
+    if (!msg || !msg.message) return;
+    if (window.MMOChat?.appendSystem) window.MMOChat.appendSystem(msg.message);
+    if (!msg.ok && typeof showModal === "function") showModal(msg.message);
+  };
   window.onCraftCommissionComplete = async (msg) => {
     if (!msg || !msg.ok) return;
     if (msg.roster && typeof applyOnlineActionResponse === "function") {
       await applyOnlineActionResponse({ roster: msg.roster, revision: msg.revision });
     }
-    const who = msg.role === "crafter" ? msg.fromName : msg.crafterName;
     const line =
       msg.role === "crafter"
         ? `Commission complete: crafted ${msg.quantity}× ${msg.recipeName} for ${msg.fromName}. +${msg.xpGained || 0} profession XP.`
@@ -21758,7 +21787,11 @@ function buildMinimapCellTooltipHtml(mx, my) {
     : "";
   const dungeonNames = getDungeonNamesAtCoordinate(mx, my);
   const dungeonLines = dungeonNames.map((n) => `<div class="item-tip-desc">Dungeon: ${escapeHtml(n)}</div>`).join("");
-  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(nm)}</div>${cityLine}${boatLine}${dungeonLines}<div class="item-tip-desc">[${mx}, ${my}]</div></div>`;
+  const partyNames = getPartyMemberNamesAtMapCell(mx, my);
+  const partyLine = partyNames.length
+    ? `<div class="item-tip-desc item-tip-desc--party">Party: ${escapeHtml(partyNames.join(", "))}</div>`
+    : "";
+  return `<div class="item-tip"><div class="item-tip-name">${escapeHtml(nm)}</div>${cityLine}${boatLine}${dungeonLines}${partyLine}<div class="item-tip-desc">[${mx}, ${my}]</div></div>`;
 }
 
 function hideItemTooltip() {
@@ -24860,10 +24893,46 @@ function onDocumentKeydown(e) {
   else openWorldMapModal();
 }
 
+function getPartyMemberNamesAtMapCell(mx, my) {
+  const party = typeof window !== "undefined" ? window.MMOPresence?.getParty?.() : null;
+  const myId = window.MMOPresence?.getMyUserId?.();
+  if (!party || !Array.isArray(party.members)) return [];
+  return party.members
+    .filter((m) => {
+      if (m.userId === myId) return false;
+      if (typeof m.x !== "number" || typeof m.y !== "number") return false;
+      if (m.page !== "adventure") return false;
+      if (m.dungeonId) return false;
+      return m.x === mx && m.y === my;
+    })
+    .map((m) => m.name || "Traveler");
+}
+
+function buildMinimapPartyMarkersByOffset(px, py) {
+  const party = typeof window !== "undefined" ? window.MMOPresence?.getParty?.() : null;
+  const myId = window.MMOPresence?.getMyUserId?.();
+  const byOffset = new Map();
+  if (!party || !Array.isArray(party.members)) return byOffset;
+  for (const m of party.members) {
+    if (m.userId === myId) continue;
+    if (typeof m.x !== "number" || typeof m.y !== "number") continue;
+    if (m.page !== "adventure") continue;
+    if (m.dungeonId) continue;
+    const dx = m.x - px;
+    const dy = m.y - py;
+    if (dx < -5 || dx > 5 || dy < -5 || dy > 5) continue;
+    const key = `${dx},${dy}`;
+    if (!byOffset.has(key)) byOffset.set(key, []);
+    byOffset.get(key).push(m.name || "Traveler");
+  }
+  return byOffset;
+}
+
 function buildMinimapHtml(px, py) {
   const d = getWorldMapData();
   if (!d) return "";
   ensureBiomeTexturesPreloaded();
+  const partyByOffset = buildMinimapPartyMarkersByOffset(px, py);
   const cells = [];
   for (let dy = -5; dy <= 5; dy++) {
     for (let dx = -5; dx <= 5; dx++) {
@@ -24872,12 +24941,17 @@ function buildMinimapHtml(px, py) {
       const isYou = dx === 0 && dy === 0;
       const hasBoat = nx >= 0 && ny >= 0 && nx < d.width && ny < d.height && coordinateCellHasBoatAt(nx, ny);
       const hasDungeon = nx >= 0 && ny >= 0 && nx < d.width && ny < d.height && coordinateCellHasDungeonAt(nx, ny);
+      const partyNames = partyByOffset.get(`${dx},${dy}`) || [];
+      const hasParty = partyNames.length > 0;
       const styleCss =
         nx >= 0 && ny >= 0 && nx < d.width && ny < d.height ? getMinimapCellBackgroundCss(nx, ny) : "background:#1a1a1a";
       const boatIcon = hasBoat ? getMinimapBoatIconSvgHtml() : "";
       const dungeonIcon = hasDungeon ? getMinimapDungeonIconSvgHtml() : "";
+      const partyMarker = hasParty
+        ? `<span class="minimap-party-marker" title="${escapeAttr(partyNames.join(", "))}" aria-label="${escapeAttr(partyNames.join(", "))}"></span>`
+        : "";
       cells.push(
-        `<div class="minimap-cell${isYou ? " minimap-cell--you" : ""}${hasBoat ? " minimap-cell--boat" : ""}${hasDungeon ? " minimap-cell--dungeon" : ""}" style="${escapeAttr(styleCss)}" data-map-x="${nx}" data-map-y="${ny}">${boatIcon}${dungeonIcon}</div>`
+        `<div class="minimap-cell${isYou ? " minimap-cell--you" : ""}${hasBoat ? " minimap-cell--boat" : ""}${hasDungeon ? " minimap-cell--dungeon" : ""}${hasParty ? " minimap-cell--party" : ""}" style="${escapeAttr(styleCss)}" data-map-x="${nx}" data-map-y="${ny}">${boatIcon}${dungeonIcon}${partyMarker}</div>`
       );
     }
   }
@@ -25207,13 +25281,18 @@ function onDragStart(e) {
   const slot = e.target.closest(".slot-drop[draggable=\"true\"]");
   if (cell && cell.dataset.item) {
     const def = getItemDef(cell.dataset.item);
+    const qtyEl = cell.querySelector(".inv-cell-qty");
+    const stackQty = qtyEl ? Math.max(1, parseInt(qtyEl.textContent, 10) || 1) : 1;
+    const tradeActive = typeof window !== "undefined" && window.MMOTrade?.isActive?.();
     dragPayload = {
       kind: "inventory",
       item: cell.dataset.item,
+      stackQty,
       isResource: !!(def && def.type === "resource")
     };
     e.dataTransfer.setData("text/plain", cell.dataset.item);
-    e.dataTransfer.effectAllowed = dragPayload.isResource ? "copy" : "move";
+    e.dataTransfer.setData("application/x-trade-qty", String(stackQty));
+    e.dataTransfer.effectAllowed = tradeActive ? "copy" : dragPayload.isResource ? "copy" : "move";
   } else if (slot) {
     const slotId = slot.dataset.slot;
     const overview = slot.closest("[data-overview-roster-tab]");
@@ -25276,12 +25355,24 @@ function onDragOver(e) {
     dragPayload && (dragPayload.kind === "skillBarSlot" || dragPayload.kind === "skillBarCatalog")
       ? e.target.closest(".skills-pool-scroll") || skRemoveZone
       : null;
-  if (drop || inv || skBarSlot || skPool || skRemoveZone) e.preventDefault();
+  const tradeSlot =
+    typeof window !== "undefined" && window.MMOTrade?.isActive?.() ? e.target.closest(".trade-slot-drop") : null;
+  if (drop || inv || skBarSlot || skPool || skRemoveZone || tradeSlot) e.preventDefault();
+  if (tradeSlot && e.dataTransfer) e.dataTransfer.dropEffect = "copy";
 }
 
 function onDrop(e) {
   e.preventDefault();
   if (!dragPayload) return;
+
+  const tradeSlotEl =
+    typeof window !== "undefined" && window.MMOTrade?.isActive?.() ? e.target.closest(".trade-slot-drop") : null;
+  if (tradeSlotEl && dragPayload.kind === "inventory" && dragPayload.item) {
+    const qty = Math.max(1, Math.floor(Number(dragPayload.stackQty) || 1));
+    if (window.MMOTrade?.addItem) window.MMOTrade.addItem(dragPayload.item, qty);
+    dragPayload = null;
+    return;
+  }
 
   const skSlot = e.target.closest(".skill-bar-slot-drop");
   if (skSlot && (dragPayload.kind === "skillBarCatalog" || dragPayload.kind === "skillBarSlot")) {

@@ -3,7 +3,7 @@
  */
 (function (root) {
   const MAX_LOG_LINES = 200;
-  const TABS = ["local", "world", "private"];
+  const TABS = ["local", "party", "world", "private"];
 
   /** @type {"local"|"world"|"private"} */
   let activeTab = "local";
@@ -27,9 +27,11 @@
     const ph =
       activeTab === "world"
         ? "World message… (/w text)"
-        : activeTab === "private"
-          ? "Private… (/p Name message)"
-          : "Local message… (same map tile)";
+        : activeTab === "party"
+          ? "Party message… (party members only)"
+          : activeTab === "private"
+            ? "Private… (/p Name message)"
+            : "Local message… (same map tile)";
     for (const el of getInputs()) {
       el.disabled = !on;
       el.placeholder = on ? ph : "Sign in to chat";
@@ -46,6 +48,7 @@
 
   function channelLabel(ch) {
     if (ch === "world") return "World";
+    if (ch === "party") return "Party";
     if (ch === "private") return "Private";
     return "Local";
   }
@@ -69,7 +72,8 @@
 
   function visibleForTab(entry, tab) {
     if (entry.system) return true;
-    if (tab === "local") return true;
+    if (tab === "local") return entry.channel === "local";
+    if (tab === "party") return entry.channel === "party";
     if (tab === "world") return entry.channel === "world" || entry.channel === "private";
     if (tab === "private") return entry.channel === "private";
     return entry.channel === tab;
