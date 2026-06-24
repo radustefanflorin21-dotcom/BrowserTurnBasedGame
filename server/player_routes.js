@@ -158,7 +158,12 @@ export function registerPlayerRoutes(app) {
     try {
       const slotIndex = Number(req.body?.slotIndex);
       const { roster, player, slotIndex: idx } = loadPlayerForSlot(req.user.id, slotIndex);
-      const result = applyUseConsumable(player, { itemName: req.body?.itemName });
+      const result = applyUseConsumable(player, {
+        itemName: req.body?.itemName,
+        healTarget: req.body?.healTarget === "companion" ? "companion" : "hero",
+        companionSlotIndex:
+          req.body?.healTarget === "companion" ? Number(req.body?.companionSlotIndex) : null
+      });
       roster.slots[idx] = player;
       finishAction(req, res, idx, roster, player, result, "use_consumable");
     } catch (err) {

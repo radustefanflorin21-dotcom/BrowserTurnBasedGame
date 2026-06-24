@@ -9,7 +9,8 @@ import {
 } from "./formulas.js";
 import {
   computeVictoryRewards,
-  applyRewardsToPlayer
+  applyRewardsToPlayer,
+  applyFightLossToPlayer
 } from "./loot.js";
 import { ensureClassState } from "./class_state.js";
 import { initCombatPassives } from "./combat_passives.js";
@@ -349,15 +350,11 @@ function buildCoopLeaveResult(session, userId) {
   const st = session.state;
   const part = session.participants.get(userId);
   if (!part?.player) return null;
-  const hero = (st.party || []).find(
-    (m) => m && m.kind === "hero" && m.controllerUserId === userId
-  );
-  const hp = hero ? Math.max(1, Math.floor(hero.hp)) : Math.max(1, part.player.hp || 1);
-  part.player.hp = hp;
+  applyFightLossToPlayer(part.player);
   return {
     victory: false,
     leftFight: true,
-    finalPlayerHp: hp,
+    finalPlayerHp: 1,
     gold: 0,
     xp: 0,
     items: [],
@@ -436,16 +433,19 @@ export function finishCoopDefeat(session) {
   const st = session.state;
   st.phase = "ended";
   st.endOutcome = "defeat";
+  if (Array.isArray(st.party)) {
+    st.party.forEach((m) => {
+      if (m && m.hp > 0) m.hp = 1;
+    });
+  }
   syncAllHeroHpToPlayers(session);
 
   const participantResults = {};
   for (const [userId, part] of session.participants.entries()) {
-    const hero = st.party.find((m) => m && m.kind === "hero" && m.controllerUserId === userId);
-    const hp = hero ? Math.max(1, hero.hp) : 1;
-    if (part.player) part.player.hp = hp;
+    applyFightLossToPlayer(part.player);
     const result = {
       victory: false,
-      finalPlayerHp: hp,
+      finalPlayerHp: 1,
       gold: 0,
       xp: 0,
       items: [],

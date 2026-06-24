@@ -8,7 +8,7 @@ import {
 } from "./formulas.js";
 import { pickMoodIdFromEnemyDef } from "./enemy_moods.js";
 import { getEnemyDefByName } from "../load_game_config.js";
-import { computeVictoryRewards, applyRewardsToPlayer } from "./loot.js";
+import { computeVictoryRewards, applyRewardsToPlayer, applyFightLossToPlayer } from "./loot.js";
 import {
   validateAndResolveSkill,
   initCombatResources,
@@ -483,10 +483,17 @@ function afterPlayerAction(session, rng, actingMember = null) {
 function finishDefeat(st, player) {
   st.phase = "ended";
   st.endOutcome = "defeat";
+  st.playerHp = 1;
+  if (Array.isArray(st.party)) {
+    st.party.forEach((m) => {
+      if (m && m.hp > 0) m.hp = 1;
+    });
+  }
   syncHeroHp(st);
+  applyFightLossToPlayer(player);
   const result = {
     victory: false,
-    finalPlayerHp: Math.max(1, st.playerHp),
+    finalPlayerHp: 1,
     gold: 0,
     xp: 0,
     items: [],
@@ -564,8 +571,6 @@ export function processCombatAction(session, action, actingUserId = null) {
     appendLog(st, `${player.name || "Hero"} forfeits.`);
     const result = finishDefeat(st, player);
     result.leftFight = true;
-    st.playerHp = 1;
-    syncHeroHp(st);
     return { state: cloneState(st), result, finished: true };
   }
 

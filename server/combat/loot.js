@@ -366,6 +366,18 @@ function applyGatherProfessionXp(player, memberRewards) {
   });
 }
 
+export function applyFightLossToPlayer(player) {
+  if (!player) return player;
+  player.hp = 1;
+  if (Array.isArray(player.companions)) {
+    player.companions.forEach((c) => {
+      if (!c || !c.enabled) return;
+      c.hp = 1;
+    });
+  }
+  return player;
+}
+
 export function applyRewardsToPlayer(player, result) {
   if (!player || !result) return player;
   if (result.victory) {
@@ -388,7 +400,7 @@ export function applyRewardsToPlayer(player, result) {
       });
     }
   } else {
-    player.hp = Math.max(1, result.finalPlayerHp);
+    applyFightLossToPlayer(player);
   }
   return player;
 }

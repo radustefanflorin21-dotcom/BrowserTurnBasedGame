@@ -11593,7 +11593,22 @@ function isConsumableBlockedInCombat(def) {
   return !!(combatState || isFightOverlayOpen());
 }
 
-function useConsumable(itemName) {
+function resolveHealTargetFromUseOpts(opts) {
+  if (!opts || opts.source === "quickslot") {
+    return { healTarget: "hero", companionSlotIndex: null };
+  }
+  if (opts.source === "inventory") {
+    const tab = opts.targetTab != null ? opts.targetTab : getCharacterRosterTab();
+    if (tab === "hero") return { healTarget: "hero", companionSlotIndex: null };
+    const idx = parseInt(tab, 10);
+    if (Number.isFinite(idx) && idx >= 0) {
+      return { healTarget: "companion", companionSlotIndex: idx };
+    }
+  }
+  return { healTarget: "hero", companionSlotIndex: null };
+}
+
+function useConsumable(itemName, opts) {
   const def = getItemDef(itemName);
   if (!def || def.type !== "consumable") return;
   if (isConsumableBlockedInCombat(def)) {
@@ -11601,13 +11616,13 @@ function useConsumable(itemName) {
     return;
   }
   if (canPerformServerPlayerAction() && window.GameStorage?.playerUseConsumable) {
-    void useConsumableOnline(itemName, def);
+    void useConsumableOnline(itemName, def, opts);
     return;
   }
-  useConsumableLocal(itemName, def);
+  useConsumableLocal(itemName, def, opts);
 }
 
-async function useConsumableOnline(itemName, def) {
+async function useConsumableOnline(itemName, def, opts) {
   if (def.effect === "teleport_portal") {
     if (currentPage !== "adventure") {
       showModal("You can only use this potion while exploring the world map.");
@@ -11646,10 +11661,12 @@ async function useConsumableOnline(itemName, def) {
     return;
   }
 
+  const healTargetOpts = resolveHealTargetFromUseOpts(opts);
   try {
     const body = await window.GameStorage.playerUseConsumable({
       slotIndex: activeCharacterSlotIndex,
-      itemName
+      itemName,
+      ...healTargetOpts
     });
     const res = body?.result;
     if (!res || !res.effect) {
@@ -11665,7 +11682,7 @@ async function useConsumableOnline(itemName, def) {
   }
 }
 
-function useConsumableLocal(itemName, def) {
+function useConsumableLocal(itemName, def, opts) {
   if (def.effect === "hatch_pet_egg") {
     if (typeof PET_SYSTEM === "undefined" || !PET_SYSTEM || typeof PET_SYSTEM.hatchPetFromEgg !== "function") {
       showModal("Pet system unavailable.");
@@ -11686,10 +11703,24 @@ function useConsumableLocal(itemName, def) {
     return;
   }
   if (def.effect === "heal") {
+    const healTargetOpts = resolveHealTargetFromUseOpts(opts);
+    let actor = player;
+    if (healTargetOpts.healTarget === "companion") {
+      const idx = healTargetOpts.companionSlotIndex;
+      const comp =
+        Number.isFinite(idx) && idx >= 0 && Array.isArray(player.companions) ? player.companions[idx] : null;
+      if (!comp || !comp.enabled) {
+        showModal("That companion cannot be healed.");
+        return;
+      }
+      actor = comp;
+    }
     const base = def.value || 0;
-    const bonus = formulaVitHealingReceivedBonusPct(totalVit()) / 100;
+    const bonus = formulaVitHealingReceivedBonusPct(totalVitFromActor(actor)) / 100;
     const amt = Math.max(1, Math.floor(base * (1 + bonus)));
-    player.hp = Math.min(player.maxHp, player.hp + amt);
+    actor.maxHp = computeMaxHp(actor);
+    const before = typeof actor.hp === "number" && Number.isFinite(actor.hp) && actor.hp > 0 ? actor.hp : actor.maxHp;
+    actor.hp = Math.min(actor.maxHp, before + amt);
     removeOneFromInventory(itemName);
     reconcileQuickslotsWithInventory(player);
     void save({ flush: true }).then(() => {
@@ -18750,11 +18781,20 @@ function applyServerFightResult(result) {
   if (!st || !result) return;
   st.phase = "ended";
   st.endOutcome = result.leftFight ? "left" : result.victory ? "victory" : "defeat";
-  if (typeof result.finalPlayerHp === "number") {
+  if (!result.victory) {
+    player.hp = 1;
+    if (Array.isArray(player.companions)) {
+      player.companions.forEach((c) => {
+        if (c && c.enabled) c.hp = 1;
+      });
+    }
+  } else if (typeof result.finalPlayerHp === "number") {
     player.hp = Math.max(1, result.finalPlayerHp);
   }
   syncCombatPartyHeroMirror(st);
-  syncCompanionHpFromCombatParty(st);
+  if (result.victory) {
+    syncCompanionHpFromCombatParty(st);
+  }
   migratePlayer(player);
   levelUpActor(player);
   if (Array.isArray(player.companions)) {
@@ -19850,6 +19890,17 @@ function playerForfeitCurrentFight() {
   clearPlayerTurnTimer();
   appendFightLog(`${player.name} leaves the fight and is defeated.`);
   st.playerHp = 1;
+  if (Array.isArray(st.party)) {
+    st.party.forEach((m) => {
+      if (m && m.hp > 0) m.hp = 1;
+    });
+  }
+  player.hp = 1;
+  if (Array.isArray(player.companions)) {
+    player.companions.forEach((c) => {
+      if (c && c.enabled) c.hp = 1;
+    });
+  }
   syncCombatPartyHeroMirror(st);
   finishCombatDefeat();
 }
@@ -25523,7 +25574,8 @@ function isFightOverlayOpen() {
   return !!(el && !el.classList.contains("hidden"));
 }
 
-const OUT_OF_COMBAT_HP_REGEN_PER_SEC = 1;
+const OUT_OF_COMBAT_HP_REGEN_MS = 2000;
+const OUT_OF_COMBAT_HP_REGEN_AMOUNT = 1;
 
 /** Update HP bar/numbers in the open character panel without rebuilding the whole panel. */
 function refreshCharacterPanelHpInPlace() {
@@ -25565,7 +25617,7 @@ function tickOutOfCombatHpRegen() {
   player.maxHp = computeMaxHp(player);
   const cur = typeof player.hp === "number" && Number.isFinite(player.hp) ? player.hp : player.maxHp;
   if (cur < player.maxHp) {
-    player.hp = Math.min(player.maxHp, cur + OUT_OF_COMBAT_HP_REGEN_PER_SEC);
+    player.hp = Math.min(player.maxHp, cur + OUT_OF_COMBAT_HP_REGEN_AMOUNT);
     changed = true;
   }
   if (Array.isArray(player.companions)) {
@@ -25575,7 +25627,7 @@ function tickOutOfCombatHpRegen() {
       const cHp = typeof c.hp === "number" && Number.isFinite(c.hp) ? c.hp : c.maxHp;
       if (cHp <= 0) return;
       if (cHp >= c.maxHp) return;
-      c.hp = Math.min(c.maxHp, cHp + OUT_OF_COMBAT_HP_REGEN_PER_SEC);
+      c.hp = Math.min(c.maxHp, cHp + OUT_OF_COMBAT_HP_REGEN_AMOUNT);
       changed = true;
     });
   }
@@ -27237,12 +27289,12 @@ function onContentClick(e) {
   const quickUse = e.target.closest(".bottom-quickslot[data-quickslot-item]");
   if (quickUse && !isFightOverlayOpen()) {
     const name = quickUse.getAttribute("data-quickslot-item");
-    if (name) useConsumable(name);
+    if (name) useConsumable(name, { source: "quickslot" });
     return;
   }
   const use = e.target.closest("[data-use-consumable]");
   if (use && use.dataset.useConsumable) {
-    useConsumable(use.dataset.useConsumable);
+    useConsumable(use.dataset.useConsumable, { source: "inventory" });
     return;
   }
   if (e.target.closest("[data-rename-hero]")) {
@@ -27904,7 +27956,7 @@ function initUi() {
   initWorldMapModal();
 
   if (outOfCombatHpRegenTick) clearInterval(outOfCombatHpRegenTick);
-  outOfCombatHpRegenTick = setInterval(tickOutOfCombatHpRegen, 1000);
+  outOfCombatHpRegenTick = setInterval(tickOutOfCombatHpRegen, OUT_OF_COMBAT_HP_REGEN_MS);
 
   if (typeof window !== "undefined" && window.MMOChat && typeof window.MMOChat.init === "function") {
     window.MMOChat.init();

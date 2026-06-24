@@ -41,7 +41,26 @@ function removeOneFromInventory(player, itemName) {
   return true;
 }
 
-export function applyUseConsumable(player, { itemName }) {
+function resolveHealActor(player, { healTarget = "hero", companionSlotIndex = null }) {
+  if (healTarget === "companion") {
+    const idx = Number(companionSlotIndex);
+    if (!Number.isFinite(idx) || idx < 0 || !Array.isArray(player.companions) || !player.companions[idx]) {
+      const err = new Error("Invalid companion heal target.");
+      err.status = 400;
+      throw err;
+    }
+    const comp = player.companions[idx];
+    if (!comp.enabled) {
+      const err = new Error("That companion is not active.");
+      err.status = 400;
+      throw err;
+    }
+    return { actor: comp, healTarget: "companion", companionSlotIndex: idx };
+  }
+  return { actor: player, healTarget: "hero", companionSlotIndex: null };
+}
+
+export function applyUseConsumable(player, { itemName, healTarget = "hero", companionSlotIndex = null }) {
   const name = String(itemName || "").trim();
   if (!name) {
     const err = new Error("Invalid item.");
@@ -61,28 +80,41 @@ export function applyUseConsumable(player, { itemName }) {
   }
 
   if (def.effect === "heal") {
-    const vit = totalStat(player, "vit");
+    const { actor, healTarget: resolvedTarget, companionSlotIndex: resolvedSlot } = resolveHealActor(player, {
+      healTarget,
+      companionSlotIndex
+    });
+    const vit = totalStat(actor, "vit");
     const bonus = formulaVitHealingReceivedBonusPct(vit) / 100;
     const base = typeof def.value === "number" && Number.isFinite(def.value) ? def.value : 0;
     const healed = Math.max(1, Math.floor(base * (1 + bonus)));
-    player.maxHp = computeMaxHpFromActor(player);
+    actor.maxHp = computeMaxHpFromActor(actor);
     const before =
-      typeof player.hp === "number" && Number.isFinite(player.hp) && player.hp > 0
-        ? Math.floor(player.hp)
-        : player.maxHp;
-    player.hp = Math.min(player.maxHp, before + healed);
+      typeof actor.hp === "number" && Number.isFinite(actor.hp) && actor.hp > 0
+        ? Math.floor(actor.hp)
+        : actor.maxHp;
+    actor.hp = Math.min(actor.maxHp, before + healed);
     if (!removeOneFromInventory(player, name)) {
       const err = new Error("Could not consume item.");
       err.status = 400;
       throw err;
     }
     reconcileQuickslots(player);
+    player.maxHp = computeMaxHpFromActor(player);
     return {
       effect: "heal",
       itemName: name,
-      healed: player.hp - before,
-      hp: player.hp,
-      maxHp: player.maxHp
+      healTarget: resolvedTarget,
+      companionSlotIndex: resolvedSlot,
+      healed: actor.hp - before,
+      hp: actor.hp,
+      maxHp: actor.maxHp,
+      ...(resolvedTarget === "hero"
+        ? {}
+        : {
+            companionHp: actor.hp,
+            companionMaxHp: actor.maxHp
+          })
     };
   }
 
