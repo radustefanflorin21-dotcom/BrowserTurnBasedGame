@@ -57,6 +57,13 @@ import {
   syncGlobalStaminaFromMember,
   refillMemberCombatStamina
 } from "./stamina.js";
+import {
+  initTurnOrder,
+  resetPartyActedForRound,
+  findAllyMember,
+  findLivingFoe,
+  firstQueuedAllyMember
+} from "./turn_order.js";
 
 const require = createRequire(import.meta.url);
 const { createCombatRng } = require("../../shared/combat_rng.js");
@@ -128,78 +135,61 @@ function ensureActivePartyUid(st) {
   }
 }
 
-function startPlayerPhase(st, session = null) {
-  st.party.forEach((m) => {
-    if (m) m.acted = false;
-  });
-  if (session) markCompanionsSkippedForCoopHeroTurns(st, session);
-  const first = session
-    ? firstActingMember(session, st)
-    : null;
-  const active = first || st.party.find((m) => m && m.hp > 0);
-  st.activePartyUid = active ? active.uid : null;
-  st.selectedAllyUid = st.activePartyUid;
+function ensureEnemyReplayRecorder(st, replayOut) {
+  if (!replayOut) return null;
+  if (replayOut.__recorder) return replayOut.__recorder;
+  const rec = createEnemyPhaseStepRecorder(st);
+  replayOut.__recorder = rec;
+  replayOut.preEnemySnapshot = rec.preEnemySnapshot;
+  return rec;
 }
 
-function runEnemyPhase(st, player, rng, enemyHits, session = null, replayOut = null) {
+function finalizeEnemyReplay(replayOut) {
+  if (!replayOut?.__recorder) return;
+  const finished = replayOut.__recorder.finish();
+  replayOut.enemyActionSteps = finished.steps;
+  replayOut.preEnemySnapshot = finished.preEnemySnapshot;
+  delete replayOut.__recorder;
+}
+
+function openEnemyRoundClassEffects(st) {
+  if (st.combatRoundFlags?.enemyPhaseOpened) return;
+  if (!st.combatRoundFlags || typeof st.combatRoundFlags !== "object") {
+    st.combatRoundFlags = { enemyPhaseOpened: false };
+  }
+  st.combatRoundFlags.enemyPhaseOpened = true;
   const cs = st.classState;
-  if (cs) {
-    if (cs.killMomentumPendingPct) {
-      cs.killMomentumPhysPct = cs.killMomentumPendingPct;
-      cs.killMomentumPendingPct = 0;
-    } else if (cs.killMomentumPhysPct) {
-      cs.killMomentumPhysPct = 0;
-    }
+  if (!cs) return;
+  if (cs.killMomentumPendingPct) {
+    cs.killMomentumPhysPct = cs.killMomentumPendingPct;
+    cs.killMomentumPendingPct = 0;
+  } else if (cs.killMomentumPhysPct) {
+    cs.killMomentumPhysPct = 0;
   }
-  st.phase = "enemy";
-  const livingFoes = st.foes.filter((f) => f.hp > 0);
-  if (!livingFoes.length) return { outcome: "victory" };
-  if (!isPartyAlive(st)) return { outcome: "defeat" };
+}
 
-  const recorder =
-    replayOut && replayOut.__recorder
-      ? replayOut.__recorder
-      : replayOut
-        ? (() => {
-            const rec = createEnemyPhaseStepRecorder(st);
-            replayOut.__recorder = rec;
-            replayOut.preEnemySnapshot = rec.preEnemySnapshot;
-            return rec;
-          })()
-        : null;
-  const append = recorder
-    ? recorder.wrapAppendLog((line) => appendLog(st, line))
-    : (line) => appendLog(st, line);
-
-  const finalizeReplay = () => {
-    if (!recorder || !replayOut) return;
-    const finished = recorder.finish();
-    replayOut.enemyActionSteps = finished.steps;
-    replayOut.preEnemySnapshot = finished.preEnemySnapshot;
-    delete replayOut.__recorder;
-  };
-
-  for (const foe of livingFoes) {
-    if (!isPartyAlive(st)) break;
-    if (foe.hp <= 0) continue;
-    runSingleEnemyTurn(foe, st, rng, append, player, enemyHits, recorder);
+function activateAllyTurn(st, session, member) {
+  st.phase = "player";
+  st.activePartyUid = member.uid;
+  st.selectedAllyUid = member.uid;
+  st.activeFoeUid = null;
+  if (session) markCompanionsSkippedForCoopHeroTurns(st, session);
+  refillMemberCombatStamina(member);
+  if (member.kind === "hero") syncGlobalStaminaFromMember(st, member);
+  if (session?.coop) ensureActivePartyUidInState(st, session);
+  if (st.selectedUid == null || !st.foes.some((f) => f.uid === st.selectedUid && f.hp > 0)) {
+    const firstFoe = st.foes.find((f) => f.hp > 0);
+    st.selectedUid = firstFoe ? firstFoe.uid : null;
   }
+}
 
-  if (!isPartyAlive(st)) {
-    finalizeReplay();
-    return { outcome: "defeat" };
-  }
-  if (!st.foes.some((f) => f.hp > 0)) {
-    finalizeReplay();
-    return { outcome: "victory" };
-  }
-
+function finalizeCombatRound(st, session, player, rng, append) {
   applyDungeonMechanicsEndOfEnemyPhase(st, rng, append);
-
   tickSkillCooldowns(st);
   tickFoeDebuffs(st);
-  st.phase = "player";
-  startPlayerPhase(st, session);
+  tickPlayerDefenseAfterEnemyPhase(st);
+  resetPartyActedForRound(st);
+  initTurnOrder(st);
   (st.party || []).forEach((m) => {
     if (m) refillMemberCombatStamina(m);
   });
@@ -209,28 +199,91 @@ function runEnemyPhase(st, player, rng, enemyHits, session = null, replayOut = n
   if (firstHero) syncGlobalStaminaFromMember(st, firstHero);
   ensureCombatStatus(st);
   tickEffectsAtStartOfPlayerTurn(st, player, append);
-  const stunnedHero = (st.party || []).find((m) => m?.kind === "hero" && m.hp > 0);
-  if (stunnedHero && isHeroStunned(st)) {
-    st.status.playerStunTurns = Math.max(0, (st.status.playerStunTurns || 0) - 1);
-    append("You are stunned and lose your turn!");
-    (st.party || []).forEach((m) => {
-      if (m) m.acted = true;
-    });
-    tickFoeDots(st, append);
-    tickPlayerTurnEndBuffs(st);
-    tickPlayerDefenseAfterEnemyPhase(st);
+}
+
+/**
+ * Advance the interleaved turn queue (ally0, foe0, ally1, foe1, …).
+ * Auto-resolves enemy turns until the next ally may act or the fight ends.
+ */
+function advanceCombatTurns(session, rng, replayOut = null) {
+  const st = session.state;
+  const enemyPlayer = primaryPlayerForEnemyPhase(session);
+  const enemyHits = [];
+  const recorder = ensureEnemyReplayRecorder(st, replayOut);
+  const append = recorder
+    ? recorder.wrapAppendLog((line) => appendLog(st, line))
+    : (line) => appendLog(st, line);
+
+  const queue = Array.isArray(st.turnQueue) ? st.turnQueue : [];
+  if (!queue.length) initTurnOrder(st);
+
+  while (true) {
     if (!isPartyAlive(st)) {
-      finalizeReplay();
-      return { outcome: "defeat" };
+      finalizeEnemyReplay(replayOut);
+      return { outcome: "defeat", enemyHits, replayOut };
     }
-    return runEnemyPhase(st, player, rng, enemyHits, session, replayOut);
+    if (!st.foes.some((f) => f.hp > 0)) {
+      finalizeEnemyReplay(replayOut);
+      return { outcome: "victory", enemyHits, replayOut };
+    }
+
+    const idx = typeof st.turnQueueIndex === "number" ? st.turnQueueIndex : 0;
+    if (idx >= (st.turnQueue || []).length) {
+      finalizeCombatRound(st, session, enemyPlayer, rng, append);
+      if (!isPartyAlive(st)) {
+        finalizeEnemyReplay(replayOut);
+        return { outcome: "defeat", enemyHits, replayOut };
+      }
+      if (!st.foes.some((f) => f.hp > 0)) {
+        finalizeEnemyReplay(replayOut);
+        return { outcome: "victory", enemyHits, replayOut };
+      }
+      continue;
+    }
+
+    const slot = st.turnQueue[idx];
+    if (!slot || (slot.side !== "ally" && slot.side !== "foe")) {
+      st.turnQueueIndex = idx + 1;
+      continue;
+    }
+
+    if (slot.side === "ally") {
+      const member = findAllyMember(st, slot.uid);
+      if (!member || member.acted) {
+        st.turnQueueIndex = idx + 1;
+        continue;
+      }
+      if (member.kind === "hero" && isHeroStunned(st)) {
+        st.status.playerStunTurns = Math.max(0, (st.status.playerStunTurns || 0) - 1);
+        append("You are stunned and lose your turn!");
+        member.acted = true;
+        st.turnQueueIndex = idx + 1;
+        tickFoeDots(st, append);
+        tickPlayerTurnEndBuffs(st);
+        continue;
+      }
+      activateAllyTurn(st, session, member);
+      finalizeEnemyReplay(replayOut);
+      return { outcome: null, enemyHits, replayOut };
+    }
+
+    st.turnQueueIndex = idx + 1;
+    const foe = findLivingFoe(st, slot.uid);
+    st.phase = "enemy";
+    st.activeFoeUid = foe ? foe.uid : null;
+    openEnemyRoundClassEffects(st);
+    if (foe) {
+      runSingleEnemyTurn(foe, st, rng, append, enemyPlayer, enemyHits, recorder);
+    }
+    if (!isPartyAlive(st)) {
+      finalizeEnemyReplay(replayOut);
+      return { outcome: "defeat", enemyHits, replayOut };
+    }
+    if (!st.foes.some((f) => f.hp > 0)) {
+      finalizeEnemyReplay(replayOut);
+      return { outcome: "victory", enemyHits, replayOut };
+    }
   }
-  if (st.selectedUid == null || !st.foes.some((f) => f.uid === st.selectedUid && f.hp > 0)) {
-    const firstFoe = st.foes.find((f) => f.hp > 0);
-    st.selectedUid = firstFoe ? firstFoe.uid : null;
-  }
-  finalizeReplay();
-  return { outcome: null };
 }
 
 export function createCombatSession(player, encounter, rngSeed) {
@@ -272,7 +325,12 @@ export function createCombatSession(player, encounter, rngSeed) {
     worldMapContext: encounter?.worldMapContext || null,
     endOutcome: null
   };
-  startPlayerPhase(st);
+  initTurnOrder(st);
+  const firstAlly = firstQueuedAllyMember(st);
+  if (firstAlly) {
+    st.activePartyUid = firstAlly.uid;
+    st.selectedAllyUid = firstAlly.uid;
+  }
   initCombatResources(st, player);
   ensureCombatStatus(st);
   ensureClassState(st);
@@ -355,25 +413,11 @@ function afterPlayerAction(session, rng, actingMember = null) {
     const result = finishDefeat(st, session.player);
     return { state: cloneState(st), result, finished: true };
   }
-  if (session.coop) markCompanionsSkippedForCoopHeroTurns(st, session);
-  const next = session.coop
-    ? findNextActingMember(session, st)
-    : st.party.find((m) => m && m.hp > 0 && !m.acted);
-  if (next) {
-    const prevUid = actingMember?.uid ?? null;
-    if (prevUid == null || next.uid !== prevUid) {
-      refillMemberCombatStamina(next);
-    }
-    st.activePartyUid = next.uid;
-    st.selectedAllyUid = next.uid;
-    if (session.coop) {
-      ensureActivePartyUidInState(st, session);
-      if (next.kind === "hero") syncGlobalStaminaFromMember(st, next);
-    } else if (next.kind === "hero") {
-      syncGlobalStaminaFromMember(st, next);
-    }
+
+  if (actingMember && !actingMember.acted) {
     return { state: cloneState(st), result: null, finished: false };
   }
+
   tickFoeDots(st, (line) => appendLog(st, line));
   tickPlayerTurnEndBuffs(st);
   if (!isPartyAlive(st)) {
@@ -381,10 +425,11 @@ function afterPlayerAction(session, rng, actingMember = null) {
     const result = finishDefeat(st, session.player);
     return { state: cloneState(st), result, finished: true };
   }
-  const enemyPlayer = primaryPlayerForEnemyPhase(session);
-  const enemyHits = [];
+
+  st.turnQueueIndex = (typeof st.turnQueueIndex === "number" ? st.turnQueueIndex : 0) + 1;
   const replayOut = {};
-  const enemyOutcome = runEnemyPhase(st, enemyPlayer, rng, enemyHits, session, replayOut);
+  const turnOutcome = advanceCombatTurns(session, rng, replayOut);
+  const enemyHits = turnOutcome.enemyHits || [];
   const withEnemyHits = (out) => ({
     ...out,
     lastEnemyHits: enemyHits,
@@ -395,12 +440,12 @@ function afterPlayerAction(session, rng, actingMember = null) {
         }
       : {})
   });
-  if (enemyOutcome.outcome === "victory") {
+  if (turnOutcome.outcome === "victory") {
     if (session.coop) return withEnemyHits(finishCoopVictory(session, rng));
     const result = finishVictory(st, session.player, rng);
     return withEnemyHits({ state: cloneState(st), result, finished: true });
   }
-  if (enemyOutcome.outcome === "defeat") {
+  if (turnOutcome.outcome === "defeat") {
     if (session.coop) return withEnemyHits(finishCoopDefeat(session));
     const result = finishDefeat(st, session.player);
     return withEnemyHits({ state: cloneState(st), result, finished: true });
