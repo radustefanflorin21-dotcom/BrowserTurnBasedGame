@@ -1,27 +1,14 @@
+import { createRequire } from "node:module";
 import { loadGameConfig } from "../load_game_config.js";
 
-export const ENEMY_MOOD_SPAWN_CHANCE = 0.1;
+const require = createRequire(import.meta.url);
+const { pickRandomEnemyMood, ENEMY_MOOD_SPAWN_CHANCE } = require("../../shared/enemy_moods.js");
 
-function randomFrom(arr, rng) {
-  if (!arr || !arr.length) return null;
-  const roll = typeof rng?.next === "function" ? rng.next() : Math.random();
-  return arr[Math.floor(roll * arr.length)];
-}
+export { ENEMY_MOOD_SPAWN_CHANCE };
 
-/** Roll whether an enemy spawns with a mood (same 10% chance as overworld). */
-export function pickMoodIdFromEnemyDef(def, rng) {
-  const roll = typeof rng?.next === "function" ? rng.next() : Math.random();
-  if (roll >= ENEMY_MOOD_SPAWN_CHANCE) return null;
+/** Roll whether an enemy spawns with a mood (10% chance; full mood pool). */
+export function pickMoodIdFromEnemyDef(_def, rng) {
   const cfg = loadGameConfig();
-  const moods = cfg?.enemyMoods;
-  const ids = def && def.possibleMoods;
-  if (Array.isArray(ids) && ids.length) {
-    const id = randomFrom(ids, rng);
-    if (typeof id === "string" && id.trim()) {
-      const found = Array.isArray(moods) ? moods.find((m) => m.id === id.trim()) : null;
-      if (found) return found.id;
-    }
-  }
-  const picked = randomFrom(Array.isArray(moods) ? moods : [], rng);
-  return picked && typeof picked.id === "string" && picked.id.trim() ? picked.id.trim() : null;
+  const mood = pickRandomEnemyMood(cfg?.enemyMoods, rng);
+  return mood.id || null;
 }

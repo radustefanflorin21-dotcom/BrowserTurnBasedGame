@@ -35,7 +35,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/burrow_hare.png",
       possibleLevels: [11, 12, 13, 14, 15],
-      possibleMoods: ["cautious"]},
+    },
     {
       name: "Plains Raptor",
       combatScript: "plains_raptor",
@@ -43,7 +43,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/plains_raptor.png",
       possibleLevels: [13, 14, 15, 16, 17],
-      possibleMoods: ["focused"]},
+    },
     {
       name: "Grass Snake",
       combatScript: "grass_snake",
@@ -51,7 +51,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/grass_snake.png",
       possibleLevels: [15, 16, 17, 18, 19],
-      possibleMoods: ["focused"]},
+    },
     {
       name: "Tusk Boar",
       combatScript: "tusk_boar",
@@ -59,7 +59,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/tusk_boar.png",
       possibleLevels: [17, 18, 19, 20],
-      possibleMoods: ["steady"]},
+    },
     {
       name: "Field Wolf",
       combatScript: "field_wolf",
@@ -67,7 +67,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/field_wolf.png",
       possibleLevels: [19, 20, 21],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Bramblehorn Matriarch",
       combatScript: "bramblehorn_matriarch",
@@ -75,7 +75,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Skin of Gaia/Rootwarren/bramblehorn_matriarch.png",
       possibleLevels: [20],
-      possibleMoods: ["steady"]},
+    },
     {
       name: "Fangroot Alpha",
       combatScript: "fangroot_alpha",
@@ -83,7 +83,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Skin of Gaia/Rootwarren/fangroot_alpha.png",
       possibleLevels: [21],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Gaiahide Behemoth",
       combatScript: "gaiahide_behemoth",
@@ -92,7 +92,7 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/Skin of Gaia/Rootwarren/gaiahide_behemoth.png",
       possibleLevels: [22],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Thornback Graveguard",
       combatScript: "thornback_graveguard",
@@ -100,7 +100,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/The misery of life/The Withered Maw/thornback_graveguard.png",
       possibleLevels: [20],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -110,7 +109,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/The misery of life/The Withered Maw/mirage_maw.png",
       possibleLevels: [21],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 7,
     },
     {
@@ -120,7 +118,6 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Biomes/The misery of life/The Withered Maw/mirage_remnant.png",
       possibleLevels: [18],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 6,
     },
     {
@@ -131,7 +128,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/The misery of life/The Withered Maw/the_dune_mourner.png",
       possibleLevels: [22],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 8,
     },
     {
@@ -141,7 +137,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/leafdart_squirrel.png",
       possibleLevels: [31, 32, 33, 34, 35],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Canopy Screecher",
       combatScript: "greenleaf_parrot",
@@ -149,7 +145,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/canopy_screecher.png",
       possibleLevels: [33, 34, 35, 36, 37],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Greenleaf Fox",
       combatScript: "greenleaf_fox",
@@ -157,7 +153,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/greenleaf_fox.png",
       possibleLevels: [35, 36, 37, 38, 39],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Jungle Stag",
       combatScript: "greenleaf_stag",
@@ -165,7 +161,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/jungle_stag.png",
       possibleLevels: [37, 38, 39, 40],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Gorilla",
       combatScript: "gorilla",
@@ -173,7 +169,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/greenleaf_gorilla.png",
       possibleLevels: [39, 40, 41, 42],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Stone Marmot",
       combatScript: "stone_marmot",
@@ -181,7 +177,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/stone_marmot.png",
       possibleLevels: [21, 22, 23, 24, 25],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Rock Lynx",
       combatScript: "rock_lynx",
@@ -189,7 +185,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/rock_lynx.png",
       possibleLevels: [23, 24, 25, 26, 27],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Rock Ibex",
       combatScript: "rock_ibex",
@@ -197,7 +193,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/rock_ibex.png",
       possibleLevels: [25, 26, 27, 28, 29],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Rock Serpent",
       combatScript: "rock_serpent",
@@ -205,7 +201,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/rock_serpent.png",
       possibleLevels: [27, 28, 29, 30],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Rock Lizard",
       combatScript: "rock_lizard",
@@ -213,7 +209,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/rock_lizard.png",
       possibleLevels: [29, 30, 31],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Petrified Coilwarden",
       combatScript: "petrified_coilwarden",
@@ -221,7 +217,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/The held breath/The Stonevein Sanctum/petrified_coilwarden.png",
       possibleLevels: [30],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -231,7 +226,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/The held breath/The Stonevein Sanctum/granitehorn_breaker.png",
       possibleLevels: [31],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 7,
     },
     {
@@ -242,7 +236,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/The held breath/The Stonevein Sanctum/the_held_colossus.png",
       possibleLevels: [32],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 8,
     },
     {
@@ -252,7 +245,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/ash_lizard.png",
       possibleLevels: [41, 42, 43, 44, 45],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Cinder Stalker",
       combatScript: "cinder_stalker",
@@ -260,7 +253,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/cinder_stalker.png",
       possibleLevels: [43, 44, 45, 46, 47],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Ember Scuttler",
       combatScript: "ember_scuttler",
@@ -268,7 +261,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/ember_scuttler.png",
       possibleLevels: [45, 46, 47, 48, 49],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Magma Boar",
       combatScript: "magma_boar",
@@ -276,7 +269,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/magma_boar.png",
       possibleLevels: [47, 48, 49, 50],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Lava Basilisk",
       combatScript: "lava_basilisk",
@@ -284,7 +277,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/lava_basilisk.png",
       possibleLevels: [49, 50, 51, 52, 53],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Icy Mink",
       combatScript: "icy_mink",
@@ -292,7 +285,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/icy_mink.png",
       possibleLevels: [41, 42, 43, 44, 45],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Icy Serpent",
       combatScript: "icy_serpent",
@@ -300,7 +293,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/icy_serpent.png",
       possibleLevels: [43, 44, 45, 46, 47],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Glacier Turtoise",
       combatScript: "glacier_turtoise",
@@ -308,7 +301,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/glacier_turtoise.png",
       possibleLevels: [45, 46, 47, 48, 49],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Frozen Stalker",
       combatScript: "frozen_stalker",
@@ -316,7 +309,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/frozen_stalker.png",
       possibleLevels: [47, 48, 49, 50],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Frost Skitter",
       combatScript: "frost_skitter",
@@ -324,7 +317,7 @@ const GAME_CONFIG = {
       spawnRarity: "myth",
       image: "Assets/Monsters/frost_skitter.png",
       possibleLevels: [49, 50, 51, 52, 53],
-      possibleMoods: ["berserk"]},  
+    },  
     {
       name: "Pinebound Fawn",
       combatScript: "pinebound_fawn",
@@ -332,7 +325,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/pinebound_fawn.png",
       possibleLevels: [21, 22, 23, 24, 25],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Frozen Pinecone",
       combatScript: "frozen_pinecone",
@@ -340,7 +333,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/frozen_pinecone.png",
       possibleLevels: [23, 24, 25, 26, 27],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Ice-Tusked Boar",
       combatScript: "ice_tusked_boar",
@@ -348,7 +341,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/ice_tusked_boar.png",
       possibleLevels: [25, 26, 27, 28, 29],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Barkhide Spriggan",
       combatScript: "barkhide_spriggan",
@@ -356,7 +349,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/barkhide_spriggan.png",
       possibleLevels: [27, 28, 29, 30],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Winter Guardian",
       combatScript: "winter_guardian",
@@ -364,7 +357,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/winter_guardian.png",
       possibleLevels: [29, 30, 31],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Whitebark Matron",
       combatScript: "whitebark_matron",
@@ -372,7 +365,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/whitebark_matron.png",
       possibleLevels: [30],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -382,7 +374,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/frosthorn_bulwark.png",
       possibleLevels: [31],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 7,
     },
     {
@@ -393,7 +384,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/the_sleeping_child_of_winter.png",
       possibleLevels: [32],
-      possibleMoods: ["steady"],
       staminaPerTurn: 8,
     },
     {
@@ -403,7 +393,6 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Biomes/Innocence of North/The Frostroot Nursery/frostroot_seedling.png",
       possibleLevels: [26],
-      possibleMoods: ["steady"],
       staminaPerTurn: 6,
     },
     {
@@ -413,7 +402,6 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/fallen_echo.png",
       possibleLevels: [36],
-      possibleMoods: ["berserk"],
       staminaPerTurn: 6,
     },
     {
@@ -423,7 +411,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/rustbound_marshal.png",
       possibleLevels: [40],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -433,7 +420,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/bannerless_wraithlord.png",
       possibleLevels: [41],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -444,7 +430,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/Aftermath of War/The Rustfallen Bastion/the_last_warmaster.png",
       possibleLevels: [43],
-      possibleMoods: ["steady"],
       staminaPerTurn: 8,
     },
     {
@@ -454,7 +439,6 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/verdant_sprout.png",
       possibleLevels: [36],
-      possibleMoods: ["steady"],
       staminaPerTurn: 6,
     },
     {
@@ -464,7 +448,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/verdant_bloomseer.png",
       possibleLevels: [40],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -474,7 +457,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/primordial_silverback.png",
       possibleLevels: [41],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -485,7 +467,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/Heart of Gaia/The Verdant Deep/the_heartbloom_ancient.png",
       possibleLevels: [43],
-      possibleMoods: ["steady"],
       staminaPerTurn: 8,
     },
     {
@@ -495,7 +476,6 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ember_forgeling.png",
       possibleLevels: [48],
-      possibleMoods: ["steady"],
       staminaPerTurn: 6,
     },
     {
@@ -505,7 +485,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/inferno_oracle.png",
       possibleLevels: [52],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -515,7 +494,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/ashmaw_titan.png",
       possibleLevels: [53],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -526,7 +504,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/Hatred of the World/The Infernal Riftforge/riftforge_tyrant.png",
       possibleLevels: [54],
-      possibleMoods: ["steady"],
       staminaPerTurn: 8,
     },
     {
@@ -536,7 +513,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/The apathy of the World/The Silent Glacier/hollowglass_siren.png",
       possibleLevels: [52],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -546,7 +522,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/The apathy of the World/The Silent Glacier/rimebound_undertaker.png",
       possibleLevels: [53],
-      possibleMoods: ["steady"],
       staminaPerTurn: 7,
     },
     {
@@ -556,7 +531,6 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Biomes/The apathy of the World/The Silent Glacier/pale_rime_wisp.png",
       possibleLevels: [50],
-      possibleMoods: ["steady"],
       staminaPerTurn: 6,
     },
     {
@@ -567,7 +541,6 @@ const GAME_CONFIG = {
       isBoss: true,
       image: "Assets/Biomes/The apathy of the World/The Silent Glacier/the_stillness_below.png",
       possibleLevels: [54],
-      possibleMoods: ["steady"],
       staminaPerTurn: 8,
     },
     {
@@ -577,7 +550,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/dust_carver.png",
       possibleLevels: [11, 12, 13, 14, 15],
-      possibleMoods: ["berserk"]}, 
+    }, 
     {
       name: "Desert Thornback Crawler",
       combatScript: "desert_thornback_crawler",
@@ -585,7 +558,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/desert_thornback_crawler.png",
       possibleLevels: [15, 16, 17, 18, 19],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Mirage Lurker",
       combatScript: "mirage_lurker",
@@ -593,7 +566,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/mirage_lurker.png",
       possibleLevels: [17, 18, 19, 20],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Dune Devourer",
       combatScript: "dune_devourer",
@@ -601,7 +574,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/dune_devourer.png",
       possibleLevels: [19, 20, 21],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Witherling",
       combatScript: "witherling",
@@ -609,7 +582,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/witherling.png",
       possibleLevels: [13, 14, 15, 16, 17],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Remnant of Rust",
       combatScript: "remnant_of_rust",
@@ -617,7 +590,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/remnant_of_rust.png",
       possibleLevels: [37, 38, 39, 40],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Faded War Wraith",
       combatScript: "faded_war_wraith",
@@ -625,7 +598,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/faded_war_wraith.png",
       possibleLevels: [39, 40, 41, 42],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Ash Horror",
       combatScript: "ash_horror",
@@ -633,7 +606,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/ash_horror.png",
       possibleLevels: [31, 32, 33, 34, 35],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Cinder Husk",
       combatScript: "cinder_husk",
@@ -641,7 +614,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/cinder_husk.png",
       possibleLevels: [33, 34, 35, 36, 37],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Ash Skulker",
       combatScript: "ash_skulker",
@@ -649,7 +622,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/ash_skulker.png",
       possibleLevels: [35, 36, 37, 38, 39],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Tide Hopper",
       combatScript: "tide_hopper",
@@ -657,7 +630,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/tide_hopper.png",
       possibleLevels: [1, 2, 3, 4, 5],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Hermit Crab",
       combatScript: "hermit_crab",
@@ -665,7 +638,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/hermit_crab.png",
       possibleLevels: [3, 4, 5, 6, 7],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Driftling",
       combatScript: "driftling",
@@ -673,7 +646,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/driftling.png",
       possibleLevels: [5, 6, 7, 8, 9],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Tidemeld Revenant",
       combatScript: "tidemeld_revenant",
@@ -681,7 +654,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/tidemeld_revenant.png",
       possibleLevels: [7, 8, 9, 10],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Coastal Horror",
       combatScript: "coastal_horror",
@@ -689,7 +662,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/coastal_horror.png",
       possibleLevels: [9, 10, 11],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Tidebound Crusher",
       combatScript: "tidebound_crusher",
@@ -697,7 +670,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise South/Sunken Grotto/tidebound_crusher.png",
       possibleLevels: [14],
-      possibleMoods: ["berserk"],
       statBudgetMultiplier: 1.1
     },
     {
@@ -707,7 +679,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise South/Sunken Grotto/drowned_channeler.png",
       possibleLevels: [13],
-      possibleMoods: ["berserk"],
       statBudgetMultiplier: 1.1
     },
     {
@@ -717,7 +688,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise South/Sunken Grotto/tidemother_aberraiton.png",
       possibleLevels: [15],
-      possibleMoods: ["berserk"],
       statBudgetMultiplier: 1.1
     },
     {
@@ -727,14 +697,14 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/tide_echo.png",
       possibleLevels: [6],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Storm Echo",
       combatRole: "controller",
       spawnRarity: "rare",
       image: "Assets/Monsters/tide_echo.png",
       possibleLevels: [13, 14, 15],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Stormfang Ravager",
       combatScript: "stormfang_ravager",
@@ -742,7 +712,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/stormfang_ravager.png",
       possibleLevels: [14],
-      possibleMoods: ["berserk"],
     },
     {
       name: "Abyssal Tempest Caller",
@@ -751,7 +720,6 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/abyssal_tempest_caller.png",
       possibleLevels: [13],
-      possibleMoods: ["berserk"],
     },
     {
       name: "The Stormwake Leviathan",
@@ -760,7 +728,6 @@ const GAME_CONFIG = {
       spawnRarity: "myth",
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/the_stormwake_leviathan.png",
       possibleLevels: [15],
-      possibleMoods: ["berserk"],
     },
     {
       name: "Saltwind Skimmer",
@@ -769,7 +736,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/saltwind_skimmer.png",
       possibleLevels: [1, 2, 3, 4, 5],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Brinegullet Spitter",
       combatScript: "brinegullet_spitter",
@@ -777,7 +744,7 @@ const GAME_CONFIG = {
       spawnRarity: "common",
       image: "Assets/Monsters/brinegullet_spitter.png",
       possibleLevels: [3, 4, 5, 6, 7],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Wavebreaker Idol",
       combatScript: "wavebreaker_idol",
@@ -785,7 +752,7 @@ const GAME_CONFIG = {
       spawnRarity: "rare",
       image: "Assets/Monsters/wavebreaker_idol.png",
       possibleLevels: [5, 6, 7, 8, 9],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Cliff Lurker",
       combatScript: "cliff_lurker",
@@ -793,7 +760,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/cliff_lurker.png",
       possibleLevels: [7, 8, 9, 10],
-      possibleMoods: ["berserk"]},
+    },
     {
       name: "Tideharrow",
       combatScript: "tideharrow",
@@ -801,7 +768,7 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       image: "Assets/Monsters/tideharrow.png",
       possibleLevels: [9, 10, 11],
-      possibleMoods: ["berserk"]}
+    }
   ],
 
   /**
@@ -9180,57 +9147,81 @@ const GAME_CONFIG = {
   },
 
   /**
-   * Random mood per spawned enemy. attackBonus/attackMult/hpMult/damageTakenMult adjust combat values.
+   * Random mood per spawned enemy (10% chance; any mood can roll on any monster).
+   * damageMult/hpMult/damageTakenMult are multipliers; *Pct fields are additive percentage bonuses.
    */
   enemyMoods: [
     {
       id: "berserk",
       name: "Berserk",
-      attackBonus: 3,
-      attackMult: 1.12,
-      hpMult: 1.05,
-      damageTakenMult: 1.08,
-      description: "Hits harder; slightly easier to wound."
+      damageMult: 1.5,
+      hpMult: 1.1,
+      damageTakenMult: 1.25,
+      accuracyPct: -6,
+      critPct: 6,
+      evasionPct: -6,
+      statusResistPct: -8,
+      description: "Very high damage, but reckless and easier to kill/control."
     },
     {
       id: "cautious",
       name: "Cautious",
-      attackBonus: -1,
-      attackMult: 0.92,
-      damageTakenMult: 0.88,
-      description: "Softer attacks; harder to hurt."
+      damageMult: 0.75,
+      hpMult: 1.1,
+      damageTakenMult: 0.7,
+      accuracyPct: 6,
+      critPct: -4,
+      evasionPct: 10,
+      statusResistPct: 8,
+      description: "Low damage, but very hard to hit and wound."
     },
     {
       id: "steady",
       name: "Steady",
-      attackBonus: 0,
-      attackMult: 1,
-      damageTakenMult: 0.92,
-      description: "Takes slightly less damage from your hits."
+      damageMult: 0.95,
+      hpMult: 1.3,
+      damageTakenMult: 0.8,
+      accuracyPct: 3,
+      critPct: 0,
+      evasionPct: 0,
+      statusResistPct: 10,
+      description: "Defensive, stable, hard to burst down."
     },
     {
       id: "grim",
       name: "Grim",
-      attackBonus: 2,
-      attackMult: 1.06,
-      hpMult: 1.08,
-      description: "More endurance and bite."
+      damageMult: 1.25,
+      hpMult: 1.25,
+      damageTakenMult: 0.95,
+      accuracyPct: 4,
+      critPct: 4,
+      evasionPct: -4,
+      statusResistPct: 6,
+      description: "Strong elite-like variant, tougher and more dangerous."
     },
     {
       id: "weary",
       name: "Weary",
-      attackBonus: -2,
-      attackMult: 0.88,
-      hpMult: 0.92,
-      description: "Below average stats."
+      damageMult: 0.7,
+      hpMult: 0.75,
+      damageTakenMult: 1.25,
+      accuracyPct: -8,
+      critPct: -6,
+      evasionPct: -6,
+      statusResistPct: -8,
+      description: "Bad roll, weak and easier to defeat."
     },
     {
       id: "focused",
       name: "Focused",
-      attackBonus: 1,
-      attackMult: 1.1,
-      damageTakenMult: 1.05,
-      description: "Sharper offense; slightly more vulnerable."
+      damageMult: 1.15,
+      hpMult: 0.9,
+      damageTakenMult: 1.1,
+      accuracyPct: 12,
+      critPct: 8,
+      evasionPct: 5,
+      statusResistPct: -5,
+      description: "Precise and deadly, but fragile."
     }
   ],
 

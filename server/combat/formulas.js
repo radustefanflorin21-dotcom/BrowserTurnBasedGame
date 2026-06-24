@@ -1,6 +1,7 @@
 import { getEnemyDefByName, loadGameConfig } from "../load_game_config.js";
 import { sumEquippedBonusStats } from "../progression/equipment_stats.js";
 import { buildEnemySpawnStats } from "./monster_stats.js";
+import { createRequire } from "node:module";
 import {
   getFoeEvasionPenalty,
   getFoeMagicResist,
@@ -9,6 +10,9 @@ import {
   getPlayerDamageDownPct
 } from "./status.js";
 import { isCompanionEnabledForCombat } from "./player_prep.js";
+
+const require = createRequire(import.meta.url);
+const { getNeutralEnemyMood, resolveEnemyMoodById, applyMoodCombatFields } = require("../../shared/enemy_moods.js");
 
 export { sumEquippedBonusStats };
 
@@ -51,7 +55,9 @@ export function getActorDamage(actor) {
 
 export function getFoeEvasionPct(foe) {
   const dex = typeof foe.dex === "number" ? foe.dex : 0;
-  return Math.min(40, attribBonusPer10(dex) * 2);
+  const base = Math.min(40, attribBonusPer10(dex) * 2);
+  const mood = typeof foe.moodEvasionPct === "number" && Number.isFinite(foe.moodEvasionPct) ? foe.moodEvasionPct : 0;
+  return Math.max(0, base + mood);
 }
 
 export function resolveOutgoingMagic(actor, foe, rng, baseDamage) {
@@ -144,8 +150,11 @@ export function buildFoeFromUnit(unit, uid) {
   if (!def) return null;
   const level = typeof unit.level === "number" && unit.level > 0 ? Math.floor(unit.level) : 5;
   const isBoss = unit.isBoss === true || def.isBoss === true;
-  const { stats, hp } = buildEnemySpawnStats(level, def, { isBoss });
-  const moodAttackMult = unit.moodId ? 1.08 : 1;
+  const cfg = loadGameConfig();
+  const moods = cfg?.enemyMoods;
+  const mood = unit.moodId ? resolveEnemyMoodById(unit.moodId, moods) : getNeutralEnemyMood();
+  const hpMult = typeof mood.hpMult === "number" && mood.hpMult > 0 ? mood.hpMult : 1;
+  const { stats, hp } = buildEnemySpawnStats(level, def, { isBoss, moodHpMult: hpMult });
   const foe = {
     uid,
     name: unit.name,
@@ -158,13 +167,14 @@ export function buildFoeFromUnit(unit, uid) {
     vit: stats.vit,
     physResist: 0,
     magicResist: 0,
-    moodId: unit.moodId || null,
-    moodAttackMult,
-    damageTakenMult: 1,
     isBoss: unit.isBoss === true || def.isBoss === true,
     image: unit.portraitImage || def.image || "",
     combatScript: def.combatScript || null
   };
+  applyMoodCombatFields(foe, mood);
+  if (typeof unit.moodName === "string" && unit.moodName.trim()) {
+    foe.moodName = unit.moodName.trim();
+  }
   return foe;
 }
 

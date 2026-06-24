@@ -1,5 +1,5 @@
-import { getEnemyDefByName, getItemDef } from "../load_game_config.js";
-import { resolveIncomingToMember } from "./formulas.js";
+import { getEnemyDefByName, getItemDef, loadGameConfig } from "../load_game_config.js";
+import { resolveIncomingToMember, totalStat, sumEquippedBonusStats } from "./formulas.js";
 import { getPlayerDamageReductionPct, getPlayerEvasionUpPct, getMemberIncomingDamageUpPct } from "./status.js";
 import {
   absorbDamageWithShield,
@@ -22,6 +22,48 @@ function countEquippedSetPieces(equipment, setName) {
     if (def?.set === want) count += 1;
   });
   return count;
+}
+
+function formulaDexEvasionPct(dex) {
+  return Math.min(50, Math.max(0, Math.floor((Number(dex) || 0) * 0.35)));
+}
+
+function rollEnemyHitVsHero(st, foe, player, rng) {
+  if (!rng) return true;
+  const cfg = loadGameConfig();
+  const sys = cfg?.statSystem && typeof cfg.statSystem === "object" ? cfg.statSystem : {};
+  let enemyHit =
+    typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
+      ? sys.enemyBaseHitChancePct
+      : 100;
+  if (foe && typeof foe.moodAccuracyPct === "number") enemyHit += foe.moodAccuracyPct;
+  if (st?.status?.playerAccuracyDownTurns > 0 && typeof st.status.playerAccuracyDownPct === "number") {
+    enemyHit -= Math.max(0, Math.min(50, st.status.playerAccuracyDownPct));
+  }
+  let eva = getPlayerEvasionUpPct(st);
+  if (player) {
+    const dex = totalStat(player, "dex");
+    const gear = sumEquippedBonusStats(player.equipment);
+    eva += formulaDexEvasionPct(dex) + (gear.evasion || 0);
+  }
+  const minH = typeof sys.minHitChancePct === "number" ? sys.minHitChancePct : 15;
+  const maxH = typeof sys.maxHitChancePct === "number" ? sys.maxHitChancePct : 100;
+  const hitPct = Math.min(maxH, Math.max(minH, enemyHit - eva));
+  return rng.chance(hitPct);
+}
+
+function applyFoeCritToRaw(foe, raw, rng) {
+  if (!rng || !foe) return raw;
+  const cfg = loadGameConfig();
+  const ms = cfg?.monsterScaling && typeof cfg.monsterScaling === "object" ? cfg.monsterScaling : {};
+  const dex = typeof foe.dex === "number" && foe.dex > 0 ? foe.dex : 0;
+  const base = typeof ms.enemyCritBasePct === "number" ? ms.enemyCritBasePct : 5;
+  const perDex = typeof ms.enemyCritPerDexPct === "number" ? ms.enemyCritPerDexPct : 0.2;
+  const moodCrit = typeof foe.moodCritPct === "number" ? foe.moodCritPct : 0;
+  const p = Math.min(55, base + dex * perDex + moodCrit);
+  if (!rng.chance(p)) return raw;
+  const mult = typeof ms.enemyCritDamageMult === "number" ? ms.enemyCritDamageMult : 1.5;
+  return Math.max(1, Math.floor(raw * mult));
 }
 
 function tryProcThornbackGraveguardBleed(equipment, foe, damageTaken, rng) {
@@ -114,12 +156,12 @@ export function pickPartyTarget(st, targetRule, rng, attackingFoe) {
 export function dealFoeDamageToMember(st, foe, member, rawDamage, verb, rng, player) {
   if (!member || member.hp <= 0) return { dmg: 0, shieldLog: null, evaded: false, riposteLog: null };
   if (member.kind === "hero" && rng) {
-    const eva = getPlayerEvasionUpPct(st);
-    if (eva > 0 && rng.chance(eva)) {
+    if (!rollEnemyHitVsHero(st, foe, player, rng)) {
       return { dmg: 0, shieldLog: null, evaded: true, riposteLog: null };
     }
   }
   let raw = Math.max(1, Math.floor(rawDamage));
+  if (rng) raw = applyFoeCritToRaw(foe, raw, rng);
   const dr = getPlayerDamageReductionPct(st);
   if (dr > 0) raw = Math.max(1, Math.floor(raw * (1 - dr / 100)));
   if (member.kind === "hero" && player) {

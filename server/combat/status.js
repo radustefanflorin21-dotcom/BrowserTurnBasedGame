@@ -227,7 +227,8 @@ function debuffLandPct(actor, foe, baseChance) {
   const pass = getCombatPassiveBonuses(actor);
   const acc = Math.floor(dex / 10) + Math.floor(int / 10) + (pass.debuffAccuracy || 0);
   const sr = Math.floor((foe.int || 0) / 12);
-  return Math.min(100, Math.max(0, baseChance + acc - sr));
+  const moodSr = typeof foe.moodStatusResistPct === "number" ? foe.moodStatusResistPct : 0;
+  return Math.min(100, Math.max(0, baseChance + acc - sr - moodSr));
 }
 
 /** @returns {string|null} log line if applied */

@@ -107,8 +107,11 @@
 
   function foeStatusResistPct(foe) {
     const d = typeof getEnemyDefCombatFields === "function" ? getEnemyDefCombatFields(foe) : {};
-    if (typeof d.statusResistPct === "number" && Number.isFinite(d.statusResistPct)) return Math.max(0, d.statusResistPct);
-    return 0;
+    let sr = 0;
+    if (typeof d.statusResistPct === "number" && Number.isFinite(d.statusResistPct)) sr = Math.max(0, d.statusResistPct);
+    const moodSr =
+      typeof foe.moodStatusResistPct === "number" && Number.isFinite(foe.moodStatusResistPct) ? foe.moodStatusResistPct : 0;
+    return sr + moodSr;
   }
 
   function hitChanceFromSkill(baseHit, extraHit, foe) {

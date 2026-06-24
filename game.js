@@ -5076,7 +5076,9 @@ function getFoeEvasionPct(foe) {
   const ms = getMonsterScalingConfig();
   const dexC = typeof ms.evadeDexCoeff === "number" ? ms.evadeDexCoeff : 0.15;
   const dex = typeof foe.dex === "number" && Number.isFinite(foe.dex) ? Math.max(0, foe.dex) : 0;
-  return Math.max(0, fromDef + dex * dexC);
+  const moodEva =
+    typeof foe.moodEvasionPct === "number" && Number.isFinite(foe.moodEvasionPct) ? foe.moodEvasionPct : 0;
+  return Math.max(0, fromDef + dex * dexC + moodEva);
 }
 
 function getFoePhysicalResistPct(foe) {
@@ -5255,6 +5257,9 @@ function computeHeroIncomingDamage(rawDamage, attackingFoe) {
     typeof sys.enemyBaseHitChancePct === "number" && Number.isFinite(sys.enemyBaseHitChancePct)
       ? sys.enemyBaseHitChancePct
       : 100;
+  if (attackingFoe && typeof attackingFoe.moodAccuracyPct === "number" && Number.isFinite(attackingFoe.moodAccuracyPct)) {
+    enemyHit += attackingFoe.moodAccuracyPct;
+  }
   if (
     combatState &&
     combatState.status &&
@@ -12119,7 +12124,10 @@ function pickRandomCountInRange(minC, maxC) {
   return lo + Math.floor(Math.random() * (hi - lo + 1));
 }
 
-const ENEMY_MOOD_SPAWN_CHANCE = 0.1;
+const ENEMY_MOOD_SPAWN_CHANCE =
+  typeof EnemyMoods !== "undefined" && typeof EnemyMoods.ENEMY_MOOD_SPAWN_CHANCE === "number"
+    ? EnemyMoods.ENEMY_MOOD_SPAWN_CHANCE
+    : 0.1;
 const MOOD_XP_BONUS_MULT = 1.12;
 const MOOD_LOOT_DROP_RATE_MULT = 1.1;
 
@@ -12129,22 +12137,33 @@ function randomFrom(arr) {
 }
 
 function getNeutralEnemyMood() {
-  return { id: null, name: "", attackBonus: 0, attackMult: 1, hpMult: 1, damageTakenMult: 1, description: "" };
+  if (typeof EnemyMoods !== "undefined" && typeof EnemyMoods.getNeutralEnemyMood === "function") {
+    return EnemyMoods.getNeutralEnemyMood();
+  }
+  return {
+    id: null,
+    name: "",
+    damageMult: 1,
+    hpMult: 1,
+    damageTakenMult: 1,
+    accuracyPct: 0,
+    critPct: 0,
+    evasionPct: 0,
+    statusResistPct: 0,
+    description: ""
+  };
 }
 
 function hasActiveMood(foeLike) {
   return !!(foeLike && typeof foeLike.moodId === "string" && foeLike.moodId.trim());
 }
 
-function pickMoodFromEnemyDef(def) {
-  if (Math.random() >= ENEMY_MOOD_SPAWN_CHANCE) return getNeutralEnemyMood();
+function pickMoodFromEnemyDef(_def) {
   const moods = GAME_CONFIG.enemyMoods;
-  const ids = def && def.possibleMoods;
-  if (Array.isArray(ids) && ids.length) {
-    const id = randomFrom(ids);
-    const m = moods.find((x) => x.id === id);
-    if (m) return m;
+  if (typeof EnemyMoods !== "undefined" && typeof EnemyMoods.pickRandomEnemyMood === "function") {
+    return EnemyMoods.pickRandomEnemyMood(moods, null);
   }
+  if (Math.random() >= ENEMY_MOOD_SPAWN_CHANCE) return getNeutralEnemyMood();
   if (Array.isArray(moods) && moods.length) return randomFrom(moods);
   return getNeutralEnemyMood();
 }
@@ -12153,6 +12172,9 @@ function resolveMoodFromPreviewUnit(unit, def) {
   const moods = Array.isArray(GAME_CONFIG.enemyMoods) ? GAME_CONFIG.enemyMoods : [];
   if (unit && typeof unit === "object" && Object.prototype.hasOwnProperty.call(unit, "moodId")) {
     if (typeof unit.moodId === "string" && unit.moodId.trim()) {
+      if (typeof EnemyMoods !== "undefined" && typeof EnemyMoods.resolveEnemyMoodById === "function") {
+        return EnemyMoods.resolveEnemyMoodById(unit.moodId.trim(), moods);
+      }
       const found = moods.find((m) => m.id === unit.moodId.trim());
       if (found) return found;
     }
@@ -12815,7 +12837,8 @@ function applyMonsterCritToRaw(foe, raw) {
     foe && foe.combat && typeof foe.combat.stormwakeCritBonusPct === "number" && Number.isFinite(foe.combat.stormwakeCritBonusPct)
       ? Math.max(0, foe.combat.stormwakeCritBonusPct)
       : 0;
-  const p = Math.min(0.55, (base + dex * perDex + bonus) / 100);
+  const moodCrit = typeof foe.moodCritPct === "number" && Number.isFinite(foe.moodCritPct) ? foe.moodCritPct : 0;
+  const p = Math.min(0.55, (base + dex * perDex + bonus + moodCrit) / 100);
   const mult = typeof ms.enemyCritDamageMult === "number" ? ms.enemyCritDamageMult : 1.5;
   if (Math.random() < p) return Math.max(1, Math.floor(raw * mult));
   return raw;
@@ -12823,10 +12846,7 @@ function applyMonsterCritToRaw(foe, raw) {
 
 function buildSpawnedFoe(region, def, uid, level, mood, spawnOpts) {
   const scale = region && typeof region.enemyScale === "number" ? region.enemyScale : 1;
-  const attackBonus = typeof mood.attackBonus === "number" ? mood.attackBonus : 0;
-  const attackMult = typeof mood.attackMult === "number" ? mood.attackMult : 1;
-  const hpMult = typeof mood.hpMult === "number" ? mood.hpMult : 1;
-  const damageTakenMult = typeof mood.damageTakenMult === "number" ? mood.damageTakenMult : 1;
+  const hpMult = typeof mood.hpMult === "number" && mood.hpMult > 0 ? mood.hpMult : 1;
   const isBoss = (spawnOpts && spawnOpts.isBoss === true) || (def && def.isBoss === true);
   const roleKey = getEnemyCombatRoleKey(def);
   const stats = buildMonsterCharacteristics(level, roleKey, def);
@@ -12853,8 +12873,6 @@ function buildSpawnedFoe(region, def, uid, level, mood, spawnOpts) {
     hp = Math.max(1, Math.round(coreHp * scale * hpMult));
   }
   const maxStamina = getFoeCombatMaxStamina(def);
-  const moodId = typeof mood.id === "string" && mood.id.trim() ? mood.id.trim() : null;
-  const moodName = typeof mood.name === "string" ? mood.name.trim() : "";
   const foe = {
     uid,
     name: def.name,
@@ -12863,19 +12881,28 @@ function buildSpawnedFoe(region, def, uid, level, mood, spawnOpts) {
     dex: stats.dex,
     vit: stats.vit,
     int: stats.int,
-    moodId,
-    moodName,
-    moodAttackBonus: attackBonus,
-    moodAttackMult: attackMult,
     hp,
     maxHp: hp,
     stamina: maxStamina,
     maxStamina,
-    damageTakenMult,
     image: resolveImageByState(def, "idle"),
     images: def.images && typeof def.images === "object" ? def.images : null,
     sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
   };
+  if (typeof EnemyMoods !== "undefined" && typeof EnemyMoods.applyMoodCombatFields === "function") {
+    EnemyMoods.applyMoodCombatFields(foe, mood);
+  } else {
+    const damageMult = typeof mood.damageMult === "number" && mood.damageMult > 0 ? mood.damageMult : 1;
+    foe.moodId = typeof mood.id === "string" && mood.id.trim() ? mood.id.trim() : null;
+    foe.moodName = typeof mood.name === "string" ? mood.name.trim() : "";
+    foe.moodAttackMult = damageMult;
+    foe.moodAttackBonus = 0;
+    foe.damageTakenMult = typeof mood.damageTakenMult === "number" && mood.damageTakenMult > 0 ? mood.damageTakenMult : 1;
+    foe.moodAccuracyPct = typeof mood.accuracyPct === "number" ? mood.accuracyPct : 0;
+    foe.moodCritPct = typeof mood.critPct === "number" ? mood.critPct : 0;
+    foe.moodEvasionPct = typeof mood.evasionPct === "number" ? mood.evasionPct : 0;
+    foe.moodStatusResistPct = typeof mood.statusResistPct === "number" ? mood.statusResistPct : 0;
+  }
   initFoeCombatRuntime(foe);
   return foe;
 }

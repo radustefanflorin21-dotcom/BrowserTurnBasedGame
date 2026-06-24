@@ -7,12 +7,12 @@ import { getBiomeDefAt } from "../progression/world_map.js";
 
 const require = createRequire(import.meta.url);
 const { createCombatRng } = require("../../shared/combat_rng.js");
+const { pickRandomEnemyMood } = require("../../shared/enemy_moods.js");
 
 const MOB_SIZE_MIN = 1;
 const MOB_SIZE_MAX = 8;
 const MOB_DIFFICULTY_LEVEL_VARIANCE = 0.25;
 const MOB_DIFFICULTY_TIER_LABELS = ["easy", "medium", "hard"];
-const ENEMY_MOOD_SPAWN_CHANCE = 0.1;
 const ENEMY_SPAWN_RARITY_ORDER = ["common", "rare", "epic", "myth", "ancient"];
 
 function cellSlotSeed(x, y, slotIndex) {
@@ -99,21 +99,8 @@ function createRoller(rng, gameConfig) {
     return rng.int(Math.max(1, Math.floor(minC)), Math.max(Math.floor(minC), Math.floor(maxC)));
   }
 
-  function getNeutralEnemyMood() {
-    return { id: null, name: "", attackBonus: 0, attackMult: 1, hpMult: 1, damageTakenMult: 1, description: "" };
-  }
-
-  function pickMoodFromEnemyDef(def) {
-    if (!rng.chance(ENEMY_MOOD_SPAWN_CHANCE * 100)) return getNeutralEnemyMood();
-    const moods = gameConfig.enemyMoods;
-    const ids = def && def.possibleMoods;
-    if (Array.isArray(ids) && ids.length) {
-      const id = randomFrom(ids);
-      const m = Array.isArray(moods) ? moods.find((x) => x.id === id) : null;
-      if (m) return m;
-    }
-    if (Array.isArray(moods) && moods.length) return randomFrom(moods);
-    return getNeutralEnemyMood();
+  function pickMoodFromEnemyDef(_def) {
+    return pickRandomEnemyMood(gameConfig.enemyMoods, rng);
   }
 
   function pickLevelFromEnemyDef(def) {
