@@ -24609,14 +24609,25 @@ function getMarketListableKeysFromCache() {
     if (!g) return;
     keys.add(g.stackable ? g.baseName : g.itemName);
   });
-  const equipped = getMarketEquippedItemNamesSet();
+  const equippedCounts =
+    typeof MarketListable !== "undefined" && typeof MarketListable.collectEquippedCounts === "function"
+      ? MarketListable.collectEquippedCounts(player)
+      : null;
+  const reservedEquipped = new Map();
   const cat = categorizeInventory();
   const addName = (name) => {
     if (!name) return;
-    const raw = String(name);
-    if (equipped.has(raw) || equipped.has(raw.trim())) return;
-    if (!getItemDef(name)) return;
-    keys.add(isMarketStackableItemName(name) ? getItemBaseName(name) : name);
+    const raw = String(name).trim();
+    if (!raw || !getItemDef(name)) return;
+    if (!isMarketStackableItemName(name) && equippedCounts) {
+      const eq = equippedCounts.get(raw) || 0;
+      const used = reservedEquipped.get(raw) || 0;
+      if (used < eq) {
+        reservedEquipped.set(raw, used + 1);
+        return;
+      }
+    }
+    keys.add(isMarketStackableItemName(name) ? getItemBaseName(name) : raw);
   };
   cat.equipment.forEach(addName);
   cat.consumables.forEach(addName);

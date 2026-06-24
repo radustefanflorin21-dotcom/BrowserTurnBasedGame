@@ -3,22 +3,39 @@
  */
 (function (root) {
   function collectEquippedNames(player) {
-    const equipped = new Set();
+    return new Set(collectEquippedCounts(player).keys());
+  }
+
+  /** Instance string -> how many copies are worn (hero + companions). */
+  function collectEquippedCounts(player) {
+    const counts = new Map();
+    const add = (v) => {
+      if (typeof v !== "string") return;
+      const s = v.trim();
+      if (!s) return;
+      counts.set(s, (counts.get(s) || 0) + 1);
+    };
     const eq = player?.equipment;
     if (eq && typeof eq === "object") {
-      Object.values(eq).forEach((v) => {
-        if (typeof v === "string" && v.trim()) equipped.add(v.trim());
-      });
+      Object.values(eq).forEach(add);
     }
     if (Array.isArray(player?.companions)) {
       player.companions.forEach((c) => {
         if (!c?.equipment) return;
-        Object.values(c.equipment).forEach((v) => {
-          if (typeof v === "string" && v.trim()) equipped.add(v.trim());
-        });
+        Object.values(c.equipment).forEach(add);
       });
     }
-    return equipped;
+    return counts;
+  }
+
+  function reserveEquippedCopy(entry, equippedCounts, reservedEquipped) {
+    const s = typeof entry === "string" ? entry.trim() : "";
+    if (!s) return false;
+    const eq = equippedCounts.get(s) || 0;
+    const used = reservedEquipped.get(s) || 0;
+    if (used >= eq) return false;
+    reservedEquipped.set(s, used + 1);
+    return true;
   }
 
   /**
@@ -32,13 +49,15 @@
     if (typeof getItemBaseName !== "function" || typeof getMarketItemMeta !== "function") return [];
 
     const inv = Array.isArray(player?.inventory) ? player.inventory : [];
-    const equipped = collectEquippedNames(player);
+    const equippedCounts = collectEquippedCounts(player);
+    const reservedEquipped = new Map();
     const groups = new Map();
 
     inv.forEach((entry) => {
-      if (!entry || equipped.has(entry)) return;
+      if (!entry) return;
       const meta = getMarketItemMeta(entry);
       if (!meta) return;
+      if (!meta.stackable && reserveEquippedCopy(entry, equippedCounts, reservedEquipped)) return;
       const key = meta.stackable ? getItemBaseName(entry) : entry;
       const g = groups.get(key) || {
         itemName: entry,
@@ -68,6 +87,7 @@
 
   const api = Object.freeze({
     collectEquippedNames,
+    collectEquippedCounts,
     getMarketListableInventory
   });
 
