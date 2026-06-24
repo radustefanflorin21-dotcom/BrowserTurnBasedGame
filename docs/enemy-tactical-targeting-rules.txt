@@ -1,0 +1,38 @@
+ENEMY TACTICAL TARGETING — LOCKED RULES
+Browser Turn-Based Game
+================================================================================
+
+These rules apply to all enemy skills on the 8×8 tactical grid (same coordinate
+system as player skills).
+
+IMPLEMENTATION RULES
+--------------------------------------------------------------------------------
+1. Range = Manhattan distance from the caster's tile to the target tile.
+2. Line-of-sight (LoS) is required for ranged skills (range ≥ 1), using the
+   same supercover ray as player skills. Occupied cells block LoS unless a
+   skill explicitly ignores blockers (e.g. Burrow Ambush).
+3. Global = all valid targets on the board; LoS is NOT required.
+4. Self-radius N = all tiles whose Manhattan distance from the caster is ≤ N
+   (a diamond shape centered on the caster). Example: radius 2 hits every unit
+   standing on the caster tile, its 4 orthogonal neighbors, and the 4 tiles
+   two steps away in each cardinal direction (up to 13 tiles total on an open board).
+5. Line attacks travel straight horizontal or vertical from the caster and stop
+   at the first occupied tile (unit or obstacle).
+6. Pull = move the target 1 tile toward the caster (or skill destination) onto
+   the closest free square along that path; if blocked, skip the pull.
+7. Leap / charge = move caster beside target along a straight line if path is
+   clear; Burrow Ambush ignores blocking units on the path.
+8. Summon adjacent = spawn on nearest free tile beside caster, or closest free
+   tile within 2 Manhattan steps if blocked.
+9. Cross-1 = target tile plus orthogonal neighbors (no diagonals).
+10. 3×3 = target tile plus all 8 surrounding tiles (includes diagonals).
+11. Boss phase skills keep the same range/AoE; they unlock at ~70% / ~35% HP.
+
+BASIC ATTACK (when no special is ready)
+--------------------------------------------------------------------------------
+Role                          Range   Target
+Tank / Bruiser / Assassin     1       Single adjacent player unit
+Mage / Controller / Support / 4       Single player unit in range + LoS
+Summoner / Harasser / Buffer
+
+See shared/enemy_tactical_targeting.js for per-skill overrides.

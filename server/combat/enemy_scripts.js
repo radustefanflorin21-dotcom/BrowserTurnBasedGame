@@ -260,35 +260,57 @@ const SCRIPT_HANDLERS = {
   },
 
   field_wolf(foe, st, ctx) {
-    const member = ctx.pickTarget("assassin");
+    const member = ctx.pickTargetForSkill("savage_bite", "assassin");
     if (!foe.combat.wolfHowlDone && ctx.ready("pack_howl")) {
       foe.combat.wolfHowlDone = true;
-      ctx.setCd("pack_howl", 5);
-      ctx.log(`${foe.name} howls (Pack Howl).`);
+      ctx.setCd("pack_howl", 3);
+      ctx.applySkill("pack_howl", { buffOnly: true });
+      ctx.log(`${foe.name} uses Pack Howl.`);
       return true;
     }
     if (ctx.ready("savage_bite")) {
       ctx.setCd("savage_bite", 2);
-      ctx.hit(member, ctx.atk * 1.05 * ctx.outMult, "Savage Bites");
+      ctx.applySkill("savage_bite", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * 1.05 * ctx.outMult)),
+        verb: "Savage Bites"
+      });
       return true;
     }
-    ctx.hit(member, ctx.atk * 0.88 * ctx.outMult, "bites");
+    ctx.applySkill("savage_bite", {
+      member,
+      raw: Math.max(1, Math.floor(ctx.atk * 0.88 * ctx.outMult)),
+      verb: "bites"
+    });
     return true;
   },
 
   tide_hopper(foe, st, ctx) {
-    const member = ctx.pickTarget("controller");
-    if (ctx.ready("splash")) {
-      ctx.setCd("splash", 2);
-      ctx.hit(member, ctx.atk * 0.7 * ctx.outMult, "Splashes");
+    const member = ctx.pickTargetForSkill("foam_feint", "controller");
+    if (ctx.ready("foam_feint")) {
+      ctx.setCd("foam_feint", 2);
+      applyPlayerAccuracyDown(st, 12, 2);
+      ctx.log(`${foe.name} uses Foam Feint.`);
       return true;
     }
-    if (ctx.ready("hop_strike")) {
-      ctx.setCd("hop_strike", 1);
-      ctx.hit(member, ctx.atk * 0.95 * ctx.outMult, "Hops into");
+    if (ctx.ready("dragging_current")) {
+      ctx.setCd("dragging_current", 3);
+      ensureCombatStatus(st);
+      st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 15);
+      st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
+      ctx.applySkill("dragging_current", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * 0.55 * ctx.outMult)),
+        verb: "drags with a current",
+        pull: true
+      });
       return true;
     }
-    ctx.hit(member, ctx.atk * 0.6 * ctx.outMult, "nips");
+    ctx.applySkill("foam_feint", {
+      member,
+      raw: Math.max(1, Math.floor(ctx.atk * 0.6 * ctx.outMult)),
+      verb: "nips"
+    });
     return true;
   },
 
@@ -1117,7 +1139,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("ground_roar")) {
       ctx.setCd("ground_roar", 3);
       const hit = Math.max(1, Math.floor(strv * 0.65 * ctx.outMult));
-      ctx.hitAdjacent(member, hit, "Ground Roar shakes", 1, 1);
+      ctx.applySkill("ground_roar", { member, raw: hit, verb: "Ground Roar shakes" });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
         if (ctx.rng.chance(35)) applyPartyMemberCripple(st, m, 1);
       }
@@ -1255,11 +1277,21 @@ const SCRIPT_HANDLERS = {
     const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
     if (ctx.ready("flameveil_ward") && hpFrac < 0.7 && (foe.combat.magicResBonusTurns || 0) <= 0) {
       ctx.setCd("flameveil_ward", 4);
-      foe.combat.magicResBonusPct = Math.max(foe.combat.magicResBonusPct || 0, 10);
-      foe.combat.magicResBonusTurns = Math.max(foe.combat.magicResBonusTurns || 0, 2);
-      foe.combat.evasionBonusPct = Math.max(foe.combat.evasionBonusPct || 0, 8);
-      foe.combat.evasionBonusTurns = Math.max(foe.combat.evasionBonusTurns || 0, 2);
-      ctx.log(`${foe.name} raises Flameveil Ward.`);
+      const allies = (st.foes || []).filter((f) => f && f.hp > 0);
+      const lowest = allies.reduce(
+        (a, b) => (a && b && a.hp / a.maxHp <= b.hp / b.maxHp ? a : b),
+        allies[0]
+      );
+      const wardTarget =
+        lowest && typeof lowest.gridX === "number" && st.tactical
+          ? lowest
+          : foe;
+      if (!wardTarget.combat) wardTarget.combat = { skillCd: {}, actCount: 0 };
+      wardTarget.combat.magicResBonusPct = Math.max(wardTarget.combat.magicResBonusPct || 0, 10);
+      wardTarget.combat.magicResBonusTurns = Math.max(wardTarget.combat.magicResBonusTurns || 0, 2);
+      wardTarget.combat.evasionBonusPct = Math.max(wardTarget.combat.evasionBonusPct || 0, 8);
+      wardTarget.combat.evasionBonusTurns = Math.max(wardTarget.combat.evasionBonusTurns || 0, 2);
+      ctx.log(`${foe.name} raises Flameveil Ward on ${wardTarget.name}.`);
       return true;
     }
     if (ctx.ready("cinder_prophecy") && livingPartyCount(st) >= 3) {
@@ -1392,8 +1424,8 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("forgefire_decree") && livingPartyCount(st) >= 3) {
       ctx.setCd("forgefire_decree", 3);
       const hit = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * dmgBonus));
+      ctx.applySkill("forgefire_decree", { raw: hit, verb: "Forgefire Decree erupts under" });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Forgefire Decree erupts under");
         applyBurnFromHit(st, m, hit, 10, 2, ctx.rng);
         if (ctx.rng.chance(35)) applyPartyMemberBlind(st, m, 6, 1);
       }
@@ -1659,19 +1691,36 @@ const SCRIPT_HANDLERS = {
   },
 
   gorilla(foe, st, ctx) {
-    const member = ctx.pickTarget("bruiser");
+    const member = ctx.pickTargetForSkill("crushing_slam", "bruiser");
     foe.combat.gorillaRampStacks = (foe.combat.gorillaRampStacks || 0) + 1;
-    if (ctx.ready("chest_beat")) {
-      ctx.setCd("chest_beat", 3);
-      ctx.log(`${foe.name} beats its chest.`);
+    foe.combat.gorillaAlt = !foe.combat.gorillaAlt;
+
+    if (foe.combat.gorillaAlt && ctx.ready("ground_rupture")) {
+      ctx.setCd("ground_rupture", 3);
+      const hit = Math.max(1, Math.floor(ctx.atk * 0.74 * ctx.outMult));
+      ctx.applySkill("ground_rupture", { member, raw: hit, verb: "Ground Ruptures" });
       return true;
     }
-    if (ctx.ready("smash") && foe.combat.gorillaRampStacks >= 2) {
-      ctx.setCd("smash", 2);
-      ctx.hit(member, ctx.atk * 1.25 * ctx.outMult, "Smashes");
+    if (ctx.ready("rage_roar") && (foe.combat.gorillaRampStacks || 0) < 5) {
+      ctx.setCd("rage_roar", 3);
+      foe.combat.gorillaRampStacks = Math.min(5, (foe.combat.gorillaRampStacks || 0) + 1);
+      ctx.log(`${foe.name} uses Rage Roar (+damage ramp).`);
       return true;
     }
-    ctx.hit(member, ctx.atk * 0.9 * ctx.outMult, "strikes");
+    if (!foe.combat.gorillaAlt && ctx.ready("crushing_slam")) {
+      ctx.setCd("crushing_slam", 2);
+      ctx.applySkill("crushing_slam", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * 1.05 * ctx.outMult)),
+        verb: "Crushing Slams"
+      });
+      return true;
+    }
+    ctx.applySkill("crushing_slam", {
+      member,
+      raw: Math.max(1, Math.floor(ctx.atk * 0.75 * ctx.outMult)),
+      verb: "strikes"
+    });
     return true;
   }
 };

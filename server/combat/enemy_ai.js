@@ -7,10 +7,15 @@ import {
   tryRiposteAfterHit
 } from "./class_state.js";
 import { trySecondBreath } from "./combat_passives.js";
-import { getFoeEffectiveAttack, getFoeOutgoingDamageMult } from "./monster_stats.js";
+import { getFoeEffectiveAttack, getFoeOutgoingDamageMult, getEnemyCombatRoleKey } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
 import { isFoeStunned, applyPlayerBurn, ensureCombatStatus } from "./status.js";
 import { tryProcFrosthornCrippleOnHit, tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const TacticalEnemyResolve = require("../../shared/tactical_enemy_resolve.js");
+const EnemyTacticalTargeting = require("../../shared/enemy_tactical_targeting.js");
 
 function countEquippedSetPieces(equipment, setName) {
   const want = typeof setName === "string" ? setName.trim() : "";
@@ -218,12 +223,21 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
   const atk = getFoeEffectiveAttack(foe);
   const outMult = getFoeOutgoingDamageMult(st, foe);
   const cd = foe.combat.skillCd;
+  const def = getEnemyDefByName(foe.name);
+  const scriptId = def?.combatScript?.trim?.() || foe.combat.script || "";
+  const role = getEnemyCombatRoleKey(def) || "bruiser";
+
+  function skillCfg(skillKey) {
+    return EnemyTacticalTargeting.getEnemySkillTargeting(scriptId, skillKey, role);
+  }
 
   return {
     rng,
     atk,
     outMult,
     player,
+    scriptId,
+    role,
     ready(key) {
       return !cd[key] || cd[key] <= 0;
     },
@@ -231,7 +245,58 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       cd[key] = Math.max(0, Math.floor(turns));
     },
     pickTarget(rule) {
+      if (st?.tactical && typeof foe.gridX === "number") {
+        const basic = EnemyTacticalTargeting.getBasicAttackForRole(role);
+        const picked = TacticalEnemyResolve.pickBestPlayer(st, foe, basic, rule, rng);
+        if (picked) return picked;
+      }
       return pickPartyTarget(st, rule, rng, foe);
+    },
+    pickTargetForSkill(skillKey, rule) {
+      const cfg = skillCfg(skillKey);
+      if (st?.tactical && typeof foe.gridX === "number") {
+        return TacticalEnemyResolve.pickBestPlayer(st, foe, cfg, rule || "nearest", rng);
+      }
+      return pickPartyTarget(st, rule || "bruiser", rng, foe);
+    },
+    applySkill(skillKey, opts) {
+      const cfg = skillCfg(skillKey);
+      const raw = opts?.raw ?? 0;
+      const verb = opts?.verb || "hits";
+      const primary = opts?.member || this.pickTargetForSkill(skillKey, opts?.rule || "bruiser");
+
+      if (!st?.tactical || typeof foe.gridX !== "number") {
+        if (cfg.aoe === "global_players" || cfg.target === "global_players") {
+          for (const m of TacticalEnemyResolve.livingParty(st)) {
+            this.hit(m, raw, verb);
+          }
+          return;
+        }
+        if (primary) this.hit(primary, raw, verb);
+        if (opts?.pull && primary) TacticalEnemyResolve.pullUnitToward(st, primary, foe.gridX, foe.gridY);
+        return;
+      }
+
+      const ax = primary?.gridX;
+      const ay = primary?.gridY;
+      const resolved = TacticalEnemyResolve.resolveTargets(st, foe, cfg, ax, ay);
+
+      if (cfg.buffOnly || opts?.buffOnly) {
+        for (const f of resolved.foes) {
+          if (!f.combat) f.combat = { skillCd: {}, actCount: 0 };
+          f.combat.outgoingDamageBonusPct = Math.max(f.combat.outgoingDamageBonusPct || 0, 8);
+          f.combat.outgoingDamageBonusTurns = Math.max(f.combat.outgoingDamageBonusTurns || 0, 2);
+        }
+        if (resolved.foes.length) {
+          appendLog(`${foe.name} empowers nearby allies.`);
+        }
+        return;
+      }
+
+      for (const m of resolved.players) {
+        this.hit(m, raw, verb);
+        if (cfg.pull) TacticalEnemyResolve.pullUnitToward(st, m, foe.gridX, foe.gridY);
+      }
     },
     hit(member, raw, verb) {
       if (!member) return;

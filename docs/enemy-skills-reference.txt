@@ -1,0 +1,1991 @@
+ENEMY SKILLS REFERENCE
+Browser Turn-Based Game — generated from config.js + combat scripts
+================================================================================
+
+Each enemy has a combat role, spawn rarity, and a scripted ability rotation.
+Bosses (isBoss) and dungeon elites often have phase transitions at ~70% and ~35% HP.
+
+HOW ENEMY DAMAGE IS CALCULATED
+--------------------------------------------------------------------------------
+Enemy attack (ATK) scales with level, rarity stat budget, and role stat split.
+Skill hit ≈ floor(ATK × skill multiplier × outgoing damage modifiers × mood/region).
+Some skills use monsterPhysicalDamageFromBase(level-scaled) instead of a flat ATK %.
+
+Example damage below uses ATK ≈ 45 (typical mid-level foe), BEFORE
+player resist, buffs/debuffs, and crit. Actual values vary by level and rarity.
+
+Enemy stamina: common 6, rare 7, epic 7, myth 8, ancient 9 (per turn budget).
+Cooldown (CD): turns until the ability can be used again after casting.
+
+COMBAT ROLES
+--------------------------------------------------------------------------------
+tank         High VIT, physical resist; taunts, shields, mitigation.
+bruiser      STR-focused; heavy single-target and AoE hits.
+assassin     DEX-focused; burst damage, bleed, evasion.
+mage         INT-focused; magic damage and DoTs.
+controller   Disrupts with blind, cripple, accuracy down, debuff extension.
+support      Heals allies, party buffs, light damage.
+summoner     Spawns reinforcements, buffs minions.
+
+================================================================================
+
+================================================================================
+TANK ENEMIES
+================================================================================
+
+Cinder Husk
+  Role: tank  |  Rarity: common  |  Levels: 33–37  |  Stamina/turn: 6
+  Script: cinder_husk
+
+  Dead Flesh
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Grave Fortitude
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Desert Thornback Crawler
+  Role: tank  |  Rarity: rare  |  Levels: 15–19  |  Stamina/turn: 7
+  Script: desert_thornback_crawler
+
+  Dry Carapace
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Spiked Shell
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff; damage reflect.
+
+  Defensive Taunt
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: taunt; damage reflect.
+
+  Impale
+    CD: 2  |  Type: Active
+    Scaling: 92% ATK
+    ~Damage @ ATK 45: 41
+    Effect: bleed.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Frosthorn Bulwark
+  Role: tank  |  Rarity: epic  |  Levels: 31–31  |  Stamina/turn: 7
+  Script: frosthorn_bulwark
+
+  Icehorn Challenge
+    CD: 4  |  Type: Active
+    Effect: defensive buff; taunt.
+
+  Frozen Guard
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Tuskbreaker Slam crushes
+    CD: 2  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+  Frost Stagger rocks
+    CD: 4  |  Type: Active
+    Effect: stun chance.
+
+Glacier Turtoise
+  Role: tank  |  Rarity: rare  |  Levels: 45–49  |  Stamina/turn: 7
+  Script: glacier_turtoise
+
+  Ice Shell
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Glacier Hard Shell
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Slow Crush
+    CD: 2  |  Type: Active
+    Scaling: 95% ATK
+    ~Damage @ ATK 45: 42
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Hermit Crab
+  Role: tank  |  Rarity: common  |  Levels: 3–7  |  Stamina/turn: 6
+  Script: hermit_crab
+
+  Anchoring Taunt
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: taunt; reduces player damage dealt.
+
+  Shell Guard
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Crushing Clamps
+    CD: 2  |  Type: Active
+    Effect: stun chance.
+
+Ice-Tusked Boar
+  Role: tank  |  Rarity: rare  |  Levels: 25–29  |  Stamina/turn: 7
+  Script: ice_tusked_boar
+
+  Ice Armor
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Cold Rage
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: offensive buff.
+
+  Frost Charge
+    CD: 2  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Rock Lizard
+  Role: tank  |  Rarity: epic  |  Levels: 29–31  |  Stamina/turn: 7
+  Script: rock_lizard
+
+  Bask In Dust
+    CD: 3  |  Type: Active
+    Effect: heal ally or self; defensive buff.
+
+  Harden
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Stone Challenge
+    CD: 4  |  Type: Active
+    Effect: defensive buff; taunt.
+
+  Tail Slam
+    CD: 2  |  Type: Active
+    Scaling: 102% ATK
+    ~Damage @ ATK 45: 45
+    Effect: stun chance.
+
+Stone Marmot
+  Role: tank  |  Rarity: common  |  Levels: 21–25  |  Stamina/turn: 6
+  Script: stone_marmot
+
+  Burrow Guard
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Stone Nerves
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+Thornback Graveguard
+  Role: tank  |  Rarity: epic  |  Levels: 20–20  |  Stamina/turn: 7
+  Script: thornback_graveguard
+
+  Grave Shell
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff; damage reflect.
+
+  Thorn Challenge
+    CD: 4  |  Type: Active
+    Effect: defensive buff; taunt.
+
+  Splinter Guard
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Bone Impales
+    CD: 2  |  Type: Active
+    Effect: bleed.
+
+Tusk Boar
+  Role: tank  |  Rarity: epic  |  Levels: 17–20  |  Stamina/turn: 7
+  Script: tusk_boar
+
+  Thick Hide
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  War Boar Taunt
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff; taunt.
+
+  Gore Charge
+    CD: 2  |  Type: Active
+    Effect: fragile / increased damage taken.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Wavebreaker Idol
+  Role: tank  |  Rarity: rare  |  Levels: 5–9  |  Stamina/turn: 7
+  Script: wavebreaker_idol
+
+  Stone Guard
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Sea Ward
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Wave Slam
+    CD: 2  |  Type: Active
+    Scaling: 98% ATK
+    ~Damage @ ATK 45: 44
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Winter Guardian
+  Role: tank  |  Rarity: epic  |  Levels: 29–31  |  Stamina/turn: 7
+  Script: winter_guardian
+
+  Shield Wall
+    CD: 4  |  Type: Active
+    Effect: defensive buff.
+
+  Ice Ward
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Frozen Slam
+    CD: 2  |  Type: Active
+    Scaling: 105% ATK
+    ~Damage @ ATK 45: 47
+    Effect: stun chance.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+================================================================================
+BRUISER ENEMIES
+================================================================================
+
+Ash Lizard
+  Role: bruiser  |  Rarity: common  |  Levels: 41–45  |  Stamina/turn: 6
+  Script: ash_lizard
+
+  Heat Skin
+    CD: 3  |  Type: Active
+    Effect: damage reflect.
+
+  Scorch Trail
+    CD: 3  |  Type: Active
+    Effect: burn.
+
+  Ember Bite
+    CD: 1  |  Type: Active
+    Scaling: 52% ATK
+    ~Damage @ ATK 45: 23
+    Effect: burn.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Ashmaw Titan
+  Role: bruiser  |  Rarity: epic  |  Levels: 53–53  |  Stamina/turn: 7
+  Script: ashmaw_titan
+
+  Obsidian Hide
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: Combat ability.
+
+  Burning Rampage
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Ashmaw Crush slams
+    CD: 2  |  Type: Active
+    Scaling: 110% ATK
+    ~Damage @ ATK 45: 49
+    Effect: fragile / increased damage taken.
+
+  Slagquake Slam
+    CD: 3  |  Type: Active
+    Scaling: 70% ATK
+    ~Damage @ ATK 45: 31
+    Effect: cripple (+1 stamina cost); multi-target / AoE.
+
+  Jawbreaker Impact
+    CD: 5  |  Type: Active
+    Scaling: 95% ATK
+    ~Damage @ ATK 45: 42
+    Effect: stun chance.
+
+Dune Devourer
+  Role: bruiser  |  Rarity: epic  |  Levels: 19–21  |  Stamina/turn: 7
+  Script: dune_devourer
+
+  Sand Devours
+    CD: 3  |  Type: Active
+    Scaling: 88% ATK
+    ~Damage @ ATK 45: 39
+    Effect: heal ally or self.
+
+  Grinding Maw
+    CD: 2  |  Type: Active
+    Scaling: 72% ATK
+    ~Damage @ ATK 45: 32
+    Effect: fragile / increased damage taken.
+
+  Burrow Ambush
+    CD: 3  |  Type: Active
+    Scaling: 105% ATK
+    ~Damage @ ATK 45: 47
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Fallen Echo
+  Role: bruiser  |  Rarity: rare  |  Levels: 36–36  |  Stamina/turn: 6
+  Script: fallen_echo
+
+  Echo Strike hits
+    CD: 2  |  Type: Active
+    Effect: Combat ability.
+
+  Broken March staggers
+    CD: 3  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Gaiahide Behemoth
+  Role: bruiser  |  Rarity: myth  |  BOSS  |  Levels: 22–22  |  Stamina/turn: 8
+  Script: gaiahide_behemoth
+
+  Gaiahide Slams
+    CD: 2  |  Type: Active
+    Scaling: 105% ATK
+    ~Damage @ ATK 45: 47
+    Effect: defensive buff.
+
+  Rootquake shakes
+    CD: 3  |  Type: Active
+    Scaling: 65% ATK
+    ~Damage @ ATK 45: 29
+    Effect: Combat ability.
+
+Gorilla
+  Role: bruiser  |  Rarity: epic  |  Levels: 39–42  |  Stamina/turn: 7
+  Script: gorilla
+
+  Ground Rupture
+    CD: 3  |  Type: Active
+    Scaling: 74% ATK
+    ~Damage @ ATK 45: 33
+    Effect: Combat ability.
+
+  Rage Roar
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: offensive buff.
+
+  Crushing Slam
+    CD: 2  |  Type: Active
+    Effect: Combat ability.
+
+Granitehorn Breaker
+  Role: bruiser  |  Rarity: epic  |  Levels: 31–31  |  Stamina/turn: 7
+  Script: granitehorn_breaker
+
+  Hornbreaker Charge smashes
+    CD: 2  |  Type: Active
+    Effect: fragile / increased damage taken.
+
+  Staggering Headbutt rocks
+    CD: 3  |  Type: Active
+    Effect: stun chance.
+
+  Stonehide Rage
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff; offensive buff.
+
+  Faultline Kick
+    CD: 3  |  Type: Active
+    Effect: cripple (+1 stamina cost); multi-target / AoE.
+
+Magma Boar
+  Role: bruiser  |  Rarity: epic  |  Levels: 47–50  |  Stamina/turn: 7
+  Script: magma_boar
+
+  Lava Armor
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Boiling Rage
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: offensive buff.
+
+  Molten Charge
+    CD: 2  |  Type: Active
+    Scaling: 108% ATK
+    ~Damage @ ATK 45: 48
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Plains Raptor
+  Role: bruiser  |  Rarity: common  |  Levels: 13–17  |  Stamina/turn: 6
+  Script: plains_raptor
+
+  Pounces
+    CD: 2  |  Type: Active
+    Effect: Combat ability.
+
+  Claw Rends
+    CD: 1  |  Type: Active
+    Scaling: 82% ATK
+    ~Damage @ ATK 45: 36
+    Effect: bleed.
+
+  Predator Focus
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: offensive buff.
+
+Primordial Silverback
+  Role: bruiser  |  Rarity: epic  |  Levels: 41–41  |  Stamina/turn: 7
+  Script: primordial_silverback
+
+  Canopy Breaker smashes
+    CD: 2  |  Type: Active
+    Scaling: 105% ATK
+    ~Damage @ ATK 45: 47
+    Effect: fragile / increased damage taken.
+
+  Ground Roar
+    CD: 3  |  Type: Active
+    Scaling: 65% ATK
+    ~Damage @ ATK 45: 29
+    Effect: cripple (+1 stamina cost); multi-target / AoE.
+
+  Primal Guard
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff; offensive buff.
+
+  Rootknuckle Slam crushes
+    CD: 4  |  Type: Active
+    Scaling: 85% ATK
+    ~Damage @ ATK 45: 38
+    Effect: stun chance.
+
+Rimebound Undertaker
+  Role: bruiser  |  Rarity: epic  |  Levels: 53–53  |  Stamina/turn: 7
+  Script: rimebound_undertaker
+
+  Rimehide Burden
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: Combat ability.
+
+  Funeral Weight
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Coffin Breaker
+    CD: 3  |  Type: Active
+    Scaling: 115% ATK
+    ~Damage @ ATK 45: 51
+    Effect: stun chance.
+
+  Gravehook Drag
+    CD: 2  |  Type: Active
+    Scaling: 95% ATK
+    ~Damage @ ATK 45: 42
+    Effect: cripple (+1 stamina cost).
+
+  Last Procession
+    CD: 5  |  Type: Active
+    Scaling: 70% ATK
+    ~Damage @ ATK 45: 31
+    Effect: cripple (+1 stamina cost); multi-target / AoE.
+
+Rock Ibex
+  Role: bruiser  |  Rarity: rare  |  Levels: 25–29  |  Stamina/turn: 7
+  Script: rock_ibex
+
+  Stone Skin
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Headbutt
+    CD: 2  |  Type: Active
+    Scaling: 88% ATK
+    ~Damage @ ATK 45: 39
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Stormfang Ravager
+  Role: bruiser  |  Rarity: epic  |  Levels: 14–14  |  Stamina/turn: 7
+  Script: stormfang_ravager
+
+  Thunder Leap
+    CD: 2  |  Type: Active
+    Scaling: 125% ATK
+    ~Damage @ ATK 45: 56
+    Effect: Combat ability.
+
+  releases Static Pulse
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down; cripple (+1 stamina cost).
+
+The Held Colossus
+  Role: bruiser  |  Rarity: myth  |  BOSS  |  Levels: 32–32  |  Stamina/turn: 8
+  Script: held_colossus
+
+  Colossus Slam crushes
+    CD: 2  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+  Faultquake
+    CD: 3  |  Type: Active
+    Effect: multi-target / AoE; reduces player damage dealt.
+
+  Stone Breath washes
+    CD: 4  |  Type: Active
+    Scaling: 65% ATK
+    ~Damage @ ATK 45: 29
+    Effect: blind / accuracy down; cripple (+1 stamina cost).
+
+  Mountainhide
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Stillness Crush shatters your guard
+    CD: 5  |  Type: Active
+    Damage: 0
+    Effect: stun chance; defensive buff; phase transition.
+
+The Last Warmaster
+  Role: bruiser  |  Rarity: myth  |  BOSS  |  Levels: 43–43  |  Stamina/turn: 8
+  Script: the_last_warmaster
+
+  Raise The Fallen
+    CD: 5  |  Type: Active
+    Effect: Combat ability.
+
+  Commanding Ruin
+    CD: 3  |  Type: Active
+    Effect: reduces player damage dealt.
+
+  Warmaster's Execution falls on
+    CD: 2  |  Type: Active
+    Scaling: 105% ATK
+    ~Damage @ ATK 45: 47
+    Effect: Combat ability.
+
+  Ruststorm Slash
+    CD: 4  |  Type: Active
+    Scaling: 70% ATK
+    ~Damage @ ATK 45: 31
+    Effect: fragile / increased damage taken; multi-target / AoE.
+
+  No Retreat
+    CD: 4  |  Type: Active
+    Effect: offensive buff.
+
+  Final Order shakes the chamber
+    CD: 5  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: stun chance; phase transition.
+
+The Riftforge Tyrant
+  Role: bruiser  |  Rarity: myth  |  BOSS  |  Levels: 54–54  |  Stamina/turn: 8
+  Script: the_riftforge_tyrant
+
+  Tyrant Blackguard
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: Combat ability.
+
+  Worldhate Judgment blinds the party
+    CD: 5  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: blind / accuracy down; stun chance; phase transition.
+
+  Riftforge Eruption
+    CD: 5  |  Type: Active
+    Scaling: 60% ATK
+    ~Damage @ ATK 45: 27
+    Effect: fragile / increased damage taken; multi-target / AoE; phase transition.
+
+  Forgefire Decree
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Chain Of Hatred
+    CD: 3  |  Type: Active
+    Scaling: 75% ATK
+    ~Damage @ ATK 45: 33
+    Effect: cripple (+1 stamina cost).
+
+  Riftblade Cleave burns
+    CD: 2  |  Type: Active
+    Effect: burn; multi-target / AoE; phase transition.
+
+The Stormwake Leviathan
+  Role: bruiser  |  Rarity: myth  |  Levels: 15–15  |  Stamina/turn: 8
+  Script: stormwake_leviathan
+
+  unleashes Endless Maelstrom
+    CD: 4  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: cripple (+1 stamina cost).
+
+  drives Cataclysm Strike
+    CD: 3  |  Type: Active
+    Scaling: 90% ATK
+    ~Damage @ ATK 45: 40
+    Effect: Combat ability.
+
+  roars a Tempest
+    CD: 2  |  Type: Active
+    Effect: blind / accuracy down.
+
+Tidebound Crusher
+  Role: bruiser  |  Rarity: epic  |  Levels: 14–14  |  Stamina/turn: 7
+  Script: tidebound_crusher
+
+  Drown Grip
+    CD: 3  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+  Crushing Wave slams
+    CD: 2  |  Type: Active
+    Scaling: 110% ATK
+    ~Damage @ ATK 45: 49
+    Effect: stun chance.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+================================================================================
+ASSASSIN ENEMIES
+================================================================================
+
+Ash Skulker
+  Role: assassin  |  Rarity: rare  |  Levels: 35–39  |  Stamina/turn: 7
+  Script: ash_skulker
+
+  Fade
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Ash Mark
+    CD: 3  |  Type: Active
+    Effect: fragile / increased damage taken.
+
+  Backstab
+    CD: 2  |  Type: Active
+    Scaling: 98% ATK
+    ~Damage @ ATK 45: 44
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Cinder Stalker
+  Role: assassin  |  Rarity: common  |  Levels: 43–47  |  Stamina/turn: 6
+  Script: cinder_stalker
+
+  Smoke Veil
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Blazing Pounce
+    CD: 2  |  Type: Active
+    Scaling: 95% ATK
+    ~Damage @ ATK 45: 42
+    Effect: Combat ability.
+
+  Cinder Claw
+    CD: 2  |  Type: Active
+    Scaling: 68% ATK
+    ~Damage @ ATK 45: 30
+    Effect: burn.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Cliff Lurker
+  Role: assassin  |  Rarity: epic  |  Levels: 7–10  |  Stamina/turn: 7
+  Script: cliff_lurker
+
+  Rock Skip
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Ambush Drop
+    CD: 2  |  Type: Active
+    Scaling: 98% ATK
+    ~Damage @ ATK 45: 44
+    Effect: Combat ability.
+
+  Grip Strike
+    CD: 2  |  Type: Active
+    Scaling: 72% ATK
+    ~Damage @ ATK 45: 32
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Dust Carver
+  Role: assassin  |  Rarity: common  |  Levels: 11–15  |  Stamina/turn: 6
+  Script: dust_carver
+
+  Drystep
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Blind Dust
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down.
+
+  Sand Slash
+    CD: 1  |  Type: Active
+    Scaling: 82% ATK
+    ~Damage @ ATK 45: 36
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Fangroot Alpha
+  Role: assassin  |  Rarity: epic  |  Levels: 21–21  |  Stamina/turn: 7
+  Script: fangroot_alpha
+
+  Alpha Lunges at
+    CD: 2  |  Type: Active
+    Scaling: 110% ATK
+    ~Damage @ ATK 45: 49
+    Effect: Combat ability.
+
+  Rootfang Rends
+    CD: 2  |  Type: Active
+    Scaling: 75% ATK
+    ~Damage @ ATK 45: 33
+    Effect: bleed.
+
+Field Wolf
+  Role: assassin  |  Rarity: epic  |  Levels: 19–21  |  Stamina/turn: 7
+  Script: field_wolf
+
+  Execution Bite
+    CD: 2  |  Type: Active
+    Effect: Combat ability.
+
+  Bloodhunts
+    CD: 2  |  Type: Active
+    Effect: bleed.
+
+  Pack Howl
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: offensive buff.
+
+Frozen Stalker
+  Role: assassin  |  Rarity: epic  |  Levels: 47–50  |  Stamina/turn: 7
+  Script: frozen_stalker
+
+  Whiteout Veil
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Chill Mark
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: burn.
+
+  Frozen Ambush
+    CD: 2  |  Type: Active
+    Scaling: 95% ATK
+    ~Damage @ ATK 45: 42
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Greenleaf Fox
+  Role: assassin  |  Rarity: rare  |  Levels: 35–39  |  Stamina/turn: 7
+  Script: greenleaf_fox
+
+  Fade Step
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Rending Snap
+    CD: 2  |  Type: Active
+    Scaling: 65% ATK
+    ~Damage @ ATK 45: 29
+    Effect: bleed; stun chance.
+
+  Ambush Bite
+    CD: 2  |  Type: Active
+    Scaling: 85% ATK
+    ~Damage @ ATK 45: 38
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Icy Mink
+  Role: assassin  |  Rarity: common  |  Levels: 41–45  |  Stamina/turn: 6
+  Script: icy_mink
+
+  Slipstep
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Shiver Cut
+    CD: 2  |  Type: Active
+    Scaling: 90% ATK
+    ~Damage @ ATK 45: 40
+    Effect: Combat ability.
+
+  Frost Bite
+    CD: 1  |  Type: Active
+    Scaling: 72% ATK
+    ~Damage @ ATK 45: 32
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Rock Lynx
+  Role: assassin  |  Rarity: common  |  Levels: 23–27  |  Stamina/turn: 6
+  Script: rock_lynx
+
+  Agile Reflex
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Cliff Strike
+    CD: 2  |  Type: Active
+    Scaling: 92% ATK
+    ~Damage @ ATK 45: 41
+    Effect: Combat ability.
+
+Saltwind Skimmer
+  Role: assassin  |  Rarity: common  |  Levels: 1–5  |  Stamina/turn: 6
+  Script: saltwind_skimmer
+
+  Glide
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Salt Peck
+    CD: 2  |  Type: Active
+    Scaling: 52% ATK
+    ~Damage @ ATK 45: 23
+    Effect: fragile / increased damage taken.
+
+  Wind Slice
+    CD: 1  |  Type: Active
+    Scaling: 72% ATK
+    ~Damage @ ATK 45: 32
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+================================================================================
+MAGE ENEMIES
+================================================================================
+
+Ash Horror
+  Role: mage  |  Rarity: common  |  Levels: 31–35  |  Stamina/turn: 6
+  Script: ash_horror
+
+  Smother
+    CD: 2  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: Combat ability.
+
+  Decay Aura
+    CD: 3  |  Type: Active
+    Scaling: 8% ATK
+    ~Damage @ ATK 45: 3
+    Effect: poison.
+
+  Ash Touch
+    CD: 1  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: poison.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Brinegullet Spitter
+  Role: mage  |  Rarity: common  |  Levels: 3–7  |  Stamina/turn: 6
+  Script: brinegullet_spitter
+
+  Corrosive Pool
+    CD: 3  |  Type: Active
+    Scaling: 10% ATK
+    ~Damage @ ATK 45: 4
+    Effect: poison; fragile / increased damage taken.
+
+  Acid Spit
+    CD: 2  |  Type: Active
+    Scaling: 58% ATK
+    ~Damage @ ATK 45: 26
+    Effect: poison.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Grass Snake
+  Role: mage  |  Rarity: rare  |  Levels: 15–19  |  Stamina/turn: 7
+  Script: grass_snake
+
+  Shed Skin
+    CD: 4  |  Type: Active
+    Effect: defensive buff.
+
+  Constriction
+    CD: 3  |  Type: Active
+    Effect: reduces combo chance.
+
+  Venom Burst
+    CD: 2  |  Type: Active
+    Effect: poison.
+
+Hollowglass Siren
+  Role: mage  |  Rarity: epic  |  Levels: 52–52  |  Stamina/turn: 7
+  Script: hollowglass_siren
+
+  Hollow Reflection
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Silent Aria
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Rime Lament
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Shatter Focus
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: blind / accuracy down.
+
+  Glass Needle pierces
+    CD: 2  |  Type: Active
+    Scaling: 65% ATK
+    ~Damage @ ATK 45: 29
+    Effect: cripple (+1 stamina cost).
+
+Icy Serpent
+  Role: mage  |  Rarity: common  |  Levels: 43–47  |  Stamina/turn: 6
+  Script: icy_serpent
+
+  Freeze Skin
+    CD: 3  |  Type: Active
+    Effect: damage reflect.
+
+  Constriction Chill
+    CD: 3  |  Type: Active
+    Scaling: 60% ATK
+    ~Damage @ ATK 45: 27
+    Effect: reduces combo chance.
+
+  Cold Venom
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: poison.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Inferno Oracle
+  Role: mage  |  Rarity: epic  |  Levels: 52–52  |  Stamina/turn: 7
+  Script: inferno_oracle
+
+  Flameveil Ward
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: Combat ability.
+
+  Cinder Prophecy
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Inferno Gaze
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Firethread Lash
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: burn; multi-target / AoE.
+
+The Stillness Below
+  Role: mage  |  Rarity: myth  |  BOSS  |  Levels: 54–54  |  Stamina/turn: 8
+  Script: the_stillness_below
+
+  Absolute Zero Pulse freezes the party
+    CD: 6  |  Type: Active
+    Scaling: 58% ATK
+    ~Damage @ ATK 45: 26
+    Effect: stun chance; phase transition.
+
+  Fracture The Surface
+    CD: 5  |  Type: Active
+    Effect: Combat ability.
+
+  Glacial Carapace
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: Combat ability.
+
+  Silence Wave
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Abyssal Rime
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Eye Beneath sees
+    CD: 5  |  Type: Active
+    Scaling: 70% ATK
+    ~Damage @ ATK 45: 31
+    Effect: blind / accuracy down.
+
+  Pressure Under Ice
+    CD: 2  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: cripple (+1 stamina cost).
+
+Witherling
+  Role: mage  |  Rarity: common  |  Levels: 13–17  |  Stamina/turn: 6
+  Script: witherling
+
+  Life Drains
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: heal ally or self.
+
+  Brittle Breath
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Decay Bite
+    CD: 1  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: poison.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+================================================================================
+CONTROLLER ENEMIES
+================================================================================
+
+Abyssal Tempest Caller
+  Role: controller  |  Rarity: epic  |  Levels: 13–13  |  Stamina/turn: 7
+  Script: abyssal_tempest_caller
+
+  casts Tempest Bind on
+    CD: 2  |  Type: Active
+    Effect: blind / accuracy down.
+
+  Static Barrier
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Storm Collapse
+    CD: 4  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Burrow Hare
+  Role: controller  |  Rarity: common  |  Levels: 11–15  |  Stamina/turn: 6
+  Script: burrow_hare
+
+  Burrow Instinct
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Dust Flick
+    CD: 2  |  Type: Active
+    Effect: blind / accuracy down.
+
+  Bleed Scratches
+    CD: 2  |  Type: Active
+    Scaling: 62% ATK
+    ~Damage @ ATK 45: 27
+    Effect: bleed.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Coastal Horror
+  Role: controller  |  Rarity: epic  |  Levels: 9–11  |  Stamina/turn: 7
+  Script: coastal_horror
+
+  Abyss Grip
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down; reduces player damage dealt.
+
+  Terror Pulse
+    CD: 4  |  Type: Active
+    Effect: extends debuff duration.
+
+Drowned Channeler
+  Role: controller  |  Rarity: epic  |  Levels: 13–13  |  Stamina/turn: 7
+  Script: drowned_channeler
+
+  Abyss Bind
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down.
+
+  Tidal Surge crashes
+    CD: 2  |  Type: Active
+    Scaling: 90% ATK
+    ~Damage @ ATK 45: 40
+    Effect: extends debuff duration.
+
+Ember Forgeling
+  Role: controller  |  Rarity: rare  |  Levels: 48–48  |  Stamina/turn: 6
+  Script: ember_forgeling
+
+  Spark Spray
+    CD: 3  |  Type: Active
+    Scaling: 35% ATK
+    ~Damage @ ATK 45: 15
+    Effect: burn; multi-target / AoE.
+
+Ember Scuttler
+  Role: controller  |  Rarity: rare  |  Levels: 45–49  |  Stamina/turn: 7
+  Script: ember_scuttler
+
+  Fire Web
+    CD: 2  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: Combat ability.
+
+  Ignite
+    CD: 2  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: burn.
+
+  Scuttle Burst
+    CD: 2  |  Type: Active
+    Scaling: 32% ATK
+    ~Damage @ ATK 45: 14
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Frost Skitter
+  Role: controller  |  Rarity: myth  |  Levels: 49–53  |  Stamina/turn: 8
+  Script: frost_skitter
+
+  Crystal Nerves
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Absolute Zero
+    CD: 4  |  Type: Active
+    Effect: stun chance.
+
+  Ice Web
+    CD: 2  |  Type: Active
+    Scaling: 52% ATK
+    ~Damage @ ATK 45: 23
+    Effect: burn.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Frozen Pinecone
+  Role: controller  |  Rarity: common  |  Levels: 23–27  |  Stamina/turn: 6
+  Script: frozen_pinecone
+
+  Needle Scatter
+    CD: 3  |  Type: Active
+    Scaling: 35% ATK
+    ~Damage @ ATK 45: 15
+    Effect: Combat ability.
+
+  Freeze Burst
+    CD: 3  |  Type: Active
+    Scaling: 62% ATK
+    ~Damage @ ATK 45: 27
+    Effect: Combat ability.
+
+  Drop Strike
+    CD: 1  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Lava Basilisk
+  Role: controller  |  Rarity: epic  |  Levels: 49–53  |  Stamina/turn: 7
+  Script: lava_basilisk
+
+  Molten Sheen
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Petrifying Heat
+    CD: 3  |  Type: Active
+    Effect: stun chance.
+
+  Inferno Gaze
+    CD: 2  |  Type: Active
+    Effect: burn.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Mirage Lurker
+  Role: controller  |  Rarity: epic  |  Levels: 17–20  |  Stamina/turn: 7
+  Script: mirage_lurker
+
+  Mirage Shift
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff; offensive buff.
+
+  Heat Haze
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down.
+
+  Illusion Strike
+    CD: 2  |  Type: Active
+    Scaling: 78% ATK
+    ~Damage @ ATK 45: 35
+    Effect: reduces combo chance.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Mirage Maw
+  Role: controller  |  Rarity: epic  |  Levels: 21–21  |  Stamina/turn: 7
+  Script: mirage_maw
+
+  Splitting Mirage
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: blind / accuracy down; defensive buff; offensive buff.
+
+  Thirsting Haze
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down; multi-target / AoE.
+
+  Mirage Lock
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: blind / accuracy down; cripple (+1 stamina cost); offensive buff.
+
+  False Wounds
+    CD: 2  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Mirage Remnant
+  Role: controller  |  Rarity: rare  |  Levels: 18–18  |  Stamina/turn: 6
+  Script: mirage_remnant
+
+  Vanish
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+Pale Rime Wisp
+  Role: controller  |  Rarity: rare  |  Levels: 50–50  |  Stamina/turn: 6
+  Script: pale_rime_wisp
+
+  Wisp Veil
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+Petrified Coilwarden
+  Role: controller  |  Rarity: epic  |  Levels: 30–30  |  Stamina/turn: 7
+  Script: petrified_coilwarden
+
+  Petrifying Stare locks
+    CD: 4  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: stun chance.
+
+  Stone Venom bites
+    CD: 2  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: poison.
+
+  Crushing Coil constricts
+    CD: 3  |  Type: Active
+    Effect: cripple (+1 stamina cost); reduces combo chance.
+
+  Mineral Haze
+    CD: 4  |  Type: Active
+    Effect: blind / accuracy down.
+
+Remnant of Rust
+  Role: controller  |  Rarity: epic  |  Levels: 37–40  |  Stamina/turn: 7
+  Script: remnant_of_rust
+
+  Corrode Armor
+    CD: 3  |  Type: Active
+    Effect: fragile / increased damage taken.
+
+  Rust Strike
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: Combat ability.
+
+  Grinding Lock
+    CD: 2  |  Type: Active
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Rock Serpent
+  Role: controller  |  Rarity: epic  |  Levels: 27–30  |  Stamina/turn: 7
+  Script: rock_serpent
+
+  Stone Slither
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Petrify Gaze
+    CD: 4  |  Type: Active
+    Scaling: 60% ATK
+    ~Damage @ ATK 45: 27
+    Effect: stun chance.
+
+  Debilitating Venom
+    CD: 2  |  Type: Active
+    Effect: blind / accuracy down; reduces player damage dealt.
+
+  Crush Coil
+    CD: 3  |  Type: Active
+    Scaling: 78% ATK
+    ~Damage @ ATK 45: 35
+    Effect: cripple (+1 stamina cost).
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Rustbound Marshal
+  Role: controller  |  Rarity: epic  |  Levels: 40–40  |  Stamina/turn: 7
+  Script: rustbound_marshal
+
+  Corrode Command
+    CD: 3  |  Type: Active
+    Effect: reduces player damage dealt.
+
+  Rusted Guard
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Marshals Cleave
+    CD: 2  |  Type: Active
+    Effect: fragile / increased damage taken; multi-target / AoE.
+
+  Chain Order binds
+    CD: 4  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Storm Echo
+  Role: controller  |  Rarity: rare  |  Levels: 13–15  |  Stamina/turn: 7
+  Script: (role fallback)
+
+  (Uses generic role rotation by combatRole — no custom script.)
+
+Tide Echo
+  Role: controller  |  Rarity: rare  |  Levels: 6–6  |  Stamina/turn: 7
+  Script: tide_hopper
+
+  Foam Feint
+    CD: 2  |  Type: Active
+    Effect: blind / accuracy down; reduces player damage dealt.
+
+  Dragging Current
+    CD: 3  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Tide Hopper
+  Role: controller  |  Rarity: common  |  Levels: 1–5  |  Stamina/turn: 6
+  Script: tide_hopper
+
+  Foam Feint
+    CD: 2  |  Type: Active
+    Effect: blind / accuracy down; reduces player damage dealt.
+
+  Dragging Current
+    CD: 3  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Tideharrow
+  Role: controller  |  Rarity: epic  |  Levels: 9–11  |  Stamina/turn: 7
+  Script: tideharrow
+
+  Brine Shackles
+    CD: 2  |  Type: Active
+    Scaling: 52% ATK
+    ~Damage @ ATK 45: 23
+    Effect: Combat ability.
+
+  Drown Pulse
+    CD: 2  |  Type: Active
+    Scaling: 88% ATK
+    ~Damage @ ATK 45: 39
+    Effect: Combat ability.
+
+  Riptide Pull
+    CD: 3  |  Type: Active
+    Scaling: 58% ATK
+    ~Damage @ ATK 45: 26
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+================================================================================
+SUPPORT ENEMIES
+================================================================================
+
+Barkhide Spriggan
+  Role: support  |  Rarity: epic  |  Levels: 27–30  |  Stamina/turn: 7
+  Script: barkhide_spriggan
+
+  Nature Guard
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self; defensive buff.
+
+  Barkskin
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Root Bind Sg
+    CD: 2  |  Type: Active
+    Scaling: 58% ATK
+    ~Damage @ ATK 45: 26
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+Bramblehorn Matriarch
+  Role: support  |  Rarity: epic  |  Levels: 20–20  |  Stamina/turn: 7
+  Script: bramblehorn_matriarch
+
+  Rootmend
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self.
+
+  Thorn Prayer
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: blind / accuracy down.
+
+  Rootlash
+    CD: 1  |  Type: Active
+    Effect: Combat ability.
+
+Driftling
+  Role: support  |  Rarity: rare  |  Levels: 5–9  |  Stamina/turn: 7
+  Script: driftling
+
+  Tidal Mend
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self.
+
+  Mist Veil
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+Frostroot Seedling
+  Role: support  |  Rarity: rare  |  Levels: 26–26  |  Stamina/turn: 6
+  Script: frostroot_seedling
+
+  Seedling Mend
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self.
+
+  Frost Needles
+    CD: 2  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+Jungle Stag
+  Role: support  |  Rarity: rare  |  Levels: 37–40  |  Stamina/turn: 7
+  Script: greenleaf_stag
+
+  Natures Blessing
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Verdant Ward
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self; defensive buff.
+
+  Root Bind
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: Combat ability.
+
+Pinebound Fawn
+  Role: support  |  Rarity: common  |  Levels: 21–25  |  Stamina/turn: 6
+  Script: pinebound_fawn
+
+  Gentle Heal
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self.
+
+  Winter Grace
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+The Heartbloom Ancient
+  Role: support  |  Rarity: myth  |  BOSS  |  Levels: 43–43  |  Stamina/turn: 8
+  Script: the_heartbloom_ancient
+
+  Heartroot Pulse
+    CD: 3  |  Type: Active
+    Effect: heal ally or self.
+
+  Vinecrush slams
+    CD: 2  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: cripple (+1 stamina cost).
+
+  Sporefall rains on
+    CD: 4  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: poison; blind / accuracy down.
+
+  Ancient Barkskin
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Blooming Rupture
+    CD: 5  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: fragile / increased damage taken; multi-target / AoE; phase transition.
+
+  Gaia Heartbreak shatters the air
+    CD: 5  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: stun chance; phase transition.
+
+The Sleeping Child of Winter
+  Role: support  |  Rarity: myth  |  BOSS  |  Levels: 32–32  |  Stamina/turn: 8
+  Script: sleeping_child_of_winter
+
+  Frozen Heart Pulse washes
+    CD: 5  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: stun chance; phase transition.
+
+  Winters Mercy
+    CD: 5  |  Type: Active
+    Effect: phase transition.
+
+  Lullaby of Snow drifts
+    CD: 3  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: blind / accuracy down.
+
+  Frostroot Cradle
+    CD: 3  |  Type: Active
+    Effect: heal ally or self; defensive buff.
+
+  Shiver Bloom chills
+    CD: 4  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: blind / accuracy down; cripple (+1 stamina cost).
+
+  Innocent Grasp holds
+    CD: 2  |  Type: Active
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
+    Effect: cripple (+1 stamina cost).
+
+Verdant Bloomseer
+  Role: support  |  Rarity: epic  |  Levels: 40–40  |  Stamina/turn: 7
+  Script: verdant_bloomseer
+
+  Bloom Mend
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: Combat ability.
+
+  Pollen Blind
+    CD: 3  |  Type: Active
+    Effect: blind / accuracy down.
+
+  Thorned Bloom strikes
+    CD: 2  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: poison.
+
+  Greenward Song
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+Verdant Sprout
+  Role: support  |  Rarity: rare  |  Levels: 36–36  |  Stamina/turn: 6
+  Script: verdant_sprout
+
+  Sprout Mend
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self.
+
+Whitebark Matron
+  Role: support  |  Rarity: epic  |  Levels: 30–30  |  Stamina/turn: 7
+  Script: whitebark_matron
+
+  Frozen Prayer
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: defensive buff.
+
+  Whitebark Mend
+    CD: 3  |  Type: Active
+    Damage: 0
+    Effect: heal ally or self; defensive buff.
+
+  Snowveil Grace
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Frostroot Binds
+    CD: 3  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: cripple (+1 stamina cost).
+
+================================================================================
+SUMMONER ENEMIES
+================================================================================
+
+Bannerless Wraithlord
+  Role: summoner  |  Rarity: epic  |  Levels: 41–41  |  Stamina/turn: 7
+  Script: bannerless_wraithlord
+
+  Call Fallen
+    CD: 4  |  Type: Active
+    Effect: summon reinforcement.
+
+  Soul Chill washes
+    CD: 3  |  Type: Active
+    Scaling: 40% ATK
+    ~Damage @ ATK 45: 18
+    Effect: blind / accuracy down.
+
+  Banner Curse haunts
+    CD: 3  |  Type: Active
+    Scaling: 35% ATK
+    ~Damage @ ATK 45: 15
+    Effect: fragile / increased damage taken.
+
+  Haunting Bolt strikes
+    CD: 2  |  Type: Active
+    Scaling: 60% ATK
+    ~Damage @ ATK 45: 27
+    Effect: Combat ability.
+
+Faded War Wraith
+  Role: summoner  |  Rarity: epic  |  Levels: 39–42  |  Stamina/turn: 7
+  Script: faded_war_wraith
+
+  Call Fallen
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Soul Chill
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+  Haunt
+    CD: 2  |  Type: Active
+    Scaling: 58% ATK
+    ~Damage @ ATK 45: 26
+    Effect: Combat ability.
+
+  Basic Attack
+    CD: 0  |  Type: Active
+    Scaling: 100% ATK
+    ~Damage @ ATK 45: 45
+    Effect: Standard filler when specials are on cooldown.
+
+The Dune Mourner
+  Role: summoner  |  Rarity: myth  |  BOSS  |  Levels: 22–22  |  Stamina/turn: 8
+  Script: dune_mourner
+
+  Open The Maw
+    CD: 5  |  Type: Active
+    Effect: summon reinforcement; offensive buff.
+
+  Mirage Burials
+    CD: 4  |  Type: Active
+    Scaling: 50% ATK
+    ~Damage @ ATK 45: 22
+    Effect: blind / accuracy down; cripple (+1 stamina cost); offensive buff.
+
+  Withering Cries
+    CD: 3  |  Type: Active
+    Scaling: 45% ATK
+    ~Damage @ ATK 45: 20
+    Effect: blind / accuracy down; multi-target / AoE.
+
+  Drought Curse
+    CD: 4  |  Type: Active
+    Effect: blind / accuracy down; cripple (+1 stamina cost).
+
+  Sand Hungers
+    CD: 2  |  Type: Active
+    Scaling: 60% ATK
+    ~Damage @ ATK 45: 27
+    Effect: bleed; burn; heal ally or self.
+
+Tidemeld Revenant
+  Role: summoner  |  Rarity: epic  |  Levels: 7–10  |  Stamina/turn: 7
+  Script: tidemeld_revenant
+
+  Summon Tide Echo
+    CD: 4  |  Type: Active
+    Damage: 0
+    Effect: summon reinforcement.
+
+  Soul Currents
+    CD: 2  |  Type: Active
+    Effect: heal ally or self.
+
+Tidemother Aberration
+  Role: summoner  |  Rarity: epic  |  Levels: 15–15  |  Stamina/turn: 7
+  Script: tidemother_aberration
+
+  Spawn Tide Echo
+    CD: 3  |  Type: Active
+    Effect: summon reinforcement.
+
+  Crushing Undertow engulfs
+    CD: 2  |  Type: Active
+    Effect: cripple (+1 stamina cost).
+
+================================================================================
+HARASSER ENEMIES
+================================================================================
+
+Leafdart Squirrel
+  Role: harasser  |  Rarity: common  |  Levels: 31–35  |  Stamina/turn: 6
+  Script: greenleaf_squirrel
+
+  Scurry Shift
+    CD: 3  |  Type: Active
+    Effect: defensive buff.
+
+  Forest Gift
+    CD: 3  |  Type: Active
+    Effect: heal ally or self.
+
+================================================================================
+BUFFER ENEMIES
+================================================================================
+
+Canopy Screecher
+  Role: buffer  |  Rarity: common  |  Levels: 33–37  |  Stamina/turn: 6
+  Script: greenleaf_parrot
+
+  Echo Cry
+    CD: 4  |  Type: Active
+    Effect: Combat ability.
+
+  Distracting Screech
+    CD: 3  |  Type: Active
+    Effect: Combat ability.
+
+================================================================================
+END OF REFERENCE
+================================================================================

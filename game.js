@@ -7676,6 +7676,22 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
           15 + formulaIntStatusPotencyPct(foe.int || 0)
         );
         st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
+        if (st.tactical && target && typeof target.gridX === "number" && typeof foe.gridX === "number") {
+          const dx = Math.sign(foe.gridX - target.gridX);
+          const dy = Math.sign(foe.gridY - target.gridY);
+          const nx =
+            target.gridX + (Math.abs(foe.gridX - target.gridX) >= Math.abs(foe.gridY - target.gridY) ? dx : 0);
+          const ny =
+            target.gridY + (Math.abs(foe.gridY - target.gridY) > Math.abs(foe.gridX - target.gridX) ? dy : 0);
+          if (nx !== target.gridX || ny !== target.gridY) {
+            const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
+            const key = TacticalGrid.coordKey(nx, ny);
+            if (!occ.has(key)) {
+              target.gridX = nx;
+              target.gridY = ny;
+            }
+          }
+        }
         appendFightLog(`${foe.name} drags your flow (+stamina costs).`);
         return true;
       }
@@ -8150,9 +8166,17 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     // 4) Control: AoE tempo disruption when in "rupture" mode.
     if (foe.combat.gorillaAlt && ready("ground_rupture")) {
       setCd("ground_rupture", 3);
-      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.74 * outMult)), foe.name, "Ground Ruptures", {
-        aoeAllParty: true
-      });
+      const focusUid = pickPartyTargetForMonsterTargetRule(st, "bruise_focus");
+      const partyUid = typeof focusUid === "number" ? focusUid : null;
+      if (st.tactical && typeof foe.gridX === "number") {
+        dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.74 * outMult)), foe.name, "Ground Ruptures along the line", {
+          partyUid
+        });
+      } else {
+        dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.74 * outMult)), foe.name, "Ground Ruptures", {
+          aoeAllParty: true
+        });
+      }
       ensureCombatStatus(st);
       st.status.playerBrineWeakTurns = Math.max(st.status.playerBrineWeakTurns || 0, 1);
       return true;
@@ -10660,9 +10684,22 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (ready("ground_roar")) {
       setCd("ground_roar", 3);
       const hit = Math.max(1, Math.floor(strv * 0.65 * outMult));
-      dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Ground Roar shakes", partyUid, 1, 1);
-      for (const m of getLivingPartyMembers(st)) {
-        if (Math.random() < 0.35) applyPartyMemberCripple(st, m, 1);
+      if (st.tactical && typeof foe.gridX === "number") {
+        for (const m of getLivingPartyMembers(st)) {
+          if (
+            typeof m.gridX !== "number" ||
+            Math.abs(m.gridX - foe.gridX) + Math.abs(m.gridY - foe.gridY) > 2
+          ) {
+            continue;
+          }
+          dealRawDamageToPlayer(st, hit, foe.name, "Ground Roar shakes", { partyUid: m.uid });
+          if (Math.random() < 0.35) applyPartyMemberCripple(st, m, 1);
+        }
+      } else {
+        dealRawDamageToPlayerAdjacent(st, hit, foe.name, "Ground Roar shakes", partyUid, 1, 1);
+        for (const m of getLivingPartyMembers(st)) {
+          if (Math.random() < 0.35) applyPartyMemberCripple(st, m, 1);
+        }
       }
       return true;
     }
@@ -11454,9 +11491,19 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
     // 3) Setup: crit buff.
     if (ready("pack_howl")) {
       setCd("pack_howl", 3);
-      const critBuff = 15 + formulaDexCritChancePct(foe.dex || 0);
-      foe.combat.wolfCritBonusTurns = Math.max(foe.combat.wolfCritBonusTurns || 0, 2);
-      foe.combat.wolfCritBonusPct = Math.min(60, critBuff);
+      if (st.tactical && typeof foe.gridX === "number") {
+        (st.foes || []).forEach((f) => {
+          if (!f || f.hp <= 0 || typeof f.gridX !== "number") return;
+          if (Math.abs(f.gridX - foe.gridX) + Math.abs(f.gridY - foe.gridY) > 3) return;
+          if (!f.combat) initFoeCombatRuntime(f);
+          f.combat.wolfCritBonusTurns = Math.max(f.combat.wolfCritBonusTurns || 0, 2);
+          f.combat.wolfCritBonusPct = Math.min(60, Math.max(f.combat.wolfCritBonusPct || 0, 12));
+        });
+      } else {
+        const critBuff = 15 + formulaDexCritChancePct(foe.dex || 0);
+        foe.combat.wolfCritBonusTurns = Math.max(foe.combat.wolfCritBonusTurns || 0, 2);
+        foe.combat.wolfCritBonusPct = Math.min(60, critBuff);
+      }
       appendFightLog(`${foe.name} uses Pack Howl.`);
       return;
     }
