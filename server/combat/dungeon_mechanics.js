@@ -14,9 +14,12 @@ function getDungeonDef(dungeonId) {
 }
 
 function nextFoeUid(st) {
-  let m = 0;
+  let m = -1;
   for (const f of st.foes || []) {
     if (typeof f.uid === "number" && f.uid > m) m = f.uid;
+  }
+  for (const p of st.party || []) {
+    if (typeof p.uid === "number" && p.uid > m) m = p.uid;
   }
   return m + 1;
 }

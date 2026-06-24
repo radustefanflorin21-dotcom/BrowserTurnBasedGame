@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import {
   buildFoeFromUnit,
   buildPartyFromPlayer,
+  nextUidAfterParty,
   applyDamageToFoe,
   resolveIncomingToMember,
   resolveOutgoingAttack
@@ -50,13 +51,27 @@ import {
   markCoopHeroActedIfNeeded,
   firstActingMember,
   ensureActivePartyUidInState,
-  coopHeroTurnsOnly
+  coopHeroTurnsOnly,
+  markParticipantReady,
+  allParticipantsReady
 } from "./coop.js";
 import {
   isCoopMultiHeroStamina,
   syncGlobalStaminaFromMember,
-  refillMemberCombatStamina
+  refillMemberCombatStamina,
+  getActorCombatMaxStamina
 } from "./stamina.js";
+import {
+  initTacticalState,
+  refreshUnitTurnResources,
+  validatePlaceAction,
+  applyPlaceAction,
+  validateMoveAction,
+  applyMoveAction,
+  validateMeleeTarget,
+  ensureAllAlliesPlaced
+} from "./tactical.js";
+import { runTacticalEnemyMove } from "./tactical_ai.js";
 import {
   initTurnOrder,
   resetPartyActedForRound,
@@ -69,8 +84,9 @@ import { setupFightTurnOrder } from "./initiative.js";
 
 const require = createRequire(import.meta.url);
 const { createCombatRng } = require("../../shared/combat_rng.js");
+const TacticalGrid = require("../../shared/tactical_grid.js");
 
-const COMBAT_FOES_MAX = 6;
+const COMBAT_FOES_MAX = 8;
 
 function cloneState(st) {
   return JSON.parse(JSON.stringify(st));
@@ -177,6 +193,11 @@ function activateAllyTurn(st, session, member) {
   st.activeFoeUid = null;
   if (session) markCompanionsSkippedForCoopHeroTurns(st, session);
   refillMemberCombatStamina(member);
+  if (st.tactical) {
+    const actorPlayer = session ? resolveActorPlayer(session, member) : session?.player;
+    const maxS = actorPlayer ? getActorCombatMaxStamina(actorPlayer) : member.maxStamina || 6;
+    refreshUnitTurnResources(member, member, maxS);
+  }
   if (member.kind === "hero") syncGlobalStaminaFromMember(st, member);
   if (session?.coop) ensureActivePartyUidInState(st, session);
   if (st.selectedUid == null || !st.foes.some((f) => f.uid === st.selectedUid && f.hp > 0)) {
@@ -186,6 +207,9 @@ function activateAllyTurn(st, session, member) {
 }
 
 function finalizeCombatRound(st, session, player, rng, append) {
+  if (st.tactical) {
+    st.combatRound = (typeof st.combatRound === "number" ? st.combatRound : 1) + 1;
+  }
   applyDungeonMechanicsEndOfEnemyPhase(st, rng, append);
   tickSkillCooldowns(st);
   tickFoeDebuffs(st);
@@ -275,6 +299,11 @@ function advanceCombatTurns(session, rng, replayOut = null) {
     st.activeFoeUid = foe ? foe.uid : null;
     openEnemyRoundClassEffects(st);
     if (foe) {
+      if (st.tactical) {
+        foe.movePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
+        foe.maxMovePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
+        runTacticalEnemyMove(foe, st, append);
+      }
       runSingleEnemyTurn(foe, st, rng, append, enemyPlayer, enemyHits, recorder);
     }
     if (!isPartyAlive(st)) {
@@ -295,6 +324,8 @@ export function createCombatSession(player, encounter, rngSeed) {
     : Array.isArray(encounter?.enemies)
       ? encounter.enemies.map((name) => ({ name }))
       : [];
+  const party = buildPartyFromPlayer(player);
+  const foeUidStart = nextUidAfterParty(party);
   const foes = units
     .map((u, i) => {
       if (!u || typeof u.name !== "string") return null;
@@ -303,7 +334,7 @@ export function createCombatSession(player, encounter, rngSeed) {
         typeof u.moodId === "string" && u.moodId.trim()
           ? u.moodId.trim()
           : pickMoodIdFromEnemyDef(def, rng);
-      return buildFoeFromUnit({ ...u, moodId: moodId || null }, i);
+      return buildFoeFromUnit({ ...u, moodId: moodId || null }, foeUidStart + i);
     })
     .filter(Boolean);
   foes.forEach((f) => initFoeCombatRuntime(f));
@@ -312,7 +343,6 @@ export function createCombatSession(player, encounter, rngSeed) {
     err.status = 400;
     throw err;
   }
-  const party = buildPartyFromPlayer(player);
   const st = {
     phase: "player",
     foes,
@@ -327,6 +357,7 @@ export function createCombatSession(player, encounter, rngSeed) {
     worldMapContext: encounter?.worldMapContext || null,
     endOutcome: null
   };
+  initTacticalState(st);
   initCombatResources(st, player);
   ensureCombatStatus(st);
   ensureClassState(st);
@@ -508,6 +539,34 @@ function finishDefeat(st, player) {
  * @param {{ type: string, targetUid?: number, skillName?: string }} action
  * @param {number} [actingUserId]
  */
+/** Start combat after prep (timer or all ready). */
+export function beginFightFromPrepSession(session) {
+  const st = session.state;
+  const rng = session.rng;
+  if (!ensureAllAlliesPlaced(st)) {
+    TacticalGrid.autoPlaceAllies(st.party || []);
+  }
+  if (session.prepTimer) {
+    clearTimeout(session.prepTimer);
+    session.prepTimer = null;
+  }
+  session.locked = true;
+  beginCoopFromPrep(session);
+  const opening = applyCombatTurnOrderStart(session);
+  const out = { state: cloneState(st), result: null, finished: false, began: true, ...opening };
+  if (opening._turnOutcome === "victory") {
+    if (session.coop) return { ...finishCoopVictory(session, rng), ...opening, began: true };
+    const result = finishVictory(st, session.player, rng);
+    return { state: cloneState(st), result, finished: true, began: true, ...opening };
+  }
+  if (opening._turnOutcome === "defeat") {
+    if (session.coop) return { ...finishCoopDefeat(session), ...opening, began: true };
+    const result = finishDefeat(st, session.player);
+    return { state: cloneState(st), result, finished: true, began: true, ...opening };
+  }
+  return out;
+}
+
 export function processCombatAction(session, action, actingUserId = null) {
   const st = session.state;
   const rng = session.rng;
@@ -523,40 +582,57 @@ export function processCombatAction(session, action, actingUserId = null) {
   const type = action?.type;
 
   if (coop && st.phase === "prep") {
-    if (type !== "ready") {
+    if (type === "place") {
+      if (session.locked) {
+        const err = new Error("Fight already started.");
+        err.status = 400;
+        throw err;
+      }
+      const unitUid = Number(action.unitUid);
+      const x = Number(action.x);
+      const y = Number(action.y);
+      const check = validatePlaceAction(st, session, userId, unitUid, x, y);
+      if (!check.ok) {
+        const err = new Error(check.message || "Invalid placement.");
+        err.status = 400;
+        throw err;
+      }
+      applyPlaceAction(st, check.unit, x, y);
+      return { state: cloneState(st), result: null, finished: false };
+    }
+    if (type === "ready") {
+      if (session.locked) {
+        const err = new Error("Fight already started.");
+        err.status = 400;
+        throw err;
+      }
+      const part = session.participants.get(userId);
+      if (!part) {
+        const err = new Error("Not a participant.");
+        err.status = 403;
+        throw err;
+      }
+      if (!ensureAllAlliesPlaced(st)) {
+        TacticalGrid.autoPlaceAllies(
+          (st.party || []).filter((m) => m && Number(m.controllerUserId) === Number(userId))
+        );
+      }
+      markParticipantReady(session, userId);
+      appendLog(st, `${part.player?.name || "A fighter"} is ready.`);
+      if (allParticipantsReady(session)) {
+        return beginFightFromPrepSession(session);
+      }
+      return { state: cloneState(st), result: null, finished: false };
+    }
+    if (type !== "forfeit" && type !== "leave") {
       const err = new Error("Fight has not started yet.");
       err.status = 400;
       throw err;
     }
-    if (session.locked) {
-      const err = new Error("Fight already started.");
-      err.status = 400;
-      throw err;
-    }
-    if (userId !== session.hostUserId) {
-      const err = new Error("Only the host can start the fight early.");
-      err.status = 403;
-      throw err;
-    }
-    if (session.prepTimer) {
-      clearTimeout(session.prepTimer);
-      session.prepTimer = null;
-    }
-    session.locked = true;
-    beginCoopFromPrep(session);
-    const opening = applyCombatTurnOrderStart(session);
-    const out = { state: cloneState(st), result: null, finished: false, began: true, ...opening };
-    if (opening._turnOutcome === "victory") {
-      if (session.coop) return { ...finishCoopVictory(session, rng), ...opening, began: true };
-      const result = finishVictory(st, session.player, rng);
-      return { state: cloneState(st), result, finished: true, began: true, ...opening };
-    }
-    if (opening._turnOutcome === "defeat") {
-      if (session.coop) return { ...finishCoopDefeat(session), ...opening, began: true };
-      const result = finishDefeat(st, session.player);
-      return { state: cloneState(st), result, finished: true, began: true, ...opening };
-    }
-    return out;
+  }
+
+  if (coop && st.phase === "prep" && (type === "forfeit" || type === "leave")) {
+    return leaveCoopParticipant(session, userId);
   }
 
   const player = coop ? getParticipantPlayer(session, userId) : session.player;
@@ -693,6 +769,22 @@ export function processCombatAction(session, action, actingUserId = null) {
     };
   }
 
+  if (type === "move") {
+    const member = activeForTurn;
+    const x = Number(action.x);
+    const y = Number(action.y);
+    const check = validateMoveAction(st, session, userId, member.uid, x, y);
+    if (!check.ok) {
+      const err = new Error(check.message || "Invalid move.");
+      err.status = 400;
+      throw err;
+    }
+    applyMoveAction(st, check.unit, x, y, check.cost);
+    const label = `${TacticalGrid.colToLetter(x)}${y + 1}`;
+    appendLog(st, `${member.name} moves to ${label}.`);
+    return { state: cloneState(st), result: null, finished: false };
+  }
+
   if (type === "pass") {
     activeForTurn.acted = true;
     appendLog(st, `${activeForTurn.name} ends their turn.`);
@@ -716,6 +808,14 @@ export function processCombatAction(session, action, actingUserId = null) {
       throw err;
     }
     const foe = st.foes.find((f) => f.uid === st.selectedUid && f.hp > 0);
+    if (st.tactical) {
+      const melee = validateMeleeTarget(st, member, foe.uid);
+      if (!melee.ok) {
+        const err = new Error(melee.message || "Invalid target.");
+        err.status = 400;
+        throw err;
+      }
+    }
     const res = resolveOutgoingAttack(actor, foe, rng, st, member);
     let dmg = 0;
     if (res.missed) {

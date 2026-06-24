@@ -1,4 +1,4 @@
-import { processCombatAction, applyCombatTurnOrderStart } from "./engine.js";
+import { processCombatAction, beginFightFromPrepSession } from "./engine.js";
 import { getRosterJson } from "../db.js";
 import { buildPendingGrantsFromCombatResult } from "../progression/snapshot.js";
 import { upsertSnapshot } from "../progression/store.js";
@@ -7,7 +7,6 @@ import { logEconomyEvent } from "../economy/audit.js";
 import {
   createCoopPrepState,
   appendParticipantToState,
-  beginCoopFromPrep,
   COOP_PREP_MS,
   sameTileForJoin,
   canAddParticipantParty
@@ -80,13 +79,13 @@ function clearPrepTimer(session) {
 
 function lockCoopSession(session) {
   if (session.locked) return;
+  if (session.state.phase === "prep") {
+    beginFightFromPrepSession(session);
+    broadcastCoopCombat(session, { began: true });
+    return;
+  }
   clearPrepTimer(session);
   session.locked = true;
-  if (session.state.phase === "prep") {
-    beginCoopFromPrep(session);
-    const opening = applyCombatTurnOrderStart(session);
-    broadcastCoopCombat(session, { began: true, ...opening });
-  }
 }
 
 function schedulePrepTimeout(session) {

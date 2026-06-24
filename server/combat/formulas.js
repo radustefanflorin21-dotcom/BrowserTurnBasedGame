@@ -145,6 +145,20 @@ export function resolveIncomingToMember(rawDamage, member) {
   return mitigated;
 }
 
+/** Highest uid among a list of fighters. */
+export function maxCombatUid(units) {
+  let m = -1;
+  for (const u of units || []) {
+    if (u && typeof u.uid === "number" && u.uid > m) m = u.uid;
+  }
+  return m;
+}
+
+/** First uid safe to assign to foes after party members (avoids ally/foe uid collisions). */
+export function nextUidAfterParty(party) {
+  return maxCombatUid(party) + 1;
+}
+
 export function buildFoeFromUnit(unit, uid) {
   const def = getEnemyDefByName(unit.name);
   if (!def) return null;

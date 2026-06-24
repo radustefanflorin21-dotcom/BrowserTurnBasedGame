@@ -5,7 +5,8 @@
 import { createRequire } from "node:module";
 import {
   buildFoeFromUnit,
-  buildPartyFromPlayer
+  buildPartyFromPlayer,
+  nextUidAfterParty
 } from "./formulas.js";
 import {
   computeVictoryRewards,
@@ -20,13 +21,15 @@ import { byUserId } from "../presence/hub.js";
 import { presenceMatchesWorldMapContext } from "../presence/location.js";
 import { preparePlayerForCombat } from "./player_prep.js";
 import { getActorCombatMaxStamina, syncGlobalStaminaFromMember } from "./stamina.js";
+import { initTacticalState, initUnitTacticalFields } from "./tactical.js";
 
 const require = createRequire(import.meta.url);
+const TacticalGrid = require("../../shared/tactical_grid.js");
 const { createCombatRng } = require("../../shared/combat_rng.js");
 
 export const MAX_COOP_PARTY_UNITS = 8;
 export const COOP_PREP_MS = 30_000;
-const COMBAT_FOES_MAX = 6;
+const COMBAT_FOES_MAX = 8;
 
 function cloneState(st) {
   return JSON.parse(JSON.stringify(st));
@@ -84,13 +87,13 @@ export function tagPartyForUser(party, userId, uidStart, player) {
   return { party: tagged, nextUid: uid };
 }
 
-export function buildFoesFromEncounter(encounter) {
+export function buildFoesFromEncounter(encounter, uidStart = 0) {
   const units = Array.isArray(encounter?.units)
     ? encounter.units.slice(0, COMBAT_FOES_MAX)
     : Array.isArray(encounter?.enemies)
       ? encounter.enemies.map((name) => ({ name }))
       : [];
-  const foes = units.map((u, i) => buildFoeFromUnit(u, i)).filter(Boolean);
+  const foes = units.map((u, i) => buildFoeFromUnit(u, uidStart + i)).filter(Boolean);
   foes.forEach((f) => initFoeCombatRuntime(f));
   if (!foes.length) {
     const err = new Error("No valid enemies in encounter.");
@@ -146,15 +149,28 @@ export function appendParticipantToState(session, userId, player) {
   const { party: tagged } = tagPartyForUser(built, userId, nextUid, player);
   st.party.push(...tagged);
   st.fightLog.push(`— ${player.name || "Hero"} joins the fight —`);
+  const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
+  tagged.forEach((m) => {
+    if (!m) return;
+    if (typeof m.gridX === "number" && typeof m.gridY === "number") return;
+    const cells = TacticalGrid.enumerateAllySpawnCells().filter((c) => !occ.has(TacticalGrid.coordKey(c.x, c.y)));
+    const spot = cells[0];
+    if (spot) {
+      m.gridX = spot.x;
+      m.gridY = spot.y;
+      occ.set(TacticalGrid.coordKey(spot.x, spot.y), m.uid);
+    }
+    initUnitTacticalFields(m, st, "ally");
+  });
   return tagged;
 }
 
 export function createCoopPrepState(hostUserId, player, encounter, rngSeed) {
   const rng = createCombatRng(rngSeed);
-  const foes = buildFoesFromEncounter(encounter);
   preparePlayerForCombat(player);
   const built = buildPartyFromPlayerCapped(player, MAX_COOP_PARTY_UNITS);
   const { party } = tagPartyForUser(built, hostUserId, 0, player);
+  const foes = buildFoesFromEncounter(encounter, nextUidAfterParty(party));
   const prepEndsAt = Date.now() + COOP_PREP_MS;
   const st = {
     phase: "prep",
@@ -172,6 +188,7 @@ export function createCoopPrepState(hostUserId, player, encounter, rngSeed) {
     endOutcome: null,
     hostUserId
   };
+  initTacticalState(st);
   return { state: st, rngSeed: rng.seed, rng, prepEndsAt };
 }
 
@@ -316,6 +333,21 @@ export function markCompanionsSkippedForCoopHeroTurns(st, session) {
   });
 }
 
+export function allParticipantsReady(session) {
+  if (!session?.participants?.size) return false;
+  for (const part of session.participants.values()) {
+    if (!part?.ready) return false;
+  }
+  return true;
+}
+
+export function markParticipantReady(session, userId) {
+  const part = session.participants.get(userId);
+  if (!part) return false;
+  part.ready = true;
+  return allParticipantsReady(session);
+}
+
 export function eligibleActingMembers(session, st) {
   const heroesOnly = coopHeroTurnsOnly(session);
   return (st.party || []).filter((m) => {
@@ -455,14 +487,6 @@ export function finishCoopDefeat(session) {
     participantResults[userId] = result;
   }
   return { participantResults, state: cloneState(st), finished: true };
-}
-
-export function allParticipantsReady(session) {
-  if (!session?.participants?.size) return false;
-  for (const part of session.participants.values()) {
-    if (!part?.ready) return false;
-  }
-  return true;
 }
 
 export function publicParticipantsList(session) {

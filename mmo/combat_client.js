@@ -115,13 +115,29 @@
     const st = serverState;
     const prevParticipants = combatState?.participants;
     const prevSelectedUid = combatState?.selectedUid;
-    combatState = {
+  const prevTacticalPrepUnitUid = combatState?.tacticalPrepUnitUid;
+  const prevTacticalInspectUid = combatState?.tacticalInspectUid;
+  const prevTacticalInspectSide = combatState?.tacticalInspectSide;
+  if (
+    combatState?.tactical &&
+    typeof noteTacticalGridBeforeStateUpdate === "function"
+  ) {
+    noteTacticalGridBeforeStateUpdate();
+  }
+  combatState = {
       region: region || null,
       mob: mob || null,
       enemyNames: st.enemyNames || [],
-      foes: st.foes || [],
       party: Array.isArray(st.party)
-        ? st.party.map((m) => (m && typeof m === "object" ? { ...m } : m))
+        ? st.party.map((m) => {
+            if (!m || typeof m !== "object") return m;
+            const copy = { ...m };
+            if (copy.gridX != null) copy.gridX = Number(copy.gridX);
+            if (copy.gridY != null) copy.gridY = Number(copy.gridY);
+            if (!Number.isFinite(copy.gridX)) delete copy.gridX;
+            if (!Number.isFinite(copy.gridY)) delete copy.gridY;
+            return copy;
+          })
         : [],
       playerHp: st.playerHp,
       playerMax: st.playerMax,
@@ -163,8 +179,34 @@
           ? JSON.parse(JSON.stringify(st.classState))
           : null,
       serverAuthoritative: true,
-      coopSessionId: sessionId
+      coopSessionId: sessionId,
+      tactical: !!st.tactical,
+      board: st.board && typeof st.board === "object" ? JSON.parse(JSON.stringify(st.board)) : null,
+      turnQueue: Array.isArray(st.turnQueue) ? st.turnQueue.slice() : [],
+      turnQueueIndex: typeof st.turnQueueIndex === "number" ? st.turnQueueIndex : 0,
+      combatRound: typeof st.combatRound === "number" ? st.combatRound : 1,
+      tacticalPrepUnitUid: prevTacticalPrepUnitUid,
+      tacticalInspectUid:
+        typeof prevTacticalInspectUid === "number" ? prevTacticalInspectUid : null,
+      tacticalInspectSide:
+        prevTacticalInspectSide === "ally" || prevTacticalInspectSide === "foe"
+          ? prevTacticalInspectSide
+          : null,
+      foes: Array.isArray(st.foes)
+        ? st.foes.map((f) => {
+            if (!f || typeof f !== "object") return f;
+            const copy = { ...f };
+            if (copy.gridX != null) copy.gridX = Number(copy.gridX);
+            if (copy.gridY != null) copy.gridY = Number(copy.gridY);
+            if (!Number.isFinite(copy.gridX)) delete copy.gridX;
+            if (!Number.isFinite(copy.gridY)) delete copy.gridY;
+            return copy;
+          })
+        : []
     };
+    if (combatState.tactical && typeof ensureTacticalUnitsPlaced === "function") {
+      ensureTacticalUnitsPlaced(combatState);
+    }
     ensureCombatStatus(combatState);
     if (typeof combatState.stamina !== "number") {
       initCombatStamina(combatState);
@@ -761,7 +803,7 @@
   async function submitAction(action) {
     if (!sessionId || pending) return null;
     const isLeave = action?.type === "forfeit" || action?.type === "leave";
-    if (isPrepPhase() && action?.type !== "ready" && !isLeave) return null;
+    if (isPrepPhase() && action?.type !== "ready" && action?.type !== "place" && !isLeave) return null;
     if (
       !isPrepPhase() &&
       !isLeave &&

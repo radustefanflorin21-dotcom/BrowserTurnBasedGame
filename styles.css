@@ -6474,6 +6474,525 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   justify-content: center;
 }
 
+.fight-overlay--tactical .fight-field-area {
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.fight-overlay--tactical.fight-page .fight-panel--turn {
+  padding-top: 4px;
+  padding-left: 4px;
+  padding-right: max(12px, calc(12px * 1.25));
+}
+
+.fight-overlay--tactical .fight-hud {
+  justify-content: flex-start;
+  width: 100%;
+  overflow: hidden;
+  padding-top: 0;
+}
+
+.fight-tactical {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  align-items: flex-start;
+  /* ~68px baseline; tokens scale with cells */
+  --tactical-cell-size: min(68px, calc((100vh - 280px) / 7), calc((100vw - 32px) / 7.5));
+  --tactical-token-width: calc(var(--tactical-cell-size) * 0.9);
+  --tactical-token-height: calc(var(--tactical-cell-size) * 1.03);
+  --tactical-turn-card-size: min(50px, calc((100vw - 48px) / 14));
+}
+
+.fight-tactical-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: hidden;
+  padding: 0 0 4px 0;
+  margin: 0;
+  min-width: 0;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.fight-tactical-timeline.fight-party-row {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.fight-tactical-timeline .fight-ally-card,
+.fight-tactical-timeline .fight-enemy-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--tactical-turn-card-size);
+  min-width: var(--tactical-turn-card-size);
+  max-width: var(--tactical-turn-card-size);
+  padding: 2px 2px 1px;
+  gap: 1px;
+}
+
+.fight-tactical-timeline .fight-portrait-wrap {
+  width: calc(var(--tactical-turn-card-size) - 8px);
+  height: calc(var(--tactical-turn-card-size) - 8px);
+  border: none;
+  background: transparent;
+}
+
+.fight-tactical-timeline .fight-portrait-wrap .portrait-stack {
+  width: calc(var(--tactical-turn-card-size) - 12px);
+  height: calc(var(--tactical-turn-card-size) - 12px);
+}
+
+.fight-tactical-timeline .fight-portrait-wrap--ally .portrait-stack {
+  transform: translateY(2px);
+}
+
+.fight-tactical-timeline .fight-portrait-wrap--enemy .fight-portrait-img--enemy {
+  width: calc(var(--tactical-turn-card-size) - 12px);
+  height: calc(var(--tactical-turn-card-size) - 12px);
+  border: none;
+  background: transparent;
+}
+
+.fight-tactical-timeline .fight-card-name,
+.fight-tactical-timeline .fight-card-meta {
+  display: none;
+}
+
+.fight-tactical-timeline .fight-card-hp-text {
+  display: block;
+  font-size: 0.46rem;
+  line-height: 1.05;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.fight-tactical-timeline .fight-card-hp {
+  width: 100%;
+  height: 3px;
+  min-height: 3px;
+  margin-top: 0;
+}
+
+.fight-tactical-timeline .fight-ally-card--active {
+  transform: none;
+}
+
+.fight-tactical-timeline .fight-enemy-card--boss {
+  width: var(--tactical-turn-card-size);
+  min-width: var(--tactical-turn-card-size);
+}
+
+.fight-tactical-turn-num {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  z-index: 6;
+  font-size: 0.52rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f2e6c8;
+  pointer-events: none;
+}
+
+.fight-enemy-card--active-turn {
+  border-color: #e8c84a;
+  box-shadow:
+    0 0 0 3px rgba(232, 200, 74, 0.9),
+    0 0 20px rgba(232, 200, 74, 0.45);
+  z-index: 4;
+}
+
+.fight-tactical-main {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 0;
+  align-self: center;
+  width: 100%;
+}
+
+.fight-tactical-inspect-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 172px;
+}
+
+.fight-tactical-inspect-wrap--empty {
+  width: 172px;
+  min-height: calc(8 * var(--tactical-cell-size));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  box-sizing: border-box;
+}
+
+.fight-tactical-inspect-wrap--empty .fight-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: center;
+  margin: 0;
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card {
+  width: 172px;
+  min-width: 172px;
+  padding: 8px 8px 6px;
+  box-shadow: 0 0 0 2px rgba(232, 197, 71, 0.55);
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-portrait-wrap {
+  width: 148px;
+  height: 148px;
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-portrait-wrap .portrait-stack {
+  width: 136px;
+  height: 136px;
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-portrait-wrap--ally .portrait-stack {
+  transform: translateY(6px);
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-portrait-img--enemy {
+  width: 132px;
+  height: 132px;
+  object-fit: contain;
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-card-name {
+  font-size: 0.88rem;
+}
+
+.fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-card-hp-text {
+  font-size: 0.76rem;
+}
+
+.fight-card-inspect-effects {
+  width: 100%;
+  max-height: 108px;
+  overflow-y: auto;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 0.58rem;
+  line-height: 1.32;
+  text-align: left;
+  color: rgba(20, 16, 12, 0.88);
+}
+
+.fight-card-inspect-effect + .fight-card-inspect-effect {
+  margin-top: 2px;
+}
+
+.fight-card-inspect-effects--empty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.fight-tactical-token--inspected {
+  filter: drop-shadow(0 0 5px rgba(232, 197, 71, 0.95));
+}
+
+.fight-tactical-timeline .fight-ally-card.fight-tactical-inspect-card--active,
+.fight-tactical-timeline .fight-enemy-card.fight-tactical-inspect-card--active {
+  box-shadow: 0 0 0 2px rgba(232, 197, 71, 0.95);
+}
+
+.fight-tactical-token--animating {
+  z-index: 8;
+  transition: transform linear;
+  will-change: transform;
+}
+
+.fight-tactical-board-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.fight-tactical-col-labels {
+  display: grid;
+  grid-template-columns: 20px repeat(8, var(--tactical-cell-size));
+  gap: 0;
+  width: calc(20px + 8 * var(--tactical-cell-size));
+}
+
+.fight-tactical-col-label--corner {
+  visibility: hidden;
+}
+
+.fight-tactical-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: calc(20px + 8 * var(--tactical-cell-size));
+  flex-shrink: 0;
+}
+
+.fight-tactical-row {
+  display: grid;
+  grid-template-columns: 20px repeat(8, var(--tactical-cell-size));
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.fight-tactical-cell {
+  position: relative;
+  width: var(--tactical-cell-size);
+  height: var(--tactical-cell-size);
+  min-width: var(--tactical-cell-size);
+  min-height: var(--tactical-cell-size);
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  cursor: default;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.fight-tactical-col-label {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.85;
+  line-height: 1.2;
+}
+
+.fight-tactical-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.64rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.fight-tactical-roster-resources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  justify-content: center;
+  width: 100%;
+}
+
+.fight-tactical-res-label {
+  font-size: 0.55rem;
+  opacity: 0.75;
+  width: 100%;
+  text-align: center;
+}
+
+.fight-tactical-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fight-tactical-pip--mp.fight-tactical-pip--filled {
+  background: #4da3ff;
+  border-color: #7eb8ff;
+}
+
+.fight-tactical-pip--sp.fight-tactical-pip--filled {
+  background: #e8c547;
+  border-color: #f5df7a;
+}
+
+.fight-tactical-cell--light {
+  background: rgba(214, 184, 132, 0.92);
+}
+
+.fight-tactical-cell--dark {
+  background: rgba(146, 108, 62, 0.94);
+}
+
+.fight-tactical-board-wrap--prep .fight-tactical-cell--ally-zone.fight-tactical-cell--light {
+  background: rgba(176, 204, 232, 0.9);
+}
+
+.fight-tactical-board-wrap--prep .fight-tactical-cell--ally-zone.fight-tactical-cell--dark {
+  background: rgba(122, 156, 196, 0.92);
+}
+
+.fight-tactical-board-wrap--prep .fight-tactical-cell--enemy-zone.fight-tactical-cell--light {
+  background: rgba(232, 176, 176, 0.9);
+}
+
+.fight-tactical-board-wrap--prep .fight-tactical-cell--enemy-zone.fight-tactical-cell--dark {
+  background: rgba(188, 118, 118, 0.92);
+}
+
+.fight-tactical-cell--reachable {
+  box-shadow: inset 0 0 0 2px rgba(64, 140, 255, 0.95);
+  cursor: pointer;
+}
+
+.fight-tactical-cell--placeable {
+  cursor: pointer;
+}
+
+.fight-tactical-cell--placeable:hover {
+  box-shadow: inset 0 0 0 2px rgba(126, 184, 255, 0.75);
+}
+
+.fight-tactical-cell--active {
+  box-shadow: inset 0 0 0 3px #e8c547;
+}
+
+.fight-tactical-token {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  width: var(--tactical-token-width);
+  height: var(--tactical-token-height);
+  background: transparent;
+  border: none;
+  overflow: visible;
+  cursor: pointer;
+  z-index: 3;
+  pointer-events: auto;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+}
+
+.fight-tactical-token .tactical-foe-img,
+.fight-tactical-token .portrait-equip-layer,
+.fight-tactical-token .portrait-img--base,
+.fight-tactical-token .portrait-occlusion {
+  pointer-events: none;
+}
+
+.fight-tactical-token .tactical-portrait-wrap--board .portrait-stack {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: auto;
+  transform: translateY(2px);
+}
+
+.fight-tactical-token .tactical-portrait-wrap--board .portrait-root-group {
+  width: 100%;
+  height: 100%;
+}
+
+.fight-tactical-token .tactical-portrait-wrap--board .portrait-img--base,
+.fight-tactical-token .tactical-portrait-wrap--board .portrait-occlusion {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fight-tactical-token img.tactical-foe-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fight-tactical-token--selected {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95));
+}
+
+.fight-tactical-token--active {
+  filter: drop-shadow(0 0 6px rgba(232, 197, 71, 0.95));
+}
+
+.tactical-portrait-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  overflow: visible;
+}
+
+.tactical-portrait-wrap .portrait-stack {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  animation: none;
+}
+
+.tactical-portrait-wrap .portrait-img--base,
+.tactical-portrait-wrap .portrait-occlusion,
+.tactical-portrait-wrap .portrait-equip-layer {
+  object-fit: contain;
+}
+
+.tactical-portrait-wrap--roster {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+}
+
+.tactical-portrait-wrap--roster .portrait-stack {
+  width: 112px;
+  height: 112px;
+}
+
+.tactical-portrait-wrap--board {
+  width: 100%;
+  height: 100%;
+}
+
+.tactical-foe-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.fight-tactical-round {
+  text-align: center;
+  font-size: 0.72rem;
+  opacity: 0.85;
+  padding-top: 4px;
+  width: 100%;
+}
+
+.fight-mp-row .fight-tactical-roster-resources {
+  justify-content: flex-start;
+}
+
 /* Victory / defeat summary: centered modal over combat (sibling of .fight-panel inside #fightOverlay) */
 .fight-results-host {
   position: fixed;
