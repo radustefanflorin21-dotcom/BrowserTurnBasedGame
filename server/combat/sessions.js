@@ -1,4 +1,4 @@
-import { processCombatAction } from "./engine.js";
+import { processCombatAction, applyCombatTurnOrderStart } from "./engine.js";
 import { getRosterJson } from "../db.js";
 import { buildPendingGrantsFromCombatResult } from "../progression/snapshot.js";
 import { upsertSnapshot } from "../progression/store.js";
@@ -84,7 +84,8 @@ function lockCoopSession(session) {
   session.locked = true;
   if (session.state.phase === "prep") {
     beginCoopFromPrep(session);
-    broadcastCoopCombat(session, { began: true });
+    const opening = applyCombatTurnOrderStart(session);
+    broadcastCoopCombat(session, { began: true, ...opening });
   }
 }
 

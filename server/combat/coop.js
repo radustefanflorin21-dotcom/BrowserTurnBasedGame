@@ -19,7 +19,6 @@ import { byUserId } from "../presence/hub.js";
 import { presenceMatchesWorldMapContext } from "../presence/location.js";
 import { preparePlayerForCombat } from "./player_prep.js";
 import { getActorCombatMaxStamina, syncGlobalStaminaFromMember } from "./stamina.js";
-import { initTurnOrder, firstQueuedAllyMember } from "./turn_order.js";
 
 const require = createRequire(import.meta.url);
 const { createCombatRng } = require("../../shared/combat_rng.js");
@@ -245,10 +244,6 @@ export function beginCoopFromPrep(session) {
   st.party.forEach((m) => {
     if (m) m.acted = false;
   });
-  initTurnOrder(st);
-  const first = firstQueuedAllyMember(st) || firstActingMember(session, st) || st.party.find((m) => m && m.hp > 0);
-  st.activePartyUid = first ? first.uid : null;
-  st.selectedAllyUid = st.activePartyUid;
 }
 
 export function syncAllHeroHpToPlayers(session) {

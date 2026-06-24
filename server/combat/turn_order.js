@@ -1,6 +1,11 @@
 /**
- * Interleaved turn queue: ally[0], foe[0], ally[1], foe[1], … then any remaining fighters.
+ * Interleaved turn queue (ally/enemy alternate) using fight-start initiative order.
  */
+
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const CombatInitiative = require("../../shared/initiative.js");
 
 export function getLivingAllies(party) {
   return (party || []).filter((m) => m && m.hp > 0);
@@ -10,7 +15,7 @@ export function getLivingFoes(foes) {
   return (foes || []).filter((f) => f && f.hp > 0);
 }
 
-export function buildInterleavedTurnQueue(party, foes) {
+function buildLegacyInterleavedTurnQueue(party, foes) {
   const allies = getLivingAllies(party);
   const enemies = getLivingFoes(foes);
   const queue = [];
@@ -22,8 +27,23 @@ export function buildInterleavedTurnQueue(party, foes) {
   return queue;
 }
 
+export function buildInterleavedTurnQueue(st) {
+  const party = st?.party;
+  const foes = st?.foes;
+  if (Array.isArray(st?.turnOrderAllies) && Array.isArray(st?.turnOrderFoes)) {
+    return CombatInitiative.buildInterleavedTurnQueueFromOrder(
+      party,
+      foes,
+      st.turnOrderAllies,
+      st.turnOrderFoes,
+      st.alliesStartFirst !== false
+    );
+  }
+  return buildLegacyInterleavedTurnQueue(party, foes);
+}
+
 export function initTurnOrder(st) {
-  st.turnQueue = buildInterleavedTurnQueue(st.party, st.foes);
+  st.turnQueue = buildInterleavedTurnQueue(st);
   st.turnQueueIndex = 0;
   if (!st.combatRoundFlags || typeof st.combatRoundFlags !== "object") {
     st.combatRoundFlags = { enemyPhaseOpened: false };
@@ -50,7 +70,7 @@ export function findLivingFoe(st, uid) {
   return (st.foes || []).find((f) => f && f.uid === n && f.hp > 0) || null;
 }
 
-/** First ally slot in the current queue (fight start). */
+/** First ally slot in the current queue (may not be index 0 if enemies start). */
 export function firstQueuedAllyMember(st) {
   const queue = Array.isArray(st.turnQueue) ? st.turnQueue : [];
   for (const slot of queue) {
@@ -59,4 +79,10 @@ export function firstQueuedAllyMember(st) {
     if (member) return member;
   }
   return null;
+}
+
+/** First slot in the turn queue (ally or foe). */
+export function firstQueuedSlot(st) {
+  const queue = Array.isArray(st.turnQueue) ? st.turnQueue : [];
+  return queue.length ? queue[0] : null;
 }

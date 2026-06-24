@@ -62,8 +62,10 @@ import {
   resetPartyActedForRound,
   findAllyMember,
   findLivingFoe,
-  firstQueuedAllyMember
+  firstQueuedAllyMember,
+  firstQueuedSlot
 } from "./turn_order.js";
+import { setupFightTurnOrder } from "./initiative.js";
 
 const require = createRequire(import.meta.url);
 const { createCombatRng } = require("../../shared/combat_rng.js");
@@ -325,17 +327,42 @@ export function createCombatSession(player, encounter, rngSeed) {
     worldMapContext: encounter?.worldMapContext || null,
     endOutcome: null
   };
-  initTurnOrder(st);
-  const firstAlly = firstQueuedAllyMember(st);
-  if (firstAlly) {
-    st.activePartyUid = firstAlly.uid;
-    st.selectedAllyUid = firstAlly.uid;
-  }
   initCombatResources(st, player);
   ensureCombatStatus(st);
   ensureClassState(st);
   initCombatPassives(st, player);
+  applyCombatTurnOrderStart({ state: st, player, rng, coop: false });
   return { state: st, rngSeed: rng.seed, rng };
+}
+
+/** Fight-start turn order + opening enemy turns when enemies win initiative. */
+export function applyCombatTurnOrderStart(session) {
+  const st = session.state;
+  const rng = session.rng;
+  setupFightTurnOrder(st, { session, player: session.player, rng });
+  st.turnQueueIndex = 0;
+  const first = firstQueuedSlot(st);
+  if (first?.side === "foe") {
+    const replayOut = {};
+    const turnOutcome = advanceCombatTurns(session, rng, replayOut);
+    const enemyHits = turnOutcome.enemyHits || [];
+    const out = {
+      lastEnemyHits: enemyHits,
+      ...(replayOut.preEnemySnapshot
+        ? {
+            preEnemySnapshot: replayOut.preEnemySnapshot,
+            enemyActionSteps: replayOut.enemyActionSteps || []
+          }
+        : {})
+    };
+    if (turnOutcome.outcome === "victory" || turnOutcome.outcome === "defeat") {
+      out._turnOutcome = turnOutcome.outcome;
+    }
+    return out;
+  }
+  const member = first?.side === "ally" ? findAllyMember(st, first.uid) : firstQueuedAllyMember(st);
+  if (member) activateAllyTurn(st, session, member);
+  return {};
 }
 
 function getActorForMember(st, member, player) {
@@ -510,7 +537,19 @@ export function processCombatAction(session, action, actingUserId = null) {
     }
     session.locked = true;
     beginCoopFromPrep(session);
-    return { state: cloneState(st), result: null, finished: false, began: true };
+    const opening = applyCombatTurnOrderStart(session);
+    const out = { state: cloneState(st), result: null, finished: false, began: true, ...opening };
+    if (opening._turnOutcome === "victory") {
+      if (session.coop) return { ...finishCoopVictory(session, rng), ...opening, began: true };
+      const result = finishVictory(st, session.player, rng);
+      return { state: cloneState(st), result, finished: true, began: true, ...opening };
+    }
+    if (opening._turnOutcome === "defeat") {
+      if (session.coop) return { ...finishCoopDefeat(session), ...opening, began: true };
+      const result = finishDefeat(st, session.player);
+      return { state: cloneState(st), result, finished: true, began: true, ...opening };
+    }
+    return out;
   }
 
   const player = coop ? getParticipantPlayer(session, userId) : session.player;
