@@ -4880,6 +4880,145 @@ function attribBonusPer10(stat) {
 function statusResistPctFromStrAndVit(str, vit) {
   return attribBonusPer10(str) + attribBonusPer10(vit);
 }
+
+function getCombatPassiveBonusesForInitiative(actor) {
+  const out = {
+    magicDamagePct: 0,
+    physDamagePct: 0,
+    accuracy: 0,
+    evasion: 0,
+    crit: 0,
+    healingPct: 0
+  };
+  if (!actor || typeof SKILL_CATALOG === "undefined" || !SKILL_CATALOG) return out;
+  const levels =
+    actor.classSkillLevels && typeof actor.classSkillLevels === "object" ? actor.classSkillLevels : {};
+  Object.keys(levels).forEach((skillName) => {
+    const def = SKILL_CATALOG[skillName];
+    if (!def?.passiveOnly || !Array.isArray(def.levels) || !def.levels.length) return;
+    const lv = Math.max(1, Math.min(5, Math.floor(levels[skillName] || 1)));
+    const row = def.levels[lv - 1] || def.levels[0];
+    const pr = row?.passive && typeof row.passive === "object" ? row.passive : null;
+    if (!pr) return;
+    if (pr.magicDamage > 0) out.magicDamagePct += pr.magicDamage;
+    if (pr.physDamage > 0) out.physDamagePct += pr.physDamage;
+    if (pr.accuracy > 0) out.accuracy += pr.accuracy;
+    if (pr.evasion > 0) out.evasion += pr.evasion;
+    if (pr.crit > 0) out.crit += pr.crit;
+    if (pr.healing > 0) out.healingPct += pr.healing;
+  });
+  return out;
+}
+
+/** Fight-start initiative snapshot for a hero/companion (matches server formula). */
+function computeActorInitiativeScore(actor, opts) {
+  if (!actor || typeof CombatInitiative === "undefined" || !CombatInitiative?.computeInitiativeScore) return 0;
+  const options = opts && typeof opts === "object" ? opts : {};
+  const str = totalStrFromActor(actor);
+  const dex = totalDexFromActor(actor);
+  const vit = totalVitFromActor(actor);
+  const int_ = totalIntFromActor(actor);
+  const gear = sumEquippedBonusStatsFromEquipment(actor.equipment || emptyEquipment(), actor);
+  const passives = getCombatPassiveBonusesForInitiative(actor);
+  const hp =
+    typeof options.hp === "number"
+      ? options.hp
+      : typeof actor.hp === "number"
+        ? actor.hp
+        : typeof actor.maxHp === "number"
+          ? actor.maxHp
+          : 0;
+  const stamina =
+    typeof options.maxStamina === "number" && options.maxStamina > 0
+      ? options.maxStamina
+      : getActorCombatMaxStamina(actor);
+  const critPct = formulaDexCritChancePct(dex) + (gear.crit || 0) + (passives.crit || 0);
+  const evasionPct = formulaDexEvasionPct(dex) + (gear.evasion || 0) + (passives.evasion || 0);
+  const accuracyPct =
+    attribBonusPer10(dex) + attribBonusPer10(int_) + (gear.accuracy || 0) + (passives.accuracy || 0);
+  const physDmgPct =
+    formulaStrPhysicalDamageBonusPct(str) + (gear.physDamage || 0) + (passives.physDamagePct || 0);
+  const magicDmgPct =
+    formulaIntSkillPowerBonusPct(int_) + (gear.skillPower || 0) + (passives.magicDamagePct || 0);
+  const physResPct = formulaStrPhysicalResistPct(str) + (gear.physicalResist || 0);
+  const magicResPct = formulaIntMagicResistPct(int_) + (gear.magicResist || 0);
+  const healingPct =
+    formulaVitHealingReceivedBonusPct(vit) + (gear.healingReceived || 0) + (passives.healingPct || 0);
+  const statusResistPct = statusResistPctFromStrAndVit(str, vit) + (gear.statusResist || 0);
+  return CombatInitiative.computeInitiativeScore({
+    str,
+    dex,
+    vit,
+    int: int_,
+    hp,
+    critPct,
+    evasionPct,
+    accuracyPct,
+    physDmgPct,
+    magicDmgPct,
+    physResPct,
+    magicResPct,
+    healingPct,
+    statusResistPct,
+    stamina
+  });
+}
+
+function computeFoeInitiativeScore(foe) {
+  if (!foe) return 0;
+  if (typeof foe.initiative === "number" && Number.isFinite(foe.initiative)) return foe.initiative;
+  if (typeof CombatInitiative === "undefined" || !CombatInitiative?.computeInitiativeScore) return 0;
+  const str = typeof foe.str === "number" ? foe.str : 10;
+  const dex = typeof foe.dex === "number" ? foe.dex : 10;
+  const vit = typeof foe.vit === "number" ? foe.vit : 10;
+  const int_ = typeof foe.int === "number" ? foe.int : 10;
+  const hp = typeof foe.hp === "number" ? foe.hp : 0;
+  return CombatInitiative.computeInitiativeScore({
+    str,
+    dex,
+    vit,
+    int: int_,
+    hp,
+    critPct: formulaDexCritChancePct(dex),
+    evasionPct: formulaDexEvasionPct(dex),
+    accuracyPct: attribBonusPer10(dex) + attribBonusPer10(int_),
+    physDmgPct: formulaStrPhysicalDamageBonusPct(str),
+    magicDmgPct: formulaIntSkillPowerBonusPct(int_),
+    physResPct: formulaStrPhysicalResistPct(str),
+    magicResPct: formulaIntMagicResistPct(int_),
+    healingPct: formulaVitHealingReceivedBonusPct(vit),
+    statusResistPct: statusResistPctFromStrAndVit(str, vit),
+    stamina: getPlayerCombatStaminaBaseMax()
+  });
+}
+
+function getCombatAllyInitiativeScore(member) {
+  if (!member) return 0;
+  if (typeof member.initiative === "number" && Number.isFinite(member.initiative)) return member.initiative;
+  let actor = player;
+  if (member.kind === "companion" && typeof member.companionSlotIndex === "number") {
+    actor = player?.companions?.[member.companionSlotIndex] || null;
+  }
+  if (!actor) return 0;
+  return computeActorInitiativeScore(actor, {
+    hp: member.hp,
+    maxStamina: typeof member.maxStamina === "number" ? member.maxStamina : getActorCombatMaxStamina(actor)
+  });
+}
+
+function sortCombatUnitsByInitiative(units, side) {
+  const list = Array.isArray(units) ? units.slice() : [];
+  const score =
+    side === "foe"
+      ? (u) => computeFoeInitiativeScore(u)
+      : (u) => getCombatAllyInitiativeScore(u);
+  return list.sort((a, b) => {
+    const diff = score(b) - score(a);
+    if (diff !== 0) return diff;
+    return (Number(a?.uid) || 0) - (Number(b?.uid) || 0);
+  });
+}
+
 function formulaVitHealingReceivedBonusPct(vit) {
   return attribBonusPer10(vit);
 }
@@ -18071,9 +18210,10 @@ function renderTurnBattle() {
   if (st.phase !== "prep") ensureActivePartyUid(st);
   const megaLeviathanPortrait = isStormbreakHollowLeviathanBossRoomFight(st);
   let partyHtml = "";
-  (st.party || [])
-    .filter((m) => m && (st.phase === "prep" || m.hp > 0))
-    .forEach((m) => {
+  sortCombatUnitsByInitiative(
+    (st.party || []).filter((m) => m && (st.phase === "prep" || m.hp > 0)),
+    "ally"
+  ).forEach((m) => {
       const pct = m.maxHp ? (Math.max(0, m.hp) / m.maxHp) * 100 : 0;
       const isActive = uiPhase === "player" && st.activePartyUid === m.uid && !m.acted;
       const hasActed = uiPhase === "player" && !!m.acted;
@@ -18099,7 +18239,10 @@ function renderTurnBattle() {
     </div>`;
     });
 
-  const aliveFoes = st.foes.filter((f) => f && f.hp > 0);
+  const aliveFoes = sortCombatUnitsByInitiative(
+    st.foes.filter((f) => f && f.hp > 0),
+    "foe"
+  );
   const summonsBySummoner = new Map();
   const rootFoes = [];
   aliveFoes.forEach((f) => {
@@ -21423,6 +21566,7 @@ const STAT_TIP_LABELS = {
   hp: "HP",
   xp: "Experience",
   charPoints: "",
+  initiative: "Initiative",
   str: "Strength",
   dex: "Dexterity",
   vit: "Vitality",
@@ -22976,12 +23120,20 @@ function buildOverviewHtml() {
   const srPctTitle =
     srPctRaw > 90 ? "Uncapped total would exceed 90%; combat applies a maximum of 90% status resist." : "";
   const staminaPoolMax = getActorCombatMaxStamina(actor);
+  const initiativeScore = Math.round(
+    computeActorInitiativeScore(actor, { hp: actor.hp, maxStamina: staminaPoolMax })
+  );
+  const initiativeRow = `<div class="stat-bar-row stat-tip-row" data-stat-tip="initiative">
+    <span class="stat-bar-label">Initiative</span>
+    <span class="stat-bar-num">${initiativeScore}</span>
+  </div>`;
 
   const characteristicsTabHtml = `
     ${isCheatEditActive() ? statBarRowLevelEditable(actor.level, getPlayerMaxLevel(), "level") : statBarRow("Level", actor.level, getPlayerMaxLevel(), "level", "level")}
     ${hpRow}
     ${xpRow}
     ${charPointsRow}
+    ${initiativeRow}
     ${statBarRowWithSpend("Strength", actor.str, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.str), "str", "str", "str", equipStatBonuses.str, actor.charPoints)}
     ${statBarRowWithSpend("Dexterity", actor.dex, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.dex), "dex", "dex", "dex", equipStatBonuses.dex, actor.charPoints)}
     ${statBarRowWithSpend("Intelligence", actor.int, Math.max(BASE_STAT_BAR_SCALE_MAX, actor.int), "int", "int", "int", equipStatBonuses.int, actor.charPoints)}

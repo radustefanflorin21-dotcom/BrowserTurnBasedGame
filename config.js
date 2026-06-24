@@ -6014,6 +6014,8 @@ const GAME_CONFIG = {
     hp: "Total hit points.",
     xp: "Experience to next level.",
     charPoints: "Unused characteristic points.",
+    initiative:
+      "Turn order priority in combat (fixed at fight start). Higher initiative acts earlier within your team.",
     str:
       "Increases physical damage, physical resist and status resist.\n\n10 STR = +1% physical damage\n10 STR = +1% physical resist\n10 STR = +1% status resist (with Vitality)",
     dex:
