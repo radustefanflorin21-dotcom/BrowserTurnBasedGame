@@ -226,6 +226,7 @@
     manhattan,
     areOrthogonalAdjacent,
     createBoard,
+    obstacleSet,
     buildOccupancy,
     isCellWalkable,
     enumerateAllySpawnCells,

@@ -118,6 +118,9 @@
   const prevTacticalPrepUnitUid = combatState?.tacticalPrepUnitUid;
   const prevTacticalInspectUid = combatState?.tacticalInspectUid;
   const prevTacticalInspectSide = combatState?.tacticalInspectSide;
+  const prevTacticalPendingSkill = combatState?.tacticalPendingSkill;
+  const prevTacticalSkillHoverX = combatState?.tacticalSkillHoverX;
+  const prevTacticalSkillHoverY = combatState?.tacticalSkillHoverY;
   if (
     combatState?.tactical &&
     typeof noteTacticalGridBeforeStateUpdate === "function"
@@ -192,6 +195,12 @@
         prevTacticalInspectSide === "ally" || prevTacticalInspectSide === "foe"
           ? prevTacticalInspectSide
           : null,
+      tacticalPendingSkill:
+        typeof prevTacticalPendingSkill === "string" ? prevTacticalPendingSkill : null,
+      tacticalSkillHoverX:
+        typeof prevTacticalSkillHoverX === "number" ? prevTacticalSkillHoverX : null,
+      tacticalSkillHoverY:
+        typeof prevTacticalSkillHoverY === "number" ? prevTacticalSkillHoverY : null,
       foes: Array.isArray(st.foes)
         ? st.foes.map((f) => {
             if (!f || typeof f !== "object") return f;
@@ -314,6 +323,10 @@
       clearTimeout(enemyPhaseUiTimer);
       enemyPhaseUiTimer = null;
     }
+    if (enemyPhaseSafetyTimer) {
+      clearTimeout(enemyPhaseSafetyTimer);
+      enemyPhaseSafetyTimer = null;
+    }
     if (enemyReplayStepTimer) {
       clearTimeout(enemyReplayStepTimer);
       enemyReplayStepTimer = null;
@@ -324,6 +337,8 @@
     }
   }
 
+  let enemyPhaseSafetyTimer = null;
+
   function beginEnemyPhaseUi(totalMs, autoFinish) {
     const ms = Math.max(ENEMY_PHASE_MIN_MS, totalMs || ENEMY_PHASE_MIN_MS);
     enemyPhaseUiUntil = Date.now() + ms;
@@ -331,19 +346,31 @@
     setFightUiPending(true);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
     if (enemyPhaseUiTimer) clearTimeout(enemyPhaseUiTimer);
+    if (enemyPhaseSafetyTimer) clearTimeout(enemyPhaseSafetyTimer);
     if (autoFinish !== false) {
       enemyPhaseUiTimer = setTimeout(() => {
         enemyPhaseUiTimer = null;
-        enemyPhaseUiUntil = 0;
-        if (combatState) delete combatState.uiPhaseOverride;
+        clearEnemyPhaseUi();
         setFightUiPending(false);
         if (typeof renderTurnBattle === "function") renderTurnBattle();
       }, ms);
     }
+    enemyPhaseSafetyTimer = setTimeout(() => {
+      enemyPhaseSafetyTimer = null;
+      if (isEnemyPhaseUiActive()) {
+        if (pendingFinalCombatApply) finishPendingCombatApply();
+        else {
+          clearEnemyPhaseUi();
+          setFightUiPending(false);
+          if (typeof renderTurnBattle === "function") renderTurnBattle();
+        }
+      }
+    }, ms + 800);
   }
 
-  function applyCombatVisualSnapshot(st, snap) {
+  function applyCombatVisualSnapshot(st, snap, opts) {
     if (!st || !snap) return;
+    const skipGrid = !!(opts && opts.skipGrid);
     if (Array.isArray(snap.party)) {
       snap.party.forEach((p) => {
         if (!p) return;
@@ -351,6 +378,8 @@
         if (m) {
           m.hp = p.hp;
           if (typeof p.maxHp === "number") m.maxHp = p.maxHp;
+          if (!skipGrid && typeof p.gridX === "number") m.gridX = p.gridX;
+          if (!skipGrid && typeof p.gridY === "number") m.gridY = p.gridY;
         }
       });
     }
@@ -361,6 +390,8 @@
         if (foe) {
           foe.hp = f.hp;
           if (typeof f.maxHp === "number") foe.maxHp = f.maxHp;
+          if (!skipGrid && typeof f.gridX === "number") foe.gridX = f.gridX;
+          if (!skipGrid && typeof f.gridY === "number") foe.gridY = f.gridY;
         }
       });
     }
@@ -368,12 +399,12 @@
     if (snap.status) st.status = JSON.parse(JSON.stringify(snap.status));
   }
 
-  function restorePreEnemyVisualState(preEnemySnapshot) {
+  function restorePreEnemyVisualState(preEnemySnapshot, opts) {
     if (!combatState || !preEnemySnapshot) return;
     if (Array.isArray(preEnemySnapshot.fightLog)) {
       combatState.fightLog = preEnemySnapshot.fightLog.slice();
     }
-    applyCombatVisualSnapshot(combatState, preEnemySnapshot);
+    applyCombatVisualSnapshot(combatState, preEnemySnapshot, opts);
     if (typeof syncFightLogFromCombatState === "function") syncFightLogFromCombatState();
   }
 
@@ -433,7 +464,10 @@
       ctx.worldMapContext,
       ctx.extra || {}
     );
-    restorePreEnemyVisualState(preEnemy);
+    if (typeof setTacticalGridBeforeEnemyPhase === "function") {
+      setTacticalGridBeforeEnemyPhase(preEnemy);
+    }
+    restorePreEnemyVisualState(preEnemy, { skipGrid: !!combatState?.tactical });
     combatState.uiPhaseOverride = "enemy";
     if (typeof renderTurnBattle === "function") renderTurnBattle();
 
@@ -452,15 +486,27 @@
 
     let stepIndex = 0;
     const playNext = () => {
-      if (!combatState || stepIndex >= steps.length) {
+      try {
+        if (!combatState || stepIndex >= steps.length) {
+          finishPendingCombatApply();
+          return;
+        }
+        const step = steps[stepIndex++];
+        applyEnemyActionStep(step);
+        enemyReplayStepTimer = setTimeout(playNext, ENEMY_ACTION_STEP_MS);
+      } catch (err) {
+        console.error("Enemy phase replay step failed:", err);
         finishPendingCombatApply();
-        return;
       }
-      const step = steps[stepIndex++];
-      applyEnemyActionStep(step);
-      enemyReplayStepTimer = setTimeout(playNext, ENEMY_ACTION_STEP_MS);
     };
-    enemyReplayStepTimer = setTimeout(playNext, allyLeadMs + 120);
+    const startReplaySteps = () => {
+      enemyReplayStepTimer = setTimeout(playNext, allyLeadMs + 120);
+    };
+    if (typeof whenTacticalMoveAnimationsSettled === "function") {
+      whenTacticalMoveAnimationsSettled().then(startReplaySteps);
+    } else {
+      startReplaySteps();
+    }
     return true;
   }
 
@@ -663,7 +709,10 @@
     if (!st) return;
     const allyHits = Array.isArray(payload.lastHits) ? payload.lastHits : [];
     const allyHeals = Array.isArray(payload.lastHeals) ? payload.lastHeals : [];
-    const enemyPhaseRan = Array.isArray(payload.enemyActionSteps) && payload.preEnemySnapshot;
+    const enemyPhaseRan =
+      Array.isArray(payload.enemyActionSteps) &&
+      payload.enemyActionSteps.length > 0 &&
+      payload.preEnemySnapshot;
 
     if (enemyPhaseRan) return;
 
@@ -673,12 +722,10 @@
         (st.party || []).find((m) => m && m.uid === payload.actorPartyUid) || actor;
     }
 
-    const enemyPhaseOnly = Array.isArray(payload.lastEnemyHits);
-    if (enemyPhaseOnly) {
-      const enemyHits = payload.lastEnemyHits;
+    const enemyHits = Array.isArray(payload.lastEnemyHits) ? payload.lastEnemyHits : [];
+    if (enemyHits.length > 0) {
       const hitCount = enemyHits.length;
-      const animMs =
-        hitCount > 0 ? Math.max(ENEMY_PHASE_MIN_MS, hitCount * ENEMY_ACTION_STEP_MS) : ENEMY_PHASE_MIN_MS;
+      const animMs = Math.max(ENEMY_PHASE_MIN_MS, hitCount * ENEMY_ACTION_STEP_MS);
       const allyLeadMs = allyHits.length || allyHeals.length ? 420 : 0;
       beginEnemyPhaseUi(allyLeadMs + animMs);
     }
@@ -687,8 +734,8 @@
       if (allyHits.length) playServerHitEffects(allyHits, actor);
       if (allyHeals.length) playServerHealEffects(allyHeals);
       const allyLeadMs = allyHits.length || allyHeals.length ? 420 : 0;
-      if (Array.isArray(payload.lastEnemyHits) && payload.lastEnemyHits.length) {
-        payload.lastEnemyHits.forEach((hit, i) => {
+      if (enemyHits.length) {
+        enemyHits.forEach((hit, i) => {
           setTimeout(() => playServerEnemyHitEffects([hit]), allyLeadMs + i * ENEMY_ACTION_STEP_MS);
         });
       }

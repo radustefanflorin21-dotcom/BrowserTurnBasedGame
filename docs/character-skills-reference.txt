@@ -1,0 +1,473 @@
+CHARACTER SKILLS REFERENCE
+Browser Turn-Based Game — generated from skills_catalog.js
+================================================================================
+
+All heroes share the same 77-skill pool. Skills unlock by character level (not
+class). Each skill has 5 ranks (R1–R5); numbers below show R1 → R5 scaling
+unless noted.
+
+HOW DAMAGE / HEALING IS CALCULATED
+--------------------------------------------------------------------------------
+Physical hit:  floor(STR × str% + weapon attack × 0.25)
+Magic hit:     floor(INT × int% + INT × 0.10)
+
+Then enemy resist, buffs/debuffs, and crit (×1.5) are applied.
+
+Example damage in this file uses STR 30 / INT 30, weapon attack ≈ 25, BEFORE
+resist and crit. Healing examples use VIT 25.
+
+DoT effects (bleed, burn, poison): % of target max HP per turn.
+
+Stamina is fixed per skill. Cripple adds +1 stamina cost to all skills while active.
+Passives cost 0 stamina and cannot be cast from the skill bar.
+
+AOE skills hit the primary target plus adjacent foes in turn order. When 3+
+foes are hit, splash targets often take ~85% damage.
+
+
+================================================================================
+BASICS
+================================================================================
+
+Basic Physical Attack
+  Unlock: Lv 1  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Scaling: 60% STR (all ranks)
+  ~Damage @ STR 30: 24
+  Effect: Standard single-target physical attack.
+
+Basic Magical Attack
+  Unlock: Lv 1  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Scaling: 60% INT (all ranks)
+  ~Damage @ INT 30: 21
+  Effect: Standard single-target magical attack.
+
+
+================================================================================
+VANGUARD (TANK / PROTECTION)
+================================================================================
+
+Shield Bash
+  Unlock: Lv 2  |  Stamina: 2  |  CD: 1  |  Type: Active
+  Scaling: 45→65% STR
+  ~Damage @ STR 30 (R1 / R5): 20 / 26
+  Effect: Physical hit; chance to reduce target physical damage dealt (−7% at R5).
+
+Brace
+  Unlock: Lv 2  |  Stamina: 2  |  CD: 3  |  Type: Active
+  Damage: 0
+  Effect: Self buff — −20% damage taken, +4% status resist for 2 turns (R5).
+
+Heavy Strike
+  Unlock: Lv 4  |  Stamina: 3  |  CD: 0  |  Type: Active
+  Scaling: 85→115% STR
+  ~Damage @ STR 30 (R1 / R5): 32 / 41
+  Effect: Strong single-target physical hit.
+
+Guarding Shout
+  Unlock: Lv 8  |  Stamina: 2  |  CD: 4  |  Type: Active
+  Damage: 0
+  Effect: All foes — chance to apply Ally Pressure (enemies deal less to allies).
+
+Iron Wall
+  Unlock: Lv 15  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +20 VIT, +4% physical resist, +100 max HP at fight start (R5).
+
+Taunt
+  Unlock: Lv 18  |  Stamina: 3  |  CD: 5  |  Type: Active
+  Damage: 0
+  Effect: Taunts all enemies; chance to reduce their damage (−7% at R5).
+
+Guard Ally
+  Unlock: Lv 24  |  Stamina: 3  |  CD: 4  |  Type: Active
+  Damage: 0
+  Effect: Protect an ally — 50% of their damage redirects to you for 2 turns (R5).
+
+Shield Slam
+  Unlock: Lv 32  |  Stamina: 4  |  CD: 4  |  Type: Active
+  Scaling: 55→75% STR
+  ~Damage @ STR 30 (R1 / R5): 23 / 29
+  Effect: Physical hit; chance to stun for 1 turn (28% at R5).
+
+Earthbreaker
+  Unlock: Lv 44  |  Stamina: 5  |  CD: 5  |  Type: Active
+  Scaling: 55→75% STR per foe
+  ~Damage @ STR 30 (R1 / R5): 23 / 29 per foe
+  Effect: AOE (target + up to 3 adjacent); phys damage down and stun at high rank.
+
+Unbroken Line
+  Unlock: Lv 54  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: Using defensive skills stacks phys/mag/status resist; allies gain DR at max stacks (R5).
+
+
+================================================================================
+DUELIST (FINESSE / BLEED)
+================================================================================
+
+Precise Cut
+  Unlock: Lv 2  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Scaling: 55→75% STR
+  ~Damage @ STR 30 (R1 / R5): 23 / 29
+  Effect: Accurate physical hit with high crit chance.
+
+Footwork
+  Unlock: Lv 3  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +6% evasion, +3% accuracy (R5).
+
+Twin Jab
+  Unlock: Lv 6  |  Stamina: 3  |  CD: 1  |  Type: Active
+  Scaling: 35→48% STR × 2 hits
+  ~Damage @ STR 30 (R1 / R5): 17×2 / 21×2
+  Effect: Two-hit combo on one target.
+
+Feint
+  Unlock: Lv 10  |  Stamina: 2  |  CD: 3  |  Type: Active
+  Scaling: 40→60% STR
+  ~Damage @ STR 30 (R1 / R5): 18 / 24
+  Effect: Hit + chance to blind (−8% accuracy, 2 turns at R5).
+
+Flow Step
+  Unlock: Lv 16  |  Stamina: 2  |  CD: 4  |  Type: Active
+  Damage: 0
+  Effect: Self — +14% evasion, +5% accuracy for 2 turns (R5).
+
+Expose Weakness
+  Unlock: Lv 22  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Scaling: 55→78% STR
+  ~Damage @ STR 30 (R1 / R5): 23 / 30
+  Effect: Hit + chance to reduce physical resist (−10%, 2 turns at R5).
+
+Duelist Momentum
+  Unlock: Lv 28  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: 15% chance on crit to refund +1 stamina (R5).
+
+Bleeding Flourish
+  Unlock: Lv 34  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Scaling: 60→80% STR per foe
+  ~Damage @ STR 30 (R1 / R5): 24 / 30 per foe
+  Effect: AOE physical + chance bleed (13% max HP/turn, 3 turns at R5).
+
+Deep Lunge
+  Unlock: Lv 46  |  Stamina: 4  |  CD: 2  |  Type: Active
+  Scaling: 95→130% STR
+  ~Damage @ STR 30 (R1 / R5): 35 / 45
+  Effect: Heavy hit; +12% damage vs targets with physical resist down (R5).
+
+Final Measure
+  Unlock: Lv 56  |  Stamina: 5  |  CD: 5  |  Type: Active
+  Scaling: 100→135% STR (195% STR vs foes below 35% HP at R5)
+  ~Damage @ STR 30 (R1 / R5): 36 / 47 normal, ~58 vs low HP
+  Effect: Finisher — massive bonus damage on wounded targets.
+
+
+================================================================================
+ARCANIST (MAGIC / BURN)
+================================================================================
+
+Arcane Bolt
+  Unlock: Lv 2  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Scaling: 55→78% INT
+  ~Damage @ INT 30 (R1 / R5): 19 / 26
+  Effect: Basic magic hit.
+
+Spark
+  Unlock: Lv 4  |  Stamina: 2  |  CD: 1  |  Type: Active
+  Scaling: 45→68% INT
+  ~Damage @ INT 30 (R1 / R5): 16 / 23
+  Effect: Magic hit; at R4+ chance to burn (10% max HP/turn, 2 turns).
+
+Focused Casting
+  Unlock: Lv 8  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +12% magic damage, +4% accuracy (R5).
+
+Spell Preparation
+  Unlock: Lv 12  |  Stamina: 1  |  CD: 4  |  Type: Active
+  Damage: 0
+  Effect: Next 2 magical skills cost −1 stamina (min 2); +8% magic damage for 3 turns (R5).
+
+Arcane Wave
+  Unlock: Lv 18  |  Stamina: 4  |  CD: 3  |  Type: Active
+  Scaling: 45→68% INT per foe
+  ~Damage @ INT 30 (R1 / R5): 16 / 23 per foe
+  Effect: AOE magic (target + up to 3 adjacent foes).
+
+Burning Field
+  Unlock: Lv 24  |  Stamina: 4  |  CD: 4  |  Type: Active
+  Scaling: 35→55% INT per foe
+  ~Damage @ INT 30 (R1 / R5): 13 / 19 per foe
+  Effect: AOE magic + chance burn (12% max HP/turn, 3 turns).
+
+Spell Fracture
+  Unlock: Lv 30  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Scaling: 55→78% INT
+  ~Damage @ INT 30 (R1 / R5): 19 / 26
+  Effect: Hit + chance to reduce magic resist (−10%, 2 turns at R5).
+
+Overload
+  Unlock: Lv 38  |  Stamina: 3  |  CD: 5  |  Type: Active
+  Damage: 0
+  Effect: Self — +25% magic damage for 2 turns; skills cost +1 stamina during effect (R5).
+
+Arcane Collapse
+  Unlock: Lv 48  |  Stamina: 5  |  CD: 5  |  Type: Active
+  Scaling: 70→100% INT per foe
+  ~Damage @ INT 30 (R1 / R5): 24 / 33 per foe
+  Effect: Large AOE; hits all enemies at R5.
+
+Event Horizon
+  Unlock: Lv 58  |  Stamina: 6  |  CD: 7  |  Type: Active
+  Scaling: 85→120% INT
+  ~Damage @ INT 30 (R1 / R5): 28 / 39
+  Effect: Heavy magic hit; +22% damage vs burning targets (R5).
+
+
+================================================================================
+MARKSMAN (RANGED / ACCURACY)
+================================================================================
+
+Quick Shot
+  Unlock: Lv 3  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Scaling: 45→68% STR
+  ~Damage @ STR 30 (R1 / R5): 20 / 26
+  Effect: Fast, accurate ranged physical hit.
+
+Smoke Step
+  Unlock: Lv 4  |  Stamina: 2  |  CD: 4  |  Type: Active
+  Damage: 0
+  Effect: Self — +16% evasion for 2 turns (R5).
+
+Mark Target
+  Unlock: Lv 7  |  Stamina: 2  |  CD: 3  |  Type: Active
+  Damage: 0
+  Effect: −14% evasion on target for 3 turns (R5); no direct damage.
+
+Steady Shot
+  Unlock: Lv 12  |  Stamina: 3  |  CD: 2  |  Type: Active
+  Scaling: 60→82% STR
+  ~Damage @ STR 30 (R1 / R5): 24 / 31
+  Effect: Ranged hit with bonus accuracy (+6% hit at R5).
+
+Scatter Shot
+  Unlock: Lv 18  |  Stamina: 4  |  CD: 3  |  Type: Active
+  Scaling: 40→62% STR per foe
+  ~Damage @ STR 30 (R1 / R5): 18 / 25 per foe
+  Effect: AOE ranged (target + up to 3 adjacent).
+
+Pinning Shot
+  Unlock: Lv 24  |  Stamina: 3  |  CD: 4  |  Type: Active
+  Scaling: 55→78% STR
+  ~Damage @ STR 30 (R1 / R5): 23 / 30
+  Effect: Hit + chance cripple (+1 stamina cost, 2 turns at R5).
+
+Keen Eye
+  Unlock: Lv 28  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +12% accuracy, +4% crit (R5).
+
+Piercing Shot
+  Unlock: Lv 34  |  Stamina: 4  |  CD: 3  |  Type: Active
+  Scaling: 75→110% STR
+  ~Damage @ STR 30 (R1 / R5): 29 / 39
+  Effect: Heavy shot; ignores 12% of target physical resist (R5).
+
+Reflex Volley
+  Unlock: Lv 46  |  Stamina: 5  |  CD: 5  |  Type: Active
+  Scaling: 35→42% STR × 3→5 hits
+  ~Damage @ STR 30 (R1 / R5): 17×3 / 19×5 (~95 total at R5)
+  Effect: Multi-hit burst on one target.
+
+Vanishing Shot
+  Unlock: Lv 56  |  Stamina: 4  |  CD: 6  |  Type: Active
+  Scaling: 90→130% STR
+  ~Damage @ STR 30 (R1 / R5): 33 / 45
+  Effect: Big ranged hit + self +18% evasion for 2 turns (R5).
+
+
+================================================================================
+BERSERKER (HIGH DAMAGE / SELF-HARM)
+================================================================================
+
+Cleave
+  Unlock: Lv 3  |  Stamina: 3  |  CD: 0  |  Type: Active
+  Scaling: 50→72% STR per foe
+  ~Damage @ STR 30 (R1 / R5): 21 / 28 per foe
+  Effect: AOE physical (target + up to 2 adjacent).
+
+Blood Price
+  Unlock: Lv 5  |  Stamina: 1  |  CD: 4  |  Type: Active
+  Damage: 0 (costs 6% max HP at R5)
+  Effect: Sacrifice HP for +18% physical damage for 3 turns (R5).
+
+Heavy Cut
+  Unlock: Lv 8  |  Stamina: 3  |  CD: 2  |  Type: Active
+  Scaling: 75→108% STR
+  ~Damage @ STR 30 (R1 / R5): 29 / 38
+  Effect: Strong single-target physical hit.
+
+War Hunger
+  Unlock: Lv 14  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +12% physical damage, +5% healing received (R5).
+
+Rupture
+  Unlock: Lv 20  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Scaling: 65→100% STR
+  ~Damage @ STR 30 (R1 / R5): 26 / 36
+  Effect: Hit + chance bleed (15% max HP/turn, 3 turns at R5).
+
+Brutal Rush
+  Unlock: Lv 26  |  Stamina: 4  |  CD: 3  |  Type: Active
+  Scaling: 100→140% STR
+  ~Damage @ STR 30 (R1 / R5): 36 / 48
+  Effect: Very heavy hit; you take 3% max HP self-damage (R5).
+
+Bonebreaker
+  Unlock: Lv 34  |  Stamina: 3  |  CD: 4  |  Type: Active
+  Scaling: 65→100% STR
+  ~Damage @ STR 30 (R1 / R5): 26 / 36
+  Effect: Hit + chance cripple for 2 turns (R5).
+
+Kill Momentum
+  Unlock: Lv 40  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: On kill — +2 stamina and +10% physical damage next turn (R5).
+
+Bloodstorm
+  Unlock: Lv 50  |  Stamina: 5  |  CD: 5  |  Type: Active
+  Scaling: 55→82% STR per foe
+  ~Damage @ STR 30 (R1 / R5): 23 / 31 per foe
+  Effect: Hits all enemies; you take 4% max HP self-damage (R5).
+
+Execute
+  Unlock: Lv 58  |  Stamina: 5  |  CD: 5  |  Type: Active
+  Scaling: 90→130% STR (230% STR vs foes below 30% HP at R5)
+  ~Damage @ STR 30 (R1 / R5): 33 / 45 normal, ~69 vs low HP
+  Effect: Finisher — massive bonus damage on wounded targets.
+
+
+================================================================================
+CLERIC (HEALING / SUPPORT)
+================================================================================
+
+Mend
+  Unlock: Lv 3  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Healing: 45→70% VIT (~11→18 HP @ VIT 25)
+  Effect: Single-target heal.
+
+Protective Ward
+  Unlock: Lv 4  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Shield: 55→110% VIT absorb (~14→28 @ VIT 25)
+  Effect: Damage absorb shield on ally.
+
+Encourage
+  Unlock: Lv 8  |  Stamina: 2  |  CD: 3  |  Type: Active
+  Healing: up to 5% VIT at R5
+  Effect: Ally +8% accuracy for 2 turns; small heal at high rank.
+
+Regrowth
+  Unlock: Lv 12  |  Stamina: 3  |  CD: 4  |  Type: Active
+  Healing: HoT 22→38% VIT over 3 turns + upfront heal
+  Effect: Regeneration on ally.
+
+Cleanse
+  Unlock: Lv 18  |  Stamina: 2  |  CD: 3  |  Type: Active
+  Effect: Remove 1→3 debuffs from ally; optional small heal at mid ranks.
+
+Steady Heart
+  Unlock: Lv 24  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +13% healing power, +5% status resist (R5).
+
+Group Mend
+  Unlock: Lv 30  |  Stamina: 4  |  CD: 4  |  Type: Active
+  Healing: 25→50% VIT split among all allies
+  Effect: Party heal.
+
+Revitalizing Pulse
+  Unlock: Lv 38  |  Stamina: 4  |  CD: 5  |  Type: Active
+  Effect: Party gains +2 stamina on next turn (R5); optional small party heal at mid ranks.
+
+Sanctuary
+  Unlock: Lv 48  |  Stamina: 5  |  CD: 7  |  Type: Active
+  Effect: Party −18% damage taken, +8% status resist for 3 turns (R5).
+
+Second Breath
+  Unlock: Lv 58  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: Once per fight below 30% HP — heal 90% VIT and cleanse 2 debuffs (R5).
+
+
+================================================================================
+PLAGUE (POISON / DEBUFFS)
+================================================================================
+
+Toxin Dart
+  Unlock: Lv 3  |  Stamina: 2  |  CD: 0  |  Type: Active
+  Scaling: 40→60% INT
+  ~Damage @ INT 30 (R1 / R5): 15 / 21
+  Effect: Magic hit; at R3+ chance poison (10% max HP/turn).
+
+Irritating Powder
+  Unlock: Lv 5  |  Stamina: 2  |  CD: 3  |  Type: Active
+  Damage: 0
+  Effect: Chance to blind (−8% accuracy, 2 turns at R5).
+
+Weakening Flask
+  Unlock: Lv 12  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Scaling: 40→62% INT
+  ~Damage @ INT 30 (R1 / R5): 15 / 21
+  Effect: Magic hit + both damage down (−8%, 3 turns at R5).
+
+Poison Dart
+  Unlock: Lv 18  |  Stamina: 3  |  CD: 2  |  Type: Active
+  Scaling: 45→68% INT
+  ~Damage @ INT 30 (R1 / R5): 16 / 23
+  Effect: Hit + strong poison (15% max HP/turn, 4 turns at R5).
+
+Toxic Study
+  Unlock: Lv 24  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +12% accuracy, +5% magic damage (R5).
+
+Acid Vial
+  Unlock: Lv 30  |  Stamina: 3  |  CD: 3  |  Type: Active
+  Scaling: 45→68% INT
+  ~Damage @ INT 30 (R1 / R5): 16 / 23
+  Effect: Hit + both resist down (−8%, 2 turns at R5).
+
+Crippling Mixture
+  Unlock: Lv 36  |  Stamina: 3  |  CD: 4  |  Type: Active
+  Damage: 0
+  Effect: Cripple + blind; can hit 1 adjacent foe at R5.
+
+Spread Contagion
+  Unlock: Lv 42  |  Stamina: 4  |  CD: 5  |  Type: Active
+  Damage: 0
+  Effect: Spread existing poison on target to up to 3 adjacent foes.
+
+Collapse Immunity
+  Unlock: Lv 50  |  Stamina: 4  |  CD: 6  |  Type: Active
+  Damage: 0
+  Effect: −18% status resist on target for 3 turns (R5).
+
+Plague Engine
+  Unlock: Lv 60  |  Stamina: 0  |  CD: —  |  Type: Passive
+  Effect: +16% DoT damage, +4% debuff accuracy; poison can stack twice (R5).
+
+
+================================================================================
+QUICK REFERENCE — SAMPLE R5 VALUES (@ STR/INT 30, before resist)
+================================================================================
+
+Skill                    Stamina   Approx. value
+-----------------------  -------   ---------------------------------
+Basic Physical Attack    2         24 damage
+Heavy Strike             3         41 damage
+Precise Cut              2         29 damage
+Twin Jab                 3         21 × 2 damage
+Arcane Bolt              2         26 damage
+Arcane Collapse (each)   5         33 damage per foe
+Quick Shot               2         26 damage
+Reflex Volley            5         ~95 total (5 hits)
+Cleave (each foe)        3         28 damage
+Execute (normal/low HP)  5         45 / 69 damage
+Mend                     2         ~18 heal (@ VIT 25)
+
+
+================================================================================
+SOURCE: skills_catalog.js (auto-generated from tools/build_unified_skills_catalog.cjs)
+Combat formulas: server/combat/skills.js (computeStrikeSkillBaseDamage)
+================================================================================

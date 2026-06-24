@@ -697,7 +697,11 @@ export function processCombatAction(session, action, actingUserId = null) {
           ? st.selectedUid
           : member.uid;
     if (mode === "enemy") setSelectedFoeUid(st, targetUid);
-    const resolved = validateAndResolveSkill(st, member, actor, skillName, targetUid, rng);
+    const gridTarget =
+      Number.isFinite(Number(action.x)) && Number.isFinite(Number(action.y))
+        ? { x: Number(action.x), y: Number(action.y) }
+        : null;
+    const resolved = validateAndResolveSkill(st, member, actor, skillName, targetUid, rng, gridTarget);
     if (!resolved.ok) {
       appendLog(st, resolved.error || "Skill failed.");
       return { state: cloneState(st), result: null, finished: false };
@@ -755,6 +759,21 @@ export function processCombatAction(session, action, actingUserId = null) {
         const fadeColdLog = tryPaleRimeWispFadeCold(st, foe, rng, appendLog, actorPlayer);
         if (fadeColdLog) appendLog(st, fadeColdLog);
       }
+    }
+    for (const hit of resolved.allyHits || []) {
+      const ally = st.party.find((m) => m && m.uid === hit.memberUid);
+      if (!ally) continue;
+      if (hit.missed) {
+        appendLog(st, `${member.name} uses ${label} but the blast misses ${ally.name}.`);
+        continue;
+      }
+      const dmg = Math.max(0, Math.min(ally.hp, hit.damage));
+      ally.hp = Math.max(0, ally.hp - dmg);
+      if (ally.kind === "hero") st.playerHp = ally.hp;
+      appendLog(
+        st,
+        `${member.name} uses ${label} and ${ally.name} takes ${dmg} friendly-fire damage${hit.crit ? " (critical hit!)" : ""}.`
+      );
     }
     for (const line of resolved.debuffLogs || []) {
       if (line) appendLog(st, line);

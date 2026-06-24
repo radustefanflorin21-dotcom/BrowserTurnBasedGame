@@ -2,13 +2,30 @@
 
 function capturePartySnapshot(st) {
   return (st.party || []).map((m) =>
-    m ? { uid: m.uid, hp: m.hp, maxHp: m.maxHp, kind: m.kind } : null
+    m
+      ? {
+          uid: m.uid,
+          hp: m.hp,
+          maxHp: m.maxHp,
+          kind: m.kind,
+          gridX: typeof m.gridX === "number" ? m.gridX : undefined,
+          gridY: typeof m.gridY === "number" ? m.gridY : undefined
+        }
+      : null
   );
 }
 
 function captureFoesSnapshot(st) {
   return (st.foes || []).map((f) =>
-    f ? { uid: f.uid, hp: f.hp, maxHp: f.maxHp } : null
+    f
+      ? {
+          uid: f.uid,
+          hp: f.hp,
+          maxHp: f.maxHp,
+          gridX: typeof f.gridX === "number" ? f.gridX : undefined,
+          gridY: typeof f.gridY === "number" ? f.gridY : undefined
+        }
+      : null
   );
 }
 
