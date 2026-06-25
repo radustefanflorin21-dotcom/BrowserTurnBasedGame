@@ -220,6 +220,9 @@
     if (combatState.tactical && typeof ensureTacticalUnitsPlaced === "function") {
       ensureTacticalUnitsPlaced(combatState);
     }
+    if (typeof ensureTacticalCombatFootprints === "function") {
+      ensureTacticalCombatFootprints(combatState);
+    }
     ensureCombatStatus(combatState);
     if (typeof combatState.stamina !== "number") {
       initCombatStamina(combatState);
@@ -533,10 +536,17 @@
     const startReplaySteps = () => {
       enemyReplayStepTimer = setTimeout(playNext, allyLeadMs + 120);
     };
-    if (typeof whenTacticalMoveAnimationsSettled === "function") {
-      whenTacticalMoveAnimationsSettled().then(startReplaySteps);
+    const beginReplayAfterCeremony = () => {
+      if (typeof whenTacticalMoveAnimationsSettled === "function") {
+        whenTacticalMoveAnimationsSettled().then(startReplaySteps);
+      } else {
+        startReplaySteps();
+      }
+    };
+    if (typeof tryRunPendingBossPhaseCeremony === "function") {
+      tryRunPendingBossPhaseCeremony(beginReplayAfterCeremony);
     } else {
-      startReplaySteps();
+      beginReplayAfterCeremony();
     }
     return true;
   }
@@ -795,17 +805,29 @@
       return;
     }
 
-    applyServerStateToCombat(
-      payload.state,
-      ctx.region,
-      ctx.mob,
-      ctx.worldMapContext,
-      extra
-    );
-    syncFightLogFromCombatState();
-    if (typeof renderTurnBattle === "function") renderTurnBattle();
-    playCombatHitsFromPayload(payload, ctx.actorMember);
-    if (ctx.onApplied) ctx.onApplied();
+    const applyAndRender = () => {
+      applyServerStateToCombat(
+        payload.state,
+        ctx.region,
+        ctx.mob,
+        ctx.worldMapContext,
+        extra
+      );
+      syncFightLogFromCombatState();
+      if (typeof renderTurnBattle === "function") renderTurnBattle();
+      playCombatHitsFromPayload(payload, ctx.actorMember);
+      if (ctx.onApplied) ctx.onApplied();
+    };
+
+    const enemyPhaseStarting =
+      payload.state?.phase === "enemy" ||
+      (Array.isArray(payload.enemyActionSteps) && payload.enemyActionSteps.length > 0);
+    if (enemyPhaseStarting && typeof tryRunPendingBossPhaseCeremony === "function") {
+      tryRunPendingBossPhaseCeremony(applyAndRender);
+      return;
+    }
+
+    applyAndRender();
   }
 
   function setFightUiPending(isPending) {

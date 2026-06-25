@@ -175,13 +175,17 @@
     if (!hasLineOfSightToUnit(st, caster.gridX, caster.gridY, unit, losOpts)) return null;
     const cx = caster.gridX;
     const cy = caster.gridY;
+    const fp = grid.getUnitFootprint(unit);
+    const multiTile = fp.w > 1 || fp.h > 1;
     const cells = grid.getUnitOccupiedCells(unit);
     let best = null;
     let bestD = Infinity;
     for (const c of cells) {
       if (cfg.straightLine && !isSameOrthogonalLine(cx, cy, c.x, c.y)) continue;
-      const losOptsCell = { ...(losOpts || {}), passThroughUnitUid: unit.uid };
-      if (!hasLineOfSight(st, cx, cy, c.x, c.y, losOptsCell)) continue;
+      if (!multiTile) {
+        const losOptsCell = { ...(losOpts || {}), passThroughUnitUid: unit.uid };
+        if (!hasLineOfSight(st, cx, cy, c.x, c.y, losOptsCell)) continue;
+      }
       const d = manhattan(cx, cy, c.x, c.y);
       if (d < bestD) {
         bestD = d;

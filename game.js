@@ -4716,6 +4716,31 @@ function applyTacticalFootprintFromDef(unit, def) {
   }
 }
 
+/** Apply multi-tile footprints from enemy defs before targeting / LOS checks. */
+function ensureTacticalCombatFootprints(st) {
+  if (!st) return;
+  const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
+  if (!TG) return;
+  TG.allCombatUnits(st).forEach((u) => {
+    if (!u || u.hp <= 0) return;
+    if (!u.gridFootprintW && u.name) {
+      applyTacticalFootprintFromDef(u, getEnemyDefByName(u.name));
+    }
+  });
+}
+
+function isTacticalSkillTileTargetable(st, caster, skillName, x, y) {
+  if (!st || !caster || !skillName || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+  if (typeof TacticalTargeting === "undefined" || typeof TacticalSkillTargeting === "undefined") {
+    return false;
+  }
+  ensureTacticalCombatFootprints(st);
+  const actor = getCombatActorForMember(st, caster);
+  const rank = actor ? getActorSkillLevel(actor, skillName) || 1 : 1;
+  const check = TacticalTargeting.validateSkillTile(st, caster, skillName, x, y, rank);
+  return !!check.ok;
+}
+
 function buildTacticalFoeTokenBoxStyle(layout, footprint) {
   const l = layout || getDefaultTacticalTokenLayout();
   const fp = footprint || { w: 1, h: 1 };
@@ -14539,6 +14564,14 @@ function runLeviathanPhaseCeremony(done) {
   }, timings.brightenMs);
 }
 
+function tryRunPendingBossPhaseCeremony(done) {
+  if (!pendingLeviathanPhaseCeremony) {
+    if (typeof done === "function") done();
+    return;
+  }
+  runLeviathanPhaseCeremony(done);
+}
+
 /**
  * Loads the same image as the adventure screen for (x,y): coordinateBackgrounds override, else city folder (1–4), else biome.
  * @param {(img: HTMLImageElement) => void} onSuccess
@@ -15078,7 +15111,8 @@ function getDungeonRoomBgPhaseStemIndex(dungeonId, roomIndex, combatOptional) {
     { name: "The Sleeping Child of Winter", thresholds: [0.7, 0.35] },
     { name: "The Last Warmaster", thresholds: [0.7, 0.35] },
     { name: "The Heartbloom Ancient", thresholds: [0.7, 0.35] },
-    { name: "The Riftforge Tyrant", thresholds: [0.7, 0.35] }
+    { name: "The Riftforge Tyrant", thresholds: [0.7, 0.35] },
+    { name: "The Stillness Below", thresholds: [0.7, 0.35] }
   ];
   for (const rule of bossPhaseRules) {
     const boss = co.foes && co.foes.find((f) => f && f.name === rule.name && f.hp > 0);
@@ -19850,6 +19884,7 @@ function submitTacticalSkillAt(st, skillName, x, y, targetUid) {
   if (!st || !skillName || !Number.isFinite(x) || !Number.isFinite(y)) return;
   if (typeof window === "undefined" || !window.ServerCombat?.submitAction) return;
   const caster = getActivePartyMember(st) || getCombatUiPartyMember(st);
+  ensureTacticalCombatFootprints(st);
   if (
     caster &&
     typeof TacticalTargeting !== "undefined" &&
@@ -19876,6 +19911,7 @@ function submitTacticalSkillAt(st, skillName, x, y, targetUid) {
 function tryCastPendingTacticalSkillOnUnit(st, unit, expectAlly) {
   if (!st?.tacticalPendingSkill || !unit) return false;
   if (typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return false;
+  ensureTacticalCombatFootprints(st);
   const name = st.tacticalPendingSkill;
   const isAlly = (st.party || []).some((m) => m && m.uid === unit.uid);
   if (expectAlly === true && !isAlly) return false;
@@ -19909,6 +19945,7 @@ function tryCastPendingTacticalSkillOnUnit(st, unit, expectAlly) {
 function computeTacticalSkillRangeKeys(st, member, skillName) {
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
   if (!TG || !member || !skillName || typeof TacticalTargeting === "undefined") return new Set();
+  ensureTacticalCombatFootprints(st);
   const tiles = TacticalTargeting.getSkillRangeTiles(st, member, skillName);
   return new Set(tiles.map((t) => TG.coordKey(t.x, t.y)));
 }
@@ -19981,16 +20018,16 @@ function onTacticalBoardPointerMove(ev) {
   const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
 
   if (st.tacticalPendingSkill) {
-    if (active && typeof TacticalGrid !== "undefined") {
-      const rangeKeys = computeTacticalSkillRangeKeys(st, active, st.tacticalPendingSkill);
-      if (!rangeKeys.has(TacticalGrid.coordKey(x, y))) {
-        if (st.tacticalSkillHoverX != null) {
-          st.tacticalSkillHoverX = null;
-          st.tacticalSkillHoverY = null;
-          scheduleTacticalSkillHoverRender();
-        }
-        return;
+    if (
+      active &&
+      !isTacticalSkillTileTargetable(st, active, st.tacticalPendingSkill, x, y)
+    ) {
+      if (st.tacticalSkillHoverX != null) {
+        st.tacticalSkillHoverX = null;
+        st.tacticalSkillHoverY = null;
+        scheduleTacticalSkillHoverRender();
       }
+      return;
     }
     if (st.tacticalSkillHoverX === x && st.tacticalSkillHoverY === y) return;
     st.tacticalSkillHoverX = x;
@@ -22777,10 +22814,8 @@ function onFightOverlayClick(ev) {
     if (st.tacticalPendingSkill && st.tactical) {
       const skillName = st.tacticalPendingSkill;
       const caster = getCombatUiPartyMember(st) || getActivePartyMember(st);
-      const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
-      const rangeKeys = computeTacticalSkillRangeKeys(st, caster, skillName);
       const coords = resolveTacticalSkillCastCoords(ev, st, skillName);
-      if (coords && TG && rangeKeys.has(TG.coordKey(coords.x, coords.y))) {
+      if (coords && isTacticalSkillTileTargetable(st, caster, skillName, coords.x, coords.y)) {
         const mode = getFightSkillTargetMode(skillName);
         const targetUid =
           mode === "ally" || mode === "self"
