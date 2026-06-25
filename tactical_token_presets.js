@@ -298,6 +298,38 @@
       tokenWidthPct: 100,
       tokenHeightPct: 100
     },
+    rustbound_marshal: {
+      offsetXPct: -10.23980979266577,
+      offsetYPct: -10.5241,
+      rotDeg: 0,
+      scalePct: 190,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    fallen_echo: {
+      offsetXPct: -18,
+      offsetYPct: 24,
+      rotDeg: 0,
+      scalePct: 178,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    bannerless_wraithlord: {
+      offsetXPct: -26.2092,
+      offsetYPct: -10.2711,
+      rotDeg: 0,
+      scalePct: 185,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    the_last_warmaster: {
+      offsetXPct: -16.79403540572541,
+      offsetYPct: -15.6887,
+      rotDeg: 0,
+      scalePct: 200,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
     witherling: {
       offsetXPct: -20.236087689713322,
       offsetYPct: 6.823027718550106,
@@ -335,6 +367,30 @@
       offsetYPct: 4.2643831556503216,
       rotDeg: 0,
       scalePct: 292,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    thornback_graveguard: {
+      offsetXPct: -15.916023436610963,
+      offsetYPct: 16.77008325236206,
+      rotDeg: 0,
+      scalePct: 178,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    mirage_maw: {
+      offsetXPct: -5.059020747736657,
+      offsetYPct: 16.204686556058885,
+      rotDeg: 0,
+      scalePct: 160,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    dune_mourner: {
+      offsetXPct: -4.547435267603132,
+      offsetYPct: -3.354016405254366,
+      rotDeg: 0,
+      scalePct: 178,
       tokenWidthPct: 100,
       tokenHeightPct: 100
     },
@@ -426,6 +482,22 @@
       tokenWidthPct: 100,
       tokenHeightPct: 100
     },
+    ashmaw_titan: {
+      offsetXPct: -4.72175,
+      offsetYPct: -3.0990393903854656,
+      rotDeg: 0,
+      scalePct: 202,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    inferno_oracle: {
+      offsetXPct: -4.380106872041209,
+      offsetYPct: -5.538171774591271,
+      rotDeg: 0,
+      scalePct: 154,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
     rimebound_undertaker: {
       offsetXPct: -31.028670202360875,
       offsetYPct: -10.234518464818764,
@@ -471,6 +543,110 @@
       offsetYPct: -6.822984605543709,
       rotDeg: 0,
       scalePct: 346,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    bramblehorn_matriarch: {
+      offsetXPct: -32.35022778182014,
+      offsetYPct: -12.183978198277014,
+      rotDeg: 0,
+      scalePct: 196,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    fangroot_alpha: {
+      offsetXPct: -14.33388364423841,
+      offsetYPct: -6.3965882780294425,
+      rotDeg: 0,
+      scalePct: 160,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    gaiahide_behemoth: {
+      offsetXPct: -14.333891020887293,
+      offsetYPct: -3.1982941390147213,
+      rotDeg: 0,
+      scalePct: 160,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    granitehorn_breaker: {
+      offsetXPct: -7.60041,
+      offsetYPct: 0,
+      rotDeg: 0,
+      scalePct: 142,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    held_colossus: {
+      offsetXPct: 2.6981509758926525,
+      offsetYPct: -12.206020824466245,
+      rotDeg: 0,
+      scalePct: 160,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    verdant_bloomseer: {
+      offsetXPct: 3.1067469915699086,
+      offsetYPct: -7.856332593804709,
+      rotDeg: 0,
+      scalePct: 184,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    primordial_silverback: {
+      offsetXPct: -16.4483,
+      offsetYPct: -0.6829766159113462,
+      rotDeg: 0,
+      scalePct: 190,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    petrified_coilwarden: {
+      offsetXPct: -2.023611281618887,
+      offsetYPct: -0.000023027718549784026,
+      rotDeg: 0,
+      scalePct: 100,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    the_heartbloom_ancient: {
+      offsetXPct: -3.427373027838436,
+      offsetYPct: -21.107707904885338,
+      rotDeg: 0,
+      scalePct: 148,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    the_riftforge_tyrant: {
+      offsetXPct: -16.6444,
+      offsetYPct: -15.5069,
+      rotDeg: 0,
+      scalePct: 154,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    drowned_channeler: {
+      offsetXPct: -23.08548589928126,
+      offsetYPct: -20.064085132128547,
+      rotDeg: 0,
+      scalePct: 208,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    tidebound_crusher: {
+      offsetXPct: -7.709005505072783,
+      offsetYPct: -10.72190960955071,
+      rotDeg: 0,
+      scalePct: 280,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    tidemother_aberration: {
+      offsetXPct: -6.578477633801565,
+      offsetYPct: -5.4169848342805205,
+      rotDeg: 0,
+      scalePct: 178,
       tokenWidthPct: 100,
       tokenHeightPct: 100
     },

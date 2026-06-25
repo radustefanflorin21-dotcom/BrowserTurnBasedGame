@@ -7286,6 +7286,8 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   height: 100%;
   object-fit: contain;
   object-position: bottom center;
+  /* Rustfallen elites ship on black — lighten knocks out the matte so they read on dark boards. */
+  mix-blend-mode: lighten;
 }
 
 .fight-tactical-token--layout-editing {

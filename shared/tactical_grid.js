@@ -277,6 +277,13 @@
         return a.y - b.y;
       });
       let spot = firstFreeFootprintCell(unitCells, w, h, occupancy, u.uid);
+      if (!spot) {
+        const fallback = [];
+        for (let fy = 0; fy < GRID_SIZE; fy++) {
+          for (let fx = 0; fx < GRID_SIZE; fx++) fallback.push({ x: fx, y: fy });
+        }
+        spot = firstFreeFootprintCell(fallback, w, h, occupancy, u.uid);
+      }
       if (!spot) continue;
       u.gridX = spot.x;
       u.gridY = spot.y;
