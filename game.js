@@ -19846,8 +19846,20 @@ function trySubmitTacticalMoveAtPointer(ev, st) {
   if (!coords) return false;
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
   if (!TG) return false;
-  const pathKeys = computeTacticalMovePathKeys(st, active, coords.x, coords.y);
-  if (!pathKeys.green.has(TG.coordKey(coords.x, coords.y))) return false;
+  ensureTacticalCombatFootprints(st);
+  const fp = TG.getUnitFootprint(active);
+  const occ = TG.buildOccupancy(TG.allCombatUnits(st));
+  const reachable = TG.bfsReachable(
+    active.gridX,
+    active.gridY,
+    active.movePoints,
+    st.board,
+    occ,
+    active.uid,
+    fp.w,
+    fp.h
+  );
+  if (!reachable.some((c) => c.x === coords.x && c.y === coords.y)) return false;
   if (typeof window === "undefined" || !window.ServerCombat?.submitAction) return false;
   void window.ServerCombat.submitAction({ type: "move", x: coords.x, y: coords.y });
   return true;
@@ -19981,6 +19993,8 @@ function computeTacticalReachableKeys(st, activeMember) {
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
   if (!TG || !activeMember || activeMember.hp <= 0) return new Set();
   if (typeof activeMember.gridX !== "number" || typeof activeMember.gridY !== "number") return new Set();
+  ensureTacticalCombatFootprints(st);
+  const fp = TG.getUnitFootprint(activeMember);
   const occ = TG.buildOccupancy(TG.allCombatUnits(st));
   const reachable = TG.bfsReachable(
     activeMember.gridX,
@@ -19988,7 +20002,9 @@ function computeTacticalReachableKeys(st, activeMember) {
     activeMember.movePoints,
     st.board,
     occ,
-    activeMember.uid
+    activeMember.uid,
+    fp.w,
+    fp.h
   );
   return new Set(reachable.map((c) => TG.coordKey(c.x, c.y)));
 }
@@ -20001,8 +20017,23 @@ function computeTacticalMovePathKeys(st, member, tx, ty) {
   if (!Number.isFinite(tx) || !Number.isFinite(ty)) return empty;
   if (member.gridX === tx && member.gridY === ty) return empty;
 
+  ensureTacticalCombatFootprints(st);
+  const fp = TG.getUnitFootprint(member);
   const occ = TG.buildOccupancy(TG.allCombatUnits(st));
-  const path = TG.shortestPath(member.gridX, member.gridY, tx, ty, st.board, occ, member.uid);
+  const reachable = TG.bfsReachable(
+    member.gridX,
+    member.gridY,
+    member.movePoints,
+    st.board,
+    occ,
+    member.uid,
+    fp.w,
+    fp.h
+  );
+  const dest = reachable.find((c) => c.x === tx && c.y === ty);
+  if (!dest) return empty;
+
+  const path = TG.shortestPath(member.gridX, member.gridY, tx, ty, st.board, occ, member.uid, fp.w, fp.h);
   if (!path || path.length < 2) return empty;
 
   const mp = Math.max(0, Math.floor(member.movePoints || 0));

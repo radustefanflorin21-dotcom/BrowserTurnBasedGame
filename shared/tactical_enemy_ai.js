@@ -219,6 +219,7 @@
     if (shouldSkipMove(foe, focus, mode, cfg, st)) return { moved: false };
 
     const grid = TG();
+    if (typeof ensureTacticalCombatFootprints === "function") ensureTacticalCombatFootprints(st);
     const occ = grid.buildOccupancy(grid.allCombatUnits(st));
     const mp = typeof foe.movePoints === "number" ? foe.movePoints : grid.DEFAULT_MOVE_POINTS;
     const fp = grid.getUnitFootprint(foe);

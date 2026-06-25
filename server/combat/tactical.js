@@ -11,11 +11,26 @@ const TacticalGrid = require("../../shared/tactical_grid.js");
 
 export { TacticalGrid };
 
+export function ensureTacticalUnitFootprints(st) {
+  if (!st) return;
+  TacticalGrid.allCombatUnits(st).forEach((unit) => {
+    if (!unit || unit.hp <= 0) return;
+    if (Number.isFinite(unit.gridFootprintW) && Number.isFinite(unit.gridFootprintH)) return;
+    const def = unit.name ? getEnemyDefByName(unit.name) : null;
+    const fp = def?.tacticalFootprint;
+    if (fp && typeof fp.w === "number" && typeof fp.h === "number") {
+      unit.gridFootprintW = Math.max(1, Math.floor(fp.w));
+      unit.gridFootprintH = Math.max(1, Math.floor(fp.h));
+    }
+  });
+}
+
 export function initTacticalState(st, { autoPlace = true } = {}) {
   if (!st) return;
   st.tactical = true;
   st.board = st.board || TacticalGrid.createBoard();
   st.combatRound = typeof st.combatRound === "number" ? st.combatRound : 1;
+  ensureTacticalUnitFootprints(st);
   if (autoPlace) {
     TacticalGrid.autoPlaceAllies(st.party || []);
     TacticalGrid.autoPlaceEnemies(st.foes || [], (foe) => {
@@ -99,6 +114,7 @@ export function applyPlaceAction(st, unit, x, y) {
 
 export function validateMoveAction(st, session, userId, unitUid, x, y) {
   if (st.phase !== "player") return { ok: false, message: "Not your turn." };
+  ensureTacticalUnitFootprints(st);
   const unit = TacticalGrid.findUnitByUid(st.party, unitUid);
   if (!unit || unit.hp <= 0) return { ok: false, message: "Invalid unit." };
   if (Number(unit.controllerUserId) !== Number(userId)) {

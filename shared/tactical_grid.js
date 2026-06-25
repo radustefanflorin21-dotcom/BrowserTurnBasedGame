@@ -312,8 +312,10 @@
     return path;
   }
 
-  /** Shortest orthogonal path for movement preview (may append unwalkable goal for display). */
-  function shortestPath(fromX, fromY, toX, toY, board, occupancy, ignoreUid) {
+  /** Shortest orthogonal path for movement preview (footprint-aware; never routes through occupied cells). */
+  function shortestPath(fromX, fromY, toX, toY, board, occupancy, ignoreUid, footprintW, footprintH) {
+    const fw = Math.max(1, Math.floor(footprintW || 1));
+    const fh = Math.max(1, Math.floor(footprintH || 1));
     if (fromX === toX && fromY === toY) return [{ x: fromX, y: fromY }];
     const parent = new Map();
     parent.set(coordKey(fromX, fromY), null);
@@ -336,7 +338,7 @@
         const ny = cur.y + dy;
         const key = coordKey(nx, ny);
         if (parent.has(key)) continue;
-        if (!isCellWalkable(nx, ny, board, occupancy, ignoreUid)) continue;
+        if (!isFootprintPlaceable(nx, ny, fw, fh, board, occupancy, ignoreUid)) continue;
         parent.set(key, cur);
         queue.push({ x: nx, y: ny });
       }
@@ -356,15 +358,9 @@
     }
     const closest = parseCoordKey(bestKey);
     if (!closest || (closest.x === fromX && closest.y === fromY)) {
-      return [
-        { x: fromX, y: fromY },
-        { x: toX, y: toY }
-      ];
+      return [{ x: fromX, y: fromY }];
     }
-    const path = reconstructPath(parent, closest);
-    const last = path[path.length - 1];
-    if (!last || last.x !== toX || last.y !== toY) path.push({ x: toX, y: toY });
-    return path;
+    return reconstructPath(parent, closest);
   }
 
   function bfsReachable(fromX, fromY, movePoints, board, occupancy, ignoreUid, footprintW, footprintH) {

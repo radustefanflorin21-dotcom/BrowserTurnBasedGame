@@ -5,7 +5,7 @@
 import { createRequire } from "node:module";
 import { getEnemyDefByName } from "../load_game_config.js";
 import { getEnemyCombatRoleKey } from "./monster_stats.js";
-import { applyMoveAction } from "./tactical.js";
+import { applyMoveAction, ensureTacticalUnitFootprints } from "./tactical.js";
 
 const require = createRequire(import.meta.url);
 const TacticalEnemyAi = require("../../shared/tactical_enemy_ai.js");
@@ -13,6 +13,7 @@ const TacticalEnemyAi = require("../../shared/tactical_enemy_ai.js");
 /** @returns {{ moved: boolean }} */
 export function runTacticalEnemyMove(foe, st, appendLog, rng = null) {
   if (!foe || foe.hp <= 0 || !st?.tactical) return { moved: false };
+  ensureTacticalUnitFootprints(st);
 
   const def = foe?.name ? getEnemyDefByName(foe.name) : null;
   const scriptId = def?.combatScript?.trim?.() || foe.combat?.script || "";
