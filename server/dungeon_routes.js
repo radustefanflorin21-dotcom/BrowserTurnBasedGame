@@ -10,8 +10,11 @@ import {
   applyDungeonEnterToPlayer,
   applyDungeonLeaveToPlayer,
   isPresenceOnEntranceTile,
-  notifyPartyDungeonEnterInvite
+  isUserAtDungeonEntrance,
+  notifyPartyDungeonEnterInvite,
+  skipDungeonRoomCheat
 } from "./progression/dungeon.js";
+import { allowDevCheat } from "./dev_cheats.js";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -75,19 +78,20 @@ export function registerDungeonRoutes(app) {
       }
 
       const hostUserId = req.user.id;
-      const hostEntry = byUserId.get(hostUserId);
-      if (!hostEntry || !isPresenceOnEntranceTile(hostEntry, entrance)) {
-        res.status(400).json({ error: "Stand on the dungeon entrance to enter." });
-        return;
-      }
-
       const hostRoster = parseRoster(getRosterJson(hostUserId));
       const hostPlayer = getPlayerFromRoster(hostRoster, slotIndex);
       if (!hostPlayer) {
         res.status(400).json({ error: "No character in that slot." });
         return;
       }
-      if (!playerHasDungeonKey(hostPlayer, keyName)) {
+
+      const hostEntry = byUserId.get(hostUserId);
+      const skipDungeonKey = allowDevCheat(req);
+      if (!skipDungeonKey && !isUserAtDungeonEntrance(hostEntry, hostPlayer, entrance)) {
+        res.status(400).json({ error: "Stand on the dungeon entrance to enter." });
+        return;
+      }
+      if (!skipDungeonKey && !playerHasDungeonKey(hostPlayer, keyName)) {
         res.status(400).json({ error: `You need ${keyName}.` });
         return;
       }
@@ -98,20 +102,20 @@ export function registerDungeonRoutes(app) {
 
       const enterSlotForUser = (userId, roster, sIdx) => {
         const entry = byUserId.get(userId);
-        if (!entry || !isPresenceOnEntranceTile(entry, entrance)) {
-          skipped.push({ userId, reason: "not_at_entrance" });
-          return;
-        }
         const pl = getPlayerFromRoster(roster, sIdx);
         if (!pl) {
           skipped.push({ userId, reason: "no_character" });
           return;
         }
-        if (!playerHasDungeonKey(pl, keyName)) {
+        if (!skipDungeonKey && !isUserAtDungeonEntrance(entry, pl, entrance)) {
+          skipped.push({ userId, reason: "not_at_entrance" });
+          return;
+        }
+        if (!skipDungeonKey && !playerHasDungeonKey(pl, keyName)) {
           skipped.push({ userId, reason: "no_key" });
           return;
         }
-        consumeDungeonKey(pl, keyName);
+        if (!skipDungeonKey) consumeDungeonKey(pl, keyName);
         applyDungeonEnterToPlayer(pl, dungeonId, entrance);
         const saved = savePlayerForSlot(userId, roster, sIdx, pl);
         updatePresence(userId, {
@@ -131,7 +135,9 @@ export function registerDungeonRoutes(app) {
 
       const hostSaved = enterSlotForUser(hostUserId, hostRoster, slotIndex);
       if (!entered.some((e) => e.userId === hostUserId)) {
-        res.status(400).json({ error: `You need ${keyName}.` });
+        res.status(400).json({
+          error: skipDungeonKey ? "Could not enter dungeon." : `You need ${keyName}.`
+        });
         return;
       }
 
@@ -221,6 +227,56 @@ export function registerDungeonRoutes(app) {
       });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || "Failed to leave dungeon." });
+    }
+  });
+
+  app.post("/api/dungeon/skip-room", requireAuth, (req, res) => {
+    try {
+      if (!allowDevCheat(req)) {
+        res.status(403).json({ error: "Dev cheats are not enabled on this server." });
+        return;
+      }
+      const slotIndex = Number(req.body?.slotIndex);
+      if (!Number.isFinite(slotIndex) || slotIndex < 0 || slotIndex >= SLOT_COUNT) {
+        res.status(400).json({ error: "Invalid character slot." });
+        return;
+      }
+
+      const userId = req.user.id;
+      const roster = parseRoster(getRosterJson(userId));
+      const player = getPlayerFromRoster(roster, slotIndex);
+      if (!player) {
+        res.status(400).json({ error: "No character in that slot." });
+        return;
+      }
+
+      const result = skipDungeonRoomCheat(player);
+      if (!result.ok) {
+        res.status(400).json({ error: result.error || "Could not skip dungeon room." });
+        return;
+      }
+
+      roster.slots[slotIndex] = player;
+      const { roster: saved, revision } = savePlayerForSlot(userId, roster, slotIndex, player);
+      const run = player.worldMap?.dungeonRun;
+      if (run && !run.epilogue) {
+        updatePresence(userId, {
+          dungeonId: run.id,
+          dungeonRoomIndex: typeof run.roomIndex === "number" ? run.roomIndex : 0
+        });
+      } else {
+        updatePresence(userId, { dungeonId: null });
+      }
+
+      res.json({
+        ok: true,
+        dungeonId: result.dungeonId,
+        dungeonRun: result.dungeonRun,
+        roster: saved,
+        revision
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Failed to skip dungeon room." });
     }
   });
 }

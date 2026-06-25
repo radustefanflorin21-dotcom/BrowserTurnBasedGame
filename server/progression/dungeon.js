@@ -57,6 +57,19 @@ export function isPresenceOnEntranceTile(entry, entrance) {
   return Math.floor(entry.x) === Math.floor(entrance.x) && Math.floor(entry.y) === Math.floor(entrance.y);
 }
 
+export function isPlayerOnDungeonEntrance(player, entrance) {
+  if (!player?.worldMap || player.worldMap.dungeonRun) return false;
+  const wm = player.worldMap;
+  if (typeof wm.x !== "number" || typeof wm.y !== "number") return false;
+  return Math.floor(wm.x) === Math.floor(entrance.x) && Math.floor(wm.y) === Math.floor(entrance.y);
+}
+
+/** Presence tile or authoritative saved player position (presence WS can lag). */
+export function isUserAtDungeonEntrance(presenceEntry, player, entrance) {
+  if (presenceEntry && isPresenceOnEntranceTile(presenceEntry, entrance)) return true;
+  return isPlayerOnDungeonEntrance(player, entrance);
+}
+
 export function notifyPartyDungeonEnterInvite(hostUserId, { dungeonId, dungeonName, entrance, keyName }) {
   const memberIds = getPartyMemberIds(hostUserId);
   for (const uid of memberIds) {
@@ -115,6 +128,28 @@ export function applyDungeonCombatVictory(player, dungeonId, roomIndex) {
   const ri = typeof roomIndex === "number" && Number.isFinite(roomIndex) ? Math.floor(roomIndex) : 0;
   player.worldMap.dungeonPostCombat = { dungeonId: id, roomIndex: ri, victory: true };
   return advanceDungeonRunAfterRoomVictory(player, id, ri);
+}
+
+/** Dev cheat: advance dungeon room without fighting (current room only). */
+export function skipDungeonRoomCheat(player) {
+  if (!player?.worldMap?.dungeonRun) {
+    return { ok: false, error: "Not in an active dungeon." };
+  }
+  const run = player.worldMap.dungeonRun;
+  if (run.epilogue) {
+    return { ok: false, error: "Dungeon already complete." };
+  }
+  const dungeonId = typeof run.id === "string" ? run.id.trim() : "";
+  if (!dungeonId) {
+    return { ok: false, error: "Invalid dungeon run." };
+  }
+  const roomIndex = typeof run.roomIndex === "number" ? Math.max(0, Math.floor(run.roomIndex)) : 0;
+  const advanced = advanceDungeonRunAfterRoomVictory(player, dungeonId, roomIndex);
+  if (!advanced) {
+    return { ok: false, error: "Could not skip this dungeon room." };
+  }
+  delete player.worldMap.dungeonPostCombat;
+  return { ok: true, dungeonId, dungeonRun: { ...advanced } };
 }
 
 /**

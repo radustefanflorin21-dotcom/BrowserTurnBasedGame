@@ -255,10 +255,13 @@
     if (selectEl) selectEl.classList.remove("hidden");
   }
 
-  async function enterDungeon(dungeonId, slotIndex) {
+  async function enterDungeon(dungeonId, slotIndex, opts) {
+    const body = { dungeonId, slotIndex };
+    if (opts && opts.skipDungeonKey) body.skipDungeonKey = true;
+    if (opts && opts.devCheat) body.devCheat = true;
     return apiFetch("/api/dungeon/enter", {
       method: "POST",
-      body: JSON.stringify({ dungeonId, slotIndex })
+      body: JSON.stringify(body)
     });
   }
 
@@ -266,6 +269,15 @@
     const body = { dungeonId, slotIndex };
     if (opts && opts.afterDefeat) body.afterDefeat = true;
     return apiFetch("/api/dungeon/leave", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function skipDungeonRoom(slotIndex, opts) {
+    const body = { slotIndex };
+    if (opts && opts.devCheat) body.devCheat = true;
+    return apiFetch("/api/dungeon/skip-room", {
       method: "POST",
       body: JSON.stringify(body)
     });
@@ -369,6 +381,7 @@
     onSessionReady,
     enterDungeon,
     leaveDungeon,
+    skipDungeonRoom,
     playerEquip,
     playerUnequip,
     playerSpendStat,

@@ -78,7 +78,11 @@
     const foes = [];
     const seen = new Set();
     for (const t of tiles || []) {
-      const u = grid.allCombatUnits(st).find((x) => x && x.hp > 0 && x.gridX === t.x && x.gridY === t.y);
+      const u = grid.unitOccupyingCell(
+        grid.allCombatUnits(st).filter((x) => x && x.hp > 0),
+        t.x,
+        t.y
+      );
       if (!u || seen.has(u.uid)) continue;
       seen.add(u.uid);
       if ((st.party || []).some((m) => m && m.uid === u.uid)) party.push(u);
@@ -98,12 +102,23 @@
       if (cfg.aoe === "self_radius") {
         return selfRadiusTiles(foe.gridX, foe.gridY, cfg.selfRadius || 1).some((t) => t.x === tx && t.y === ty);
       }
-      return foe.gridX === tx && foe.gridY === ty;
+      return grid.getUnitOccupiedCells(foe).some((t) => t.x === tx && t.y === ty);
     }
     const rMin = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
     const rMax = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 1;
-    if (!tt.isInRange(foe.gridX, foe.gridY, tx, ty, rMin, rMax)) return false;
-    if (rMax > 0 && !tt.hasLineOfSight(st, foe.gridX, foe.gridY, tx, ty)) return false;
+    const d = grid.minManhattanBetweenUnits(foe, {
+      gridX: tx,
+      gridY: ty,
+      gridFootprintW: 1,
+      gridFootprintH: 1
+    });
+    if (d < rMin || d > rMax) return false;
+    if (rMax > 0) {
+      const targetUnit = grid.unitOccupyingCell(grid.allCombatUnits(st), tx, ty);
+      if (targetUnit && typeof tt.hasLineOfSightToUnit === "function") {
+        if (!tt.hasLineOfSightToUnit(st, foe.gridX, foe.gridY, targetUnit)) return false;
+      } else if (!tt.hasLineOfSight(st, foe.gridX, foe.gridY, tx, ty)) return false;
+    }
     return true;
   }
 

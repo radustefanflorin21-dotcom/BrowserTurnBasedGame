@@ -1,14 +1,31 @@
 /** Per-enemy tactical board token layout (visual only — does not affect grid occupancy).
  * Keys match `combatScript` from config.js (fallback: slugified enemy name).
- * Edit in combat with Layout Edit on: drag foe token art, Shift+drag/wheel scale art,
- * Ctrl+wheel resize token box. Export JSON → paste into `tacticalTokenPresets` below.
+ * Ally board tokens: `tactical_ally_male` and `tactical_ally_female` (separate resize/position per gender).
+ * Edit in combat with Layout Edit on: drag token, Shift+drag/wheel scale, Ctrl+wheel resize box.
+ * Export JSON → paste into `tacticalTokenPresets` below.
  *
  * Layout fields:
- * - offsetXPct, offsetYPct, rotDeg, scalePct — transform on art inside the token box
- * - tokenWidthPct, tokenHeightPct — token box size (% of default foe token dimensions)
+ * - offsetXPct, offsetYPct, rotDeg, scalePct — transform on the token (feet-anchored)
+ * - tokenWidthPct, tokenHeightPct — token box size (% of default ally token dimensions)
  */
 (function () {
   const presets = {
+    tactical_ally_male: {
+      offsetXPct: -10.455388518080511,
+      offsetYPct: -33.64221367563232,
+      rotDeg: 0,
+      scalePct: 160,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    tactical_ally_female: {
+      offsetXPct: -16.94309491521011,
+      offsetYPct: -18.508716551854143,
+      rotDeg: 0,
+      scalePct: 136,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
     gorilla: {
       offsetXPct: -20.2361,
       offsetYPct: -0.852874,
@@ -398,6 +415,78 @@
       offsetYPct: -4.264415351812367,
       rotDeg: 0,
       scalePct: 172,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    hollowglass_siren: {
+      offsetXPct: -10.7926,
+      offsetYPct: -6.8230014925373155,
+      rotDeg: 0,
+      scalePct: 184,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    rimebound_undertaker: {
+      offsetXPct: -31.028670202360875,
+      offsetYPct: -10.234518464818764,
+      rotDeg: 0,
+      scalePct: 202,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    frosthorn_bulwark: {
+      offsetXPct: -43.170362563237774,
+      offsetYPct: 4.264415351812367,
+      rotDeg: 0,
+      scalePct: 178,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    sleeping_child_of_winter: {
+      offsetXPct: -29.6796,
+      offsetYPct: -19.6162,
+      rotDeg: 0,
+      scalePct: 124,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    whitebark_matron: {
+      offsetXPct: -49.915682967959526,
+      offsetYPct: -7.675906183368871,
+      rotDeg: 0,
+      scalePct: 226,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    stormfang_ravager: {
+      offsetXPct: -53.96288010118043,
+      offsetYPct: 3.4115123667377407,
+      rotDeg: 0,
+      scalePct: 184,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    abyssal_tempest_caller: {
+      offsetXPct: -37.77402748735245,
+      offsetYPct: -6.822984605543709,
+      rotDeg: 0,
+      scalePct: 346,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    stormwake_leviathan: {
+      offsetXPct: 18.43600757394787,
+      offsetYPct: -20.468159419002355,
+      rotDeg: 0,
+      scalePct: 232,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100
+    },
+    the_stillness_below: {
+      offsetXPct: 23.38225545563128,
+      offsetYPct: 5.969881549327056,
+      rotDeg: 0,
+      scalePct: 130,
       tokenWidthPct: 100,
       tokenHeightPct: 100
     }

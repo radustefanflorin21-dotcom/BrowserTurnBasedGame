@@ -40,7 +40,7 @@
     const grid = TG();
     if (!grid) return null;
     const units = grid.allCombatUnits(st).filter((u) => u && u.hp > 0);
-    return units.find((u) => u.gridX === x && u.gridY === y) || null;
+    return grid.unitOccupyingCell(units, x, y);
   }
 
   function isAllyUnit(st, unit) {
@@ -82,11 +82,22 @@
     if (fromX === toX && fromY === toY) return true;
     const occ = passUnits ? null : buildOccupancy(st);
     const obs = obstacleSet(st);
+    let passThroughUid = opts && opts.passThroughUnitUid != null ? opts.passThroughUnitUid : null;
+    if (passThroughUid == null && !(opts && opts.strictFootprintLos)) {
+      const targetUnit = unitAt(st, toX, toY);
+      if (targetUnit) {
+        const fp = grid.getUnitFootprint(targetUnit);
+        if (fp.w > 1 || fp.h > 1) passThroughUid = targetUnit.uid;
+      }
+    }
     const between = lineCellsBetween(fromX, fromY, toX, toY);
     for (const c of between) {
       const key = grid.coordKey(c.x, c.y);
       if (obs.has(key)) return false;
-      if (occ && occ.has(key)) return false;
+      if (occ && occ.has(key)) {
+        if (passThroughUid != null && occ.get(key) === passThroughUid) continue;
+        return false;
+      }
     }
     return true;
   }
@@ -103,6 +114,81 @@
   function isInRange(casterX, casterY, tx, ty, rangeMin, rangeMax) {
     const d = manhattan(casterX, casterY, tx, ty);
     return d >= rangeMin && d <= rangeMax;
+  }
+
+  function isUnitInSkillRange(caster, unit, rangeMin, rangeMax) {
+    const grid = TG();
+    if (!grid || !caster || !unit) return false;
+    if (typeof caster.gridX !== "number" || typeof caster.gridY !== "number") return false;
+    const d = grid.minManhattanBetweenUnits(caster, unit);
+    return d >= rangeMin && d <= rangeMax;
+  }
+
+  /** True if caster has LOS to at least one cell of the target unit's footprint. */
+  function hasLineOfSightToUnit(st, fromX, fromY, unit, opts) {
+    const grid = TG();
+    if (!grid || !unit) return false;
+    const cells = grid.getUnitOccupiedCells(unit);
+    if (!cells.length) return false;
+    const losOpts = { ...(opts || {}), passThroughUnitUid: unit.uid };
+    return cells.some((c) => hasLineOfSight(st, fromX, fromY, c.x, c.y, losOpts));
+  }
+
+  /** True if any footprint cell is in range and reachable; if so the whole footprint is targetable. */
+  function isUnitTargetable(st, caster, unit, rangeMin, rangeMax, opts) {
+    if (!isUnitInSkillRange(caster, unit, rangeMin, rangeMax)) return false;
+    return hasLineOfSightToUnit(st, caster.gridX, caster.gridY, unit, opts && opts.losOpts);
+  }
+
+  /** Add every footprint cell for units whose closest cell is within skill range. */
+  function expandRangeTilesWithUnitFootprints(st, caster, tiles, rangeMin, rangeMax, opts) {
+    const grid = TG();
+    if (!grid || !caster) return tiles || [];
+    const losOpts = opts && opts.losOpts;
+    const requireLos = !(opts && opts.skipLos);
+    const seen = new Set((tiles || []).map((t) => grid.coordKey(t.x, t.y)));
+    const out = (tiles || []).slice();
+    const units = grid.allCombatUnits(st).filter((u) => u && u.hp > 0);
+    for (const u of units) {
+      if (!isUnitTargetable(st, caster, u, rangeMin, rangeMax, { losOpts })) continue;
+      for (const c of grid.getUnitOccupiedCells(u)) {
+        const key = grid.coordKey(c.x, c.y);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ x: c.x, y: c.y });
+      }
+    }
+    return out;
+  }
+
+  /** Best tile on a unit to use as the skill anchor (prefer in-range cells closest to caster). */
+  function pickSkillCastCellForUnit(st, caster, unit, skillName, skillRank) {
+    const grid = TG();
+    const stCfg = ST();
+    if (!grid || !caster || !unit) return null;
+    const cfg = stCfg ? stCfg.getSkillTargeting(skillName) : null;
+    if (!cfg) return null;
+    const rMin = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
+    const rMax = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 1;
+    const losOpts = cfg.brutalRush ? { passThroughUnits: true } : null;
+    if (!isUnitInSkillRange(caster, unit, rMin, rMax)) return null;
+    if (!hasLineOfSightToUnit(st, caster.gridX, caster.gridY, unit, losOpts)) return null;
+    const cx = caster.gridX;
+    const cy = caster.gridY;
+    const cells = grid.getUnitOccupiedCells(unit);
+    let best = null;
+    let bestD = Infinity;
+    for (const c of cells) {
+      if (cfg.straightLine && !isSameOrthogonalLine(cx, cy, c.x, c.y)) continue;
+      const losOptsCell = { ...(losOpts || {}), passThroughUnitUid: unit.uid };
+      if (!hasLineOfSight(st, cx, cy, c.x, c.y, losOptsCell)) continue;
+      const d = manhattan(cx, cy, c.x, c.y);
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    return best;
   }
 
   function cross1Tiles(cx, cy, extraOrthogonal) {
@@ -226,18 +312,37 @@
 
     const rMin = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
     const rMax = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 1;
-    if (!isInRange(cx, cy, tx, ty, rMin, rMax)) {
-      return { ok: false, message: "Target is out of range." };
-    }
-    if (cfg.straightLine && !isSameOrthogonalLine(cx, cy, tx, ty)) {
-      return { ok: false, message: "Must target in a straight line." };
-    }
     const losOpts = cfg.brutalRush ? { passThroughUnits: true } : null;
-    if (!hasLineOfSight(st, cx, cy, tx, ty, losOpts)) {
-      return { ok: false, message: "No line of sight." };
-    }
-
     const unit = unitAt(st, tx, ty);
+
+    if (unit) {
+      const fp = grid.getUnitFootprint(unit);
+      const multiTile = fp.w > 1 || fp.h > 1;
+      if (!isUnitInSkillRange(caster, unit, rMin, rMax)) {
+        return { ok: false, message: "Target is out of range." };
+      }
+      if (cfg.straightLine) {
+        const onLine = grid.getUnitOccupiedCells(unit).some((c) => isSameOrthogonalLine(cx, cy, c.x, c.y));
+        if (!onLine) return { ok: false, message: "Must target in a straight line." };
+      }
+      if (multiTile) {
+        if (!hasLineOfSightToUnit(st, cx, cy, unit, losOpts)) {
+          return { ok: false, message: "No line of sight." };
+        }
+      } else if (!hasLineOfSight(st, cx, cy, tx, ty, losOpts)) {
+        return { ok: false, message: "No line of sight." };
+      }
+    } else {
+      if (!isInRange(cx, cy, tx, ty, rMin, rMax)) {
+        return { ok: false, message: "Target is out of range." };
+      }
+      if (cfg.straightLine && !isSameOrthogonalLine(cx, cy, tx, ty)) {
+        return { ok: false, message: "Must target in a straight line." };
+      }
+      if (!hasLineOfSight(st, cx, cy, tx, ty, losOpts)) {
+        return { ok: false, message: "No line of sight." };
+      }
+    }
 
     const aoeTiles = collectAoeTiles(cfg, skillRank, skillName, tx, ty, st);
     const aoeType = stCfg ? stCfg.resolveAoeType(cfg, skillRank, skillName) : cfg.aoe || "single";
@@ -266,6 +371,7 @@
     }
     const rMin = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
     const rMax = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 1;
+    const losOpts = cfg.brutalRush ? { passThroughUnits: true } : null;
     let tiles = enumerateRangeTiles(caster.gridX, caster.gridY, rMin, rMax, st);
     if (cfg.straightLine) {
       tiles = tiles.filter(
@@ -274,18 +380,32 @@
           hasLineOfSight(st, caster.gridX, caster.gridY, t.x, t.y)
       );
     }
+    tiles = expandRangeTilesWithUnitFootprints(st, caster, tiles, rMin, rMax, {
+      losOpts,
+      skipLos: false
+    });
+    if (cfg.straightLine) {
+      const cx = caster.gridX;
+      const cy = caster.gridY;
+      tiles = tiles.filter((t) => t.x === cx || t.y === cy);
+    }
     return tiles;
   }
 
   const api = Object.freeze({
     hasLineOfSight,
+    hasLineOfSightToUnit,
     isInRange,
+    isUnitInSkillRange,
+    isUnitTargetable,
     isSameOrthogonalLine,
     cross1Tiles,
     box3x3,
     collectAoeTiles,
     getUnitsOnTiles,
     enumerateRangeTiles,
+    expandRangeTilesWithUnitFootprints,
+    pickSkillCastCellForUnit,
     validateSkillTile,
     getSkillRangeTiles,
     unitAt,

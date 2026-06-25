@@ -706,9 +706,146 @@ function isCheatEditActive() {
   return !!(player && player.editMode && !isOnlineGameplayMode());
 }
 
+function isOnlineDevCheatEnabled() {
+  return (
+    isOnlineGameplayMode() &&
+    typeof window !== "undefined" &&
+    window.MMO_RUNTIME &&
+    window.MMO_RUNTIME.allowDevCheats === true
+  );
+}
+
+/** Edit mode offline, or ?devCheat=1 when playing on the local API. */
+function isDungeonKeyCheatActive() {
+  return isCheatEditActive() || isOnlineDevCheatEnabled();
+}
+
+function playerHasDungeonKeyForEntry(keyName) {
+  if (isDungeonKeyCheatActive()) return true;
+  return !!(keyName && Array.isArray(player.inventory) && player.inventory.includes(keyName));
+}
+
+function buildDungeonCheatEnterBtnHtml(dungeonId, label) {
+  if (!isDungeonKeyCheatActive()) return "";
+  const text = label || "Enter without key (cheat)";
+  return `<button type="button" class="btn-secondary" data-dungeon-choice="cheat_enter" data-dungeon-id="${escapeAttr(
+    dungeonId
+  )}">${escapeHtml(text)}</button>`;
+}
+
+function buildDungeonSkipRoomBtnHtml() {
+  if (!isDungeonKeyCheatActive()) return "";
+  return `<div class="world-dungeon-skip-wrap"><button type="button" class="btn-secondary" data-dungeon-skip-room>Skip room (cheat)</button></div>`;
+}
+
+async function cheatSkipDungeonRoom() {
+  const run = getActiveDungeonRun();
+  if (!run || run.epilogue) return;
+  const def = getDungeonDef(run.id);
+  const ri = typeof run.roomIndex === "number" ? run.roomIndex : 0;
+  const units = def && Array.isArray(def.rooms) ? buildDungeonEnemyUnitsForRoom(run.id, ri) : [];
+  const emptyRoom = !units.length;
+  if (!emptyRoom && !isDungeonKeyCheatActive()) return;
+  if (combatState || isFightOverlayOpen()) {
+    showModal("Finish or leave combat before skipping a room.");
+    return;
+  }
+  if (canPerformServerPlayerAction() && typeof window.GameStorage.skipDungeonRoom === "function") {
+    try {
+      const body = await window.GameStorage.skipDungeonRoom(activeCharacterSlotIndex, { devCheat: true });
+      await applyOnlineActionResponse(body);
+      publishPresenceDungeonLocation();
+      render();
+      return;
+    } catch (err) {
+      console.error("skipDungeonRoom:", err);
+      showModal(err && err.message ? err.message : "Could not skip dungeon room.");
+      return;
+    }
+  }
+  advanceDungeonToNextRoomOrEpilogue();
+}
+
+function applyDungeonEnterLocal(dungeonId) {
+  const id = typeof dungeonId === "string" && dungeonId.trim() ? dungeonId.trim() : "";
+  const def = getDungeonDef(id);
+  if (!def) return false;
+  const ent =
+    def.entrance && typeof def.entrance.x === "number" && typeof def.entrance.y === "number"
+      ? def.entrance
+      : { x: 37, y: 55 };
+  if (!player.worldMap || typeof player.worldMap !== "object") {
+    player.worldMap = {
+      x: ent.x,
+      y: ent.y,
+      cells: {},
+      scenePickups: {},
+      sceneLayout: {},
+      sceneEdits: {},
+      portalWorldById: {},
+      spawnPressure: { monsters: {} }
+    };
+  }
+  player.worldMap.x = ent.x;
+  player.worldMap.y = ent.y;
+  player.worldMap.dungeonRun = { id, roomIndex: 0, epilogue: false };
+  delete player.worldMap.dungeonPostCombat;
+  if (!isDungeonKeyCheatActive()) {
+    const keyName = typeof def.keyItem === "string" ? def.keyItem.trim() : "";
+    if (keyName) {
+      const idx = player.inventory.indexOf(keyName);
+      if (idx !== -1) player.inventory.splice(idx, 1);
+    }
+  }
+  save();
+  publishPresenceDungeonLocation();
+  return true;
+}
+
 function persistLayoutEditState() {
+  persistTacticalTokenLayoutsLocal();
   if (isOnlineLayoutEditEnabled()) void save({ flush: true });
   else save();
+}
+
+function persistTacticalTokenLayoutsLocal() {
+  if (!player?.tacticalTokenLayouts || typeof player.tacticalTokenLayouts !== "object") return;
+  if (activeCharacterSlotIndex == null) return;
+  try {
+    localStorage.setItem(
+      `btbg_tacticalTokenLayouts:${activeCharacterSlotIndex}`,
+      JSON.stringify(player.tacticalTokenLayouts)
+    );
+  } catch (_) {
+    /* ignore quota */
+  }
+}
+
+function restoreTacticalTokenLayoutsLocal(p) {
+  if (!p || activeCharacterSlotIndex == null) return;
+  ensureTacticalTokenLayoutsStoreFor(p);
+  if (p.tacticalTokenLayouts && Object.keys(p.tacticalTokenLayouts).length) return;
+  try {
+    const raw = localStorage.getItem(`btbg_tacticalTokenLayouts:${activeCharacterSlotIndex}`);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return;
+    Object.keys(parsed).forEach((k) => {
+      p.tacticalTokenLayouts[k] = normalizeTacticalTokenLayoutRow(parsed[k]);
+    });
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function ensureTacticalTokenLayoutsStoreFor(owner) {
+  if (!owner) return;
+  if (!owner.tacticalTokenLayouts || typeof owner.tacticalTokenLayouts !== "object") {
+    owner.tacticalTokenLayouts = {};
+  }
+  if (!owner.tacticalTokenLayoutLastExport || typeof owner.tacticalTokenLayoutLastExport !== "object") {
+    owner.tacticalTokenLayoutLastExport = {};
+  }
 }
 
 function canPerformServerPlayerAction() {
@@ -3149,6 +3286,7 @@ function migratePlayer(p) {
   if (!p.tacticalTokenLayoutLastExport || typeof p.tacticalTokenLayoutLastExport !== "object") {
     p.tacticalTokenLayoutLastExport = {};
   }
+  restoreTacticalTokenLayoutsLocal(p);
   /** One-time retrospective: earned characteristic points = level×5; stats above 10 cost by the same curve as live spending. */
   if (!p.charPointsRetroDone) {
     recomputeAllocPoolsFromLevel(p);
@@ -4369,6 +4507,30 @@ function getBottomHudPortraitLayout() {
   return getBottomHudPortraitLayoutForOwner(player);
 }
 
+const TACTICAL_ALLY_TOKEN_KEY_MALE = "tactical_ally_male";
+const TACTICAL_ALLY_TOKEN_KEY_FEMALE = "tactical_ally_female";
+
+function getTacticalAllyTokenKeyForActor(actor) {
+  const g = getActorPortraitGender(actor || player);
+  return g === "female" ? TACTICAL_ALLY_TOKEN_KEY_FEMALE : TACTICAL_ALLY_TOKEN_KEY_MALE;
+}
+
+function getTacticalAllyTokenKeyForMember(member) {
+  return getTacticalAllyTokenKeyForActor(resolveFightAllyActor(member));
+}
+
+function isTacticalAllyTokenKey(key) {
+  const k = String(key || "").trim();
+  return k === TACTICAL_ALLY_TOKEN_KEY_MALE || k === TACTICAL_ALLY_TOKEN_KEY_FEMALE;
+}
+
+function getTacticalTokenLayoutForAlly(actorOrKey) {
+  if (typeof actorOrKey === "string" && actorOrKey.trim()) {
+    return getTacticalTokenLayoutForKey(actorOrKey.trim());
+  }
+  return getTacticalTokenLayoutForKey(getTacticalAllyTokenKeyForActor(actorOrKey));
+}
+
 function getTacticalTokenPresets() {
   return GAME_CONFIG.tacticalTokenPresets && typeof GAME_CONFIG.tacticalTokenPresets === "object"
     ? GAME_CONFIG.tacticalTokenPresets
@@ -4389,7 +4551,7 @@ function getDefaultTacticalTokenLayout() {
 function clampTacticalTokenBoxPct(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 100;
-  return Math.max(25, Math.min(200, n));
+  return Math.max(25, Math.min(400, n));
 }
 
 function normalizeTacticalTokenLayoutRow(raw) {
@@ -4444,11 +4606,27 @@ function getTacticalTokenLayoutForFoe(foe) {
   return getTacticalTokenLayoutForKey(getTacticalFoeScriptKey(foe));
 }
 
+function buildTacticalAllyTokenBoxStyle(layout) {
+  const l = layout || getDefaultTacticalTokenLayout();
+  const wPct = clampTacticalTokenBoxPct(l.tokenWidthPct) / 100;
+  const hPct = clampTacticalTokenBoxPct(l.tokenHeightPct) / 100;
+  return `width:calc(var(--tactical-cell-size) * ${TACTICAL_TOKEN_BOX_WIDTH_RATIO} * ${wPct});height:calc(var(--tactical-cell-size) * ${TACTICAL_TOKEN_BOX_HEIGHT_RATIO} * ${hPct});`;
+}
+
+function applyTacticalAllyTokenBoxStyle(tokenEl, layout) {
+  if (!tokenEl) return;
+  const l = layout || getDefaultTacticalTokenLayout();
+  const wPct = clampTacticalTokenBoxPct(l.tokenWidthPct) / 100;
+  const hPct = clampTacticalTokenBoxPct(l.tokenHeightPct) / 100;
+  tokenEl.style.width = `calc(var(--tactical-cell-size) * ${TACTICAL_TOKEN_BOX_WIDTH_RATIO} * ${wPct})`;
+  tokenEl.style.height = `calc(var(--tactical-cell-size) * ${TACTICAL_TOKEN_BOX_HEIGHT_RATIO} * ${hPct})`;
+}
+
 function setTacticalTokenLayout(key, patch) {
   if (!key) return;
   ensureTacticalTokenLayoutsStore();
   const prev = getTacticalTokenLayoutForKey(key);
-  player.tacticalTokenLayouts[key] = normalizeTacticalTokenLayoutRow({
+  const next = normalizeTacticalTokenLayoutRow({
     offsetXPct: patch && patch.offsetXPct != null ? patch.offsetXPct : prev.offsetXPct,
     offsetYPct: patch && patch.offsetYPct != null ? patch.offsetYPct : prev.offsetYPct,
     rotDeg: patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg,
@@ -4456,6 +4634,22 @@ function setTacticalTokenLayout(key, patch) {
     tokenWidthPct: patch && patch.tokenWidthPct != null ? patch.tokenWidthPct : prev.tokenWidthPct,
     tokenHeightPct: patch && patch.tokenHeightPct != null ? patch.tokenHeightPct : prev.tokenHeightPct
   });
+  if (!player) return;
+  player.tacticalTokenLayouts[key] = next;
+  if (isLayoutEditActive()) {
+    const hud = document.getElementById("fightHud");
+    if (hud?.querySelector(".fight-tactical") && getTacticalTokenLayer()) {
+      syncTacticalTokenLayerVars(hud);
+      getTacticalTokenLayer()
+        .querySelectorAll(".fight-tactical-token")
+        .forEach((token) => {
+          if (token.getAttribute("data-tactical-script") !== key) return;
+          const isAlly = token.classList.contains("fight-tactical-token--ally");
+          applyTacticalTokenBoxForElement(token, getTacticalBoardViewport(hud), next);
+          if (isAlly) applyTacticalTokenAnchorTransform(token, next);
+        });
+    }
+  }
 }
 
 function resetTacticalTokenLayout(key) {
@@ -4469,25 +4663,82 @@ function buildTacticalTokenTransformStyle(layout) {
   return `transform: translate(${l.offsetXPct}%, ${l.offsetYPct}%) rotate(${l.rotDeg}deg) scale(${l.scalePct / 100});`;
 }
 
-function buildTacticalFoeTokenBoxStyle(layout) {
+function readTacticalTokenLayoutFromElement(tokenEl) {
+  if (!tokenEl || !(tokenEl instanceof HTMLElement)) return null;
+  const tf = String(tokenEl.style.transform || "").trim();
+  if (!tf) return null;
+  const m = tf.match(
+    /translate\(\s*-50%\s*,\s*-100%\s*\)\s*translate\(\s*(-?\d+(?:\.\d+)?)%\s*,\s*(-?\d+(?:\.\d+)?)%\s*\)\s*rotate\(\s*(-?\d+(?:\.\d+)?)deg\s*\)\s*scale\(\s*(-?\d+(?:\.\d+)?)\s*\)/i
+  );
+  if (!m) return readPortraitLayerLayoutFromElement(tokenEl);
+  return {
+    offsetXPct: clampPortraitLayoutPct(Number(m[1])),
+    offsetYPct: clampPortraitLayoutPct(Number(m[2])),
+    rotDeg: clampPortraitLayoutRotDeg(Number(m[3])),
+    scalePct: clampPortraitLayoutScalePct(Number(m[4]) * 100)
+  };
+}
+
+function applyTacticalTokenAnchorTransform(tokenEl, layout) {
+  if (!tokenEl) return;
   const l = layout || getDefaultTacticalTokenLayout();
+  tokenEl.style.transformOrigin = "50% 100%";
+  tokenEl.style.transform = `translate(-50%, -100%) translate(${l.offsetXPct}%, ${l.offsetYPct}%) rotate(${l.rotDeg}deg) scale(${l.scalePct / 100})`;
+}
+
+function getTacticalTokenLayoutEditRoot(token) {
+  if (!token) return null;
+  if (token.classList.contains("fight-tactical-token--ally")) return token;
+  return token.querySelector("[data-tactical-token-root]");
+}
+
+function getTacticalFootprintForUnit(unit) {
+  const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
+  if (TG && unit) return TG.getUnitFootprint(unit);
+  const w = unit?.gridFootprintW;
+  const h = unit?.gridFootprintH;
+  if (Number.isFinite(w) && Number.isFinite(h)) {
+    return { w: Math.max(1, Math.floor(w)), h: Math.max(1, Math.floor(h)) };
+  }
+  const def = unit?.name ? getEnemyDefByName(unit.name) : null;
+  const fp = def?.tacticalFootprint;
+  if (fp && typeof fp.w === "number" && typeof fp.h === "number") {
+    return { w: Math.max(1, Math.floor(fp.w)), h: Math.max(1, Math.floor(fp.h)) };
+  }
+  return { w: 1, h: 1 };
+}
+
+function applyTacticalFootprintFromDef(unit, def) {
+  const fp = def?.tacticalFootprint;
+  if (fp && typeof fp.w === "number" && typeof fp.h === "number") {
+    unit.gridFootprintW = Math.max(1, Math.floor(fp.w));
+    unit.gridFootprintH = Math.max(1, Math.floor(fp.h));
+  }
+}
+
+function buildTacticalFoeTokenBoxStyle(layout, footprint) {
+  const l = layout || getDefaultTacticalTokenLayout();
+  const fp = footprint || { w: 1, h: 1 };
+  const fpW = fp.w > 1 ? fp.w : 1;
+  const fpH = fp.h > 1 ? fp.h : 1;
   const w = clampTacticalTokenBoxPct(l.tokenWidthPct);
   const h = clampTacticalTokenBoxPct(l.tokenHeightPct);
   const parts = [];
-  if (w !== 100) parts.push(`width:calc(var(--tactical-token-width) * ${w / 100})`);
-  if (h !== 100) parts.push(`height:calc(var(--tactical-token-height) * ${h / 100})`);
+  parts.push(`width:calc(var(--tactical-token-width) * ${w / 100} * ${fpW})`);
+  parts.push(`height:calc(var(--tactical-token-height) * ${h / 100} * ${fpH})`);
   return parts.join(";");
 }
 
-function applyTacticalFoeTokenBoxStyle(tokenEl, layout) {
+function applyTacticalFoeTokenBoxStyle(tokenEl, layout, footprint) {
   if (!tokenEl) return;
   const l = layout || getDefaultTacticalTokenLayout();
+  const fp = footprint || { w: 1, h: 1 };
+  const fpW = fp.w > 1 ? fp.w : 1;
+  const fpH = fp.h > 1 ? fp.h : 1;
   const w = clampTacticalTokenBoxPct(l.tokenWidthPct);
   const h = clampTacticalTokenBoxPct(l.tokenHeightPct);
-  if (w === 100) tokenEl.style.removeProperty("width");
-  else tokenEl.style.width = `calc(var(--tactical-token-width) * ${w / 100})`;
-  if (h === 100) tokenEl.style.removeProperty("height");
-  else tokenEl.style.height = `calc(var(--tactical-token-height) * ${h / 100})`;
+  tokenEl.style.width = `calc(var(--tactical-token-width) * ${w / 100} * ${fpW})`;
+  tokenEl.style.height = `calc(var(--tactical-token-height) * ${h / 100} * ${fpH})`;
 }
 
 function buildTacticalTokenLayoutExportSnippet(key) {
@@ -4507,7 +4758,7 @@ function buildTacticalTokenLayoutExportSnippet(key) {
 async function copyTacticalTokenLayoutExportToClipboard(key, opts) {
   const scriptKey = String(key || "").trim();
   if (!scriptKey) {
-    showModal("Click a foe token on the board first, then export.");
+    showModal("Click a token on the board first, then export.");
     return;
   }
   const text = buildTacticalTokenLayoutExportSnippet(scriptKey);
@@ -4533,22 +4784,6 @@ async function copyTacticalTokenLayoutExportToClipboard(key, opts) {
       `Could not copy to clipboard (${err && err.message ? err.message : String(err)}). The full JSON was written to the console.`
     );
   }
-}
-
-/** Board allies: use each actor's bottom-HUD layout; female tokens get the female preset scale when still on male baseline. */
-function getTacticalBoardAllyBaseLayout(actor, kind) {
-  const owner = actor || player;
-  const layout = getBottomHudPortraitLayoutForOwner(owner);
-  const gender = getActorPortraitGender(owner);
-  if (gender !== "female") return layout;
-  const maleScale = getDefaultBottomHudPortraitLayout("male").scalePct;
-  const femaleScale = getDefaultBottomHudPortraitLayout("female").scalePct;
-  if (!maleScale || !femaleScale || femaleScale <= maleScale) return layout;
-  if (layout.scalePct >= femaleScale) return layout;
-  return {
-    ...layout,
-    scalePct: clampPortraitLayoutScalePct(femaleScale)
-  };
 }
 
 function setPortraitBaseLayout(patch, owner) {
@@ -13336,6 +13571,7 @@ function buildSpawnedFoe(region, def, uid, level, mood, spawnOpts) {
     foe.moodEvasionPct = typeof mood.evasionPct === "number" ? mood.evasionPct : 0;
     foe.moodStatusResistPct = typeof mood.statusResistPct === "number" ? mood.statusResistPct : 0;
   }
+  applyTacticalFootprintFromDef(foe, def);
   initFoeCombatRuntime(foe);
   return foe;
 }
@@ -15943,6 +16179,8 @@ let sceneLayoutDragSuppressedClick = false;
 let portraitLayoutDragSuppressedClick = false;
 let tacticalTokenLayoutDragSuppressedClick = false;
 let tacticalTokenEditScriptKey = "";
+let tacticalTokenEditUnitUid = null;
+let tacticalTokenEditUnitSide = "";
 let pendingDiscardInventoryItemName = null;
 
 function applyPortraitLayerTransformStyle(layerEl, layout) {
@@ -16163,6 +16401,87 @@ function onPortraitLayerWheel(e) {
   persistLayoutEditState();
 }
 
+function resolveTacticalTokenEditFromElement(el) {
+  const token = el && el.closest ? el.closest(".fight-tactical-token--foe, .fight-tactical-token--ally") : null;
+  if (!token) return null;
+  if (token.classList.contains("fight-tactical-token--ally")) {
+    const uid = parseInt(token.getAttribute("data-tactical-ally"), 10);
+    if (!Number.isFinite(uid)) return null;
+    const scriptKey = String(token.getAttribute("data-tactical-script") || "").trim();
+    const key = isTacticalAllyTokenKey(scriptKey)
+      ? scriptKey
+      : TACTICAL_ALLY_TOKEN_KEY_MALE;
+    return { token, key, footprint: { w: 1, h: 1 }, uid, side: "ally" };
+  }
+  const foe = resolveTacticalTokenEditFoeFromElement(token);
+  if (!foe) return null;
+  const key = getTacticalFoeScriptKey(foe);
+  if (!key) return null;
+  return { token, key, footprint: getTacticalFootprintForUnit(foe), uid: foe.uid, side: "foe" };
+}
+
+function findTacticalEditSelectedUnit(st) {
+  if (!st || tacticalTokenEditUnitUid == null || !tacticalTokenEditUnitSide) return null;
+  const uid = tacticalTokenEditUnitUid;
+  if (tacticalTokenEditUnitSide === "foe") {
+    return (st.foes || []).find((f) => f && f.uid === uid) || null;
+  }
+  if (tacticalTokenEditUnitSide === "ally") {
+    return (st.party || []).find((m) => m && m.uid === uid) || null;
+  }
+  return null;
+}
+
+function getTacticalEditFootprintCellKeys(st) {
+  const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
+  if (!isLayoutEditActive() || !st?.tactical || !TG || tacticalTokenEditUnitUid == null) return null;
+  const unit = findTacticalEditSelectedUnit(st);
+  if (!unit || typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return null;
+  if (!unit.gridFootprintW && unit.name) {
+    applyTacticalFootprintFromDef(unit, getEnemyDefByName(unit.name));
+  }
+  return new Set(TG.getUnitOccupiedCells(unit).map((c) => TG.coordKey(c.x, c.y)));
+}
+
+function setTacticalTokenEditSelection(edit) {
+  tacticalTokenEditScriptKey = edit && edit.key ? edit.key : "";
+  tacticalTokenEditUnitUid = edit && Number.isFinite(edit.uid) ? edit.uid : null;
+  tacticalTokenEditUnitSide = edit && edit.side ? edit.side : "";
+  syncTacticalEditFootprintHighlight();
+}
+
+function syncTacticalEditFootprintHighlight() {
+  document.querySelectorAll(".fight-tactical-cell--edit-selected").forEach((el) => {
+    el.classList.remove("fight-tactical-cell--edit-selected");
+  });
+  document.querySelectorAll(".fight-tactical-token--edit-target").forEach((el) => {
+    el.classList.remove("fight-tactical-token--edit-target");
+  });
+  const st = combatState;
+  const keys = getTacticalEditFootprintCellKeys(st);
+  if (!keys || !keys.size) return;
+  const grid = document.querySelector(".fight-tactical-grid");
+  if (grid) {
+    keys.forEach((key) => {
+      const parts = String(key).split(",");
+      if (parts.length !== 2) return;
+      const x = parts[0];
+      const y = parts[1];
+      const cell = grid.querySelector(
+        `.fight-tactical-cell[data-tactical-x="${x}"][data-tactical-y="${y}"]`
+      );
+      if (cell) cell.classList.add("fight-tactical-cell--edit-selected");
+    });
+  }
+  const isFoe = tacticalTokenEditUnitSide === "foe";
+  const tokenSel = isFoe
+    ? `.fight-tactical-token[data-tactical-foe="${tacticalTokenEditUnitUid}"]`
+    : `.fight-tactical-token[data-tactical-ally="${tacticalTokenEditUnitUid}"]`;
+  queryTacticalBoardTokens(tokenSel).forEach((token) => {
+    token.classList.add("fight-tactical-token--edit-target");
+  });
+}
+
 function resolveTacticalTokenEditFoeFromElement(el) {
   const token = el && el.closest ? el.closest(".fight-tactical-token--foe") : null;
   if (!token) return null;
@@ -16188,12 +16507,19 @@ function syncTacticalTokenEditToolbar(st) {
   }
   const key = tacticalTokenEditScriptKey || "";
   const foe =
-    key && st && Array.isArray(st.foes)
+    key && !isTacticalAllyTokenKey(key) && st && Array.isArray(st.foes)
       ? st.foes.find((f) => f && getTacticalFoeScriptKey(f) === key)
       : null;
-  const label = foe && foe.name ? `${foe.name} (${key})` : key || "click a foe token";
-  const hint =
-    "Foe token: left move art, right rotate, Shift+drag/wheel scale art, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.";
+  const label = isTacticalAllyTokenKey(key)
+    ? key === TACTICAL_ALLY_TOKEN_KEY_FEMALE
+      ? "Ally token (female)"
+      : "Ally token (male)"
+    : foe && foe.name
+      ? `${foe.name} (${key})`
+      : key || "click a token on the board";
+  const hint = isTacticalAllyTokenKey(key)
+    ? `Ally token (${key}): left move, right rotate, Shift+drag/wheel scale, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.`
+    : "Foe token: left move art, right rotate, Shift+drag/wheel scale art, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.";
   bar.innerHTML = `<span class="tactical-token-edit-target">${escapeHtml(label)}</span><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-export>Export token layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-reset>Reset token layout</button><p class="portrait-edit-hint tactical-token-edit-hint">${escapeHtml(
     hint
   )}</p>`;
@@ -16202,25 +16528,25 @@ function syncTacticalTokenEditToolbar(st) {
 function clearTacticalTokenEditToolbar() {
   const bar = document.getElementById("fightTacticalTokenEditTools");
   if (bar) bar.remove();
-  tacticalTokenEditScriptKey = "";
+  setTacticalTokenEditSelection(null);
 }
 
 function onTacticalTokenLayoutPointerDown(e) {
   if (!isLayoutEditActive()) return;
-  const token = e.target.closest(".fight-tactical-token--foe");
-  if (!token) return;
-  const foe = resolveTacticalTokenEditFoeFromElement(token);
-  if (!foe) return;
-  const scriptKey = getTacticalFoeScriptKey(foe);
-  if (!scriptKey) return;
-  tacticalTokenEditScriptKey = scriptKey;
+  const edit = resolveTacticalTokenEditFromElement(e.target);
+  if (!edit) return;
+  const { token, key: scriptKey, footprint, uid, side } = edit;
+  setTacticalTokenEditSelection({ key: scriptKey, uid, side });
   syncTacticalTokenEditToolbar(combatState);
-  const root = token.querySelector("[data-tactical-token-root]");
+  const root = getTacticalTokenLayoutEditRoot(token);
   if (!root) return;
   if (e.button !== 0 && e.button !== 2) return;
   e.preventDefault();
   e.stopPropagation();
-  const start = readPortraitLayerLayoutFromElement(root) || getTacticalTokenLayoutForKey(scriptKey);
+  const allyToken = token.classList.contains("fight-tactical-token--ally");
+  const start =
+    (allyToken ? readTacticalTokenLayoutFromElement(root) : readPortraitLayerLayoutFromElement(root)) ||
+    getTacticalTokenLayoutForKey(scriptKey);
   const startBox = getTacticalTokenLayoutForKey(scriptKey);
   const startX = e.clientX;
   const startY = e.clientY;
@@ -16229,19 +16555,31 @@ function onTacticalTokenLayoutPointerDown(e) {
   let lastBox = { ...startBox };
   let ended = false;
   token.classList.add("fight-tactical-token--layout-editing");
-  root.classList.add(
-    mode === "rotate"
-      ? "tactical-token-root-group--editing-rotate"
-      : mode === "scale"
-        ? "tactical-token-root-group--editing-scale"
-        : "tactical-token-root-group--editing"
-  );
+  if (!allyToken) {
+    root.classList.add(
+      mode === "rotate"
+        ? "tactical-token-root-group--editing-rotate"
+        : mode === "scale"
+          ? "tactical-token-root-group--editing-scale"
+          : "tactical-token-root-group--editing"
+    );
+  }
   const applyLive = () => {
-    root.style.transform = `translate(${last.offsetXPct}%, ${last.offsetYPct}%) rotate(${last.rotDeg}deg) scale(${last.scalePct / 100})`;
-    applyTacticalFoeTokenBoxStyle(token, lastBox);
+    if (allyToken) {
+      applyTacticalTokenAnchorTransform(token, last);
+    } else {
+      root.style.transform = `translate(${last.offsetXPct}%, ${last.offsetYPct}%) rotate(${last.rotDeg}deg) scale(${last.scalePct / 100})`;
+    }
+    const hud = document.getElementById("fightHud");
+    const viewport = hud ? getTacticalBoardViewport(hud) : null;
+    if (isTacticalAllyTokenKey(scriptKey) && viewport) {
+      applyTacticalTokenBoxForElement(token, viewport, lastBox);
+    } else {
+      applyTacticalFoeTokenBoxStyle(token, lastBox, footprint);
+    }
   };
   const move = (ev) => {
-    const rect = token.getBoundingClientRect();
+    const rect = (allyToken ? token : root).getBoundingClientRect();
     if (mode === "rotate") {
       const dx = ev.clientX - startX;
       last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
@@ -16265,9 +16603,11 @@ function onTacticalTokenLayoutPointerDown(e) {
     document.removeEventListener("pointerup", done);
     document.removeEventListener("pointercancel", done);
     token.classList.remove("fight-tactical-token--layout-editing");
-    root.classList.remove("tactical-token-root-group--editing");
-    root.classList.remove("tactical-token-root-group--editing-rotate");
-    root.classList.remove("tactical-token-root-group--editing-scale");
+    if (!allyToken) {
+      root.classList.remove("tactical-token-root-group--editing");
+      root.classList.remove("tactical-token-root-group--editing-rotate");
+      root.classList.remove("tactical-token-root-group--editing-scale");
+    }
     const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
     if (dist > 2) tacticalTokenLayoutDragSuppressedClick = true;
     setTacticalTokenLayout(scriptKey, {
@@ -16277,6 +16617,8 @@ function onTacticalTokenLayoutPointerDown(e) {
     });
     persistLayoutEditState();
     syncTacticalTokenEditToolbar(combatState);
+    const hud = document.getElementById("fightHud");
+    if (hud) scheduleTacticalTokenLayout(hud);
   };
   document.addEventListener("pointermove", move);
   document.addEventListener("pointerup", done);
@@ -16285,19 +16627,17 @@ function onTacticalTokenLayoutPointerDown(e) {
 
 function onTacticalTokenLayoutWheel(e) {
   if (!isLayoutEditActive()) return;
-  const token = e.target.closest(".fight-tactical-token--foe");
-  if (!token) return;
-  const foe = resolveTacticalTokenEditFoeFromElement(token);
-  if (!foe) return;
-  const scriptKey = getTacticalFoeScriptKey(foe);
-  if (!scriptKey) return;
-  tacticalTokenEditScriptKey = scriptKey;
+  const edit = resolveTacticalTokenEditFromElement(e.target);
+  if (!edit) return;
+  const { token, key: scriptKey, footprint, uid, side } = edit;
+  setTacticalTokenEditSelection({ key: scriptKey, uid, side });
   syncTacticalTokenEditToolbar(combatState);
-  const root = token.querySelector("[data-tactical-token-root]");
+  const root = getTacticalTokenLayoutEditRoot(token);
   if (!root) return;
   e.preventDefault();
   e.stopPropagation();
   const cur = getTacticalTokenLayoutForKey(scriptKey);
+  const allyToken = token.classList.contains("fight-tactical-token--ally");
   if (e.ctrlKey) {
     const step = e.shiftKey ? 8 : 4;
     const delta = e.deltaY < 0 ? step : -step;
@@ -16308,12 +16648,23 @@ function onTacticalTokenLayoutWheel(e) {
       tokenWidthPct: nextW,
       tokenHeightPct: nextH
     });
-    applyTacticalFoeTokenBoxStyle(token, getTacticalTokenLayoutForKey(scriptKey));
+    const hud = document.getElementById("fightHud");
+    const viewport = hud ? getTacticalBoardViewport(hud) : null;
+    if (isTacticalAllyTokenKey(scriptKey) && viewport) {
+      applyTacticalTokenBoxForElement(token, viewport, getTacticalTokenLayoutForKey(scriptKey));
+    } else {
+      applyTacticalFoeTokenBoxStyle(token, getTacticalTokenLayoutForKey(scriptKey), footprint);
+    }
   } else {
     const step = e.shiftKey ? 12 : 6;
     const nextScale = clampPortraitLayoutScalePct(cur.scalePct + (e.deltaY < 0 ? step : -step));
-    setTacticalTokenLayout(scriptKey, { ...cur, scalePct: nextScale });
-    root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
+    const nextLayout = { ...cur, scalePct: nextScale };
+    setTacticalTokenLayout(scriptKey, nextLayout);
+    if (allyToken) {
+      applyTacticalTokenAnchorTransform(token, nextLayout);
+    } else {
+      root.style.transform = `translate(${cur.offsetXPct}%, ${cur.offsetYPct}%) rotate(${cur.rotDeg}deg) scale(${nextScale / 100})`;
+    }
   }
   persistLayoutEditState();
 }
@@ -16526,7 +16877,9 @@ function syncEditModeUi() {
   const layoutOnline = isOnlineLayoutEditEnabled();
   if (online && !layoutOnline && player) player.editMode = false;
   const on = isLayoutEditActive();
+  const devCheat = isOnlineDevCheatEnabled();
   document.body.classList.toggle("edit-mode-on", on);
+  document.body.classList.toggle("dev-cheat-on", devCheat);
   const btn = document.getElementById("editModeToggle");
   if (btn) {
     btn.hidden = online && !layoutOnline;
@@ -16547,7 +16900,7 @@ function syncEditModeUi() {
 
 function setEditMode(on) {
   if (on && isOnlineGameplayMode() && !isOnlineLayoutEditEnabled()) {
-    showModal("Edit mode is disabled while playing online. Add ?devEdit=1 to the URL for layout edit.");
+    showModal("Edit mode is disabled while playing online. Add ?devEdit=1 for layout edit or ?devCheat=1 for dungeon key bypass.");
     return;
   }
   player.editMode = !!on;
@@ -16555,6 +16908,10 @@ function setEditMode(on) {
   syncEditModeUi();
   if (on && isOnlineLayoutEditEnabled()) {
     showModal("Layout edit enabled. Scene/portrait layout tools only — item spawn and stat cheats stay disabled online.");
+  } else if (on && isOnlineDevCheatEnabled()) {
+    showModal("Dev cheats enabled. Dungeon keys are not required; use Skip room (cheat) in each chamber.");
+  } else if (on && !isOnlineGameplayMode()) {
+    showModal("Edit mode on. Cheats active: item spawn, stat edits, dungeon entry without keys, and skip room.");
   }
 }
 
@@ -18328,39 +18685,37 @@ function getTacticalAllyPortraitTab(member) {
   return "hero";
 }
 
-/** Board token: bottom-HUD portrait (140px, character equip layouts — not fight-card layouts). */
+/** Same layered portrait HTML as the character overview page. */
+function buildCharacterPageLayeredPortraitHtml(actor, rosterTab) {
+  const a = actor && typeof actor === "object" ? actor : player;
+  const tab = rosterTab != null && String(rosterTab).length ? rosterTab : "hero";
+  return buildPortraitLayeredStackHtml(
+    getActorPortraitBaseImage(a, "idle"),
+    getPortraitBaseLayoutForOwner(a),
+    "data-portrait-root",
+    a.equipment || emptyEquipment(),
+    a,
+    tab
+  );
+}
+
+/** Board token: character-page portrait inside gender-specific tactical token preset. */
 function buildTacticalBoardAllyPortraitHtml(member, st) {
-  const wrapCls =
-    "tactical-portrait-wrap tactical-portrait-wrap--ally tactical-portrait-wrap--board bottom-hud-portrait";
   const auraTypes = getCombatStatusAuraTypesForAlly(member, st);
   const statusAuras = buildFightCardStatusAuraHtml(auraTypes);
   const actor = resolveFightAllyActor(member);
   const kind = getTacticalAllyMemberKind(member);
   const rosterTab = getTacticalAllyPortraitTab(member);
-
-  if (kind === "hero" && actor) {
-    const heroState = actor === player ? getCombatHeroVisualState() : "idle";
-    return `<div class="${wrapCls}">${buildPortraitLayeredStackHtml(
-      getHeroImageForState(heroState, getActorPortraitGender(actor)),
-      getTacticalBoardAllyBaseLayout(actor, kind),
-      "",
-      actor.equipment || emptyEquipment(),
+  if ((kind === "hero" || kind === "companion") && actor) {
+    return `<div class="portrait-box portrait-box--tactical-token">${buildCharacterPageLayeredPortraitHtml(
       actor,
       rosterTab
-    )}${statusAuras}</div>`;
+    )}</div>${statusAuras}`;
   }
-  if (kind === "companion" && actor) {
-    return `<div class="${wrapCls}">${buildPortraitLayeredStackHtml(
-      getActorPortraitBaseImage(actor, "idle"),
-      getTacticalBoardAllyBaseLayout(actor, kind),
-      "",
-      actor.equipment || emptyEquipment(),
-      actor,
-      rosterTab
-    )}${statusAuras}</div>`;
+  if (member) {
+    return `<img class="tactical-foe-img" src="${escapeAttr(getItemImage(member.name))}" alt="" />${statusAuras}`;
   }
-  if (!member) return `<div class="${wrapCls}"></div>`;
-  return `<div class="${wrapCls}"><img class="tactical-foe-img" src="${escapeAttr(getItemImage(member.name))}" alt="" />${statusAuras}</div>`;
+  return statusAuras;
 }
 
 /** Character-panel style portrait (character + equips on transparent background). */
@@ -18671,7 +19026,33 @@ function shakeFightOverlay() {
   overlay.classList.add("shake");
 }
 
+function isFightFxLayerTactical(layer) {
+  return !!layer && layer.id === "fightTacticalCombatFxLayer";
+}
+
+function isTacticalTokenLayerActive() {
+  const tokenLayer = document.getElementById("fightTacticalTokenLayer");
+  return !!(tokenLayer && !tokenLayer.classList.contains("hidden"));
+}
+
 function ensureFightCombatFxLayer() {
+  if (isTacticalTokenLayerActive()) {
+    let tacLayer = document.getElementById("fightTacticalCombatFxLayer");
+    if (!tacLayer) {
+      tacLayer = document.createElement("div");
+      tacLayer.id = "fightTacticalCombatFxLayer";
+      tacLayer.className = "fight-tactical-combat-fx-layer";
+      tacLayer.setAttribute("aria-hidden", "true");
+      document.body.appendChild(tacLayer);
+    }
+    tacLayer.classList.remove("hidden");
+    return tacLayer;
+  }
+  const tacLayer = document.getElementById("fightTacticalCombatFxLayer");
+  if (tacLayer) {
+    tacLayer.innerHTML = "";
+    tacLayer.classList.add("hidden");
+  }
   const field = document.querySelector(".fight-field-area");
   if (!field) return null;
   let layer = document.getElementById("fightCombatFxLayer");
@@ -18780,12 +19161,20 @@ function mountFightCardEffectOverlay(card, effectType) {
   overlay.setAttribute("aria-hidden", "true");
   if (cardKey) overlay.setAttribute("data-fx-card", cardKey);
   overlay.innerHTML = buildFightCardFxOverlayHtml(type);
-  if (field && layer) {
-    const fieldRect = field.getBoundingClientRect();
+  if (layer) {
     const cardRect = card.getBoundingClientRect();
+    const tactical = isFightFxLayerTactical(layer);
     overlay.classList.add("fight-card-fx-overlay--detached");
-    overlay.style.left = `${cardRect.left - fieldRect.left}px`;
-    overlay.style.top = `${cardRect.top - fieldRect.top}px`;
+    if (tactical) {
+      overlay.style.position = "fixed";
+      overlay.style.left = `${cardRect.left}px`;
+      overlay.style.top = `${cardRect.top}px`;
+    } else if (field) {
+      const fieldRect = field.getBoundingClientRect();
+      overlay.style.position = "absolute";
+      overlay.style.left = `${cardRect.left - fieldRect.left}px`;
+      overlay.style.top = `${cardRect.top - fieldRect.top}px`;
+    }
     overlay.style.width = `${cardRect.width}px`;
     overlay.style.height = `${cardRect.height}px`;
     layer.appendChild(overlay);
@@ -18807,14 +19196,24 @@ function clearFightCardEffectOverlay(state) {
 }
 
 function spawnFightCardFloat(layer, field, card, effectType, text, positive, crit) {
-  if (!layer || !field || !card || !text) return null;
-  const fieldRect = field.getBoundingClientRect();
+  if (!layer || !card || !text) return null;
+  const tactical = isFightFxLayerTactical(layer);
   const tRect = card.getBoundingClientRect();
-  const tx = tRect.left + tRect.width / 2 - fieldRect.left;
-  const ty = tRect.top + tRect.height * 0.32 - fieldRect.top;
+  let tx;
+  let ty;
+  if (tactical) {
+    tx = tRect.left + tRect.width / 2;
+    ty = tRect.top + tRect.height * 0.32;
+  } else {
+    if (!field) return null;
+    const fieldRect = field.getBoundingClientRect();
+    tx = tRect.left + tRect.width / 2 - fieldRect.left;
+    ty = tRect.top + tRect.height * 0.32 - fieldRect.top;
+  }
   const floater = document.createElement("div");
   const t = normalizeFightEffectType(effectType);
   floater.className = `fight-damage-float fight-damage-float--${t}${positive ? " fight-damage-float--heal" : ""}${crit ? " fight-damage-float--crit" : ""}`;
+  floater.style.position = tactical ? "fixed" : "absolute";
   floater.style.left = `${tx}px`;
   floater.style.top = `${ty}px`;
   floater.textContent = text;
@@ -18854,7 +19253,7 @@ function playCombatCardStatusEffect(opts) {
   const field = document.querySelector(".fight-field-area");
   const layer = ensureFightCombatFxLayer();
   const amt = typeof o.damage === "number" && o.damage > 0 ? Math.floor(o.damage) : 0;
-  if (layer && field && amt > 0) {
+  if (layer && amt > 0 && (field || isFightFxLayerTactical(layer))) {
     spawnFightCardFloat(layer, field, card, effectType, o.heal ? `+${amt}` : String(amt), !!o.heal);
   }
   setTimeout(() => clearFightCardEffectOverlay(state), FIGHT_CARD_FX_MS);
@@ -18885,13 +19284,22 @@ function playCombatStrikeEffect(opts) {
   let tgtFxState = null;
   if (!missed) tgtFxState = mountFightCardEffectOverlay(tgtCard, effectType);
 
-  const fieldRect = field.getBoundingClientRect();
+  const tactical = isFightFxLayerTactical(layer);
+  const fieldRect = tactical ? null : field.getBoundingClientRect();
   const aRect = atkCard.getBoundingClientRect();
   const tRect = tgtCard.getBoundingClientRect();
-  const ax = aRect.left + aRect.width / 2 - fieldRect.left;
-  const ay = aRect.top + aRect.height * 0.42 - fieldRect.top;
-  const tx = tRect.left + tRect.width / 2 - fieldRect.left;
-  const ty = tRect.top + tRect.height * 0.42 - fieldRect.top;
+  const ax = tactical
+    ? aRect.left + aRect.width / 2
+    : aRect.left + aRect.width / 2 - fieldRect.left;
+  const ay = tactical
+    ? aRect.top + aRect.height * 0.42
+    : aRect.top + aRect.height * 0.42 - fieldRect.top;
+  const tx = tactical
+    ? tRect.left + tRect.width / 2
+    : tRect.left + tRect.width / 2 - fieldRect.left;
+  const ty = tactical
+    ? tRect.top + tRect.height * 0.42
+    : tRect.top + tRect.height * 0.42 - fieldRect.top;
   const dx = tx - ax;
   const dy = ty - ay;
   const len = Math.max(28, Math.hypot(dx, dy));
@@ -18900,6 +19308,7 @@ function playCombatStrikeEffect(opts) {
   if (!missed) {
     const slash = document.createElement("div");
     slash.className = `fight-combat-fx-slash fight-combat-fx-slash--${effectType === "magic" ? "magic" : "physical"}`;
+    slash.style.position = tactical ? "fixed" : "absolute";
     slash.style.left = `${ax}px`;
     slash.style.top = `${ay}px`;
     slash.style.width = `${len}px`;
@@ -18908,6 +19317,7 @@ function playCombatStrikeEffect(opts) {
 
     const burst = document.createElement("div");
     burst.className = `fight-combat-fx-burst fight-combat-fx-burst--${effectType === "magic" ? "magic" : "physical"}`;
+    burst.style.position = tactical ? "fixed" : "absolute";
     burst.style.left = `${tx}px`;
     burst.style.top = `${ty}px`;
     layer.appendChild(burst);
@@ -19271,7 +19681,31 @@ function findTacticalUnitAt(st, x, y) {
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
   if (!TG) return null;
   const units = TG.allCombatUnits(st).filter((u) => u && u.hp > 0);
-  return units.find((u) => u.gridX === x && u.gridY === y) || null;
+  return TG.unitOccupyingCell(units, x, y);
+}
+
+function trySelectTacticalUnitAtCell(st, x, y) {
+  if (!st?.tactical) return false;
+  const unit = findTacticalUnitAt(st, x, y);
+  if (!unit) return false;
+  const partyUids = new Set((st.party || []).filter((m) => m).map((m) => m.uid));
+  if (partyUids.has(unit.uid)) {
+    const m = (st.party || []).find((p) => p && p.uid === unit.uid);
+    if (!m || m.hp <= 0) return false;
+    if (tryCastPendingTacticalSkillOnUnit(st, m, true)) return true;
+    if (st.phase !== "prep" && st.phase !== "ended") setTacticalInspect(st, "ally", unit.uid);
+    st.selectedAllyUid = unit.uid;
+    if (!m.acted && st.activePartyUid !== unit.uid) st.activePartyUid = unit.uid;
+    updateFightAllySelection();
+    return true;
+  }
+  const foe = (st.foes || []).find((f) => f && f.uid === unit.uid);
+  if (!foe || foe.hp <= 0) return false;
+  if (tryCastPendingTacticalSkillOnUnit(st, foe, false)) return true;
+  if (st.phase !== "prep" && st.phase !== "ended") setTacticalInspect(st, "foe", unit.uid);
+  st.selectedUid = unit.uid;
+  updateFightTargetSelection();
+  return true;
 }
 
 /** Living units that belong on the tactical board (missing hp treated as alive). */
@@ -19291,7 +19725,7 @@ function ensureTacticalUnitsPlaced(st) {
     for (let x = 0; x < TG.GRID_SIZE; x++) allCells.push({ x, y });
   }
 
-  function placeGroup(units, spawnCells) {
+  function placeGroup(units, side) {
     const list = (units || [])
       .filter((u) => tacticalUnitOnBoard(st, u))
       .slice()
@@ -19300,6 +19734,11 @@ function ensureTacticalUnitsPlaced(st) {
     const unplaced = [];
 
     list.forEach((u) => {
+      if (!u.gridFootprintW && u.name) {
+        applyTacticalFootprintFromDef(u, getEnemyDefByName(u.name));
+      }
+      const fp = TG.getUnitFootprint(u);
+      const allowedAnchors = TG.placementCellsForUnit(u, side);
       const gx = Number(u.gridX);
       const gy = Number(u.gridY);
       if (Number.isFinite(gx) && Number.isFinite(gy) && TG.isInBounds(gx, gy)) {
@@ -19315,32 +19754,35 @@ function ensureTacticalUnitsPlaced(st) {
         return;
       }
 
-      const key = TG.coordKey(u.gridX, u.gridY);
-      const inSpawn = spawnCells.some((c) => c.x === u.gridX && c.y === u.gridY);
-      if (occupancy.has(key) || (restrictToSpawn && !inSpawn)) {
+      const anchorAllowed = allowedAnchors.some((s) => s.x === u.gridX && s.y === u.gridY);
+      if (
+        !TG.isFootprintPlaceable(u.gridX, u.gridY, fp.w, fp.h, st.board, occupancy, u.uid) ||
+        (restrictToSpawn && !anchorAllowed)
+      ) {
         delete u.gridX;
         delete u.gridY;
         unplaced.push(u);
         return;
       }
-      occupancy.set(key, u.uid);
+      TG.claimFootprintOccupancy(u.gridX, u.gridY, fp.w, fp.h, u.uid, occupancy);
     });
 
-    const fillCells = restrictToSpawn ? spawnCells : allCells;
     unplaced.forEach((u) => {
-      const spot = fillCells.find((c) => !occupancy.has(TG.coordKey(c.x, c.y)));
+      const fp = TG.getUnitFootprint(u);
+      const fillCells = restrictToSpawn ? TG.placementCellsForUnit(u, side) : allCells;
+      const spot = TG.firstFreeFootprintCell(fillCells, fp.w, fp.h, occupancy, u.uid);
       if (!spot) return;
       u.gridX = spot.x;
       u.gridY = spot.y;
-      occupancy.set(TG.coordKey(spot.x, spot.y), u.uid);
+      TG.claimFootprintOccupancy(spot.x, spot.y, fp.w, fp.h, u.uid, occupancy);
     });
   }
 
   const allies = (st.party || []).filter((u) => tacticalUnitOnBoard(st, u));
   const foes = (st.foes || []).filter((u) => tacticalUnitOnBoard(st, u));
 
-  placeGroup(allies, TG.enumerateAllySpawnCells());
-  placeGroup(foes, TG.enumerateEnemySpawnCells());
+  placeGroup(allies, "ally");
+  placeGroup(foes, "foe");
 }
 
 function computeTacticalReachableKeys(st, activeMember) {
@@ -19439,11 +19881,26 @@ function tryCastPendingTacticalSkillOnUnit(st, unit, expectAlly) {
   if (expectAlly === true && !isAlly) return false;
   if (expectAlly === false && isAlly) return false;
   const caster = getCombatUiPartyMember(st) || getActivePartyMember(st);
+  const TT = typeof TacticalTargeting !== "undefined" ? TacticalTargeting : null;
+  const rank = caster ? getActorSkillLevel(getCombatActorForMember(st, caster), name) || 1 : 1;
+  if (TT && typeof TT.pickSkillCastCellForUnit === "function") {
+    const castCell = TT.pickSkillCastCellForUnit(st, caster, unit, name, rank);
+    if (!castCell) {
+      appendFightLog("Target is out of range.");
+      return true;
+    }
+    submitTacticalSkillAt(st, name, castCell.x, castCell.y, unit.uid);
+    return true;
+  }
   const rangeKeys = computeTacticalSkillRangeKeys(st, caster, name);
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
-  if (TG && rangeKeys.size && !rangeKeys.has(TG.coordKey(unit.gridX, unit.gridY))) {
-    appendFightLog("Target is out of range.");
-    return true;
+  if (TG && rangeKeys.size) {
+    const cells = TG.getUnitOccupiedCells(unit);
+    const inRange = cells.some((c) => rangeKeys.has(TG.coordKey(c.x, c.y)));
+    if (!inRange) {
+      appendFightLog("Target is out of range.");
+      return true;
+    }
   }
   submitTacticalSkillAt(st, name, unit.gridX, unit.gridY, unit.uid);
   return true;
@@ -19564,6 +20021,9 @@ function scheduleTacticalSkillHoverRender() {
 }
 
 const TACTICAL_MS_PER_SQUARE = 500;
+/** Must match --tactical-token-width / --tactical-token-height in styles.css */
+const TACTICAL_TOKEN_BOX_WIDTH_RATIO = 1.296;
+const TACTICAL_TOKEN_BOX_HEIGHT_RATIO = 2.05;
 let _tacticalLayoutObserver = null;
 
 function getTacticalBoardViewport(hud) {
@@ -19605,6 +20065,11 @@ function clearTacticalTokenLayer() {
   if (!layer) return;
   layer.innerHTML = "";
   layer.classList.add("hidden");
+  const fxLayer = document.getElementById("fightTacticalCombatFxLayer");
+  if (fxLayer) {
+    fxLayer.innerHTML = "";
+    fxLayer.classList.add("hidden");
+  }
   clearTacticalBoardVerticalLock();
   clearTacticalTokenEditToolbar();
 }
@@ -19619,6 +20084,19 @@ function readTacticalBoardNudgePx(overlay) {
 let _tacticalBoardScreenBottom = null;
 const TACTICAL_BOARD_TARGET_GAP = 54;
 
+function lockTacticalBoardVerticalPosition(hud) {
+  const overlay = document.getElementById("fightOverlay");
+  const strip = document.querySelector("#fightOverlay .fight-bottom-strip");
+  const board = hud?.querySelector(".fight-tactical-board-wrap");
+  if (!overlay?.classList.contains("fight-overlay--tactical") || !board || !strip) return;
+  const prevNudge = readTacticalBoardNudgePx(overlay);
+  const flexBottom = board.getBoundingClientRect().bottom - prevNudge;
+  const stripRect = strip.getBoundingClientRect();
+  const nudge = stripRect.top - flexBottom - TACTICAL_BOARD_TARGET_GAP;
+  overlay.style.setProperty("--tactical-board-nudge-y", `${nudge}px`);
+  _tacticalBoardScreenBottom = flexBottom + nudge;
+}
+
 function clearTacticalBoardVerticalLock() {
   _tacticalBoardScreenBottom = null;
   const overlay = document.getElementById("fightOverlay");
@@ -19629,24 +20107,95 @@ function getTacticalTokenLayer() {
   return document.getElementById("fightTacticalTokenLayer");
 }
 
-function getTacticalTokenAnchorPoint(viewport, gridX, gridY) {
-  const cell = viewport.querySelector(
-    `.fight-tactical-cell[data-tactical-x="${gridX}"][data-tactical-y="${gridY}"]`
+function getTacticalTokenAnchorPoint(viewport, gridX, gridY, footprintW, footprintH) {
+  const gx = Number(gridX);
+  const gy = Number(gridY);
+  if (!Number.isFinite(gx) || !Number.isFinite(gy)) return null;
+  const fw = footprintW > 1 ? Math.floor(Number(footprintW)) : 1;
+  const fh = footprintH > 1 ? Math.floor(Number(footprintH)) : 1;
+  const tlCell = viewport.querySelector(
+    `.fight-tactical-cell[data-tactical-x="${gx}"][data-tactical-y="${gy}"]`
   );
+  const brCell = viewport.querySelector(
+    `.fight-tactical-cell[data-tactical-x="${gx + fw - 1}"][data-tactical-y="${gy + fh - 1}"]`
+  );
+  const cell = brCell || tlCell;
   if (!cell) return null;
-  const anchor = cell.querySelector(".tactical-cell-anchor");
-  const rect = (anchor || cell).getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.left === 0) {
+  const tlAnchor = tlCell ? tlCell.querySelector(".tactical-cell-anchor") || tlCell : null;
+  const brAnchor = brCell ? brCell.querySelector(".tactical-cell-anchor") || brCell : null;
+  const tlRect = (tlAnchor || tlCell || cell).getBoundingClientRect();
+  const brRect = (brAnchor || brCell || cell).getBoundingClientRect();
+  if (tlRect.width === 0 && tlRect.height === 0 && tlRect.top === 0 && tlRect.left === 0) {
     return null;
   }
+  const tlX = tlRect.left + tlRect.width / 2;
+  const brX = brRect.left + brRect.width / 2;
   return {
-    x: rect.left + rect.width / 2,
-    y: rect.bottom - 2
+    x: (tlX + brX) / 2,
+    y: Math.max(tlRect.bottom, brRect.bottom)
   };
 }
 
-function getTacticalTokenLayerPosition(viewport, layer, gridX, gridY) {
-  const point = getTacticalTokenAnchorPoint(viewport, gridX, gridY);
+function getTacticalNominalCellSize(viewport) {
+  const cell =
+    viewport?.querySelector('.fight-tactical-cell[data-tactical-x="0"][data-tactical-y="0"]') ||
+    viewport?.querySelector(".fight-tactical-cell");
+  if (!cell) return null;
+  const cellW = cell.offsetWidth;
+  const cellH = cell.offsetHeight;
+  if (cellW <= 0 || cellH <= 0) return null;
+  return { cellW, cellH };
+}
+
+function getTacticalTokenFootprintScreenSize(viewport, gridX, gridY, footprintW, footprintH) {
+  const nominal = getTacticalNominalCellSize(viewport);
+  if (!nominal) return null;
+  const fw = footprintW > 1 ? Math.floor(Number(footprintW)) : 1;
+  const fh = footprintH > 1 ? Math.floor(Number(footprintH)) : 1;
+  return { spanW: nominal.cellW * fw, spanH: nominal.cellH * fh };
+}
+
+function applyTacticalTokenScreenBox(tokenEl, viewport, gridX, gridY, footprintW, footprintH, layout, opts) {
+  if (!tokenEl || !viewport) return;
+  const span = getTacticalTokenFootprintScreenSize(viewport, gridX, gridY, footprintW, footprintH);
+  if (!span) return;
+  const l = layout || getDefaultTacticalTokenLayout();
+  const wPct = clampTacticalTokenBoxPct(l.tokenWidthPct) / 100;
+  const hPct = clampTacticalTokenBoxPct(l.tokenHeightPct) / 100;
+  const ally = opts && opts.ally;
+  if (ally) {
+    tokenEl.style.width = `${span.spanW * TACTICAL_TOKEN_BOX_WIDTH_RATIO * wPct}px`;
+    tokenEl.style.height = `${span.spanH * TACTICAL_TOKEN_BOX_HEIGHT_RATIO * hPct}px`;
+    return;
+  }
+  tokenEl.style.width = `${span.spanW * TACTICAL_TOKEN_BOX_WIDTH_RATIO * wPct}px`;
+  tokenEl.style.height = `${span.spanH * TACTICAL_TOKEN_BOX_HEIGHT_RATIO * hPct}px`;
+}
+
+function applyTacticalTokenBoxForElement(tokenEl, viewport, layout) {
+  if (!tokenEl) return;
+  const ally = tokenEl.classList.contains("fight-tactical-token--ally");
+  if (ally) {
+    applyTacticalAllyTokenBoxStyle(tokenEl, layout);
+    return;
+  }
+  const fw = Number(tokenEl.getAttribute("data-tactical-fw")) || 1;
+  const fh = Number(tokenEl.getAttribute("data-tactical-fh")) || 1;
+  applyTacticalFoeTokenBoxStyle(tokenEl, layout, { w: fw, h: fh });
+}
+
+function applyTacticalTokenScreenBoxForElement(tokenEl, viewport, layout) {
+  applyTacticalTokenBoxForElement(tokenEl, viewport, layout);
+}
+
+function getTacticalTokenLayerPosition(viewport, layer, gridX, gridY, footprintW, footprintH) {
+  const point = getTacticalTokenAnchorPoint(
+    viewport,
+    gridX,
+    gridY,
+    footprintW != null ? footprintW : 1,
+    footprintH != null ? footprintH : 1
+  );
   if (!point) return null;
   const layerRect = layer.getBoundingClientRect();
   return {
@@ -19686,13 +20235,7 @@ function syncTacticalBoardVerticalFit(hud) {
     return;
   }
 
-  const stripRect = strip.getBoundingClientRect();
-  const nudge = stripRect.top - flexBottom - TACTICAL_BOARD_TARGET_GAP;
-  overlay.style.setProperty("--tactical-board-nudge-y", `${nudge}px`);
-
-  if (combatState?.phase === "prep") {
-    _tacticalBoardScreenBottom = flexBottom + nudge;
-  }
+  lockTacticalBoardVerticalPosition(hud);
 }
 
 function layoutTacticalTokens(hud, opts) {
@@ -19706,8 +20249,17 @@ function layoutTacticalTokens(hud, opts) {
     const x = token.getAttribute("data-tactical-x");
     const y = token.getAttribute("data-tactical-y");
     if (x == null || y == null) return;
-    const pos = getTacticalTokenLayerPosition(viewport, layer, x, y);
+    const fw = Number(token.getAttribute("data-tactical-fw")) || 1;
+    const fh = Number(token.getAttribute("data-tactical-fh")) || 1;
+    const pos = getTacticalTokenLayerPosition(viewport, layer, x, y, fw, fh);
     if (!pos) return;
+    const scriptKey = token.getAttribute("data-tactical-script");
+    const tokenLayout = getTacticalTokenLayoutForKey(scriptKey);
+    const isAlly = token.classList.contains("fight-tactical-token--ally");
+    applyTacticalTokenBoxForElement(token, viewport, tokenLayout);
+    if (isAlly) {
+      applyTacticalTokenAnchorTransform(token, tokenLayout);
+    }
     token.style.position = "absolute";
     token.style.left = `${pos.left}px`;
     token.style.top = `${pos.top}px`;
@@ -19853,12 +20405,17 @@ function buildTacticalOrthoPath(fromX, fromY, toX, toY) {
 
 function animateTacticalTokenStep(token, viewport, layer, fromX, fromY, toX, toY, durationMs) {
   return new Promise((resolve) => {
-    const start = getTacticalTokenLayerPosition(viewport, layer, fromX, fromY);
-    const end = getTacticalTokenLayerPosition(viewport, layer, toX, toY);
+    const fw = Number(token.getAttribute("data-tactical-fw")) || 1;
+    const fh = Number(token.getAttribute("data-tactical-fh")) || 1;
+    const scriptKey = token.getAttribute("data-tactical-script");
+    const tokenLayout = getTacticalTokenLayoutForKey(scriptKey);
+    const start = getTacticalTokenLayerPosition(viewport, layer, fromX, fromY, fw, fh);
+    const end = getTacticalTokenLayerPosition(viewport, layer, toX, toY, fw, fh);
     if (!start || !end) {
       resolve();
       return;
     }
+    applyTacticalTokenBoxForElement(token, viewport, tokenLayout);
     let settled = false;
     const finish = () => {
       if (settled) return;
@@ -20094,7 +20651,12 @@ function updateTacticalInspectPanel() {
 function buildTacticalTimelineHtml(st, uiPhase) {
   const queue = Array.isArray(st.turnQueue) ? st.turnQueue : [];
   const idx = typeof st.turnQueueIndex === "number" ? st.turnQueueIndex : 0;
-  if (!queue.length) return "";
+  if (!queue.length) {
+    if (st.phase === "prep") {
+      return `<div class="fight-tactical-timeline fight-tactical-timeline--placeholder fight-party-row" aria-hidden="true"></div>`;
+    }
+    return "";
+  }
   const inspectable = st.phase !== "prep" && st.phase !== "ended";
   let html = `<div class="fight-tactical-timeline fight-party-row" aria-label="Turn order">`;
   queue.forEach((slot, i) => {
@@ -20143,21 +20705,28 @@ function buildTacticalGridHtml(
   ensureTacticalUnitsPlaced(st);
   const TG = TacticalGrid;
   const size = TG.GRID_SIZE;
-  const unitsByCell = new Map();
+  const footprintOwnerByCell = new Map();
   TG.allCombatUnits(st).forEach((u) => {
     if (!tacticalUnitOnBoard(st, u)) return;
     if (typeof u.gridX !== "number" || typeof u.gridY !== "number") return;
-    unitsByCell.set(TG.coordKey(u.gridX, u.gridY), u);
+    if (!u.gridFootprintW && u.name) {
+      applyTacticalFootprintFromDef(u, getEnemyDefByName(u.name));
+    }
+    TG.getUnitOccupiedCells(u).forEach((c) => {
+      footprintOwnerByCell.set(TG.coordKey(c.x, c.y), u);
+    });
   });
   const active =
     uiPhase === "player" ? getActivePartyMember(st) || getCombatUiPartyMember(st) : null;
+  const editFootprintKeys = getTacticalEditFootprintCellKeys(st);
   let rows = "";
   let tokenLayerHtml = "";
   for (let y = size - 1; y >= 0; y--) {
     rows += `<div class="fight-tactical-row" data-tactical-row="${y + 1}">`;
     for (let x = 0; x < size; x++) {
       const key = TG.coordKey(x, y);
-      const unit = unitsByCell.get(key);
+      const unit = footprintOwnerByCell.get(key);
+      const isAnchor = unit && unit.gridX === x && unit.gridY === y;
       const showSpawnZones = st.phase === "prep";
       const zoneCls =
         showSpawnZones && TG.isAllyColumn(x)
@@ -20169,7 +20738,10 @@ function buildTacticalGridHtml(
       const movePathRed = movePathRedKeys && movePathRedKeys.has(key);
       const skillRange = skillRangeKeys && skillRangeKeys.has(key);
       const skillAoe = skillAoeKeys && skillAoeKeys.has(key);
-      const isActiveCell = active && active.gridX === x && active.gridY === y;
+      const isActiveCell =
+        active &&
+        (active.gridX === x && active.gridY === y ||
+          TG.getUnitOccupiedCells(active).some((c) => c.x === x && c.y === y));
       const prepPlace =
         st.phase === "prep" && TG.isAllyColumn(x) && !unit && !amTacticalPrepLocked(st);
       const checkerCls = (x + y) % 2 === 0 ? "fight-tactical-cell--light" : "fight-tactical-cell--dark";
@@ -20177,16 +20749,18 @@ function buildTacticalGridHtml(
         "fight-tactical-cell",
         checkerCls,
         zoneCls,
+        unit && !isAnchor ? "fight-tactical-cell--footprint" : "",
         movePathGreen ? "fight-tactical-cell--move-path-green" : "",
         movePathRed ? "fight-tactical-cell--move-path-red" : "",
         skillRange ? "fight-tactical-cell--skill-range" : "",
         skillAoe ? "fight-tactical-cell--skill-aoe" : "",
         isActiveCell ? "fight-tactical-cell--active" : "",
+        editFootprintKeys && editFootprintKeys.has(key) ? "fight-tactical-cell--edit-selected" : "",
         prepPlace ? "fight-tactical-cell--placeable" : ""
       ]
         .filter(Boolean)
         .join(" ");
-      if (unit) {
+      if (isAnchor) {
         const isFoe = isTacticalFoeUnit(st, unit);
         const isInspected =
           typeof st.tacticalInspectUid === "number" &&
@@ -20195,10 +20769,16 @@ function buildTacticalGridHtml(
             (!isFoe && st.tacticalInspectSide === "ally"));
         const selected = isFoe ? st.selectedUid === unit.uid : st.selectedAllyUid === unit.uid;
         const prepSelected = st.phase === "prep" && st.tacticalPrepUnitUid === unit.uid;
+        const editTarget =
+          isLayoutEditActive() &&
+          tacticalTokenEditUnitUid === unit.uid &&
+          ((isFoe && tacticalTokenEditUnitSide === "foe") ||
+            (!isFoe && tacticalTokenEditUnitSide === "ally"));
         const tokenCls = [
           "fight-tactical-token",
           isFoe ? "fight-tactical-token--foe" : "fight-tactical-token--ally",
           selected || prepSelected ? "fight-tactical-token--selected" : "",
+          editTarget ? "fight-tactical-token--edit-target" : "",
           isInspected ? "fight-tactical-token--inspected" : "",
           isActiveCell ? "fight-tactical-token--active" : ""
         ]
@@ -20209,17 +20789,21 @@ function buildTacticalGridHtml(
           : buildTacticalBoardAllyPortraitHtml(unit, st);
         const dataAttrs = isFoe
           ? ` data-tactical-foe="${unit.uid}" data-fight-target="${unit.uid}"`
-          : ` data-tactical-ally="${unit.uid}" data-party-member="${unit.uid}"`;
+          : ` data-tactical-ally="${unit.uid}" data-party-member="${unit.uid}" data-tactical-token-root`;
+        const allyTokenKey = isFoe ? "" : getTacticalAllyTokenKeyForMember(unit);
         const scriptAttr = isFoe
           ? ` data-tactical-script="${escapeAttr(getTacticalFoeScriptKey(unit))}"`
-          : "";
-        const tokenBoxStyle = isFoe ? buildTacticalFoeTokenBoxStyle(getTacticalTokenLayoutForFoe(unit)) : "";
+          : ` data-tactical-script="${escapeAttr(allyTokenKey)}"`;
+        const fp = getTacticalFootprintForUnit(unit);
+        const tokenBoxStyle = isFoe
+          ? buildTacticalFoeTokenBoxStyle(getTacticalTokenLayoutForFoe(unit), fp)
+          : buildTacticalAllyTokenBoxStyle(getTacticalTokenLayoutForKey(allyTokenKey));
         const tokenStyleAttr = tokenBoxStyle ? ` style="${escapeAttr(tokenBoxStyle)}"` : "";
         const snapKey = isFoe ? `foe:${unit.uid}` : `ally:${unit.uid}`;
         const snapPos = tokenPositionSnap && tokenPositionSnap[snapKey];
         const tokenX = snapPos && typeof snapPos.x === "number" ? snapPos.x : x;
         const tokenY = snapPos && typeof snapPos.y === "number" ? snapPos.y : y;
-        tokenLayerHtml += `<div class="${tokenCls}"${dataAttrs}${scriptAttr} data-tactical-x="${tokenX}" data-tactical-y="${tokenY}"${tokenStyleAttr} role="button" tabindex="0" aria-label="">${portrait}</div>`;
+        tokenLayerHtml += `<div class="${tokenCls}"${dataAttrs}${scriptAttr} data-tactical-x="${tokenX}" data-tactical-y="${tokenY}" data-tactical-fw="${fp.w}" data-tactical-fh="${fp.h}"${tokenStyleAttr} role="button" tabindex="0" aria-label="">${portrait}</div>`;
       }
       rows += `<div class="${cellCls}" data-tactical-cell data-tactical-x="${x}" data-tactical-y="${y}" role="gridcell" aria-label="${TG.colToLetter(x)}${y + 1}"><span class="tactical-cell-anchor" aria-hidden="true"></span></div>`;
     }
@@ -20336,9 +20920,9 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   syncTacticalTokenLayerVars(hud);
   hydrateSpriteAnimations(hud);
   hydrateSpriteAnimations(tokenLayer);
+  layoutTacticalTokens(hud);
   if (pendingMoveAnim) {
     syncTacticalBoardVerticalFit(hud);
-    layoutTacticalTokens(hud);
   } else {
     scheduleTacticalTokenLayout(hud);
   }
@@ -20694,8 +21278,10 @@ function renderTurnBattle() {
   syncMinimapSlots();
   syncFightMinimapLayoutToChatAndLog();
   refreshDungeonPhaseBackgroundFromCombat(st);
-  if (st.tactical) syncTacticalTokenEditToolbar(st);
-  else clearTacticalTokenEditToolbar();
+  if (st.tactical) {
+    syncTacticalTokenEditToolbar(st);
+    syncTacticalEditFootprintHighlight();
+  } else clearTacticalTokenEditToolbar();
 }
 
 function runEnemyPhase() {
@@ -22115,7 +22701,7 @@ function onFightOverlayClick(ev) {
     tacticalTokenLayoutDragSuppressedClick = false;
     return;
   }
-  if (isLayoutEditActive() && ev.target.closest(".fight-tactical-token--foe")) {
+  if (isLayoutEditActive() && ev.target.closest(".fight-tactical-token--foe, .fight-tactical-token--ally")) {
     return;
   }
 
@@ -22151,9 +22737,20 @@ function onFightOverlayClick(ev) {
       if (cell && !amTacticalPrepLocked(st)) {
         const x = parseInt(cell.getAttribute("data-tactical-x"), 10);
         const y = parseInt(cell.getAttribute("data-tactical-y"), 10);
-        const unitUid = st.tacticalPrepUnitUid;
-        if (Number.isFinite(unitUid) && Number.isFinite(x) && Number.isFinite(y)) {
-          void window.ServerCombat.submitAction({ type: "place", unitUid, x, y });
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          const unitAt = findTacticalUnitAt(st, x, y);
+          if (unitAt) {
+            const m = (st.party || []).find((p) => p && p.uid === unitAt.uid);
+            if (m && isMyTacticalUnit(m, st)) {
+              st.tacticalPrepUnitUid = unitAt.uid;
+              updateFightAllySelection();
+              return;
+            }
+          }
+          const unitUid = st.tacticalPrepUnitUid;
+          if (Number.isFinite(unitUid)) {
+            void window.ServerCombat.submitAction({ type: "place", unitUid, x, y });
+          }
         }
         return;
       }
@@ -22194,6 +22791,12 @@ function onFightOverlayClick(ev) {
         submitTacticalSkillAt(st, skillName, coords.x, coords.y, targetUid);
         return;
       }
+    }
+    if (st.tactical) {
+      const cellCoords =
+        probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY) ||
+        resolveTacticalGridCoordsFromPointerTarget(t);
+      if (cellCoords && trySelectTacticalUnitAtCell(st, cellCoords.x, cellCoords.y)) return;
     }
     const allyCard = t.closest(
       "[data-party-member], [data-tactical-ally], [data-tactical-timeline-ally]"
@@ -22407,6 +23010,7 @@ function openHollisEntranceDialog(dungeonId) {
     <div class="npc-dialog-actions">
       <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="sunken_grotto">Give Key</button>
       <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="sunken_grotto">Leave</button>
+      ${buildDungeonCheatEnterBtnHtml("sunken_grotto")}
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
@@ -22415,7 +23019,7 @@ function openHollisEntranceDialog(dungeonId) {
 function openMerritRootsnifferEntranceDialog() {
   const def = getDungeonDef("rootwarren");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Rootwarren Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Merrit Rootsniffer</p>
@@ -22441,7 +23045,7 @@ function openMerritRootsnifferEntranceDialog() {
 function openCaptainIlyraVossEntranceDialog() {
   const def = getDungeonDef("rustfallen_bastion");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Rustfallen Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Captain Ilyra Voss</p>
@@ -22475,7 +23079,7 @@ function openMerritRootsnifferKeyAcceptedDialog() {
 function openMaeraHushveilEntranceDialog() {
   const def = getDungeonDef("silent_glacier");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Silent Glacier Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Maera Hushveil</p>
@@ -22503,7 +23107,7 @@ function openMaeraHushveilEntranceDialog() {
 function openKaelAshbrandEntranceDialog() {
   const def = getDungeonDef("infernal_riftforge");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Riftforge Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Kael Ashbrand</p>
@@ -22531,7 +23135,7 @@ function openKaelAshbrandEntranceDialog() {
 function openNaliRootwatcherEntranceDialog() {
   const def = getDungeonDef("verdant_deep");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Verdant Deep Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Nali Rootwatcher</p>
@@ -22561,7 +23165,7 @@ function openNaliRootwatcherEntranceDialog() {
 function openElowenSnowbudEntranceDialog() {
   const def = getDungeonDef("frostroot_nursery");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Frostroot Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Elowen Snowbud</p>
@@ -22592,7 +23196,7 @@ function openElowenSnowbudEntranceDialog() {
 function openOldVarroEntranceDialog() {
   const def = getDungeonDef("withered_maw");
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Withered Maw Key";
-  const hasKey = player.inventory.includes(keyName);
+  const hasKey = playerHasDungeonKeyForEntry(keyName);
   if (hasKey) {
     const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-speaker">Old Varro</p>
@@ -22627,6 +23231,7 @@ function openNeraStormwatchEntranceDialog() {
     <div class="npc-dialog-actions">
       <button type="button" class="btn-primary" data-dungeon-choice="stormbreak_use_key" data-dungeon-id="stormbreak_hollow">Use Stormbreak Hollow Key</button>
       <button type="button" class="btn-secondary" data-dungeon-choice="stormbreak_leave_intro" data-dungeon-id="stormbreak_hollow">Leave</button>
+      ${buildDungeonCheatEnterBtnHtml("stormbreak_hollow")}
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
@@ -22665,6 +23270,7 @@ function openNeraStormwatchNoKeyDialog() {
     <p class="npc-dialog-body">You'll need a Stormbreak Hollow Key before I let you near that door. I'm not scraping another hero off the rocks today.</p>
     <div class="npc-dialog-actions">
       <button type="button" class="btn-secondary" data-dungeon-choice="stormbreak_no_key_leave" data-dungeon-id="stormbreak_hollow">Leave</button>
+      ${buildDungeonCheatEnterBtnHtml("stormbreak_hollow")}
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
@@ -22739,6 +23345,7 @@ function openDungeonEntranceDialog(dungeonId) {
     <div class="npc-dialog-actions">
       <button type="button" class="btn-primary" data-dungeon-choice="give_key" data-dungeon-id="${escapeAttr(id)}">Give Key</button>
       <button type="button" class="btn-secondary" data-dungeon-choice="leave" data-dungeon-id="${escapeAttr(id)}">Leave</button>
+      ${buildDungeonCheatEnterBtnHtml(id)}
     </div>
   </div>`;
   showModalHtml(html, { npcBubble: true });
@@ -22785,8 +23392,7 @@ async function beginDungeonRunFromModal(dungeonId) {
     return;
   }
   const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Dungeon Key";
-  const idx = player.inventory.indexOf(keyName);
-  if (idx === -1) {
+  if (!playerHasDungeonKeyForEntry(keyName)) {
     showModal("You no longer have the key.");
     return;
   }
@@ -22796,8 +23402,13 @@ async function beginDungeonRunFromModal(dungeonId) {
       : { x: 37, y: 55 };
 
   if (canPerformServerPlayerAction() && typeof window.GameStorage.enterDungeon === "function") {
+    publishPresenceDungeonLocation();
     try {
-      const body = await window.GameStorage.enterDungeon(id, activeCharacterSlotIndex);
+      const cheat = isDungeonKeyCheatActive();
+      const body = await window.GameStorage.enterDungeon(id, activeCharacterSlotIndex, {
+        skipDungeonKey: cheat,
+        devCheat: cheat
+      });
       await applyOnlineActionResponse(body);
       publishPresenceDungeonLocation();
       closeModal();
@@ -22807,6 +23418,11 @@ async function beginDungeonRunFromModal(dungeonId) {
       showModal(err && err.message ? err.message : "Could not enter dungeon.");
       return;
     }
+  }
+  if (isDungeonKeyCheatActive() && applyDungeonEnterLocal(id)) {
+    closeModal();
+    render();
+    return;
   }
   showServerActionRequired();
 }
@@ -25415,14 +26031,7 @@ function buildOverviewHtml() {
     ? `<button type="button" class="btn-reset-char" data-reset-character>Reset character</button>`
     : "";
 
-  const layeredPortraitHtml = buildPortraitLayeredStackHtml(
-    getActorPortraitBaseImage(actor, "idle"),
-    getPortraitBaseLayoutForOwner(actor),
-    "data-portrait-root",
-    actor.equipment || emptyEquipment(),
-    actor,
-    rosterTab
-  );
+  const layeredPortraitHtml = buildCharacterPageLayeredPortraitHtml(actor, rosterTab);
 
   const maxLv = getPlayerMaxLevel();
   const xpNeed = actor.level >= maxLv ? 0 : xpToNextLevel(actor.level);
@@ -28602,7 +29211,7 @@ function renderAdventure() {
         "Chamber encounter"
       )}"${posStyle}>
         <div class="mob-imgs mob-imgs--world">${thumbsActive}</div>
-      </div>`;
+      </div>${buildDungeonSkipRoomBtnHtml()}`;
       worldCampsClass = "world-camps world-camps--spread world-camps--scene";
     }
   } else if (dungeonRun && dungeonRun.epilogue) {
@@ -28726,7 +29335,7 @@ function renderAdventure() {
   });
   c.querySelectorAll("[data-dungeon-skip-room]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      advanceDungeonToNextRoomOrEpilogue();
+      void cheatSkipDungeonRoom();
     });
   });
 
@@ -29856,12 +30465,21 @@ function onPortalNetworkModalClick(e) {
     const id = dChoice.getAttribute("data-dungeon-id") || "sunken_grotto";
     const def = getDungeonDef(id);
     const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Dungeon Key";
+    if (v === "cheat_enter") {
+      if (!isDungeonKeyCheatActive()) return;
+      if (!def) {
+        showModal("This dungeon is not configured.");
+        return;
+      }
+      openDungeonKeyAcceptedDialog(id);
+      return;
+    }
     if (v === "stormbreak_use_key") {
       if (!def || id !== "stormbreak_hollow") {
         showModal("This entrance is not configured.");
         return;
       }
-      if (player.inventory.indexOf(keyName) === -1) {
+      if (!playerHasDungeonKeyForEntry(keyName)) {
         openNeraStormwatchNoKeyDialog();
         return;
       }
@@ -29881,7 +30499,7 @@ function onPortalNetworkModalClick(e) {
         showModal("This entrance is not configured.");
         return;
       }
-      if (player.inventory.indexOf(keyName) === -1) {
+      if (!playerHasDungeonKeyForEntry(keyName)) {
         openNeraStormwatchNoKeyDialog();
         return;
       }
@@ -29893,7 +30511,7 @@ function onPortalNetworkModalClick(e) {
         showModal("This dungeon is not configured.");
         return;
       }
-      if (player.inventory.indexOf(keyName) === -1) {
+      if (!playerHasDungeonKeyForEntry(keyName)) {
         const missingText =
           id === "sunken_grotto"
             ? "You pat your pockets—no grotto key on you."
@@ -29915,7 +30533,7 @@ function onPortalNetworkModalClick(e) {
         showModal("This dungeon is not configured.");
         return;
       }
-      if (player.inventory.indexOf(keyName) === -1) {
+      if (!playerHasDungeonKeyForEntry(keyName)) {
         showModal("You no longer have the key.");
         return;
       }
@@ -29938,7 +30556,7 @@ function onPortalNetworkModalClick(e) {
     if (v === "give_key") {
       const def = getDungeonDef("sunken_grotto");
       const keyName = def && typeof def.keyItem === "string" ? def.keyItem.trim() : "Sunken Grotto Key";
-      if (player.inventory.indexOf(keyName) === -1) {
+      if (!playerHasDungeonKeyForEntry(keyName)) {
         const html = `<div class="npc-dialog-bubble">
       <p class="npc-dialog-body">You pat your pockets—no grotto key on you.</p>
       <div class="npc-dialog-actions"><button type="button" class="btn-primary" data-hollis-choice="close">Close</button></div>
@@ -29946,6 +30564,11 @@ function onPortalNetworkModalClick(e) {
         showModalHtml(html, { npcBubble: true });
         return;
       }
+      openHollisKeyAcceptedDialog();
+      return;
+    }
+    if (v === "cheat_enter") {
+      if (!isDungeonKeyCheatActive()) return;
       openHollisKeyAcceptedDialog();
       return;
     }
@@ -30042,7 +30665,7 @@ function onTacticalTokenEditToolbarClick(e) {
   }
   if (e.target.closest("[data-tactical-token-layout-reset]")) {
     if (!tacticalTokenEditScriptKey) {
-      showModal("Click a foe token on the board first, then reset.");
+      showModal("Click a token on the board first, then reset.");
       return;
     }
     resetTacticalTokenLayout(tacticalTokenEditScriptKey);

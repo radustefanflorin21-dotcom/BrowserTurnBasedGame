@@ -37,10 +37,10 @@ export function initUnitTacticalFields(unit, st, side) {
   if (typeof unit.maxMovePoints !== "number") unit.maxMovePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
   if (typeof unit.gridX !== "number" || typeof unit.gridY !== "number") {
     const unitSide = side || (unit.kind === "hero" || unit.kind === "companion" ? "ally" : "foe");
-    const cells =
-      unitSide === "ally" ? TacticalGrid.enumerateAllySpawnCells() : TacticalGrid.enumerateEnemySpawnCells();
+    const cells = TacticalGrid.placementCellsForUnit(unit, unitSide);
     const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
-    const spot = cells.find((c) => !occ.has(TacticalGrid.coordKey(c.x, c.y)));
+    const { w, h } = TacticalGrid.getUnitFootprint(unit);
+    const spot = TacticalGrid.firstFreeFootprintCell(cells, w, h, occ, unit.uid);
     if (spot) {
       unit.gridX = spot.x;
       unit.gridY = spot.y;
@@ -115,7 +115,9 @@ export function validateMoveAction(st, session, userId, unitUid, x, y) {
     unit.movePoints,
     st.board,
     occ,
-    unit.uid
+    unit.uid,
+    TacticalGrid.getUnitFootprint(unit).w,
+    TacticalGrid.getUnitFootprint(unit).h
   );
   const dest = reachable.find((c) => c.x === x && c.y === y);
   if (!dest) return { ok: false, message: "That tile is out of movement range." };
@@ -131,17 +133,14 @@ export function applyMoveAction(st, unit, x, y, cost) {
 export function findAdjacentFoeForMelee(st, ally) {
   if (!ally) return null;
   return (st.foes || []).find(
-    (f) =>
-      f &&
-      f.hp > 0 &&
-      TacticalGrid.areOrthogonalAdjacent(ally.gridX, ally.gridY, f.gridX, f.gridY)
+    (f) => f && f.hp > 0 && TacticalGrid.areUnitsOrthogonalAdjacent(ally, f)
   );
 }
 
 export function validateMeleeTarget(st, attacker, targetUid) {
   const foe = TacticalGrid.findUnitByUid(st.foes, targetUid);
   if (!foe || foe.hp <= 0) return { ok: false, message: "Invalid target." };
-  if (!TacticalGrid.areOrthogonalAdjacent(attacker.gridX, attacker.gridY, foe.gridX, foe.gridY)) {
+  if (!TacticalGrid.areUnitsOrthogonalAdjacent(attacker, foe)) {
     return { ok: false, message: "Target is not adjacent." };
   }
   return { ok: true, foe };

@@ -1147,6 +1147,39 @@ body.edit-mode-on .bottom-hud-portrait--editing-scale {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
+.portrait-box--tactical-token {
+  container-type: size;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.fight-tactical-token--ally .portrait-box--tactical-token .portrait-stack {
+  width: min(92cqw, 92cqh);
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
+  animation: none;
+}
+
+.fight-tactical-token--ally .portrait-box--tactical-token .portrait-img--base,
+.fight-tactical-token--ally .portrait-box--tactical-token .portrait-occlusion {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .portrait-img {
   display: block;
   width: min(92cqw, 78cqh, 220px);
@@ -4147,6 +4180,12 @@ body.edit-mode-on .portrait-equip-layer--pet {
   margin: 0;
 }
 
+.world-dungeon-skip-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
 .world-camps--scene .world-scene {
   max-width: none;
   width: 100%;
@@ -6570,6 +6609,13 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   justify-content: flex-start;
   align-self: flex-start;
   max-width: 100%;
+  min-height: calc(var(--tactical-turn-card-size) + 8px);
+  box-sizing: border-box;
+}
+
+.fight-tactical-timeline--placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .fight-tactical-timeline.fight-party-row {
@@ -6682,7 +6728,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   box-sizing: border-box;
 }
 
-.fight-overlay--tactical .fight-tactical:not(.fight-tactical--prep) .fight-tactical-main {
+.fight-overlay--tactical .fight-tactical-main {
   padding-left: min(188px, 32vw);
 }
 
@@ -6859,7 +6905,37 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-tactical-token-layer .fight-tactical-token {
   position: absolute;
+  pointer-events: none;
+}
+
+body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   pointer-events: auto;
+}
+
+.fight-tactical-combat-fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1120;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.fight-tactical-combat-fx-layer.hidden {
+  display: none;
+}
+
+.fight-tactical-combat-fx-layer .fight-damage-float {
+  z-index: 1;
+}
+
+.fight-tactical-combat-fx-layer .fight-card-fx-overlay--detached {
+  z-index: 2;
+}
+
+.fight-tactical-combat-fx-layer .fight-combat-fx-slash,
+.fight-tactical-combat-fx-layer .fight-combat-fx-burst {
+  position: fixed;
+  z-index: 3;
 }
 
 .fight-tactical-token--animating {
@@ -7048,6 +7124,25 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   background: rgba(255, 100, 60, 0.2);
 }
 
+.fight-tactical-cell--footprint {
+  box-shadow: inset 0 0 0 1px rgba(255, 120, 120, 0.35);
+  background: rgba(120, 40, 40, 0.08);
+}
+
+.fight-tactical-cell--edit-selected {
+  box-shadow: inset 0 0 0 2px rgba(255, 220, 120, 0.95);
+  background: rgba(255, 220, 120, 0.2);
+}
+
+.fight-tactical-cell--footprint.fight-tactical-cell--edit-selected {
+  box-shadow: inset 0 0 0 2px rgba(255, 220, 120, 0.95);
+  background: rgba(255, 220, 120, 0.22);
+}
+
+.fight-tactical-token--edit-target {
+  filter: drop-shadow(0 0 6px rgba(255, 220, 120, 0.85));
+}
+
 .fight-tactical-cell--placeable {
   cursor: pointer;
 }
@@ -7074,7 +7169,6 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate(-50%, -100%);
   width: var(--tactical-token-width);
   height: var(--tactical-token-height);
   background: transparent;
@@ -7088,36 +7182,23 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   color: transparent;
 }
 
+.fight-tactical-token--foe {
+  transform: translate(-50%, -100%);
+}
+
 .fight-tactical-token--ally {
-  width: 140px;
-  height: 140px;
-  transform: translate(calc(-50% - var(--tactical-cell-size) * 0.1), -100%);
-}
-
-.fight-tactical-token--ally .bottom-hud-portrait {
-  width: 140px;
-  height: 140px;
-  border: none;
-  background: transparent;
-}
-
-.fight-tactical-token--ally .bottom-hud-portrait .portrait-stack {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: auto;
-  animation: none;
-}
-
-.fight-tactical-token--ally .bottom-hud-portrait .portrait-img--base,
-.fight-tactical-token--ally .bottom-hud-portrait .portrait-occlusion {
-  object-fit: contain;
+  /* translate(-50%, -100%) + preset transform applied in layoutTacticalTokens */
+  transform-origin: 50% 100%;
 }
 
 .fight-tactical-token .tactical-foe-img,
 .fight-tactical-token img.tactical-foe-img,
 .fight-tactical-token--foe .portrait-equip-layer,
 .fight-tactical-token--foe .portrait-img--base,
-.fight-tactical-token--foe .portrait-occlusion {
+.fight-tactical-token--foe .portrait-occlusion,
+.fight-tactical-token--ally .portrait-equip-layer,
+.fight-tactical-token--ally .portrait-img--base,
+.fight-tactical-token--ally .portrait-occlusion {
   pointer-events: none;
 }
 
@@ -7189,6 +7270,11 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 }
 
 .fight-tactical-token--layout-editing .tactical-token-root-group {
+  outline: 1px dashed rgba(255, 220, 120, 0.75);
+  outline-offset: 1px;
+}
+
+.fight-tactical-token--ally.fight-tactical-token--layout-editing {
   outline: 1px dashed rgba(255, 220, 120, 0.75);
   outline-offset: 1px;
 }
@@ -7273,16 +7359,16 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   overflow: visible;
 }
 
-.tactical-portrait-wrap .portrait-stack {
+.tactical-portrait-wrap:not(.tactical-portrait-wrap--board) .portrait-stack {
   width: 100%;
   height: 100%;
   max-width: none;
   animation: none;
 }
 
-.tactical-portrait-wrap .portrait-img--base,
-.tactical-portrait-wrap .portrait-occlusion,
-.tactical-portrait-wrap .portrait-equip-layer {
+.tactical-portrait-wrap:not(.tactical-portrait-wrap--board) .portrait-img--base,
+.tactical-portrait-wrap:not(.tactical-portrait-wrap--board) .portrait-occlusion,
+.tactical-portrait-wrap:not(.tactical-portrait-wrap--board) .portrait-equip-layer {
   object-fit: contain;
 }
 

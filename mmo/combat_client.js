@@ -259,6 +259,10 @@
   }
 
   function mergeServerPlayer(serverPlayer, roster) {
+    const prevLayouts =
+      player?.tacticalTokenLayouts && typeof player.tacticalTokenLayouts === "object"
+        ? { ...player.tacticalTokenLayouts }
+        : null;
     if (roster && Array.isArray(roster.slots)) {
       const slots = roster.slots.slice(0, CHARACTER_SLOT_COUNT);
       while (slots.length < CHARACTER_SLOT_COUNT) slots.push(null);
@@ -281,6 +285,15 @@
     }
     if (typeof rehydrateWorldMapMobPreviewsFromPresenceCache === "function") {
       rehydrateWorldMapMobPreviewsFromPresenceCache();
+    }
+    if (player && prevLayouts && Object.keys(prevLayouts).length) {
+      if (!player.tacticalTokenLayouts || typeof player.tacticalTokenLayouts !== "object") {
+        player.tacticalTokenLayouts = {};
+      }
+      player.tacticalTokenLayouts = { ...prevLayouts, ...player.tacticalTokenLayouts };
+      if (typeof persistTacticalTokenLayoutsLocal === "function") {
+        persistTacticalTokenLayoutsLocal();
+      }
     }
   }
 

@@ -70,12 +70,103 @@
     return set;
   }
 
+  function getUnitFootprint(unit) {
+    const w = unit?.gridFootprintW;
+    const h = unit?.gridFootprintH;
+    return {
+      w: Math.max(1, Math.min(GRID_SIZE, Math.floor(Number.isFinite(w) ? w : 1))),
+      h: Math.max(1, Math.min(GRID_SIZE, Math.floor(Number.isFinite(h) ? h : 1)))
+    };
+  }
+
+  function footprintCells(ax, ay, fw, fh) {
+    const cells = [];
+    for (let dy = 0; dy < fh; dy++) {
+      for (let dx = 0; dx < fw; dx++) {
+        const x = ax + dx;
+        const y = ay + dy;
+        if (isInBounds(x, y)) cells.push({ x, y });
+      }
+    }
+    return cells;
+  }
+
+  function getUnitOccupiedCells(unit) {
+    if (!unit || typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return [];
+    const { w, h } = getUnitFootprint(unit);
+    return footprintCells(unit.gridX, unit.gridY, w, h);
+  }
+
+  function isFootprintInBounds(ax, ay, fw, fh) {
+    return ax >= 0 && ay >= 0 && ax + fw <= GRID_SIZE && ay + fh <= GRID_SIZE;
+  }
+
+  function isFootprintPlaceable(ax, ay, fw, fh, board, occupancy, ignoreUid) {
+    if (!isFootprintInBounds(ax, ay, fw, fh)) return false;
+    const obs = obstacleSet(board);
+    for (const c of footprintCells(ax, ay, fw, fh)) {
+      const key = coordKey(c.x, c.y);
+      if (obs.has(key)) return false;
+      const uid = occupancy.get(key);
+      if (uid != null && uid !== ignoreUid) return false;
+    }
+    return true;
+  }
+
+  function claimFootprintOccupancy(ax, ay, fw, fh, uid, occupancy) {
+    footprintCells(ax, ay, fw, fh).forEach((c) => {
+      occupancy.set(coordKey(c.x, c.y), uid);
+    });
+  }
+
+  function firstFreeFootprintCell(cells, fw, fh, occupancy, ignoreUid) {
+    for (const c of cells) {
+      if (isFootprintPlaceable(c.x, c.y, fw, fh, null, occupancy, ignoreUid)) {
+        return { x: c.x, y: c.y };
+      }
+    }
+    return null;
+  }
+
+  function unitOccupyingCell(units, x, y) {
+    for (const u of units || []) {
+      if (!u || u.hp <= 0) continue;
+      if (getUnitOccupiedCells(u).some((c) => c.x === x && c.y === y)) return u;
+    }
+    return null;
+  }
+
+  function minManhattanBetweenUnits(unitA, unitB) {
+    const cellsA = getUnitOccupiedCells(unitA);
+    const cellsB = getUnitOccupiedCells(unitB);
+    if (!cellsA.length || !cellsB.length) return Infinity;
+    let best = Infinity;
+    for (const a of cellsA) {
+      for (const b of cellsB) {
+        best = Math.min(best, manhattan(a.x, a.y, b.x, b.y));
+      }
+    }
+    return best;
+  }
+
+  function areUnitsOrthogonalAdjacent(unitA, unitB) {
+    const cellsA = getUnitOccupiedCells(unitA);
+    const cellsB = getUnitOccupiedCells(unitB);
+    for (const a of cellsA) {
+      for (const b of cellsB) {
+        if (areOrthogonalAdjacent(a.x, a.y, b.x, b.y)) return true;
+      }
+    }
+    return false;
+  }
+
   function buildOccupancy(units) {
     const map = new Map();
     (units || []).forEach((u) => {
       if (!u || u.hp <= 0) return;
       if (typeof u.gridX !== "number" || typeof u.gridY !== "number") return;
-      map.set(coordKey(u.gridX, u.gridY), u.uid);
+      const { w, h } = getUnitFootprint(u);
+      claimFootprintOccupancy(u.gridX, u.gridY, w, h, u.uid, map);
     });
     return map;
   }
@@ -110,11 +201,51 @@
     return out;
   }
 
+  /** Valid anchor tiles for multi-cell foes that must still overlap the enemy side (cols G–H). */
+  function enumerateEnemyPlacementAnchorCells(fw, fh) {
+    const footprintW = Math.max(1, Math.floor(fw || 1));
+    const footprintH = Math.max(1, Math.floor(fh || 1));
+    if (footprintW === 1 && footprintH === 1) return enumerateEnemySpawnCells();
+    const out = [];
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (!isFootprintInBounds(x, y, footprintW, footprintH)) continue;
+        let overlapsEnemy = false;
+        for (const c of footprintCells(x, y, footprintW, footprintH)) {
+          if (isEnemyColumn(c.x)) {
+            overlapsEnemy = true;
+            break;
+          }
+        }
+        if (overlapsEnemy) out.push({ x, y });
+      }
+    }
+    return out;
+  }
+
+  function placementCellsForUnit(unit, side) {
+    const { w, h } = getUnitFootprint(unit);
+    if (side === "foe" && (w > 1 || h > 1)) {
+      return enumerateEnemyPlacementAnchorCells(w, h);
+    }
+    if (side === "ally") return enumerateAllySpawnCells();
+    return enumerateEnemySpawnCells();
+  }
+
   function firstFreeCell(cells, occupancy) {
     for (const c of cells) {
       if (!occupancy.has(coordKey(c.x, c.y))) return { ...c };
     }
     return null;
+  }
+
+  function firstFreeCellForUnit(cells, unit, occupancy) {
+    const { w, h } = getUnitFootprint(unit);
+    if (w === 1 && h === 1) {
+      const spot = firstFreeCell(cells, occupancy);
+      return spot;
+    }
+    return firstFreeFootprintCell(cells, w, h, occupancy, unit?.uid);
   }
 
   function roleColumnPreference(roleKey) {
@@ -125,7 +256,7 @@
     return ENEMY_COL_MIN;
   }
 
-  function autoPlaceUnits(units, cells, preferredCols) {
+  function autoPlaceUnits(units, cells, preferredCols, cellsForUnit) {
     const occupancy = new Map();
     const placed = [];
     const list = Array.isArray(units) ? units.slice() : [];
@@ -134,25 +265,22 @@
       const pb = preferredCols ? preferredCols(b) : 0;
       return pa - pb;
     });
-    const sortedCells = cells.slice().sort((a, b) => {
-      const ca = preferredCols ? Math.abs(a.x - preferredCols({})) : a.x;
-      const cb = preferredCols ? Math.abs(b.x - preferredCols({})) : b.x;
-      if (ca !== cb) return ca - cb;
-      return a.y - b.y;
-    });
+    const resolveCells = (u) => (typeof cellsForUnit === "function" ? cellsForUnit(u) : cells);
     for (const u of list) {
       if (!u) continue;
-      let spot = null;
-      const prefCol = preferredCols ? preferredCols(u) : null;
-      if (prefCol != null) {
-        const preferred = sortedCells.filter((c) => c.x === prefCol);
-        spot = firstFreeCell(preferred.length ? preferred : sortedCells, occupancy);
-      }
-      if (!spot) spot = firstFreeCell(sortedCells, occupancy);
+      const { w, h } = getUnitFootprint(u);
+      const unitCells = resolveCells(u).slice().sort((a, b) => {
+        const prefCol = preferredCols ? preferredCols(u) : null;
+        const ca = prefCol != null ? Math.abs(a.x - prefCol) : a.x;
+        const cb = prefCol != null ? Math.abs(b.x - prefCol) : b.x;
+        if (ca !== cb) return ca - cb;
+        return a.y - b.y;
+      });
+      let spot = firstFreeFootprintCell(unitCells, w, h, occupancy, u.uid);
       if (!spot) continue;
       u.gridX = spot.x;
       u.gridY = spot.y;
-      occupancy.set(coordKey(spot.x, spot.y), u.uid);
+      claimFootprintOccupancy(spot.x, spot.y, w, h, u.uid, occupancy);
       placed.push(u);
     }
     return placed;
@@ -165,7 +293,12 @@
 
   function autoPlaceEnemies(foes, roleForFoe) {
     const cells = enumerateEnemySpawnCells();
-    return autoPlaceUnits(foes, cells, (f) => roleColumnPreference(roleForFoe ? roleForFoe(f) : "bruiser"));
+    return autoPlaceUnits(
+      foes,
+      cells,
+      (f) => roleColumnPreference(roleForFoe ? roleForFoe(f) : "bruiser"),
+      (u) => placementCellsForUnit(u, "foe")
+    );
   }
 
   function reconstructPath(parent, end) {
@@ -234,7 +367,9 @@
     return path;
   }
 
-  function bfsReachable(fromX, fromY, movePoints, board, occupancy, ignoreUid) {
+  function bfsReachable(fromX, fromY, movePoints, board, occupancy, ignoreUid, footprintW, footprintH) {
+    const fw = footprintW || 1;
+    const fh = footprintH || 1;
     const maxMp = Math.max(0, Math.floor(movePoints || 0));
     const dist = new Map();
     const queue = [{ x: fromX, y: fromY, d: 0 }];
@@ -254,9 +389,9 @@
         const nx = cur.x + dx;
         const ny = cur.y + dy;
         const key = coordKey(nx, ny);
-        if (!isCellWalkable(nx, ny, board, occupancy, ignoreUid)) continue;
+        if (dist.has(key) && dist.get(key) <= cur.d + 1) continue;
+        if (!isFootprintPlaceable(nx, ny, fw, fh, board, occupancy, ignoreUid)) continue;
         const nd = cur.d + 1;
-        if (dist.has(key) && dist.get(key) <= nd) continue;
         dist.set(key, nd);
         queue.push({ x: nx, y: ny, d: nd });
       }
@@ -293,10 +428,22 @@
     areOrthogonalAdjacent,
     createBoard,
     obstacleSet,
+    getUnitFootprint,
+    footprintCells,
+    getUnitOccupiedCells,
+    isFootprintInBounds,
+    isFootprintPlaceable,
+    claimFootprintOccupancy,
+    firstFreeFootprintCell,
+    unitOccupyingCell,
+    minManhattanBetweenUnits,
+    areUnitsOrthogonalAdjacent,
     buildOccupancy,
     isCellWalkable,
     enumerateAllySpawnCells,
     enumerateEnemySpawnCells,
+    enumerateEnemyPlacementAnchorCells,
+    placementCellsForUnit,
     autoPlaceAllies,
     autoPlaceEnemies,
     bfsReachable,

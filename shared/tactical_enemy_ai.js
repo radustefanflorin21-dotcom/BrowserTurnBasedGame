@@ -82,9 +82,9 @@
       });
     }
     let best = party[0];
-    let bestD = grid.manhattan(foe.gridX, foe.gridY, best.gridX, best.gridY);
+    let bestD = grid.minManhattanBetweenUnits(foe, best);
     for (const m of party) {
-      const d = grid.manhattan(foe.gridX, foe.gridY, m.gridX, m.gridY);
+      const d = grid.minManhattanBetweenUnits(foe, m);
       if (d < bestD) {
         bestD = d;
         best = m;
@@ -115,11 +115,15 @@
     return TT().hasLineOfSight(st, x, y, tx, ty);
   }
 
-  function scoreDestination(st, cell, focus, mode, cfg) {
+  function scoreDestination(st, cell, focus, mode, cfg, foe) {
     const grid = TG();
-    const d = grid.manhattan(cell.x, cell.y, focus.gridX, focus.gridY);
+    const d = grid.minManhattanBetweenUnits(
+      { gridX: cell.x, gridY: cell.y, gridFootprintW: foe ? grid.getUnitFootprint(foe).w : 1, gridFootprintH: foe ? grid.getUnitFootprint(foe).h : 1 },
+      focus
+    );
     if (mode === "melee") {
-      if (grid.areOrthogonalAdjacent(cell.x, cell.y, focus.gridX, focus.gridY)) return 1000;
+      const probe = { gridX: cell.x, gridY: cell.y, gridFootprintW: foe ? grid.getUnitFootprint(foe).w : 1, gridFootprintH: foe ? grid.getUnitFootprint(foe).h : 1 };
+      if (grid.areUnitsOrthogonalAdjacent(probe, focus)) return 1000;
       const lineBonus = cell.x === focus.gridX || cell.y === focus.gridY ? 20 : 0;
       return 800 - d * 45 + lineBonus;
     }
@@ -164,7 +168,7 @@
     let best = null;
     let bestScore = -Infinity;
     for (const cell of reachable) {
-      const score = scoreDestination(st, cell, focus, mode, cfg);
+      const score = scoreDestination(st, cell, focus, mode, cfg, foe);
       if (score > bestScore) {
         bestScore = score;
         best = cell;
@@ -173,8 +177,10 @@
     if (best) return best;
 
     return reachable.reduce((a, b) => {
-      const da = grid.manhattan(a.x, a.y, focus.gridX, focus.gridY);
-      const db = grid.manhattan(b.x, b.y, focus.gridX, focus.gridY);
+      const probeA = { gridX: a.x, gridY: a.y, gridFootprintW: grid.getUnitFootprint(foe).w, gridFootprintH: grid.getUnitFootprint(foe).h };
+      const probeB = { gridX: b.x, gridY: b.y, gridFootprintW: grid.getUnitFootprint(foe).w, gridFootprintH: grid.getUnitFootprint(foe).h };
+      const da = grid.minManhattanBetweenUnits(probeA, focus);
+      const db = grid.minManhattanBetweenUnits(probeB, focus);
       return da <= db ? a : b;
     }, null);
   }
@@ -182,9 +188,9 @@
   function shouldSkipMove(foe, focus, mode, cfg, st) {
     const grid = TG();
     if (mode === "melee") {
-      return grid.areOrthogonalAdjacent(foe.gridX, foe.gridY, focus.gridX, focus.gridY);
+      return grid.areUnitsOrthogonalAdjacent(foe, focus);
     }
-    const d = grid.manhattan(foe.gridX, foe.gridY, focus.gridX, focus.gridY);
+    const d = grid.minManhattanBetweenUnits(foe, focus);
     const rMin = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
     const rMax = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 4;
     const los = hasLos(st, foe.gridX, foe.gridY, focus.gridX, focus.gridY);
@@ -215,7 +221,8 @@
     const grid = TG();
     const occ = grid.buildOccupancy(grid.allCombatUnits(st));
     const mp = typeof foe.movePoints === "number" ? foe.movePoints : grid.DEFAULT_MOVE_POINTS;
-    const reachable = grid.bfsReachable(foe.gridX, foe.gridY, mp, st.board, occ, foe.uid);
+    const fp = grid.getUnitFootprint(foe);
+    const reachable = grid.bfsReachable(foe.gridX, foe.gridY, mp, st.board, occ, foe.uid, fp.w, fp.h);
     if (!reachable.length) return { moved: false };
 
     const dest = pickBestDestination(st, foe, focus, mode, cfg, role, reachable);

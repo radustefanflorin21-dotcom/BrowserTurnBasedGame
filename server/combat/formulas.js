@@ -185,6 +185,11 @@ export function buildFoeFromUnit(unit, uid) {
     image: unit.portraitImage || def.image || "",
     combatScript: def.combatScript || null
   };
+  const fp = def.tacticalFootprint;
+  if (fp && typeof fp.w === "number" && typeof fp.h === "number") {
+    foe.gridFootprintW = Math.max(1, Math.floor(fp.w));
+    foe.gridFootprintH = Math.max(1, Math.floor(fp.h));
+  }
   applyMoodCombatFields(foe, mood);
   if (typeof unit.moodName === "string" && unit.moodName.trim()) {
     foe.moodName = unit.moodName.trim();

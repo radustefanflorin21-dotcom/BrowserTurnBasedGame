@@ -28,9 +28,7 @@ export function runTacticalEnemyMove(foe, st, appendLog, rng = null) {
 export function pickTacticalMeleeTarget(foe, st) {
   const TacticalGrid = require("../../shared/tactical_grid.js");
   const allies = (st.party || []).filter((m) => m && m.hp > 0 && typeof m.gridX === "number");
-  return allies.find((a) =>
-    TacticalGrid.areOrthogonalAdjacent(foe.gridX, foe.gridY, a.gridX, a.gridY)
-  );
+  return allies.find((a) => TacticalGrid.areUnitsOrthogonalAdjacent(foe, a));
 }
 
 export function getEnemyRoleKey(foe) {
