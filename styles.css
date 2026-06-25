@@ -6441,7 +6441,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .fight-skill-btn {
