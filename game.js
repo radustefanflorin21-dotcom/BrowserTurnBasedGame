@@ -18825,11 +18825,6 @@ function getTacticalUnitStamina(unit, st, side) {
   return { cur, max: maxS };
 }
 
-function tacticalSkillAllowsEmptyCenter(skillName) {
-  if (!skillName || typeof TacticalSkillTargeting === "undefined") return false;
-  return TacticalSkillTargeting.needsTileTarget(skillName);
-}
-
 function probeTacticalCellAtScreenPoint(clientX, clientY) {
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
   const layer = document.getElementById("fightTacticalTokenLayer");
@@ -18880,16 +18875,21 @@ function resolveTacticalGridCoordsFromPointerTarget(target) {
 }
 
 function resolveTacticalGridCoordsFromPointer(ev, opts = {}) {
-  if (opts.allowEmptyCenter && ev && Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)) {
+  const preferToken = !!opts.preferToken;
+  const fromTarget = resolveTacticalGridCoordsFromPointerTarget(ev?.target);
+  if (preferToken && ev?.target?.closest?.(".fight-tactical-token") && fromTarget) {
+    return fromTarget;
+  }
+  if (ev && Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)) {
     const probed = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
     if (probed) return probed;
   }
-  return resolveTacticalGridCoordsFromPointerTarget(ev?.target);
+  return fromTarget;
 }
 
 function resolveTacticalSkillCastCoords(ev, st, skillName) {
   if (!ev || !st || !skillName) return null;
-  if (tacticalSkillAllowsEmptyCenter(skillName) && Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)) {
+  if (Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)) {
     const probed = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
     if (probed) return probed;
   }
@@ -18900,6 +18900,22 @@ function resolveTacticalSkillCastCoords(ev, st, skillName) {
     if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
   }
   return resolveTacticalGridCoordsFromPointerTarget(ev.target);
+}
+
+function trySubmitTacticalMoveAtPointer(ev, st) {
+  if (!st?.tactical || st.tacticalPendingSkill || st.phase !== "player") return false;
+  if (!Number.isFinite(ev?.clientX) || !Number.isFinite(ev?.clientY)) return false;
+  const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
+  if (!active || (active.movePoints || 0) <= 0) return false;
+  const coords = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
+  if (!coords) return false;
+  const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
+  if (!TG) return false;
+  const pathKeys = computeTacticalMovePathKeys(st, active, coords.x, coords.y);
+  if (!pathKeys.green.has(TG.coordKey(coords.x, coords.y))) return false;
+  if (typeof window === "undefined" || !window.ServerCombat?.submitAction) return false;
+  void window.ServerCombat.submitAction({ type: "move", x: coords.x, y: coords.y });
+  return true;
 }
 
 function buildTacticalInspectResourcesHtml(unit, st, side) {
@@ -19086,12 +19102,9 @@ function tryCastPendingTacticalSkillOnUnit(st, unit, expectAlly) {
   if (!st?.tacticalPendingSkill || !unit) return false;
   if (typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return false;
   const name = st.tacticalPendingSkill;
-  const mode = getFightSkillTargetMode(name);
   const isAlly = (st.party || []).some((m) => m && m.uid === unit.uid);
   if (expectAlly === true && !isAlly) return false;
   if (expectAlly === false && isAlly) return false;
-  if (mode === "enemy" && isAlly) return false;
-  if ((mode === "ally" || mode === "self") && !isAlly) return false;
   const caster = getCombatUiPartyMember(st) || getActivePartyMember(st);
   const rangeKeys = computeTacticalSkillRangeKeys(st, caster, name);
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
@@ -19156,8 +19169,9 @@ function whenTacticalMoveAnimationsSettled() {
 function onTacticalBoardPointerMove(ev) {
   const st = combatState;
   if (!st?.tactical || st.phase !== "player") return;
-  const allowEmptyCenter = st.tacticalPendingSkill && tacticalSkillAllowsEmptyCenter(st.tacticalPendingSkill);
-  const coords = resolveTacticalGridCoordsFromPointer(ev, { allowEmptyCenter });
+  const coords = resolveTacticalGridCoordsFromPointer(ev, {
+    preferToken: !!st.tacticalPendingSkill
+  });
   if (!coords) {
     let changed = false;
     if (st.tacticalSkillHoverX != null) {
@@ -21802,6 +21816,7 @@ function onFightOverlayClick(ev) {
     ) {
       return;
     }
+    if (trySubmitTacticalMoveAtPointer(ev, st)) return;
     const moveCell = t.closest(".fight-tactical-cell--move-path-green");
     if (moveCell && st.tactical && !st.tacticalPendingSkill) {
       const x = parseInt(moveCell.getAttribute("data-tactical-x"), 10);

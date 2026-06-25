@@ -238,12 +238,6 @@
     }
 
     const unit = unitAt(st, tx, ty);
-    if (cfg.target === "enemy" && unit && isAllyUnit(st, unit)) {
-      return { ok: false, message: "Cannot target an ally with this skill." };
-    }
-    if (cfg.target === "ally" && unit && !isAllyUnit(st, unit)) {
-      return { ok: false, message: "Must target an ally." };
-    }
 
     const aoeTiles = collectAoeTiles(cfg, skillRank, skillName, tx, ty, st);
     const aoeType = stCfg ? stCfg.resolveAoeType(cfg, skillRank, skillName) : cfg.aoe || "single";
