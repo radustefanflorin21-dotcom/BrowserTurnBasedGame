@@ -168,11 +168,27 @@
   function pickBestPlayer(st, foe, cfg, rule, rng) {
     const candidates = livingParty(st).filter((m) => inSkillRange(st, foe, m.gridX, m.gridY, cfg));
     if (!candidates.length) return null;
-    if (rule === "lowest_hp") {
-      return candidates.reduce((a, b) => (a.hp / a.maxHp <= b.hp / b.maxHp ? a : b));
+
+    const hpFrac = (m) => m.hp / Math.max(1, m.maxHp);
+
+    if (
+      rule === "lowest_hp" ||
+      rule === "weakest" ||
+      rule === "assassin" ||
+      rule === "mage" ||
+      rule === "controller"
+    ) {
+      return candidates.reduce((a, b) => (hpFrac(a) <= hpFrac(b) ? a : b));
     }
-    if (rule === "highest_damage" || rule === "assassin" || rule === "mage") {
-      return candidates[Math.floor((rng?.next?.() ?? Math.random()) * candidates.length)] || candidates[0];
+    if (rule === "tank" || rule === "bruiser" || rule === "highest_hp") {
+      return candidates.reduce((a, b) => (hpFrac(a) >= hpFrac(b) ? a : b));
+    }
+    if (rule === "highest_damage") {
+      return candidates.reduce((a, b) => {
+        const sa = (a.str || 0) + (a.kind === "hero" ? 5 : 0);
+        const sb = (b.str || 0) + (b.kind === "hero" ? 5 : 0);
+        return sa >= sb ? a : b;
+      });
     }
     let best = null;
     let bestD = Infinity;

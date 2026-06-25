@@ -63,8 +63,8 @@ export function createEnemyPhaseStepRecorder(st) {
   let pendingHits = [];
   let pendingHeals = [];
 
-  function flushStep() {
-    if (!pendingLogs.length && !pendingHits.length && !pendingHeals.length) return;
+  function flushStep(forceSnapshot) {
+    if (!forceSnapshot && !pendingLogs.length && !pendingHits.length && !pendingHeals.length) return;
     steps.push({
       logLines: pendingLogs.slice(),
       hits: pendingHits.map((h) => ({ ...h })),

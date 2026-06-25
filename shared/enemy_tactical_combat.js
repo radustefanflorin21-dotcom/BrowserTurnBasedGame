@@ -20,6 +20,12 @@
       : typeof require !== "undefined"
         ? require("./enemy_tactical_targeting.js")
         : null;
+  const EM = () =>
+    typeof EnemyTacticalMovement !== "undefined"
+      ? EnemyTacticalMovement
+      : typeof require !== "undefined"
+        ? require("./enemy_tactical_movement.js")
+        : null;
 
   function livingParty(st) {
     return TER().livingParty(st);
@@ -68,26 +74,46 @@
     const ax = primary?.gridX;
     const ay = primary?.gridY;
     if (cfg.anchorSelf && cfg.aoe === "cross1") {
-      const tiles = TG().coordKey
-        ? (typeof TacticalTargeting !== "undefined" ? TacticalTargeting : require("./tactical_targeting.js")).cross1Tiles(
-            foe.gridX,
-            foe.gridY,
-            1
-          )
-        : [];
+      const tiles = (
+        typeof TacticalTargeting !== "undefined" ? TacticalTargeting : require("./tactical_targeting.js")
+      ).cross1Tiles(foe.gridX, foe.gridY, 1);
       return { players: ter.unitsOnTiles(st, tiles, "player"), foes: [], tiles };
     }
     return ter.resolveTargets(st, foe, cfg, ax, ay);
   }
 
+  function maybeLeapOrCharge(st, foe, cfg, primary, hooks) {
+    if (!primary || typeof primary.gridX !== "number") return null;
+    if (!cfg.leap && !cfg.charge && !cfg.ignorePathBlock) return null;
+    const move = EM().applyLeapOrCharge(st, foe, primary, cfg, hooks);
+    if (!move.moved) return null;
+    if (hooks.moveUnit) {
+      hooks.moveUnit(foe, move.x, move.y, move.fromX, move.fromY);
+    }
+    return move;
+  }
+
+  function applyPull(st, unit, foe, hooks) {
+    const ter = TER();
+    const fromX = unit.gridX;
+    const fromY = unit.gridY;
+    if (hooks && typeof hooks.prepareMove === "function") {
+      const grid = TG();
+      const dx = Math.sign(foe.gridX - fromX);
+      const dy = Math.sign(foe.gridY - fromY);
+      const nx = fromX + (Math.abs(foe.gridX - fromX) >= Math.abs(foe.gridY - fromY) ? dx : 0);
+      const ny = fromY + (Math.abs(foe.gridY - fromY) > Math.abs(foe.gridX - fromX) ? dy : 0);
+      if (grid && grid.isInBounds(nx, ny)) hooks.prepareMove(unit, fromX, fromY, nx, ny);
+    }
+    const pulled = ter.pullUnitToward(st, unit, foe.gridX, foe.gridY);
+    if (pulled && hooks.moveUnit && typeof unit.gridX === "number") {
+      hooks.moveUnit(unit, unit.gridX, unit.gridY, fromX, fromY);
+    }
+    return pulled;
+  }
+
   /**
-   * @param {object} st combat state
-   * @param {object} foe attacking enemy
-   * @param {string} scriptId
-   * @param {string} role
-   * @param {string} skillKey
-   * @param {object} opts { raw, verb, member, rule, buffOnly, pull }
-   * @param {object} hooks { hitMember(member, raw, verb), log(line), healSelf(pct), healFoe(foe, amt) }
+   * @param {object} hooks { hitMember, log, healSelf, healFoe, moveUnit, summonAdjacent }
    */
   function applyEnemySkill(st, foe, scriptId, role, skillKey, opts, hooks) {
     const et = ET();
@@ -119,18 +145,36 @@
       }
       if (primary) {
         hooks.hitMember(primary, raw, verb);
-        if (cfg.pull || opts?.pull) ter.pullUnitToward(st, primary, foe.gridX, foe.gridY);
+        if (cfg.pull || opts?.pull) applyPull(st, primary, foe, hooks);
       }
       return { primary };
     }
 
-    if (cfg.target === "self" || (cfg.rangeMax === 0 && cfg.aoe === "none" && !cfg.summonAdjacent)) {
+    if (cfg.summonAdjacent) {
+      if (hooks.summonAdjacent && opts?.summonName) {
+        hooks.summonAdjacent(opts.summonName);
+      }
+      return { summon: true };
+    }
+
+    if (cfg.target === "self" || (cfg.rangeMax === 0 && cfg.aoe === "none")) {
       if (cfg.buffOnly || opts?.buffOnly) return { self: true };
       return { self: true };
     }
 
-    if (cfg.summonAdjacent) {
-      return { summon: true };
+    const needsReposition = !!(cfg.leap || cfg.charge || cfg.ignorePathBlock);
+    if (needsReposition && primary && typeof primary.gridX === "number") {
+      const grid = TG();
+      const dist = grid
+        ? grid.manhattan(foe.gridX, foe.gridY, primary.gridX, primary.gridY)
+        : 0;
+      if (dist > 1) {
+        const move = maybeLeapOrCharge(st, foe, cfg, primary, hooks);
+        if (!move?.moved) {
+          if (hooks.log) hooks.log(`${foe.name}'s rush falls short.`);
+          return { leapFailed: true };
+        }
+      }
     }
 
     const resolved = resolveSkillTargets(st, foe, cfg, primary);
@@ -154,7 +198,7 @@
 
     for (const m of resolved.players) {
       hooks.hitMember(m, raw, verb);
-      if (cfg.pull || opts?.pull) ter.pullUnitToward(st, m, foe.gridX, foe.gridY);
+      if (cfg.pull || opts?.pull) applyPull(st, m, foe, hooks);
     }
 
     if (cfg.selfHealAfter && resolved.players.length && hooks.healSelf) {
@@ -177,7 +221,9 @@
     pickSkillTarget,
     resolveSkillTargets,
     filterDebuffedPlayers,
-    resolvePlayersInRange
+    resolvePlayersInRange,
+    maybeLeapOrCharge,
+    applyPull
   });
 
   if (typeof module !== "undefined" && module.exports) {

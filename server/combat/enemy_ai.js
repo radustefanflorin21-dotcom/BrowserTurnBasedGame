@@ -17,7 +17,10 @@ const require = createRequire(import.meta.url);
 const TacticalEnemyResolve = require("../../shared/tactical_enemy_resolve.js");
 const EnemyTacticalTargeting = require("../../shared/enemy_tactical_targeting.js");
 const EnemyTacticalCombat = require("../../shared/enemy_tactical_combat.js");
+const TacticalGrid = require("../../shared/tactical_grid.js");
+const TacticalEnemyAi = require("../../shared/tactical_enemy_ai.js");
 require("../../shared/enemy_tactical_skills_data.js");
+require("../../shared/enemy_tactical_movement.js");
 
 function countEquippedSetPieces(equipment, setName) {
   const want = typeof setName === "string" ? setName.trim() : "";
@@ -249,9 +252,8 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
     },
     pickTarget(rule) {
       if (st?.tactical && typeof foe.gridX === "number") {
-        const basic = EnemyTacticalTargeting.getBasicAttackForRole(role);
-        const picked = TacticalEnemyResolve.pickBestPlayer(st, foe, basic, rule, rng);
-        if (picked) return picked;
+        const focus = TacticalEnemyAi.pickFocusTarget(st, foe, role, rng, rule);
+        if (focus) return focus;
       }
       return pickPartyTarget(st, rule, rng, foe);
     },
@@ -262,21 +264,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       }
       return pickPartyTarget(st, rule || "bruiser", rng, foe);
     },
-    applySkill(skillKey, opts) {
-      EnemyTacticalCombat.applyEnemySkill(st, foe, scriptId, role, skillKey, { ...opts, rng }, {
-        hitMember: (member, raw, verb) => this.hit(member, raw, verb),
-        log: (line) => this.log(line),
-        healSelf: (pct) => this.healSelf(pct),
-        healFoe: (targetFoe, amount) => this.healFoe(targetFoe, amount)
-      });
-    },
-    hit(member, raw, verb) {
-      const pending = foe.combat?.__pendingSkillKey;
-      if (pending && st?.tactical && typeof foe.gridX === "number") {
-        foe.combat.__pendingSkillKey = null;
-        this.applySkill(pending, { member, raw, verb });
-        return;
-      }
+    recordFoeHit(member, raw, verb) {
       if (!member) return;
       const res = dealFoeDamageToMember(st, foe, member, raw, verb, rng, player);
       const hitRecord = {
@@ -298,6 +286,43 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       if (res.secondBreathLog) appendLog(res.secondBreathLog);
       if (res.heldColossusLog) appendLog(res.heldColossusLog);
       if (recorder) recorder.flushStep();
+    },
+    applySkill(skillKey, opts) {
+      if (foe.combat) foe.combat.__pendingSkillKey = null;
+      EnemyTacticalCombat.applyEnemySkill(st, foe, scriptId, role, skillKey, { ...opts, rng }, {
+        hitMember: (member, raw, verb) => this.recordFoeHit(member, raw, verb),
+        log: (line) => this.log(line),
+        healSelf: (pct) => this.healSelf(pct),
+        healFoe: (targetFoe, amount) => this.healFoe(targetFoe, amount),
+        moveUnit: () => {
+          if (recorder) recorder.flushStep(true);
+        },
+        summonAdjacent: (name) => this.summonAdjacent(name)
+      });
+      if (recorder) recorder.flushStep();
+    },
+    summonAdjacent(name) {
+      const { spawnReinforcement } = require("./dungeon_mechanics.js");
+      const spawned = spawnReinforcement(st, name, rng, { adjacentTo: foe });
+      if (spawned) {
+        const grid = TacticalGrid;
+        const label =
+          typeof spawned.gridX === "number"
+            ? `${grid.colToLetter(spawned.gridX)}${spawned.gridY + 1}`
+            : "";
+        appendLog(`${spawned.name} emerges${label ? ` at ${label}` : ""}.`);
+        if (recorder) recorder.flushStep();
+      }
+      return spawned;
+    },
+    hit(member, raw, verb) {
+      const pending = foe.combat?.__pendingSkillKey;
+      if (pending && st?.tactical && typeof foe.gridX === "number") {
+        foe.combat.__pendingSkillKey = null;
+        this.applySkill(pending, { member, raw, verb });
+        return;
+      }
+      this.recordFoeHit(member, raw, verb);
     },
     hitAdjacent(centerMember, raw, verb, adjacentCount = 1, perTargetMult = 1) {
       const pending = foe.combat?.__pendingSkillKey;
@@ -370,24 +395,29 @@ export function runSingleEnemyTurn(foe, st, rng, appendLog, player, enemyHits, r
   }
   foe.combat.actCount = (foe.combat.actCount || 0) + 1;
   if (foe.combat) foe.combat.__pendingSkillKey = null;
+  st.__actingFoe = foe;
 
   const def = getEnemyDefByName(foe.name);
   const scriptId = def?.combatScript?.trim?.() || foe.combat.script || "";
   const ctx = createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHits, recorder);
 
-  if (scriptId) {
-    const ran = runEnemyScriptTurn(scriptId, foe, st, ctx);
-    if (ran) {
-      tickEnemyCooldowns(foe);
-      return;
+  try {
+    if (scriptId) {
+      const ran = runEnemyScriptTurn(scriptId, foe, st, ctx);
+      if (ran) {
+        tickEnemyCooldowns(foe);
+        return;
+      }
     }
-  }
 
-  const member = ctx.pickTarget("bruiser");
-  if (member) {
-    ctx.hit(member, ctx.atk * ctx.outMult, "hits");
+    const member = ctx.pickTarget("bruiser");
+    if (member) {
+      ctx.hit(member, ctx.atk * ctx.outMult, "hits");
+    }
+    tickEnemyCooldowns(foe);
+  } finally {
+    delete st.__actingFoe;
   }
-  tickEnemyCooldowns(foe);
 }
 
 /** Ember Forgeling Meltdown when slain. @returns {string|null} */

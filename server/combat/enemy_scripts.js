@@ -17,6 +17,7 @@ import {
   tryPartyMemberStun
 } from "./status.js";
 import { spawnMirageRemnantUncapped, spawnReinforcement } from "./dungeon_mechanics.js";
+import { BIOME_SCRIPT_HANDLERS } from "./enemy_scripts_biome.js";
 
 const require = createRequire(import.meta.url);
 const { inferMonsterCombatRole } = require("../../shared/monster_roles.js");
@@ -190,7 +191,11 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("pounce") && foe.combat.raptorActCount === 1) {
       const mul = fullHp ? 1.5 : 1;
       ctx.setCd("pounce", 2);
-      ctx.hit(member, ctx.atk * mul * ctx.outMult, "Pounces");
+      ctx.applySkill("pounce", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * mul * ctx.outMult)),
+        verb: "Pounces"
+      });
       return true;
     }
     if (ctx.ready("claw_rend")) {
@@ -209,7 +214,11 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("pounce")) {
       const mul = fullHp ? 1.5 : 1;
       ctx.setCd("pounce", 2);
-      ctx.hit(member, ctx.atk * mul * ctx.outMult, "Pounces");
+      ctx.applySkill("pounce", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * mul * ctx.outMult)),
+        verb: "Pounces"
+      });
       return true;
     }
     ctx.hit(member, ctx.atk * ctx.outMult, "hits");
@@ -250,7 +259,11 @@ const SCRIPT_HANDLERS = {
     }
     if (ctx.ready("gore_charge")) {
       ctx.setCd("gore_charge", 2);
-      ctx.hit(member, ctx.atk * 1.2 * ctx.outMult, "Gore Charges");
+      ctx.applySkill("gore_charge", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * 1.2 * ctx.outMult)),
+        verb: "Gore Charges"
+      });
       ensureCombatStatus(st);
       st.status.playerFragileTurns = Math.max(st.status.playerFragileTurns || 0, 3);
       return true;
@@ -356,9 +369,19 @@ const SCRIPT_HANDLERS = {
     st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 1);
     st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 6);
     const member = ctx.pickTarget("highest_damage");
+    const echoes = (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === foe.uid);
+    if (echoes.length < 2 && ctx.ready("spawn_tide_echo")) {
+      ctx.setCd("spawn_tide_echo", 3);
+      ctx.summonAdjacent("Tide Echo");
+      return true;
+    }
     if (ctx.ready("crushing_undertow")) {
       ctx.setCd("crushing_undertow", 2);
-      ctx.hit(member, ctx.atk * ctx.outMult, "Crushing Undertow engulfs");
+      ctx.applySkill("crushing_undertow", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * ctx.outMult)),
+        verb: "Crushing Undertow engulfs"
+      });
       st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
       st.status.playerStaminaCostUpPct = Math.max(st.status.playerStaminaCostUpPct || 0, 10);
       return true;
@@ -446,7 +469,11 @@ const SCRIPT_HANDLERS = {
     const member = ctx.pickTarget("assassin");
     if (ctx.ready("alpha_lunge")) {
       ctx.setCd("alpha_lunge", 2);
-      ctx.hit(member, ctx.atk * 1.1 * ctx.outMult, "Alpha Lunges at");
+      ctx.applySkill("alpha_lunge", {
+        member,
+        raw: Math.max(1, Math.floor(ctx.atk * 1.1 * ctx.outMult)),
+        verb: "Alpha Lunges at"
+      });
       return true;
     }
     if (ctx.ready("rootfang_rend")) {
@@ -699,7 +726,11 @@ const SCRIPT_HANDLERS = {
     const member = ctx.pickTarget("bruiser");
     if (ctx.ready("hornbreaker_charge")) {
       ctx.setCd("hornbreaker_charge", 2);
-      ctx.hit(member, Math.max(1, Math.floor((foe.str || 20) * 1.1 * ctx.outMult)), "Hornbreaker Charge smashes");
+      ctx.applySkill("hornbreaker_charge", {
+        member,
+        raw: Math.max(1, Math.floor((foe.str || 20) * 1.1 * ctx.outMult)),
+        verb: "Hornbreaker Charge smashes"
+      });
       return true;
     }
     if (ctx.ready("staggering_headbutt")) {
@@ -736,8 +767,8 @@ const SCRIPT_HANDLERS = {
       foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
       foe.combat.statusResBonusPct = (foe.combat.statusResBonusPct || 0) + 6;
       ctx.log(`${foe.name} enters The Mountain Shifts.`);
-      spawnReinforcement(st, "Stone Marmot", ctx.rng);
-      spawnReinforcement(st, "Rock Serpent", ctx.rng);
+      spawnReinforcement(st, "Stone Marmot", ctx.rng, { adjacentTo: foe });
+      spawnReinforcement(st, "Rock Serpent", ctx.rng, { adjacentTo: foe });
       return true;
     }
     if (hpFrac <= 0.35 && !foe.combat.colossusPhase3) {
@@ -865,8 +896,8 @@ const SCRIPT_HANDLERS = {
       foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
       foe.combat.healReceivedBonusPct = (foe.combat.healReceivedBonusPct || 0) + 8;
       ctx.log(`${foe.name} wakes the forest.`);
-      spawnReinforcement(st, "Pinebound Fawn", ctx.rng);
-      spawnReinforcement(st, "Frozen Pinecone", ctx.rng);
+      spawnReinforcement(st, "Pinebound Fawn", ctx.rng, { adjacentTo: foe });
+      spawnReinforcement(st, "Frozen Pinecone", ctx.rng, { adjacentTo: foe });
       return true;
     }
     if (hpFrac <= 0.35 && !foe.combat.winterPhase3) {
@@ -955,7 +986,7 @@ const SCRIPT_HANDLERS = {
     const livingFoes = (st.foes || []).filter((f) => f && f.hp > 0).length;
     if (ctx.ready("call_fallen") && livingFoes < 8) {
       ctx.setCd("call_fallen", 4);
-      spawnReinforcement(st, "Fallen Echo", ctx.rng);
+      ctx.summonAdjacent("Fallen Echo");
       return true;
     }
     if (ctx.ready("soul_chill")) {
@@ -988,8 +1019,8 @@ const SCRIPT_HANDLERS = {
       foe.combat.warmasterPhase2 = true;
       foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
       ctx.log(`${foe.name} enters The War Returns.`);
-      spawnReinforcement(st, "Remnant of Rust", ctx.rng);
-      spawnReinforcement(st, "Faded War Wraith", ctx.rng);
+      spawnReinforcement(st, "Remnant of Rust", ctx.rng, { adjacentTo: foe });
+      spawnReinforcement(st, "Faded War Wraith", ctx.rng, { adjacentTo: foe });
       return true;
     }
     if (hpFrac <= 0.35 && !foe.combat.warmasterPhase3) {
@@ -1002,7 +1033,7 @@ const SCRIPT_HANDLERS = {
     const fallenCount = (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Fallen Echo").length;
     if (ctx.ready("raise_the_fallen") && fallenCount < 3 && (st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
       ctx.setCd("raise_the_fallen", 5);
-      spawnReinforcement(st, "Fallen Echo", ctx.rng);
+      ctx.summonAdjacent("Fallen Echo");
       return true;
     }
     if (ctx.ready("commanding_ruin")) {
@@ -1176,8 +1207,8 @@ const SCRIPT_HANDLERS = {
       foe.combat.healReceivedBonusPct = (foe.combat.healReceivedBonusPct || 0) + 8;
       foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
       ctx.log(`${foe.name} enters The Jungle Closes.`);
-      spawnReinforcement(st, "Canopy Screecher", ctx.rng);
-      spawnReinforcement(st, "Jungle Stag", ctx.rng);
+      spawnReinforcement(st, "Canopy Screecher", ctx.rng, { adjacentTo: foe });
+      spawnReinforcement(st, "Jungle Stag", ctx.rng, { adjacentTo: foe });
       return true;
     }
     if (hpFrac <= 0.35 && !foe.combat.heartbloomPhase3) {
@@ -1383,10 +1414,10 @@ const SCRIPT_HANDLERS = {
       foe.combat.magicResBonusPct = (foe.combat.magicResBonusPct || 0) + 8;
       ctx.log(`${foe.name} enters The Forge Opens.`);
       if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
-        spawnReinforcement(st, "Ember Scuttler", ctx.rng);
+        spawnReinforcement(st, "Ember Scuttler", ctx.rng, { adjacentTo: foe });
       }
       if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
-        spawnReinforcement(st, "Ash Lizard", ctx.rng);
+        spawnReinforcement(st, "Ash Lizard", ctx.rng, { adjacentTo: foe });
       }
       return true;
     }
@@ -1433,7 +1464,12 @@ const SCRIPT_HANDLERS = {
     }
     if (ctx.ready("chain_of_hatred")) {
       ctx.setCd("chain_of_hatred", 3);
-      ctx.hit(member, Math.max(1, Math.floor(strv * 0.75 * ctx.outMult * dmgBonus)), "Chain of Hatred lashes");
+      ctx.applySkill("chain_of_hatred", {
+        member,
+        raw: Math.max(1, Math.floor(strv * 0.75 * ctx.outMult * dmgBonus)),
+        verb: "Chain of Hatred lashes",
+        pull: true
+      });
       if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
       return true;
     }
@@ -1551,7 +1587,12 @@ const SCRIPT_HANDLERS = {
     }
     if (ctx.ready("gravehook_drag")) {
       ctx.setCd("gravehook_drag", 2);
-      ctx.hit(member, Math.max(1, Math.floor(strv * 0.95 * ctx.outMult)), "Gravehook Drag hooks");
+      ctx.applySkill("gravehook_drag", {
+        member,
+        raw: Math.max(1, Math.floor(strv * 0.95 * ctx.outMult)),
+        verb: "Gravehook Drag hooks",
+        pull: true
+      });
       if (ctx.rng.chance(45)) applyPartyMemberCripple(st, member, 2);
       return true;
     }
@@ -1600,10 +1641,10 @@ const SCRIPT_HANDLERS = {
       foe.combat.statusResBonusPct = Math.max(foe.combat.statusResBonusPct || 0, 6);
       ctx.log(`${foe.name} enters The Glacier Opens.`);
       if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
-        spawnReinforcement(st, "Frost Skitter", ctx.rng);
+        spawnReinforcement(st, "Frost Skitter", ctx.rng, { adjacentTo: foe });
       }
       if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
-        spawnReinforcement(st, "Glacier Turtoise", ctx.rng);
+        spawnReinforcement(st, "Glacier Turtoise", ctx.rng, { adjacentTo: foe });
       }
       return true;
     }
@@ -1724,3 +1765,5 @@ const SCRIPT_HANDLERS = {
     return true;
   }
 };
+
+Object.assign(SCRIPT_HANDLERS, BIOME_SCRIPT_HANDLERS);

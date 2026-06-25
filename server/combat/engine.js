@@ -302,7 +302,8 @@ function advanceCombatTurns(session, rng, replayOut = null) {
       if (st.tactical) {
         foe.movePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
         foe.maxMovePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
-        runTacticalEnemyMove(foe, st, append);
+        const moveRes = runTacticalEnemyMove(foe, st, append, rng);
+        if (moveRes?.moved && recorder) recorder.flushStep(true);
       }
       runSingleEnemyTurn(foe, st, rng, append, enemyPlayer, enemyHits, recorder);
     }
@@ -707,16 +708,24 @@ export function processCombatAction(session, action, actingUserId = null) {
       return { state: cloneState(st), result: null, finished: false };
     }
     const label = skillName;
+    let skillEffectLogged = false;
     for (const heal of resolved.heals || []) {
       const ally = st.party.find((m) => m && m.uid === heal.memberUid);
       if (!ally) continue;
       appendLog(st, `${member.name} uses ${label} on ${ally.name}, restoring ${heal.amount} HP.`);
+      skillEffectLogged = true;
     }
     for (const line of resolved.debuffLogs || []) {
-      if (line) appendLog(st, line);
+      if (line) {
+        appendLog(st, line);
+        skillEffectLogged = true;
+      }
     }
     for (const line of resolved.supportLogs || []) {
-      if (line) appendLog(st, line);
+      if (line) {
+        appendLog(st, line);
+        skillEffectLogged = true;
+      }
     }
     syncHeroHp(st);
     for (const hit of resolved.hits || []) {
@@ -724,6 +733,7 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (!foe) continue;
       if (hit.missed) {
         appendLog(st, `${member.name} uses ${label} on ${foe.name} but misses.`);
+        skillEffectLogged = true;
         continue;
       }
       const dmg = applyDamageToFoe(foe, hit.damage);
@@ -731,6 +741,7 @@ export function processCombatAction(session, action, actingUserId = null) {
         st,
         `${member.name} uses ${label} on ${foe.name} for ${dmg} damage${hit.crit ? " (critical hit!)" : ""}.`
       );
+      skillEffectLogged = true;
       const skDef = getSkillDef(skillName);
       const dmgKind = skDef?.damageKind === "magic" ? "magic" : "physical";
       const graniteLog = tryProcGranitehornPhysResDown(actorPlayer?.equipment, foe, rng, dmgKind);
@@ -765,6 +776,7 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (!ally) continue;
       if (hit.missed) {
         appendLog(st, `${member.name} uses ${label} but the blast misses ${ally.name}.`);
+        skillEffectLogged = true;
         continue;
       }
       const dmg = Math.max(0, Math.min(ally.hp, hit.damage));
@@ -774,9 +786,10 @@ export function processCombatAction(session, action, actingUserId = null) {
         st,
         `${member.name} uses ${label} and ${ally.name} takes ${dmg} friendly-fire damage${hit.crit ? " (critical hit!)" : ""}.`
       );
+      skillEffectLogged = true;
     }
-    for (const line of resolved.debuffLogs || []) {
-      if (line) appendLog(st, line);
+    if (!skillEffectLogged) {
+      appendLog(st, `${member.name} uses ${label}.`);
     }
     if (member.kind === "hero") syncStateToActiveHeroCombat(st, member);
     const out = afterPlayerAction(session, rng, member);
@@ -799,8 +812,6 @@ export function processCombatAction(session, action, actingUserId = null) {
       throw err;
     }
     applyMoveAction(st, check.unit, x, y, check.cost);
-    const label = `${TacticalGrid.colToLetter(x)}${y + 1}`;
-    appendLog(st, `${member.name} moves to ${label}.`);
     return { state: cloneState(st), result: null, finished: false };
   }
 

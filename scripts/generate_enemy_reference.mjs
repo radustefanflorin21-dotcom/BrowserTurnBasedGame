@@ -2,8 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const require = createRequire(import.meta.url);
+const { ENEMY_TACTICAL_SKILLS } = require(path.join(root, "shared/enemy_tactical_skills_data.js"));
+const { BASIC_BY_ROLE } = require(path.join(root, "shared/enemy_tactical_targeting.js"));
 
 function loadGameConfig() {
   const src = fs.readFileSync(path.join(root, "config.js"), "utf8");
@@ -50,9 +54,9 @@ function extractScriptBlocks(fnBody) {
   return blocks;
 }
 
-function extractHandlerBlocks(serverJs) {
+function extractHandlerBlocks(serverJs, marker = "const SCRIPT_HANDLERS = {") {
   const blocks = new Map();
-  const start = serverJs.indexOf("const SCRIPT_HANDLERS = {");
+  const start = serverJs.indexOf(marker);
   if (start < 0) return blocks;
   const bodyStart = serverJs.indexOf("{", start) + 1;
   let depth = 1;
@@ -208,7 +212,69 @@ function parseSkillsFromBlock(body) {
     body.match(/dealRawDamageToPlayer\([^)]*Math\.floor\(atk\s*\*\s*([\d.]+)\s*\*\s*outMult[^)]*bites/)?.[1] ||
     body.match(/dealRawDamageToPlayer\([^)]*Math\.floor\(atk\s*\*\s*outMult\)/) ? 1 : null;
 
-  return { skills: [...byKey.values()], basicMult: basicMult != null ? Number(basicMult) : null };
+  return {
+    skills: [...byKey.entries()].map(([key, data]) => ({ key, ...data })),
+    basicMult: basicMult != null ? Number(basicMult) : null
+  };
+}
+
+function fmtTacticalRange(cfg) {
+  if (!cfg) return "—";
+  if (cfg.target === "global_players" || cfg.aoe === "global_players") return "Global";
+  if (cfg.target === "global_foes" || cfg.aoe === "global_foes") return "Global";
+  if (cfg.target === "players_in_range") {
+    const max = cfg.rangeMax ?? 4;
+    return `In range (≤${max})`;
+  }
+  if (cfg.rangeMax === 0 && cfg.aoe === "none") return "Self";
+  const min = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
+  const max = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 1;
+  return min === max ? String(max) : `${min}–${max}`;
+}
+
+function fmtTacticalAoE(cfg) {
+  if (!cfg) return "—";
+  const aoe = cfg.aoe || "single";
+  const labels = {
+    none: "None",
+    single: "Single",
+    cross1: "Cross-1",
+    "3x3": "3×3",
+    line: cfg.lineMax ? `Line (max ${cfg.lineMax})` : "Line",
+    self_radius: cfg.selfRadius ? `Radius ${cfg.selfRadius}` : "Self radius",
+    global_players: "All players",
+    global_foes: "All foes"
+  };
+  let label = labels[aoe] || aoe;
+  if (cfg.anchorSelf && aoe === "cross1") label += " (self-centered)";
+  if (cfg.filterDebuffed) label += " (debuffed only)";
+  return label;
+}
+
+function fmtTacticalMovement(cfg) {
+  if (!cfg) return "—";
+  const flags = [];
+  if (cfg.leap) flags.push("Leap");
+  if (cfg.charge) flags.push("Charge");
+  if (cfg.pull) flags.push("Pull");
+  if (cfg.summonAdjacent) flags.push("Summon adjacent");
+  if (cfg.ignorePathBlock) flags.push("Ignores path blockers");
+  if (!flags.length) return "—";
+  return flags.join("; ");
+}
+
+function getSkillTactical(scriptId, skillKey, role) {
+  const sid = String(scriptId || "").trim();
+  const key = String(skillKey || "").trim();
+  if (sid && key && ENEMY_TACTICAL_SKILLS[`${sid}:${key}`]) {
+    return { ...ENEMY_TACTICAL_SKILLS[`${sid}:${key}`] };
+  }
+  return null;
+}
+
+function getBasicTactical(role) {
+  const r = String(role || "bruiser").toLowerCase();
+  return { ...(BASIC_BY_ROLE[r] || BASIC_BY_ROLE.bruiser) };
 }
 
 function roleDescription(role) {
@@ -239,6 +305,7 @@ function exampleDamage(atk, mult) {
 const cfg = loadGameConfig();
 const gameJs = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const serverJs = fs.readFileSync(path.join(root, "server/combat/enemy_scripts.js"), "utf8");
+const biomeJs = fs.readFileSync(path.join(root, "server/combat/enemy_scripts_biome.js"), "utf8");
 
 const blocks = new Map();
 for (const [k, v] of extractScriptBlocks(extractFunctionBody(gameJs, "runExtendedBiomeEnemyScripts"))) {
@@ -248,6 +315,9 @@ for (const [k, v] of extractScriptBlocks(extractFunctionBody(gameJs, "enemyComba
   blocks.set(k, v);
 }
 for (const [k, v] of extractHandlerBlocks(serverJs)) {
+  if (!blocks.has(k)) blocks.set(k, v);
+}
+for (const [k, v] of extractHandlerBlocks(biomeJs, "export const BIOME_SCRIPT_HANDLERS = {")) {
   if (!blocks.has(k)) blocks.set(k, v);
 }
 
@@ -273,6 +343,14 @@ lines.push("player resist, buffs/debuffs, and crit. Actual values vary by level 
 lines.push("");
 lines.push("Enemy stamina: common 6, rare 7, epic 7, myth 8, ancient 9 (per turn budget).");
 lines.push("Cooldown (CD): turns until the ability can be used again after casting.");
+lines.push("");
+lines.push("TACTICAL GRID (8×8)");
+lines.push("-".repeat(80));
+lines.push("Range = Manhattan distance from caster to target (or anchor tile for AoE). LoS required");
+lines.push("for ranged skills unless Global or marked Ignores path blockers.");
+lines.push("AoE: Single, Cross-1 (+), 3×3, Line, Self radius (diamond), Global (all players/foes).");
+lines.push("Movement: Leap/Charge (land beside target on straight line), Pull (1 tile toward caster),");
+lines.push("Summon adjacent (spawn within 2 steps of caster).");
 lines.push("");
 lines.push("COMBAT ROLES");
 lines.push("-".repeat(80));
@@ -320,9 +398,13 @@ for (const role of roleOrder) {
 
     if (parsed.skills.length) {
       for (const sk of parsed.skills) {
+        const tac = getSkillTactical(e.combatScript, sk.key, e.combatRole || role);
         lines.push("");
         lines.push(`  ${sk.name}`);
         lines.push(`    CD: ${sk.cd != null ? sk.cd : "—"}  |  Type: ${sk.type}`);
+        lines.push(
+          `    Range: ${fmtTacticalRange(tac)}  |  AoE: ${fmtTacticalAoE(tac)}  |  Movement: ${fmtTacticalMovement(tac)}`
+        );
         if (sk.mult != null) {
           lines.push(`    Scaling: ${fmtMult(sk.mult)}`);
           lines.push(`    ~Damage @ ATK ${exampleAtk}: ${exampleDamage(exampleAtk, sk.mult)}`);
@@ -340,9 +422,13 @@ for (const role of roleOrder) {
     }
 
     if (parsed.basicMult != null) {
+      const basicTac = getBasicTactical(e.combatRole || role);
       lines.push("");
       lines.push("  Basic Attack");
       lines.push("    CD: 0  |  Type: Active");
+      lines.push(
+        `    Range: ${fmtTacticalRange(basicTac)}  |  AoE: ${fmtTacticalAoE(basicTac)}  |  Movement: —`
+      );
       lines.push(`    Scaling: ${fmtMult(parsed.basicMult)}`);
       lines.push(`    ~Damage @ ATK ${exampleAtk}: ${exampleDamage(exampleAtk, parsed.basicMult)}`);
       lines.push("    Effect: Standard filler when specials are on cooldown.");

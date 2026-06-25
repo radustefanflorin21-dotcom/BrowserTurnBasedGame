@@ -7238,6 +7238,20 @@ function tryApplyEnemyTacticalSkillDamage(st, foe, rawDamage, logVerb, opts) {
       const amt = Math.max(1, Math.floor(foe.maxHp * pct));
       foe.hp = Math.min(foe.maxHp, foe.hp + amt);
       if (amt > 0) appendFightLog(`${foe.name} recovers ${amt} HP.`);
+    },
+    prepareMove() {
+      noteTacticalGridBeforeStateUpdate();
+    },
+    moveUnit() {
+      renderTurnBattle();
+    },
+    summonAdjacent(name) {
+      const spawned = summonCombatMinion(st, foe, name, 0.35, 0.35);
+      if (spawned && st.tactical && typeof spawned.gridX === "number" && typeof TacticalGrid !== "undefined") {
+        const label = `${TacticalGrid.colToLetter(spawned.gridX)}${spawned.gridY + 1}`;
+        appendFightLog(`${spawned.name} emerges at ${label}.`);
+        renderTurnBattle();
+      }
     }
   });
   return true;
@@ -7599,6 +7613,9 @@ function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
   minion.combat.script = "";
   minion.combat.summonerUid = summoner.uid;
   st.foes.push(minion);
+  if (st.tactical && summoner && typeof summoner.gridX === "number" && typeof EnemyTacticalMovement !== "undefined") {
+    EnemyTacticalMovement.placeSummonAdjacent(st, minion, summoner);
+  }
   appendFightLog(`${summoner.name} summons ${label}!`);
   return minion;
 }
@@ -7725,22 +7742,10 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
           15 + formulaIntStatusPotencyPct(foe.int || 0)
         );
         st.status.playerStaminaCostUpTurns = Math.max(st.status.playerStaminaCostUpTurns || 0, 2);
-        if (st.tactical && target && typeof target.gridX === "number" && typeof foe.gridX === "number") {
-          const dx = Math.sign(foe.gridX - target.gridX);
-          const dy = Math.sign(foe.gridY - target.gridY);
-          const nx =
-            target.gridX + (Math.abs(foe.gridX - target.gridX) >= Math.abs(foe.gridY - target.gridY) ? dx : 0);
-          const ny =
-            target.gridY + (Math.abs(foe.gridY - target.gridY) > Math.abs(foe.gridX - target.gridX) ? dy : 0);
-          if (nx !== target.gridX || ny !== target.gridY) {
-            const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
-            const key = TacticalGrid.coordKey(nx, ny);
-            if (!occ.has(key)) {
-              target.gridX = nx;
-              target.gridY = ny;
-            }
-          }
-        }
+        const dmg = Math.max(1, Math.floor(atk * 0.55 * outMult));
+        dealRawDamageToPlayer(st, dmg, foe.name, "drags with a current", {
+          partyUid: target && typeof target.uid === "number" ? target.uid : null
+        });
         appendFightLog(`${foe.name} drags your flow (+stamina costs).`);
         return true;
       }
@@ -11312,6 +11317,112 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     } else {
       dealRawDamageToPlayer(st, basicHit, foe.name, "Rime Pressure strikes you", { partyUid });
     }
+    return true;
+  }
+
+  if (scriptId === "bramblehorn_matriarch") {
+    const allies = st.foes.filter((f) => f && f.hp > 0 && f.uid !== foe.uid);
+    if (allies.length) {
+      const lowest = allies.reduce((a, b) => (a.hp / a.maxHp <= b.hp / b.maxHp ? a : b));
+      if (lowest && ready("rootmend")) {
+        setCd("rootmend", 3);
+        const heal = Math.max(1, Math.floor((foe.vit || 20) * 0.85));
+        lowest.hp = Math.min(lowest.maxHp, lowest.hp + heal);
+        appendFightLog(`${foe.name} casts Rootmend on ${lowest.name}.`);
+        playCombatHealFloat("foe", lowest.uid, heal);
+        return true;
+      }
+    }
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "mage");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    if (ready("thorn_prayer")) {
+      setCd("thorn_prayer", 4);
+      ensureCombatStatus(st);
+      st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 8);
+      st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
+      appendFightLog(`${foe.name} casts Thorn Prayer.`);
+      return true;
+    }
+    if (ready("rootlash")) {
+      setCd("rootlash", 1);
+      dealRawDamageToPlayer(
+        st,
+        Math.max(1, Math.floor((foe.int || 20) * 0.4 * outMult)),
+        foe.name,
+        "casts Rootlash at you",
+        { partyUid }
+      );
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor((foe.int || 20) * 0.35 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "fangroot_alpha") {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "assassin");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    if (ready("alpha_lunge")) {
+      setCd("alpha_lunge", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.1 * outMult)), foe.name, "Alpha Lunges at you", { partyUid });
+      return true;
+    }
+    if (ready("rootfang_rend")) {
+      setCd("rootfang_rend", 2);
+      const hit = Math.max(1, Math.floor(atk * 0.75 * outMult));
+      dealRawDamageToPlayer(st, hit, foe.name, "Rootfang Rends you", { partyUid });
+      applyBleedToPlayer(st, Math.max(1, Math.floor(hit * 0.14)), 2);
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "gaiahide_behemoth") {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUid = typeof targetUid === "number" ? targetUid : null;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (hpFrac <= 0.7 && !foe.combat.gaiaPhase2) {
+      foe.combat.gaiaPhase2 = true;
+      foe.combat.physResBonusPct = (foe.combat.physResBonusPct || 0) + 8;
+      foe.combat.magResBonusPct = (foe.combat.magResBonusPct || 0) + 5;
+      appendFightLog(`${foe.name} gains Root Armor (+resist).`);
+      return true;
+    }
+    if (hpFrac <= 0.35 && !foe.combat.gaiaPhase3) {
+      foe.combat.gaiaPhase3 = true;
+      foe.combat.outgoingDamageBonusPct = (foe.combat.outgoingDamageBonusPct || 0) + 10;
+      appendFightLog(`${foe.name} enters Gaia Fury!`);
+      return true;
+    }
+    if (ready("gaiahide_slam")) {
+      setCd("gaiahide_slam", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 1.05 * outMult)), foe.name, "Gaiahide Slams you", { partyUid });
+      return true;
+    }
+    if (ready("rootquake")) {
+      setCd("rootquake", 3);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "Rootquake shakes you", { partyUid });
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.65 * outMult)), foe.name, "crushes you", { partyUid });
+    return true;
+  }
+
+  if (scriptId === "rock_marmot") {
+    const partyUid = pickPartyTargetForMonsterTargetRule(st, "tank");
+    const partyUidOpt = typeof partyUid === "number" ? partyUid : null;
+    const hpFrac = foe.maxHp > 0 ? foe.hp / foe.maxHp : 1;
+    if (hpFrac < 0.5 && ready("burrow")) {
+      setCd("burrow", 3);
+      appendFightLog(`${foe.name} burrows defensively.`);
+      return true;
+    }
+    if (ready("stone_hurl")) {
+      setCd("stone_hurl", 2);
+      dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.95 * outMult)), foe.name, "Hurls a stone at you", { partyUid: partyUidOpt });
+      return true;
+    }
+    dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.72 * outMult)), foe.name, "bites you", { partyUid: partyUidOpt });
     return true;
   }
 
@@ -18004,12 +18115,14 @@ function buildTacticalFightAllyCardHtml(member, st, uiPhase, opts = {}) {
     opts.inspect && member
       ? buildTacticalInspectEffectsHtml(member, st, "ally")
       : "";
+  const inspectResources = opts.inspect ? buildTacticalInspectResourcesHtml(member, st, "ally") : "";
   return `<div class="${cardCls}"${titleAttr}${attrs}>
     ${opts.inspect ? "" : turnNum}
     ${portraitHtml}
     <span class="fight-card-name">${escapeHtml(member.name)}</span>
     <div class="hp-bar fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
     <span class="fight-card-hp-text">${Math.max(0, member.hp)} / ${member.maxHp}</span>
+    ${inspectResources}
     ${inspectEffects}
   </div>`;
 }
@@ -18054,6 +18167,7 @@ function buildTacticalFightEnemyCardHtml(foe, st, opts = {}) {
   const turnNum = opts.turnIndex != null ? `<span class="fight-tactical-turn-num">${opts.turnIndex + 1}</span>` : "";
   const titleAttr = opts.timeline ? ` title="${escapeHtml(foe.name)}"` : "";
   const inspectEffects = opts.inspect ? buildTacticalInspectEffectsHtml(foe, st, "foe") : "";
+  const inspectResources = opts.inspect ? buildTacticalInspectResourcesHtml(foe, st, "foe") : "";
   return `<div class="${cardCls}"${titleAttr}${attrs}>
     ${opts.inspect ? "" : turnNum}
     <div class="fight-portrait-wrap fight-portrait-wrap--enemy">
@@ -18064,6 +18178,7 @@ function buildTacticalFightEnemyCardHtml(foe, st, opts = {}) {
     ${metaLine}
     <div class="hp-bar hp-bar-enemy fight-card-hp"><div class="hp-bar-fill" style="width:${pct}%"></div></div>
     <span class="fight-card-hp-text">${Math.max(0, foe.hp)} / ${foe.maxHp}</span>
+    ${inspectResources}
     ${inspectEffects}
   </div>`;
 }
@@ -18686,6 +18801,123 @@ function buildTacticalResourcePips(current, max, kind) {
   return html;
 }
 
+function getTacticalUnitMovePoints(unit) {
+  const defMp = typeof TacticalGrid !== "undefined" ? TacticalGrid.DEFAULT_MOVE_POINTS : 3;
+  const mp = typeof unit?.movePoints === "number" ? unit.movePoints : defMp;
+  const maxMp = typeof unit?.maxMovePoints === "number" ? unit.maxMovePoints : defMp;
+  return { mp, maxMp };
+}
+
+function getTacticalUnitStamina(unit, st, side) {
+  if (!unit) return { cur: 0, max: 0 };
+  if (side === "ally") {
+    const maxS =
+      typeof unit.maxStamina === "number"
+        ? unit.maxStamina
+        : unit.kind === "hero"
+          ? getPlayerCombatMaxStamina()
+          : 0;
+    return { cur: getPartyMemberStamina(unit, st), max: maxS };
+  }
+  const def = getEnemyDefByName(unit.name);
+  const maxS = typeof unit.maxStamina === "number" ? unit.maxStamina : getFoeCombatMaxStamina(def || unit);
+  const cur = typeof unit.stamina === "number" ? unit.stamina : maxS;
+  return { cur, max: maxS };
+}
+
+function tacticalSkillAllowsEmptyCenter(skillName) {
+  if (!skillName || typeof TacticalSkillTargeting === "undefined") return false;
+  return TacticalSkillTargeting.needsTileTarget(skillName);
+}
+
+function probeTacticalCellAtScreenPoint(clientX, clientY) {
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+  const layer = document.getElementById("fightTacticalTokenLayer");
+  const prev = layer ? layer.style.pointerEvents : null;
+  if (layer) layer.style.pointerEvents = "none";
+  const el = document.elementFromPoint(clientX, clientY);
+  if (layer) layer.style.pointerEvents = prev || "";
+  const cell = el?.closest?.("[data-tactical-cell]");
+  if (!cell) return null;
+  const x = parseInt(cell.getAttribute("data-tactical-x"), 10);
+  const y = parseInt(cell.getAttribute("data-tactical-y"), 10);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function resolveTacticalGridCoordsFromPointerTarget(target) {
+  if (!target || typeof target.closest !== "function") return null;
+  const cell = target.closest("[data-tactical-cell]");
+  if (cell) {
+    const x = parseInt(cell.getAttribute("data-tactical-x"), 10);
+    const y = parseInt(cell.getAttribute("data-tactical-y"), 10);
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
+  }
+  const token = target.closest(".fight-tactical-token");
+  if (token) {
+    const st = combatState;
+    if (st) {
+      const foeUid = parseInt(token.getAttribute("data-tactical-foe"), 10);
+      if (Number.isFinite(foeUid)) {
+        const foe = (st.foes || []).find((f) => f && f.uid === foeUid);
+        if (foe && Number.isFinite(foe.gridX) && Number.isFinite(foe.gridY)) {
+          return { x: foe.gridX, y: foe.gridY };
+        }
+      }
+      const allyUid = parseInt(token.getAttribute("data-tactical-ally"), 10);
+      if (Number.isFinite(allyUid)) {
+        const member = (st.party || []).find((m) => m && m.uid === allyUid);
+        if (member && Number.isFinite(member.gridX) && Number.isFinite(member.gridY)) {
+          return { x: member.gridX, y: member.gridY };
+        }
+      }
+    }
+    const x = parseInt(token.getAttribute("data-tactical-x"), 10);
+    const y = parseInt(token.getAttribute("data-tactical-y"), 10);
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
+  }
+  return null;
+}
+
+function resolveTacticalGridCoordsFromPointer(ev, opts = {}) {
+  if (opts.allowEmptyCenter && ev && Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)) {
+    const probed = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
+    if (probed) return probed;
+  }
+  return resolveTacticalGridCoordsFromPointerTarget(ev?.target);
+}
+
+function resolveTacticalSkillCastCoords(ev, st, skillName) {
+  if (!ev || !st || !skillName) return null;
+  if (tacticalSkillAllowsEmptyCenter(skillName) && Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)) {
+    const probed = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
+    if (probed) return probed;
+  }
+  const cell = ev.target?.closest?.("[data-tactical-cell]");
+  if (cell) {
+    const x = parseInt(cell.getAttribute("data-tactical-x"), 10);
+    const y = parseInt(cell.getAttribute("data-tactical-y"), 10);
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
+  }
+  return resolveTacticalGridCoordsFromPointerTarget(ev.target);
+}
+
+function buildTacticalInspectResourcesHtml(unit, st, side) {
+  if (!unit) return "";
+  const { mp, maxMp } = getTacticalUnitMovePoints(unit);
+  const { cur: stam, max: maxS } = getTacticalUnitStamina(unit, st, side);
+  return `<div class="fight-card-inspect-resources" aria-label="Unit resources">
+    <div class="fight-card-inspect-resource">
+      <span class="fight-card-inspect-resource-label">Move</span>
+      <span class="fight-card-inspect-resource-value">${escapeHtml(formatCombatStaminaLabel(mp, maxMp))}</span>
+    </div>
+    <div class="fight-card-inspect-resource">
+      <span class="fight-card-inspect-resource-label">Stamina</span>
+      <span class="fight-card-inspect-resource-value">${escapeHtml(formatCombatStaminaLabel(stam, maxS))}</span>
+    </div>
+  </div>`;
+}
+
 function findTacticalUnitAt(st, x, y) {
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
   if (!TG) return null;
@@ -18924,8 +19156,9 @@ function whenTacticalMoveAnimationsSettled() {
 function onTacticalBoardPointerMove(ev) {
   const st = combatState;
   if (!st?.tactical || st.phase !== "player") return;
-  const cell = ev.target.closest("[data-tactical-cell]");
-  if (!cell) {
+  const allowEmptyCenter = st.tacticalPendingSkill && tacticalSkillAllowsEmptyCenter(st.tacticalPendingSkill);
+  const coords = resolveTacticalGridCoordsFromPointer(ev, { allowEmptyCenter });
+  if (!coords) {
     let changed = false;
     if (st.tacticalSkillHoverX != null) {
       st.tacticalSkillHoverX = null;
@@ -18940,9 +19173,7 @@ function onTacticalBoardPointerMove(ev) {
     if (changed) scheduleTacticalSkillHoverRender();
     return;
   }
-  const x = parseInt(cell.getAttribute("data-tactical-x"), 10);
-  const y = parseInt(cell.getAttribute("data-tactical-y"), 10);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  const { x, y } = coords;
   const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
 
   if (st.tacticalPendingSkill) {
@@ -19009,6 +19240,7 @@ function ensureTacticalTokenLayer() {
     layer.dataset.uiBound = "1";
     layer.addEventListener("click", onFightOverlayClick);
     layer.addEventListener("dblclick", onFightOverlayDblClick);
+    layer.addEventListener("mousemove", onTacticalBoardPointerMove);
   }
   return layer;
 }
@@ -19190,6 +19422,10 @@ function scheduleTacticalTokenLayout(hud) {
 let _tacticalGridBeforeAnim = null;
 let _tacticalMoveAnimating = false;
 let _tacticalRenderQueued = false;
+
+function clearTacticalGridBeforeAnim() {
+  _tacticalGridBeforeAnim = null;
+}
 
 function noteTacticalGridBeforeStateUpdate() {
   if (!combatState?.tactical) return;
@@ -19655,6 +19891,15 @@ function buildFightTacticalRoundRowHtml(st) {
   return `<div class="fight-tactical-round" aria-live="polite">Round ${round}</div>`;
 }
 
+function buildFightPassButtonHtml(st, opts = {}) {
+  const disabled = opts.disabled ? " disabled" : "";
+  const title = opts.title || "End turn (Space or F1)";
+  return `<div class="fight-pass-stack">
+    <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass" title="${title}"${disabled}>End turn</button>
+    ${buildFightTacticalRoundRowHtml(st)}
+  </div>`;
+}
+
 function renderTacticalBattlefield(hud, st, uiPhase) {
   if (st.phase !== "player" && st.tacticalPendingSkill) {
     clearTacticalPendingSkill(st);
@@ -19714,7 +19959,7 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
       }
     }
   }
-  const pendingMoveAnim = _tacticalGridBeforeAnim;
+  const pendingMoveAnim = st.phase === "prep" ? null : _tacticalGridBeforeAnim;
   const grid = buildTacticalGridHtml(
     st,
     uiPhase,
@@ -19765,10 +20010,12 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
       if (changed) renderTurnBattle();
     });
   }
-  if (pendingMoveAnim) {
+  if (pendingMoveAnim && st.phase !== "prep") {
     const before = pendingMoveAnim;
     _tacticalGridBeforeAnim = null;
     playTacticalMoveAnimations(hud, before, st);
+  } else if (st.phase === "prep") {
+    clearTacticalGridBeforeAnim();
   }
 }
 
@@ -19916,11 +20163,10 @@ function renderTurnBattle() {
           ? "Victory — each party member's XP, gold, and loot are listed in the results panel."
           : "Defeat — no rewards. Close when ready.";
       actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span class="fight-turn-timer fight-turn-timer--inactive">—</span></div>
-          ${buildFightTacticalRoundRowHtml(st)}
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stamEnd} / ${maxSEnd}</span></div>
           <p class="fight-hint">${hintEnd}</p>
           <div class="fight-action-row fight-action-row--ended">
-            <button type="button" class="btn-secondary fight-pass-btn" disabled data-fight-action="pass">End turn</button>
+            ${buildFightPassButtonHtml(st, { disabled: true })}
             <button type="button" class="btn-secondary" disabled data-fight-action="leave">Leave (forfeit)</button>
             ${skillBtnsPreview}
           </div>`;
@@ -19946,14 +20192,14 @@ function renderTurnBattle() {
         ? `<p class="fight-hint">Click your fighter, then an empty tile in columns A–B to place. Press <strong>Ready</strong> when done.</p>`
         : "";
       actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Prep</span><span id="fightPrepTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
-          ${buildFightTacticalRoundRowHtml(st)}
           <p class="fight-hint">Party members on this map tile can join until preparation ends. The fight starts when everyone is ready or the timer ends.</p>
           ${placeHint}
           ${rosterHint}
           <div class="fight-action-row fight-action-row--prep">
             <button type="button" class="btn-primary fight-ready-btn" data-fight-action="ready" title="Lock your positions"${amReady ? " disabled" : ""}>Ready</button>
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave</button>
-          </div>`;
+          </div>
+          <div class="fight-round-foot">${buildFightTacticalRoundRowHtml(st)}</div>`;
     } else if (uiPhase === "player") {
       actionsEl.classList.remove("hidden");
       const canAct =
@@ -20011,22 +20257,21 @@ function renderTurnBattle() {
             : `<p class="fight-hint">Waiting for another player's turn…</p>`;
         const skillTargetHint =
           canAct && st.tacticalPendingSkill
-            ? `<p class="fight-hint">Click an enemy in range or a highlighted tile to cast <strong>${escapeHtml(st.tacticalPendingSkill)}</strong> (click the skill again to cancel).</p>`
+            ? `<p class="fight-hint">Click a highlighted tile or enemy in range to cast <strong>${escapeHtml(st.tacticalPendingSkill)}</strong> (click the skill again to cancel).</p>`
             : "";
         const mp = typeof active.movePoints === "number" ? active.movePoints : TacticalGrid?.DEFAULT_MOVE_POINTS || 3;
         const maxMp = typeof active.maxMovePoints === "number" ? active.maxMovePoints : mp;
         const mpRow = st.tactical
-          ? `<div class="fight-stamina-row fight-mp-row" aria-live="polite"><span class="fight-stamina-label">Move</span><span class="fight-tactical-roster-resources fight-mp-pips">${buildTacticalResourcePips(mp, maxMp, "mp")}</span></div>`
+          ? `<div class="fight-stamina-row fight-mp-row" aria-live="polite"><span class="fight-stamina-label">Move</span><span class="fight-stamina-num">${escapeHtml(formatCombatStaminaLabel(mp, maxMp))}</span></div>`
           : "";
         actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Turn time</span><span id="fightTurnTimer" class="fight-turn-timer" data-end-at="">30s</span></div>
-          ${buildFightTacticalRoundRowHtml(st)}
           ${turnBanner}
           ${mpRow}
           <div class="fight-stamina-row" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num">${stam} / ${maxS}</span></div>
           ${skillTargetHint}
           ${waitHint}
           <div class="fight-action-row">
-            <button type="button" class="btn-secondary fight-pass-btn" data-fight-action="pass" title="End turn (Space or F1)"${canAct ? "" : " disabled"}>End turn</button>
+            ${buildFightPassButtonHtml(st, { disabled: !canAct })}
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
             ${skillBtns}
           </div>`;
@@ -20034,12 +20279,12 @@ function renderTurnBattle() {
     } else {
       actionsEl.classList.remove("hidden");
       actionsEl.innerHTML = `<div class="fight-turn-timer-row" aria-live="polite"><span class="fight-turn-timer-label">Enemy time</span><span id="fightEnemyTurnTimer" class="fight-turn-timer" data-end-at="">${PLAYER_TURN_SECONDS}s</span></div>
-          ${buildFightTacticalRoundRowHtml(st)}
           <div class="fight-stamina-row fight-stamina-row--enemy-phase" aria-live="polite"><span class="fight-stamina-label">Stamina</span><span class="fight-stamina-num fight-stamina-num--inactive">—</span></div>
           <p class="fight-hint fight-hint--enemy">Enemies are attacking…</p>
           <div class="fight-action-row fight-action-row--enemy-phase">
             <button type="button" class="btn-secondary" data-fight-action="leave">Leave (forfeit)</button>
-          </div>`;
+          </div>
+          <div class="fight-round-foot">${buildFightTacticalRoundRowHtml(st)}</div>`;
     }
   }
 
@@ -20166,6 +20411,23 @@ function runEnemyPhase() {
       return;
     }
     if (foe.combat) foe.combat.__pendingSkillKey = null;
+    const def = getEnemyDefByName(foe.name);
+    const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+    if (cur.tactical && typeof foe.gridX === "number" && typeof TacticalEnemyAi !== "undefined") {
+      foe.movePoints = typeof foe.movePoints === "number" ? foe.movePoints : TacticalGrid.DEFAULT_MOVE_POINTS;
+      const roleKey = getEnemyCombatRoleKey(def) || "bruiser";
+      const plan = TacticalEnemyAi.planTacticalEnemyMove(cur, foe, {
+        role: roleKey,
+        scriptId,
+        rng: null
+      });
+      if (plan.moved) {
+        noteTacticalGridBeforeStateUpdate();
+        foe.gridX = plan.x;
+        foe.gridY = plan.y;
+        foe.movePoints = Math.max(0, (foe.movePoints || 0) - Math.max(1, plan.cost || 1));
+      }
+    }
     foe.attackUntil = Date.now() + 320;
     if (foe.combat) {
       foe.combat.forceBasicThisTurn = !!(
@@ -20174,8 +20436,6 @@ function runEnemyPhase() {
       );
     }
     queueCombatVisualRefresh(340);
-    const def = getEnemyDefByName(foe.name);
-    const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
     if (scriptId) {
       enemyCombatRunScript(scriptId, foe, cur);
     } else {
@@ -20335,6 +20595,7 @@ function showFightResults(victory, result) {
 function applyServerFightResult(result) {
   const st = combatState;
   if (!st || !result) return;
+  clearTacticalGridBeforeAnim();
   st.phase = "ended";
   st.endOutcome = result.leftFight ? "left" : result.victory ? "victory" : "defeat";
   if (!result.victory) {
@@ -21550,22 +21811,23 @@ function onFightOverlayClick(ev) {
       }
       return;
     }
-    const skillCell = st.tacticalPendingSkill && t.closest(".fight-tactical-cell--skill-range");
-    if (skillCell && st.tactical) {
-      const x = parseInt(skillCell.getAttribute("data-tactical-x"), 10);
-      const y = parseInt(skillCell.getAttribute("data-tactical-y"), 10);
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        const name = st.tacticalPendingSkill;
-        const mode = name ? getFightSkillTargetMode(name) : "enemy";
+    if (st.tacticalPendingSkill && st.tactical) {
+      const skillName = st.tacticalPendingSkill;
+      const caster = getCombatUiPartyMember(st) || getActivePartyMember(st);
+      const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
+      const rangeKeys = computeTacticalSkillRangeKeys(st, caster, skillName);
+      const coords = resolveTacticalSkillCastCoords(ev, st, skillName);
+      if (coords && TG && rangeKeys.has(TG.coordKey(coords.x, coords.y))) {
+        const mode = getFightSkillTargetMode(skillName);
         const targetUid =
           mode === "ally" || mode === "self"
             ? st.selectedAllyUid
             : mode === "party"
               ? st.activePartyUid
               : st.selectedUid;
-        submitTacticalSkillAt(st, name || "", x, y, targetUid);
+        submitTacticalSkillAt(st, skillName, coords.x, coords.y, targetUid);
+        return;
       }
-      return;
     }
     const allyCard = t.closest(
       "[data-party-member], [data-tactical-ally], [data-tactical-timeline-ally]"
@@ -22702,6 +22964,7 @@ function closeFightOverlay() {
   clearPlayerTurnTimer();
   clearEnemyTurnTimer();
   clearCombatVisualTimer();
+  clearTacticalGridBeforeAnim();
   clearTacticalTokenLayer();
   combatState = null;
   _tacticalBoardScreenBottom = null;

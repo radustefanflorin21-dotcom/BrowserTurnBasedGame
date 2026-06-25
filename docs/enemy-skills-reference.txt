@@ -17,6 +17,14 @@ player resist, buffs/debuffs, and crit. Actual values vary by level and rarity.
 Enemy stamina: common 6, rare 7, epic 7, myth 8, ancient 9 (per turn budget).
 Cooldown (CD): turns until the ability can be used again after casting.
 
+TACTICAL GRID (8×8)
+--------------------------------------------------------------------------------
+Range = Manhattan distance from caster to target (or anchor tile for AoE). LoS required
+for ranged skills unless Global or marked Ignores path blockers.
+AoE: Single, Cross-1 (+), 3×3, Line, Self radius (diamond), Global (all players/foes).
+Movement: Leap/Charge (land beside target on straight line), Pull (1 tile toward caster),
+Summon adjacent (spawn within 2 steps of caster).
+
 COMBAT ROLES
 --------------------------------------------------------------------------------
 tank         High VIT, physical resist; taunts, shields, mitigation.
@@ -39,14 +47,17 @@ Cinder Husk
 
   Dead Flesh
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Grave Fortitude
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -57,27 +68,32 @@ Desert Thornback Crawler
 
   Dry Carapace
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Spiked Shell
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff; damage reflect.
 
   Defensive Taunt
     CD: 4  |  Type: Active
+    Range: In range (≤4)  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: taunt; damage reflect.
 
   Impale
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 92% ATK
     ~Damage @ ATK 45: 41
     Effect: bleed.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -88,19 +104,23 @@ Frosthorn Bulwark
 
   Icehorn Challenge
     CD: 4  |  Type: Active
+    Range: In range (≤4)  |  AoE: Single  |  Movement: —
     Effect: defensive buff; taunt.
 
   Frozen Guard
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Tuskbreaker Slam crushes
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
   Frost Stagger rocks
     CD: 4  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: stun chance.
 
 Glacier Turtoise
@@ -109,22 +129,26 @@ Glacier Turtoise
 
   Ice Shell
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Glacier Hard Shell
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Slow Crush
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 95% ATK
     ~Damage @ ATK 45: 42
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -135,16 +159,19 @@ Hermit Crab
 
   Anchoring Taunt
     CD: 4  |  Type: Active
+    Range: In range (≤4)  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: taunt; reduces player damage dealt.
 
   Shell Guard
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Crushing Clamps
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: stun chance.
 
 Ice-Tusked Boar
@@ -153,21 +180,25 @@ Ice-Tusked Boar
 
   Ice Armor
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Cold Rage
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: offensive buff.
 
   Frost Charge
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Charge
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -178,19 +209,23 @@ Rock Lizard
 
   Bask In Dust
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: —
     Effect: heal ally or self; defensive buff.
 
   Harden
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Stone Challenge
     CD: 4  |  Type: Active
+    Range: In range (≤4)  |  AoE: Single  |  Movement: —
     Effect: defensive buff; taunt.
 
   Tail Slam
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 102% ATK
     ~Damage @ ATK 45: 45
     Effect: stun chance.
@@ -201,11 +236,13 @@ Stone Marmot
 
   Burrow Guard
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Stone Nerves
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
 Thornback Graveguard
@@ -214,20 +251,24 @@ Thornback Graveguard
 
   Grave Shell
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff; damage reflect.
 
   Thorn Challenge
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Effect: defensive buff; taunt.
 
   Splinter Guard
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Bone Impales
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: bleed.
 
 Tusk Boar
@@ -236,20 +277,24 @@ Tusk Boar
 
   Thick Hide
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   War Boar Taunt
     CD: 4  |  Type: Active
+    Range: In range (≤4)  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: defensive buff; taunt.
 
   Gore Charge
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Charge
     Effect: fragile / increased damage taken.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -260,22 +305,26 @@ Wavebreaker Idol
 
   Stone Guard
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Sea Ward
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Wave Slam
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 98% ATK
     ~Damage @ ATK 45: 44
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -286,21 +335,25 @@ Winter Guardian
 
   Shield Wall
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Ice Ward
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Frozen Slam
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 105% ATK
     ~Damage @ ATK 45: 47
     Effect: stun chance.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -315,20 +368,24 @@ Ash Lizard
 
   Heat Skin
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: damage reflect.
 
   Scorch Trail
     CD: 3  |  Type: Active
+    Range: 1–0  |  AoE: Cross-1 (self-centered)  |  Movement: —
     Effect: burn.
 
   Ember Bite
     CD: 1  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 52% ATK
     ~Damage @ ATK 45: 23
     Effect: burn.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -339,27 +396,32 @@ Ashmaw Titan
 
   Obsidian Hide
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: Combat ability.
 
   Burning Rampage
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: Combat ability.
 
   Ashmaw Crush slams
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 110% ATK
     ~Damage @ ATK 45: 49
     Effect: fragile / increased damage taken.
 
   Slagquake Slam
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Cross-1  |  Movement: —
     Scaling: 70% ATK
     ~Damage @ ATK 45: 31
     Effect: cripple (+1 stamina cost); multi-target / AoE.
 
   Jawbreaker Impact
     CD: 5  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 95% ATK
     ~Damage @ ATK 45: 42
     Effect: stun chance.
@@ -370,24 +432,28 @@ Dune Devourer
 
   Sand Devours
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 88% ATK
     ~Damage @ ATK 45: 39
     Effect: heal ally or self.
 
   Grinding Maw
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 72% ATK
     ~Damage @ ATK 45: 32
     Effect: fragile / increased damage taken.
 
   Burrow Ambush
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap; Ignores path blockers
     Scaling: 105% ATK
     ~Damage @ ATK 45: 47
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -398,24 +464,28 @@ Fallen Echo
 
   Echo Strike hits
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
   Broken March staggers
     CD: 3  |  Type: Active
+    Range: 1–2  |  AoE: Line (max 2)  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
 Gaiahide Behemoth
   Role: bruiser  |  Rarity: myth  |  BOSS  |  Levels: 22–22  |  Stamina/turn: 8
   Script: gaiahide_behemoth
 
-  Gaiahide Slams
+  Gaiahide Slam
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 105% ATK
     ~Damage @ ATK 45: 47
     Effect: defensive buff.
 
-  Rootquake shakes
+  Rootquake
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Scaling: 65% ATK
     ~Damage @ ATK 45: 29
     Effect: Combat ability.
@@ -426,17 +496,20 @@ Gorilla
 
   Ground Rupture
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Line (max 3)  |  Movement: —
     Scaling: 74% ATK
     ~Damage @ ATK 45: 33
     Effect: Combat ability.
 
   Rage Roar
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: offensive buff.
 
   Crushing Slam
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
 Granitehorn Breaker
@@ -445,19 +518,23 @@ Granitehorn Breaker
 
   Hornbreaker Charge smashes
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Charge
     Effect: fragile / increased damage taken.
 
   Staggering Headbutt rocks
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: stun chance.
 
   Stonehide Rage
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff; offensive buff.
 
   Faultline Kick
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Cross-1  |  Movement: —
     Effect: cripple (+1 stamina cost); multi-target / AoE.
 
 Magma Boar
@@ -466,21 +543,25 @@ Magma Boar
 
   Lava Armor
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: Combat ability.
 
   Boiling Rage
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: offensive buff.
 
   Molten Charge
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Charge
     Scaling: 108% ATK
     ~Damage @ ATK 45: 48
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -491,16 +572,19 @@ Plains Raptor
 
   Pounces
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Effect: Combat ability.
 
   Claw Rends
     CD: 1  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 82% ATK
     ~Damage @ ATK 45: 36
     Effect: bleed.
 
   Predator Focus
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: offensive buff.
 
@@ -510,23 +594,27 @@ Primordial Silverback
 
   Canopy Breaker smashes
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 105% ATK
     ~Damage @ ATK 45: 47
     Effect: fragile / increased damage taken.
 
-  Ground Roar
+  Ground Roar shakes
     CD: 3  |  Type: Active
+    Range: 1–0  |  AoE: Radius 2  |  Movement: —
     Scaling: 65% ATK
     ~Damage @ ATK 45: 29
     Effect: cripple (+1 stamina cost); multi-target / AoE.
 
   Primal Guard
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff; offensive buff.
 
   Rootknuckle Slam crushes
     CD: 4  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 85% ATK
     ~Damage @ ATK 45: 38
     Effect: stun chance.
@@ -537,27 +625,32 @@ Rimebound Undertaker
 
   Rimehide Burden
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: Combat ability.
 
   Funeral Weight
     CD: 4  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Effect: Combat ability.
 
   Coffin Breaker
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 115% ATK
     ~Damage @ ATK 45: 51
     Effect: stun chance.
 
   Gravehook Drag
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Pull
     Scaling: 95% ATK
     ~Damage @ ATK 45: 42
     Effect: cripple (+1 stamina cost).
 
   Last Procession
     CD: 5  |  Type: Active
+    Range: 1–4  |  AoE: Line (max 4)  |  Movement: —
     Scaling: 70% ATK
     ~Damage @ ATK 45: 31
     Effect: cripple (+1 stamina cost); multi-target / AoE.
@@ -568,16 +661,19 @@ Rock Ibex
 
   Stone Skin
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Headbutt
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 88% ATK
     ~Damage @ ATK 45: 39
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -588,12 +684,14 @@ Stormfang Ravager
 
   Thunder Leap
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Leap
     Scaling: 125% ATK
     ~Damage @ ATK 45: 56
     Effect: Combat ability.
 
   releases Static Pulse
     CD: 3  |  Type: Active
+    Range: 1–0  |  AoE: Radius 2  |  Movement: —
     Effect: blind / accuracy down; cripple (+1 stamina cost).
 
 The Held Colossus
@@ -602,25 +700,30 @@ The Held Colossus
 
   Colossus Slam crushes
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
   Faultquake
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Effect: multi-target / AoE; reduces player damage dealt.
 
   Stone Breath washes
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Line (max 4)  |  Movement: —
     Scaling: 65% ATK
     ~Damage @ ATK 45: 29
     Effect: blind / accuracy down; cripple (+1 stamina cost).
 
   Mountainhide
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Stillness Crush shatters your guard
     CD: 5  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: stun chance; defensive buff; phase transition.
 
@@ -630,30 +733,36 @@ The Last Warmaster
 
   Raise The Fallen
     CD: 5  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: Summon adjacent
     Effect: Combat ability.
 
   Commanding Ruin
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Effect: reduces player damage dealt.
 
   Warmaster's Execution falls on
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 105% ATK
     ~Damage @ ATK 45: 47
     Effect: Combat ability.
 
   Ruststorm Slash
     CD: 4  |  Type: Active
+    Range: 1  |  AoE: Cross-1  |  Movement: —
     Scaling: 70% ATK
     ~Damage @ ATK 45: 31
     Effect: fragile / increased damage taken; multi-target / AoE.
 
   No Retreat
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: offensive buff.
 
   Final Order shakes the chamber
     CD: 5  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: stun chance; phase transition.
@@ -664,33 +773,39 @@ The Riftforge Tyrant
 
   Tyrant Blackguard
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: Combat ability.
 
   Worldhate Judgment blinds the party
     CD: 5  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: blind / accuracy down; stun chance; phase transition.
 
   Riftforge Eruption
     CD: 5  |  Type: Active
+    Range: 1–4  |  AoE: 3×3  |  Movement: —
     Scaling: 60% ATK
     ~Damage @ ATK 45: 27
     Effect: fragile / increased damage taken; multi-target / AoE; phase transition.
 
   Forgefire Decree
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Effect: Combat ability.
 
   Chain Of Hatred
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Pull
     Scaling: 75% ATK
     ~Damage @ ATK 45: 33
     Effect: cripple (+1 stamina cost).
 
   Riftblade Cleave burns
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Cross-1  |  Movement: —
     Effect: burn; multi-target / AoE; phase transition.
 
 The Stormwake Leviathan
@@ -699,18 +814,21 @@ The Stormwake Leviathan
 
   unleashes Endless Maelstrom
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: cripple (+1 stamina cost).
 
   drives Cataclysm Strike
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 90% ATK
     ~Damage @ ATK 45: 40
     Effect: Combat ability.
 
   roars a Tempest
     CD: 2  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Effect: blind / accuracy down.
 
 Tidebound Crusher
@@ -719,16 +837,19 @@ Tidebound Crusher
 
   Drown Grip
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Pull
     Effect: cripple (+1 stamina cost).
 
   Crushing Wave slams
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Cross-1  |  Movement: —
     Scaling: 110% ATK
     ~Damage @ ATK 45: 49
     Effect: stun chance.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -743,20 +864,24 @@ Ash Skulker
 
   Fade
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Ash Mark
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: fragile / increased damage taken.
 
   Backstab
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 98% ATK
     ~Damage @ ATK 45: 44
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -767,22 +892,26 @@ Cinder Stalker
 
   Smoke Veil
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Blazing Pounce
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 95% ATK
     ~Damage @ ATK 45: 42
     Effect: Combat ability.
 
   Cinder Claw
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 68% ATK
     ~Damage @ ATK 45: 30
     Effect: burn.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -793,22 +922,26 @@ Cliff Lurker
 
   Rock Skip
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: Combat ability.
 
   Ambush Drop
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 98% ATK
     ~Damage @ ATK 45: 44
     Effect: Combat ability.
 
   Grip Strike
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 72% ATK
     ~Damage @ ATK 45: 32
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -819,20 +952,24 @@ Dust Carver
 
   Drystep
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Blind Dust
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Effect: blind / accuracy down.
 
   Sand Slash
     CD: 1  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 82% ATK
     ~Damage @ ATK 45: 36
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -841,14 +978,16 @@ Fangroot Alpha
   Role: assassin  |  Rarity: epic  |  Levels: 21–21  |  Stamina/turn: 7
   Script: fangroot_alpha
 
-  Alpha Lunges at
+  Alpha Lunge
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 110% ATK
     ~Damage @ ATK 45: 49
     Effect: Combat ability.
 
   Rootfang Rends
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 75% ATK
     ~Damage @ ATK 45: 33
     Effect: bleed.
@@ -859,14 +998,17 @@ Field Wolf
 
   Execution Bite
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
   Bloodhunts
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: bleed.
 
   Pack Howl
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: Radius 3  |  Movement: —
     Damage: 0
     Effect: offensive buff.
 
@@ -876,22 +1018,26 @@ Frozen Stalker
 
   Whiteout Veil
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Chill Mark
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: burn.
 
   Frozen Ambush
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 95% ATK
     ~Damage @ ATK 45: 42
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -902,22 +1048,26 @@ Greenleaf Fox
 
   Fade Step
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Rending Snap
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 65% ATK
     ~Damage @ ATK 45: 29
     Effect: bleed; stun chance.
 
   Ambush Bite
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 85% ATK
     ~Damage @ ATK 45: 38
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -928,22 +1078,26 @@ Icy Mink
 
   Slipstep
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Shiver Cut
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 90% ATK
     ~Damage @ ATK 45: 40
     Effect: Combat ability.
 
   Frost Bite
     CD: 1  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 72% ATK
     ~Damage @ ATK 45: 32
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -954,10 +1108,12 @@ Rock Lynx
 
   Agile Reflex
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Cliff Strike
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 92% ATK
     ~Damage @ ATK 45: 41
     Effect: Combat ability.
@@ -968,22 +1124,26 @@ Saltwind Skimmer
 
   Glide
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Salt Peck
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 52% ATK
     ~Damage @ ATK 45: 23
     Effect: fragile / increased damage taken.
 
   Wind Slice
     CD: 1  |  Type: Active
+    Range: 1–2  |  AoE: Single  |  Movement: —
     Scaling: 72% ATK
     ~Damage @ ATK 45: 32
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -998,24 +1158,28 @@ Ash Horror
 
   Smother
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: Combat ability.
 
   Decay Aura
     CD: 3  |  Type: Active
+    Range: 1–0  |  AoE: Radius 2  |  Movement: —
     Scaling: 8% ATK
     ~Damage @ ATK 45: 3
     Effect: poison.
 
   Ash Touch
     CD: 1  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: poison.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1026,18 +1190,21 @@ Brinegullet Spitter
 
   Corrosive Pool
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: 3×3  |  Movement: —
     Scaling: 10% ATK
     ~Damage @ ATK 45: 4
     Effect: poison; fragile / increased damage taken.
 
   Acid Spit
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 58% ATK
     ~Damage @ ATK 45: 26
     Effect: poison.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1048,14 +1215,17 @@ Grass Snake
 
   Shed Skin
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Constriction
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: reduces combo chance.
 
   Venom Burst
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Effect: poison.
 
 Hollowglass Siren
@@ -1064,23 +1234,28 @@ Hollowglass Siren
 
   Hollow Reflection
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: Combat ability.
 
   Silent Aria
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Effect: Combat ability.
 
   Rime Lament
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: 3×3  |  Movement: —
     Effect: Combat ability.
 
   Shatter Focus
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: blind / accuracy down.
 
   Glass Needle pierces
     CD: 2  |  Type: Active
+    Range: 1–5  |  AoE: Line (max 5)  |  Movement: —
     Scaling: 65% ATK
     ~Damage @ ATK 45: 29
     Effect: cripple (+1 stamina cost).
@@ -1091,22 +1266,26 @@ Icy Serpent
 
   Freeze Skin
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: damage reflect.
 
   Constriction Chill
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 60% ATK
     ~Damage @ ATK 45: 27
     Effect: reduces combo chance.
 
   Cold Venom
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: poison.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1117,19 +1296,23 @@ Inferno Oracle
 
   Flameveil Ward
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: Combat ability.
 
   Cinder Prophecy
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Effect: Combat ability.
 
   Inferno Gaze
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
   Firethread Lash
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Line (max 3)  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: burn; multi-target / AoE.
@@ -1140,35 +1323,42 @@ The Stillness Below
 
   Absolute Zero Pulse freezes the party
     CD: 6  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 58% ATK
     ~Damage @ ATK 45: 26
     Effect: stun chance; phase transition.
 
   Fracture The Surface
     CD: 5  |  Type: Active
+    Range: 1–5  |  AoE: 3×3  |  Movement: —
     Effect: Combat ability.
 
   Glacial Carapace
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: Combat ability.
 
   Silence Wave
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Effect: Combat ability.
 
   Abyssal Rime
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: Cross-1  |  Movement: —
     Effect: Combat ability.
 
   Eye Beneath sees
     CD: 5  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 70% ATK
     ~Damage @ ATK 45: 31
     Effect: blind / accuracy down.
 
   Pressure Under Ice
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: cripple (+1 stamina cost).
@@ -1179,22 +1369,26 @@ Witherling
 
   Life Drains
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: heal ally or self.
 
   Brittle Breath
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Line (max 3)  |  Movement: —
     Effect: Combat ability.
 
   Decay Bite
     CD: 1  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: poison.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1209,14 +1403,17 @@ Abyssal Tempest Caller
 
   casts Tempest Bind on
     CD: 2  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down.
 
   Static Barrier
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: defensive buff.
 
   Storm Collapse
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
 Burrow Hare
@@ -1225,21 +1422,25 @@ Burrow Hare
 
   Burrow Instinct
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Dust Flick
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down.
 
   Bleed Scratches
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 62% ATK
     ~Damage @ ATK 45: 27
     Effect: bleed.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1250,10 +1451,12 @@ Coastal Horror
 
   Abyss Grip
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down; reduces player damage dealt.
 
   Terror Pulse
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All players (debuffed only)  |  Movement: —
     Effect: extends debuff duration.
 
 Drowned Channeler
@@ -1262,10 +1465,12 @@ Drowned Channeler
 
   Abyss Bind
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down.
 
   Tidal Surge crashes
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Scaling: 90% ATK
     ~Damage @ ATK 45: 40
     Effect: extends debuff duration.
@@ -1276,6 +1481,7 @@ Ember Forgeling
 
   Spark Spray
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Scaling: 35% ATK
     ~Damage @ ATK 45: 15
     Effect: burn; multi-target / AoE.
@@ -1286,24 +1492,28 @@ Ember Scuttler
 
   Fire Web
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: Combat ability.
 
   Ignite
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: burn.
 
   Scuttle Burst
     CD: 2  |  Type: Active
+    Range: 1–0  |  AoE: Cross-1 (self-centered)  |  Movement: —
     Scaling: 32% ATK
     ~Damage @ ATK 45: 14
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1314,20 +1524,24 @@ Frost Skitter
 
   Crystal Nerves
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Absolute Zero
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: stun chance.
 
   Ice Web
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 52% ATK
     ~Damage @ ATK 45: 23
     Effect: burn.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1338,24 +1552,28 @@ Frozen Pinecone
 
   Needle Scatter
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Scaling: 35% ATK
     ~Damage @ ATK 45: 15
     Effect: Combat ability.
 
   Freeze Burst
     CD: 3  |  Type: Active
+    Range: 1–3  |  AoE: Cross-1  |  Movement: —
     Scaling: 62% ATK
     ~Damage @ ATK 45: 27
     Effect: Combat ability.
 
   Drop Strike
     CD: 1  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: Leap
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1366,18 +1584,22 @@ Lava Basilisk
 
   Molten Sheen
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Petrifying Heat
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: stun chance.
 
   Inferno Gaze
     CD: 2  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: burn.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1388,21 +1610,25 @@ Mirage Lurker
 
   Mirage Shift
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff; offensive buff.
 
   Heat Haze
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Effect: blind / accuracy down.
 
   Illusion Strike
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: —
     Scaling: 78% ATK
     ~Damage @ ATK 45: 35
     Effect: reduces combo chance.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1413,20 +1639,24 @@ Mirage Maw
 
   Splitting Mirage
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: blind / accuracy down; defensive buff; offensive buff.
 
   Thirsting Haze
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: 3×3  |  Movement: —
     Effect: blind / accuracy down; multi-target / AoE.
 
   Mirage Lock
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: blind / accuracy down; cripple (+1 stamina cost); offensive buff.
 
   False Wounds
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
 Mirage Remnant
@@ -1435,6 +1665,7 @@ Mirage Remnant
 
   Vanish
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
@@ -1444,6 +1675,7 @@ Pale Rime Wisp
 
   Wisp Veil
     CD: 3  |  Type: Active
+    Range: 1–2  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
 Petrified Coilwarden
@@ -1452,22 +1684,26 @@ Petrified Coilwarden
 
   Petrifying Stare locks
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: stun chance.
 
   Stone Venom bites
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: poison.
 
   Crushing Coil constricts
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: cripple (+1 stamina cost); reduces combo chance.
 
   Mineral Haze
     CD: 4  |  Type: Active
+    Range: 1–0  |  AoE: Radius 3  |  Movement: —
     Effect: blind / accuracy down.
 
 Remnant of Rust
@@ -1476,20 +1712,24 @@ Remnant of Rust
 
   Corrode Armor
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: fragile / increased damage taken.
 
   Rust Strike
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: Combat ability.
 
   Grinding Lock
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1500,26 +1740,31 @@ Rock Serpent
 
   Stone Slither
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Petrify Gaze
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 60% ATK
     ~Damage @ ATK 45: 27
     Effect: stun chance.
 
   Debilitating Venom
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down; reduces player damage dealt.
 
   Crush Coil
     CD: 3  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 78% ATK
     ~Damage @ ATK 45: 35
     Effect: cripple (+1 stamina cost).
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1530,19 +1775,23 @@ Rustbound Marshal
 
   Corrode Command
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: reduces player damage dealt.
 
   Rusted Guard
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Marshals Cleave
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Cross-1  |  Movement: —
     Effect: fragile / increased damage taken; multi-target / AoE.
 
   Chain Order binds
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
 Storm Echo
@@ -1557,10 +1806,14 @@ Tide Echo
 
   Foam Feint
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down; reduces player damage dealt.
 
-  Dragging Current
+  drags with a current
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Pull
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
     Effect: cripple (+1 stamina cost).
 
 Tide Hopper
@@ -1569,10 +1822,14 @@ Tide Hopper
 
   Foam Feint
     CD: 2  |  Type: Active
+    Range: 1–3  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down; reduces player damage dealt.
 
-  Dragging Current
+  drags with a current
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Pull
+    Scaling: 55% ATK
+    ~Damage @ ATK 45: 24
     Effect: cripple (+1 stamina cost).
 
 Tideharrow
@@ -1581,24 +1838,28 @@ Tideharrow
 
   Brine Shackles
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 52% ATK
     ~Damage @ ATK 45: 23
     Effect: Combat ability.
 
   Drown Pulse
     CD: 2  |  Type: Active
+    Range: 1–0  |  AoE: Radius 2  |  Movement: —
     Scaling: 88% ATK
     ~Damage @ ATK 45: 39
     Effect: Combat ability.
 
   Riptide Pull
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: Pull
     Scaling: 58% ATK
     ~Damage @ ATK 45: 26
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1613,22 +1874,26 @@ Barkhide Spriggan
 
   Nature Guard
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self; defensive buff.
 
   Barkskin
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Root Bind Sg
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 58% ATK
     ~Damage @ ATK 45: 26
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1639,16 +1904,19 @@ Bramblehorn Matriarch
 
   Rootmend
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self.
 
   Thorn Prayer
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Damage: 0
     Effect: blind / accuracy down.
 
   Rootlash
     CD: 1  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
 Driftling
@@ -1657,11 +1925,13 @@ Driftling
 
   Tidal Mend
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self.
 
   Mist Veil
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: defensive buff.
 
 Frostroot Seedling
@@ -1670,11 +1940,13 @@ Frostroot Seedling
 
   Seedling Mend
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self.
 
   Frost Needles
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
 Jungle Stag
@@ -1683,15 +1955,18 @@ Jungle Stag
 
   Natures Blessing
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: Combat ability.
 
   Verdant Ward
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self; defensive buff.
 
   Root Bind
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: Combat ability.
@@ -1702,15 +1977,18 @@ Pinebound Fawn
 
   Gentle Heal
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self.
 
   Winter Grace
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: defensive buff.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1721,33 +1999,39 @@ The Heartbloom Ancient
 
   Heartroot Pulse
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Effect: heal ally or self.
 
   Vinecrush slams
     CD: 2  |  Type: Active
+    Range: 1  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: cripple (+1 stamina cost).
 
   Sporefall rains on
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: 3×3  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: poison; blind / accuracy down.
 
   Ancient Barkskin
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Blooming Rupture
     CD: 5  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: fragile / increased damage taken; multi-target / AoE; phase transition.
 
   Gaia Heartbreak shatters the air
     CD: 5  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: stun chance; phase transition.
@@ -1758,32 +2042,38 @@ The Sleeping Child of Winter
 
   Frozen Heart Pulse washes
     CD: 5  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: stun chance; phase transition.
 
   Winters Mercy
     CD: 5  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Effect: phase transition.
 
   Lullaby of Snow drifts
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: blind / accuracy down.
 
   Frostroot Cradle
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: heal ally or self; defensive buff.
 
   Shiver Bloom chills
     CD: 4  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: blind / accuracy down; cripple (+1 stamina cost).
 
   Innocent Grasp holds
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 55% ATK
     ~Damage @ ATK 45: 24
     Effect: cripple (+1 stamina cost).
@@ -1794,21 +2084,25 @@ Verdant Bloomseer
 
   Bloom Mend
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: Combat ability.
 
   Pollen Blind
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Effect: blind / accuracy down.
 
   Thorned Bloom strikes
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: poison.
 
   Greenward Song
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
@@ -1818,6 +2112,7 @@ Verdant Sprout
 
   Sprout Mend
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self.
 
@@ -1827,20 +2122,24 @@ Whitebark Matron
 
   Frozen Prayer
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Damage: 0
     Effect: defensive buff.
 
   Whitebark Mend
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Damage: 0
     Effect: heal ally or self; defensive buff.
 
   Snowveil Grace
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: defensive buff.
 
   Frostroot Binds
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: cripple (+1 stamina cost).
@@ -1855,22 +2154,26 @@ Bannerless Wraithlord
 
   Call Fallen
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: Summon adjacent
     Effect: summon reinforcement.
 
   Soul Chill washes
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Cross-1  |  Movement: —
     Scaling: 40% ATK
     ~Damage @ ATK 45: 18
     Effect: blind / accuracy down.
 
   Banner Curse haunts
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 35% ATK
     ~Damage @ ATK 45: 15
     Effect: fragile / increased damage taken.
 
   Haunting Bolt strikes
     CD: 2  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 60% ATK
     ~Damage @ ATK 45: 27
     Effect: Combat ability.
@@ -1881,20 +2184,24 @@ Faded War Wraith
 
   Call Fallen
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: Summon adjacent
     Effect: Combat ability.
 
   Soul Chill
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Cross-1  |  Movement: —
     Effect: Combat ability.
 
   Haunt
     CD: 2  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 58% ATK
     ~Damage @ ATK 45: 26
     Effect: Combat ability.
 
   Basic Attack
     CD: 0  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Scaling: 100% ATK
     ~Damage @ ATK 45: 45
     Effect: Standard filler when specials are on cooldown.
@@ -1905,26 +2212,31 @@ The Dune Mourner
 
   Open The Maw
     CD: 5  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: Summon adjacent
     Effect: summon reinforcement; offensive buff.
 
   Mirage Burials
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: 3×3  |  Movement: —
     Scaling: 50% ATK
     ~Damage @ ATK 45: 22
     Effect: blind / accuracy down; cripple (+1 stamina cost); offensive buff.
 
   Withering Cries
     CD: 3  |  Type: Active
+    Range: Global  |  AoE: All players  |  Movement: —
     Scaling: 45% ATK
     ~Damage @ ATK 45: 20
     Effect: blind / accuracy down; multi-target / AoE.
 
   Drought Curse
     CD: 4  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Effect: blind / accuracy down; cripple (+1 stamina cost).
 
   Sand Hungers
     CD: 2  |  Type: Active
+    Range: 1–5  |  AoE: Single  |  Movement: —
     Scaling: 60% ATK
     ~Damage @ ATK 45: 27
     Effect: bleed; burn; heal ally or self.
@@ -1935,11 +2247,13 @@ Tidemeld Revenant
 
   Summon Tide Echo
     CD: 4  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: Summon adjacent
     Damage: 0
     Effect: summon reinforcement.
 
   Soul Currents
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: heal ally or self.
 
 Tidemother Aberration
@@ -1948,10 +2262,12 @@ Tidemother Aberration
 
   Spawn Tide Echo
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: Summon adjacent
     Effect: summon reinforcement.
 
   Crushing Undertow engulfs
     CD: 2  |  Type: Active
+    Range: 1–4  |  AoE: Cross-1  |  Movement: —
     Effect: cripple (+1 stamina cost).
 
 ================================================================================
@@ -1964,10 +2280,12 @@ Leafdart Squirrel
 
   Scurry Shift
     CD: 3  |  Type: Active
+    Range: Self  |  AoE: None  |  Movement: —
     Effect: defensive buff.
 
   Forest Gift
     CD: 3  |  Type: Active
+    Range: 1–4  |  AoE: Single  |  Movement: —
     Effect: heal ally or self.
 
 ================================================================================
@@ -1980,10 +2298,12 @@ Canopy Screecher
 
   Echo Cry
     CD: 4  |  Type: Active
+    Range: Global  |  AoE: All foes  |  Movement: —
     Effect: Combat ability.
 
   Distracting Screech
     CD: 3  |  Type: Active
+    Range: 1–5  |  AoE: Cross-1  |  Movement: —
     Effect: Combat ability.
 
 ================================================================================

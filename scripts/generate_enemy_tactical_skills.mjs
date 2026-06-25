@@ -81,7 +81,7 @@ const ROWS = [
   R("dune_devourer", "burrow_ambush", 3, "single", "player", { leap: true, ignorePathBlock: true }),
   R("fallen_echo", "echo_strike", ...MELEE),
   R("fallen_echo", "broken_march", 2, "line", "player", { lineMax: 2 }),
-  R("gaiahide_behemoth", "gaiahide_slams", ...MELEE),
+  R("gaiahide_behemoth", "gaiahide_slam", ...MELEE),
   R("gaiahide_behemoth", "rootquake", 3, "cross1", "player"),
   R("gorilla", "ground_rupture", 3, "line", "player", { lineMax: 3, stopAtOccupied: true }),
   R("gorilla", "rage_roar", ...SELF),

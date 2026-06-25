@@ -238,13 +238,6 @@
     }
 
     const unit = unitAt(st, tx, ty);
-    if (cfg.requireUnitOnTile && !unit) {
-      return { ok: false, message: "Must target a unit on that tile." };
-    }
-    if (!cfg.allowEmptyTile && !unit) {
-      return { ok: false, message: "Must target an occupied tile." };
-    }
-
     if (cfg.target === "enemy" && unit && isAllyUnit(st, unit)) {
       return { ok: false, message: "Cannot target an ally with this skill." };
     }
@@ -264,13 +257,6 @@
       const units = getUnitsOnTiles(st, aoeTiles);
       allies = units.allies;
       foes = units.foes;
-    }
-
-    if (cfg.target === "enemy" && cfg.requireUnitOnTile && !foes.length && !allies.length) {
-      return { ok: false, message: "No valid target in area." };
-    }
-    if (cfg.target === "ally" && !allies.length) {
-      return { ok: false, message: "No ally in area." };
     }
 
     return { ok: true, tiles: aoeTiles, foes, allies, center: { x: tx, y: ty }, unit };

@@ -95,7 +95,7 @@
   "frozen_stalker:chill_mark": {"rangeMin":1,"rangeMax":4,"aoe":"single","target":"player","requireUnitOnTile":true},
   "frozen_stalker:frozen_ambush": {"rangeMin":1,"rangeMax":3,"aoe":"single","target":"player","requireUnitOnTile":true,"leap":true},
   "frozen_stalker:whiteout_veil": {"rangeMin":0,"rangeMax":0,"aoe":"none","target":"self","requireUnitOnTile":false},
-  "gaiahide_behemoth:gaiahide_slams": {"rangeMin":1,"rangeMax":1,"aoe":"single","target":"player","requireUnitOnTile":true},
+  "gaiahide_behemoth:gaiahide_slam": {"rangeMin":1,"rangeMax":1,"aoe":"single","target":"player","requireUnitOnTile":true},
   "gaiahide_behemoth:rootquake": {"rangeMin":1,"rangeMax":3,"aoe":"cross1","target":"player","requireUnitOnTile":false},
   "glacier_turtoise:glacier_hard_shell": {"rangeMin":0,"rangeMax":0,"aoe":"none","target":"self","requireUnitOnTile":false},
   "glacier_turtoise:ice_shell": {"rangeMin":0,"rangeMax":0,"aoe":"none","target":"self","requireUnitOnTile":false},

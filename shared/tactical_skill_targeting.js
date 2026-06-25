@@ -30,7 +30,7 @@
     Taunt: { target: "global_enemies" },
     "Guard Ally": { rangeMin: 1, rangeMax: 3, aoe: "single", target: "ally", requireUnitOnTile: true },
     "Shield Slam": { rangeMin: 1, rangeMax: 1, aoe: "single", target: "enemy", requireUnitOnTile: true },
-    Earthbreaker: { rangeMin: 1, rangeMax: 1, aoe: "cross1_rank", target: "enemy", allowEmptyTile: true, requireUnitOnTile: true },
+    Earthbreaker: { rangeMin: 1, rangeMax: 1, aoe: "cross1_rank", target: "enemy", allowEmptyTile: true },
     "Unbroken Line": { target: "self" },
 
     "Precise Cut": { rangeMin: 1, rangeMax: 1, aoe: "single", target: "enemy", requireUnitOnTile: true },
@@ -40,7 +40,7 @@
     "Flow Step": { target: "self" },
     "Expose Weakness": { rangeMin: 1, rangeMax: 1, aoe: "single", target: "enemy", requireUnitOnTile: true },
     "Duelist Momentum": { target: "self" },
-    "Bleeding Flourish": { rangeMin: 1, rangeMax: 1, aoe: "cross1_rank", target: "enemy", allowEmptyTile: true, requireUnitOnTile: true },
+    "Bleeding Flourish": { rangeMin: 1, rangeMax: 1, aoe: "cross1_rank", target: "enemy", allowEmptyTile: true },
     "Deep Lunge": { rangeMin: 1, rangeMax: 2, aoe: "single", target: "enemy", requireUnitOnTile: true, straightLine: true },
     "Final Measure": { rangeMin: 1, rangeMax: 1, aoe: "single", target: "enemy", requireUnitOnTile: true },
 
@@ -66,7 +66,7 @@
     "Reflex Volley": { rangeMin: 2, rangeMax: 5, aoe: "single", target: "enemy", requireUnitOnTile: true },
     "Vanishing Shot": { rangeMin: 2, rangeMax: 5, aoe: "single", target: "enemy", requireUnitOnTile: true },
 
-    Cleave: { rangeMin: 1, rangeMax: 1, aoe: "cross1_cap2", target: "enemy", allowEmptyTile: true, requireUnitOnTile: true },
+    Cleave: { rangeMin: 1, rangeMax: 1, aoe: "cross1_cap2", target: "enemy", allowEmptyTile: true },
     "Blood Price": { target: "self" },
     "Heavy Cut": { rangeMin: 1, rangeMax: 1, aoe: "single", target: "enemy", requireUnitOnTile: true },
     "War Hunger": { target: "self" },
@@ -94,7 +94,7 @@
     "Poison Dart": { rangeMin: 1, rangeMax: 5, aoe: "single", target: "enemy", requireUnitOnTile: true },
     "Toxic Study": { target: "self" },
     "Acid Vial": { rangeMin: 1, rangeMax: 4, aoe: "single", target: "enemy", requireUnitOnTile: true },
-    "Crippling Mixture": { rangeMin: 1, rangeMax: 4, aoe: "cross1_rank", target: "enemy", allowEmptyTile: true, requireUnitOnTile: true },
+    "Crippling Mixture": { rangeMin: 1, rangeMax: 4, aoe: "cross1_rank", target: "enemy", allowEmptyTile: true },
     "Spread Contagion": { rangeMin: 1, rangeMax: 5, aoe: "cross1_rank", target: "enemy", requireUnitOnTile: true },
     "Collapse Immunity": { rangeMin: 1, rangeMax: 5, aoe: "single", target: "enemy", requireUnitOnTile: true },
     "Plague Engine": { target: "self" }
@@ -130,12 +130,31 @@
     return cfg.aoe || "single";
   }
 
+  function isMultiTileAoeType(aoeType) {
+    return (
+      aoeType !== "single" &&
+      aoeType !== "none" &&
+      aoeType !== "all_enemies" &&
+      aoeType !== "all_allies"
+    );
+  }
+
+  /** True when the skill is aimed at a board tile (center may be empty). */
+  function allowsEmptyCenterTile(cfg, skillRank, skillName) {
+    if (!cfg) return false;
+    const t = cfg.target;
+    if (t === "self" || t === "global_enemies" || t === "global_allies") return false;
+    return true;
+  }
+
   const api = Object.freeze({
     SKILL_TARGETING,
     getSkillTargeting,
     needsTileTarget,
     cross1ExtraCountForRank,
-    resolveAoeType
+    resolveAoeType,
+    isMultiTileAoeType,
+    allowsEmptyCenterTile
   });
 
   if (typeof module !== "undefined" && module.exports) {

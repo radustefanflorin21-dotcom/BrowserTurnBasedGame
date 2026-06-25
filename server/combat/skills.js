@@ -275,6 +275,12 @@ function setSkillCooldown(st, skillName, turns) {
   if (turns > 0) st.skillCooldowns[skillName] = turns;
 }
 
+function finishSkillWithNoTargets(st, skillName, def, extra = {}) {
+  setSkillCooldown(st, skillName, getSkillCooldown(def));
+  consumeSpellPrepOnMagicalSkill(st, def);
+  return { ok: true, hits: [], allyHits: [], debuffLogs: [], ...extra };
+}
+
 function tickSkillCooldowns(st) {
   if (!st.skillCooldowns) return;
   Object.keys(st.skillCooldowns).forEach((k) => {
@@ -364,7 +370,10 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
   if (ALLY_SUPPORT_PATTERNS.has(pattern)) {
     const allyUid = typeof targetUid === "number" ? targetUid : member.uid;
     const ally = tacticalPrimaryAlly(st, tacticalCtx, allyUid);
-    if (!ally) return { ok: false, error: "Select a living ally." };
+    if (!ally) {
+      setSkillCooldown(st, skillName, getSkillCooldown(def));
+      return { ok: true, heals: [], supportLogs: [] };
+    }
     const vit = totalStat(actor, "vit");
     const supportLogs = [];
     const heals = [];
@@ -417,7 +426,10 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
 
   if (pattern === "taunt_all" && row?.debuff) {
     const living = st.foes.filter((f) => f.hp > 0);
-    if (!living.length) return { ok: false, error: "No enemies to taunt." };
+    if (!living.length) {
+      setSkillCooldown(st, skillName, getSkillCooldown(def));
+      return { ok: true, hits: [], debuffLogs: [], supportLogs: [] };
+    }
     for (const foe of living) {
       const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
       if (msg) debuffLogs.push(msg);
@@ -429,7 +441,10 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
   if (pattern === "guard_ally" && row?.ally) {
     const allyUid = typeof targetUid === "number" ? targetUid : member.uid;
     const ally = tacticalPrimaryAlly(st, tacticalCtx, allyUid);
-    if (!ally) return { ok: false, error: "Select a living ally." };
+    if (!ally) {
+      setSkillCooldown(st, skillName, getSkillCooldown(def));
+      return { ok: true, supportLogs: [] };
+    }
     const redirect = typeof row.ally.redirect === "number" ? row.ally.redirect : 30;
     const turns = typeof row.ally.turns === "number" ? row.ally.turns : 1;
     applyGuardToAlly(ally, member.uid, redirect, turns);
@@ -532,9 +547,9 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
 
   if (pattern === "spread_contagion") {
     const foe = tacticalPrimaryFoe(st, tacticalCtx, targetUid);
-    if (!foe) return { ok: false, error: "Select a living enemy." };
-    if (!(foe.combat?.poisonTurns > 0 && foe.combat?.poisonDamage > 0)) {
-      return { ok: false, error: "Target must be poisoned." };
+    if (!foe || !(foe.combat?.poisonTurns > 0 && foe.combat?.poisonDamage > 0)) {
+      setSkillCooldown(st, skillName, getSkillCooldown(def));
+      return { ok: true, hits: [], debuffLogs: [], supportLogs: [] };
     }
     const jumps = Math.max(1, Math.floor(row.adj || 1));
     const chance = typeof row.chance === "number" ? row.chance : 50;
@@ -604,8 +619,13 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
       heals.push({ memberUid: member.uid, amount: member.hp - before });
     } else if (row?.vitHealPct) {
       const allyUid = typeof targetUid === "number" ? targetUid : member.uid;
-      const ally = (st.party || []).find((m) => m && m.uid === allyUid && m.hp > 0);
-      if (!ally) return { ok: false, error: "Select a living ally." };
+      const ally = st?.tactical
+        ? tacticalPrimaryAlly(st, tacticalCtx, allyUid)
+        : (st.party || []).find((m) => m && m.uid === allyUid && m.hp > 0);
+      if (!ally) {
+        setSkillCooldown(st, skillName, getSkillCooldown(def));
+        return { ok: true, heals: [] };
+      }
       const amt = Math.max(1, Math.floor(vit * row.vitHealPct));
       const before = ally.hp;
       ally.hp = Math.min(ally.maxHp, ally.hp + amt);
@@ -632,7 +652,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
 
   if (pattern === "reflex_volley") {
     const foe = tacticalPrimaryFoe(st, tacticalCtx, targetUid);
-    if (!foe) return { ok: false, error: "Select a living enemy." };
+    if (!foe) return finishSkillWithNoTargets(st, skillName, def);
     const hitCount = row?.hits || def.twinHits || 3;
     for (let i = 0; i < hitCount; i++) {
       if (foe.hp <= 0) break;
@@ -646,7 +666,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
 
   if (pattern === "vanishing_shot") {
     const foe = tacticalPrimaryFoe(st, tacticalCtx, targetUid);
-    if (!foe) return { ok: false, error: "Select a living enemy." };
+    if (!foe) return finishSkillWithNoTargets(st, skillName, def);
     const res = resolveSkillHit(actor, foe, def, row || {}, rng, st, member, { skillName });
     if (!res.missed && row?.debuff) {
       const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
@@ -668,8 +688,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     const targets = tacticalFoeTargets(st, tacticalCtx, centerUid, () =>
       adj > 0 ? collectAoeFoes(st, centerUid, adj) : st.foes.filter((f) => f.hp > 0).slice(0, 1)
     );
-    if (!targets.length) return { ok: false, error: "No enemies to hit." };
-    if (row?.selfDamageMaxHpPct) applySelfHpCost(member, st, row.selfDamageMaxHpPct);
+    if (row?.selfDamageMaxHpPct && targets.length) applySelfHpCost(member, st, row.selfDamageMaxHpPct);
     for (const foe of targets) {
       const res = resolveSkillHit(actor, foe, def, row || {}, rng, st, member, { skillName });
       let dmg = res.missed ? 0 : res.damage;
@@ -686,7 +705,6 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
     const centerUid = typeof targetUid === "number" ? targetUid : st.selectedUid;
     const adj = typeof row?.aoeAdj === "number" ? row.aoeAdj : 1;
     const targets = tacticalFoeTargets(st, tacticalCtx, centerUid, () => collectAoeFoes(st, centerUid, adj));
-    if (!targets.length) return { ok: false, error: "No enemies to hit." };
     for (const foe of targets) {
       const res = resolveSkillHit(actor, foe, def, row || {}, rng, st, member, { skillName });
       let dmg = res.missed ? 0 : Math.max(1, Math.floor(res.damage * (0.85 + adj * 0.05)));
@@ -717,7 +735,6 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
       const one = living.find((f) => f.uid === centerUid);
       return one ? [one] : living.slice(0, 1);
     });
-    if (!targets.length) return { ok: false, error: "No enemies to hit." };
     for (const foe of targets) {
       const res = resolveSkillHit(actor, foe, def, row || {}, rng, st, member, { skillName });
       hits.push({ foeUid: foe.uid, damage: res.missed ? 0 : res.damage, missed: res.missed, crit: res.crit });
@@ -736,7 +753,6 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
         ? collectAoeFoes(st, centerUid, adj)
         : [st.foes.find((f) => f.uid === centerUid && f.hp > 0)].filter(Boolean)
     );
-    if (!targets.length) return { ok: false, error: "No enemies to hit." };
     for (const foe of targets) {
       if (row?.debuff) {
         const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
@@ -748,12 +764,12 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
       }
     }
     setSkillCooldown(st, skillName, getSkillCooldown(def));
-    return { ok: true, hits: [], debuffLogs, supportLogs: [`${member.name} throws a crippling mixture.`] };
+    const supportLogs = targets.length ? [`${member.name} throws a crippling mixture.`] : [];
+    return { ok: true, hits: [], debuffLogs, supportLogs };
   }
 
   if (pattern === "all_foes_debuff" && row?.debuff) {
     const living = tacticalFoeTargets(st, tacticalCtx, targetUid, () => st.foes.filter((f) => f.hp > 0));
-    if (!living.length) return { ok: false, error: "No enemies to hit." };
     for (const foe of living) {
       const msg = tryRollFoeDebuff(st, foe, row.debuff, actor, rng, debuffLogs);
       if (msg) debuffLogs.push(msg);
@@ -765,7 +781,6 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
   if (AOE_PATTERNS.has(pattern)) {
     const centerUid = typeof targetUid === "number" ? targetUid : st.selectedUid;
     const living = tacticalFoeTargets(st, tacticalCtx, centerUid, () => st.foes.filter((f) => f.hp > 0));
-    if (!living.length) return { ok: false, error: "No enemies to hit." };
     const aoeAdj = typeof row?.aoeAdj === "number" ? row.aoeAdj : 1;
     for (const foe of living) {
       const res =
@@ -788,7 +803,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
 
   if (pattern === "twin_jab") {
     const foe = tacticalPrimaryFoe(st, tacticalCtx, targetUid);
-    if (!foe) return { ok: false, error: "Select a living enemy." };
+    if (!foe) return finishSkillWithNoTargets(st, skillName, def);
     const hitCount = def.twinHits || row?.hits || 2;
     for (let i = 0; i < hitCount; i++) {
       if (foe.hp <= 0) break;
@@ -807,7 +822,7 @@ export function validateAndResolveSkill(st, member, actor, skillName, targetUid,
 
   if (DAMAGE_PATTERNS.has(pattern) || def.damageKind) {
     const foe = tacticalPrimaryFoe(st, tacticalCtx, targetUid);
-    if (!foe) return { ok: false, error: "Select a living enemy." };
+    if (!foe) return finishSkillWithNoTargets(st, skillName, def);
     const res = resolveSkillHit(actor, foe, def, row || {}, rng, st, member, {
       skillName,
       execute: pattern === "execute_skill" || pattern === "final_measure"

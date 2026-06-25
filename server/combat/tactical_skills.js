@@ -103,21 +103,31 @@ export function prepareTacticalSkillCast(st, member, actor, skillName, targetUid
 }
 
 export function tacticalFoeTargets(st, tacticalCtx, targetUid, legacyFn) {
-  if (!st?.tactical || !tacticalCtx) return legacyFn();
-  if (Array.isArray(tacticalCtx.foes) && tacticalCtx.foes.length) return tacticalCtx.foes;
-  return [];
+  if (!st?.tactical) return legacyFn();
+  if (!tacticalCtx) return [];
+  return Array.isArray(tacticalCtx.foes) ? tacticalCtx.foes.filter((f) => f && f.hp > 0) : [];
 }
 
 export function tacticalPrimaryFoe(st, tacticalCtx, targetUid) {
-  if (st?.tactical && tacticalCtx?.foes?.length) {
-    return tacticalCtx.foes.find((f) => f.uid === targetUid) || tacticalCtx.foes[0];
+  if (st?.tactical) {
+    if (!tacticalCtx || !Array.isArray(tacticalCtx.foes) || !tacticalCtx.foes.length) return null;
+    return (
+      tacticalCtx.foes.find((f) => f.uid === targetUid && f.hp > 0) ||
+      tacticalCtx.foes.find((f) => f.hp > 0) ||
+      null
+    );
   }
   return st.foes.find((f) => f.uid === targetUid && f.hp > 0) || null;
 }
 
 export function tacticalPrimaryAlly(st, tacticalCtx, targetUid) {
-  if (st?.tactical && tacticalCtx?.allies?.length) {
-    return tacticalCtx.allies.find((a) => a.uid === targetUid) || tacticalCtx.allies[0];
+  if (st?.tactical) {
+    if (!tacticalCtx || !Array.isArray(tacticalCtx.allies) || !tacticalCtx.allies.length) return null;
+    return (
+      tacticalCtx.allies.find((a) => a.uid === targetUid && a.hp > 0) ||
+      tacticalCtx.allies.find((a) => a.hp > 0) ||
+      null
+    );
   }
   return (st.party || []).find((m) => m && m.uid === targetUid && m.hp > 0) || null;
 }

@@ -121,11 +121,15 @@
   const prevTacticalPendingSkill = combatState?.tacticalPendingSkill;
   const prevTacticalSkillHoverX = combatState?.tacticalSkillHoverX;
   const prevTacticalSkillHoverY = combatState?.tacticalSkillHoverY;
-  if (
+  const shouldSnapshotTacticalGrid =
     combatState?.tactical &&
-    typeof noteTacticalGridBeforeStateUpdate === "function"
-  ) {
+    st.phase !== "prep" &&
+    combatState.phase !== "ended" &&
+    typeof noteTacticalGridBeforeStateUpdate === "function";
+  if (shouldSnapshotTacticalGrid) {
     noteTacticalGridBeforeStateUpdate();
+  } else if (typeof clearTacticalGridBeforeAnim === "function") {
+    clearTacticalGridBeforeAnim();
   }
   combatState = {
       region: region || null,
@@ -415,17 +419,25 @@
       if (typeof appendFightLog === "function") appendFightLog(String(line || ""));
       else st.fightLog.push(String(line || ""));
     });
+    if (st.tactical && typeof noteTacticalGridBeforeStateUpdate === "function") {
+      noteTacticalGridBeforeStateUpdate();
+    }
     applyCombatVisualSnapshot(st, step);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
     const hits = step.hits && step.hits.length ? step.hits : null;
     const heals = step.heals && step.heals.length ? step.heals : null;
-    if (hits || heals) {
-      requestAnimationFrame(() => {
-        if (hits) playServerEnemyHitEffects(hits);
-        if (heals) playServerHealEffects(heals);
-      });
+    const playEffects = () => {
+      if (hits) playServerEnemyHitEffects(hits);
+      if (heals) playServerHealEffects(heals);
+      if (typeof shakeFightOverlay === "function") shakeFightOverlay();
+    };
+    if (st.tactical && typeof whenTacticalMoveAnimationsSettled === "function") {
+      whenTacticalMoveAnimationsSettled().then(playEffects);
+    } else if (hits || heals) {
+      requestAnimationFrame(playEffects);
+    } else if (typeof shakeFightOverlay === "function") {
+      shakeFightOverlay();
     }
-    if (typeof shakeFightOverlay === "function") shakeFightOverlay();
   }
 
   function finishPendingCombatApply() {

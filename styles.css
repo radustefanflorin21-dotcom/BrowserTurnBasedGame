@@ -6315,6 +6315,33 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   margin: 0;
 }
 
+.fight-pass-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.fight-pass-stack .fight-tactical-round {
+  margin: 0;
+  padding: 0;
+  width: auto;
+  font-size: 0.65rem;
+  line-height: 1.1;
+}
+
+.fight-round-foot {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.fight-round-foot .fight-tactical-round {
+  margin: 0;
+  padding: 0;
+}
+
 .camp-tip-row {
   display: flex;
   flex-direction: column;
@@ -6751,6 +6778,36 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-tactical-inspect-wrap .fight-tactical-inspect-card .fight-card-hp-text {
   font-size: 0.76rem;
+}
+
+.fight-card-inspect-resources {
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fight-card-inspect-resource {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.fight-card-inspect-resource-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.fight-card-inspect-resource-value {
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .fight-card-inspect-effects {
@@ -7208,14 +7265,9 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   font-size: 0.72rem;
   opacity: 0.85;
   padding-top: 0;
-  margin-top: -2px;
-  margin-bottom: 2px;
-  width: 100%;
-}
-
-.fight-bottom-strip .fight-tactical-round {
   margin-top: 0;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  width: 100%;
 }
 
 .fight-mp-row .fight-tactical-roster-resources {

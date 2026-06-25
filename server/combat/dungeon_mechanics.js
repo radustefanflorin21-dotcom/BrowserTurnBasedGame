@@ -2,11 +2,15 @@
  * Shared dungeon combat mechanics (Rootwarren pressure, Withered Maw sand/starvation, boss reinforcements).
  */
 
+import { createRequire } from "node:module";
 import { loadGameConfig, getEnemyDefByName } from "../load_game_config.js";
 import { buildFoeFromUnit } from "./formulas.js";
 import { initFoeCombatRuntime } from "./enemy_ai.js";
 import { applyPartyMemberBlind, applyPartyMemberCripple, ensureCombatStatus, applyPlayerBurn } from "./status.js";
 import { pickMoodIdFromEnemyDef } from "./enemy_moods.js";
+
+const require = createRequire(import.meta.url);
+const EnemyTacticalMovement = require("../../shared/enemy_tactical_movement.js");
 
 function getDungeonDef(dungeonId) {
   const cfg = loadGameConfig();
@@ -35,7 +39,7 @@ function randomMoodIdForEnemy(name, rng) {
   return pickMoodIdFromEnemyDef(def, rng);
 }
 
-export function spawnReinforcement(st, name, rng) {
+export function spawnReinforcement(st, name, rng, opts) {
   if ((st.foes || []).filter((f) => f && f.hp > 0).length >= 8) return false;
   const level = maxLevelForEnemyName(name);
   const moodId = randomMoodIdForEnemy(name, rng);
@@ -43,7 +47,11 @@ export function spawnReinforcement(st, name, rng) {
   if (!foe) return false;
   initFoeCombatRuntime(foe);
   st.foes.push(foe);
-  return true;
+  const anchor = opts && typeof opts === "object" ? opts.adjacentTo : null;
+  if (st.tactical && anchor && typeof anchor.gridX === "number") {
+    EnemyTacticalMovement.placeSummonAdjacent(st, foe, anchor);
+  }
+  return foe;
 }
 
 /** Mirage Remnants ignore the normal 8-enemy cap. */
@@ -55,6 +63,12 @@ export function spawnMirageRemnantUncapped(st, rng, summonerUid) {
   initFoeCombatRuntime(foe);
   if (typeof summonerUid === "number") foe.combat.summonerUid = summonerUid;
   st.foes.push(foe);
+  if (st.tactical && typeof summonerUid === "number") {
+    const summoner = (st.foes || []).find((f) => f && f.uid === summonerUid);
+    if (summoner && typeof summoner.gridX === "number") {
+      EnemyTacticalMovement.placeSummonAdjacent(st, foe, summoner);
+    }
+  }
   return foe;
 }
 
