@@ -6450,6 +6450,10 @@ function getAdjacentPartyMemberUids(st, centerUid, count) {
 }
 
 function dealRawDamageToPlayerAdjacent(st, rawDamage, foeName, logVerb, centerUid, adjacentCount, perTargetMult) {
+  const srcFoe = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+  if (srcFoe?.combat?.__pendingSkillKey && st?.tactical) {
+    if (tryApplyEnemyTacticalSkillDamage(st, srcFoe, rawDamage, logVerb, { partyUid: centerUid })) return;
+  }
   const mult = typeof perTargetMult === "number" && perTargetMult > 0 ? perTargetMult : 1;
   const uids = [centerUid, ...getAdjacentPartyMemberUids(st, centerUid, adjacentCount)];
   const seen = new Set();
@@ -7199,6 +7203,47 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
 }
 
 /**
+ * When set via enemy setCd(), the next damage call uses tactical skill resolution on the grid.
+ */
+function tryApplyEnemyTacticalSkillDamage(st, foe, rawDamage, logVerb, opts) {
+  if (!st?.tactical || typeof EnemyTacticalCombat === "undefined" || typeof EnemyTacticalTargeting === "undefined") {
+    return false;
+  }
+  if (!foe || typeof foe.gridX !== "number") return false;
+  const skillKey = foe.combat?.__pendingSkillKey;
+  if (!skillKey) return false;
+  foe.combat.__pendingSkillKey = null;
+
+  const def = getEnemyDefByName(foe.name);
+  const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+  const role = getEnemyCombatRoleKey(def) || "bruiser";
+  const o = opts && typeof opts === "object" ? opts : null;
+  let member = null;
+  if (o && typeof o.partyUid === "number") {
+    member = (st.party || []).find((m) => m && m.uid === o.partyUid) || null;
+  }
+
+  EnemyTacticalCombat.applyEnemySkill(st, foe, scriptId, role, skillKey, {
+    raw: rawDamage,
+    verb: logVerb,
+    member
+  }, {
+    hitMember(m, raw, verb) {
+      dealRawDamageToPartyMember(st, m.uid, raw, foe.name, verb);
+    },
+    log(msg) {
+      appendFightLog(msg);
+    },
+    healSelf(pct) {
+      const amt = Math.max(1, Math.floor(foe.maxHp * pct));
+      foe.hp = Math.min(foe.maxHp, foe.hp + amt);
+      if (amt > 0) appendFightLog(`${foe.name} recovers ${amt} HP.`);
+    }
+  });
+  return true;
+}
+
+/**
  * Damages one party member (default: lowest % HP) or the whole party when `opts.aoeAllParty` is true.
  * @param {object} st
  * @param {number} rawDamage
@@ -7237,6 +7282,10 @@ function dealRawDamageToPlayer(st, rawDamage, foeName, logVerb, opts) {
   }
   ensureCombatParty(st);
   const o = opts && typeof opts === "object" ? opts : null;
+  const srcFoeEarly = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
+  if (srcFoeEarly && tryApplyEnemyTacticalSkillDamage(st, srcFoeEarly, rawDamageAdj, logVerb, o)) {
+    return;
+  }
   if (o && o.aoeAllParty) {
     const living = st.party.filter((m) => m && m.hp > 0);
     for (const m of living) {
@@ -11286,6 +11335,7 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   const cd = foe.combat.skillCd;
   const setCd = (key, n) => {
     cd[key] = Math.max(0, Math.floor(n));
+    if (foe.combat) foe.combat.__pendingSkillKey = key;
   };
   const ready = (key) => {
     if (foe.combat && foe.combat.forceBasicThisTurn) return false;
@@ -18190,11 +18240,20 @@ function ensureFightCombatFxLayer() {
 }
 
 function findFightCombatCard(side, uid) {
-  const hud = document.getElementById("fightHud");
-  if (!hud || uid == null || !Number.isFinite(Number(uid))) return null;
+  if (uid == null || !Number.isFinite(Number(uid))) return null;
   const id = String(Math.floor(Number(uid)));
-  if (side === "ally") return hud.querySelector(`[data-party-member="${id}"]`);
-  return hud.querySelector(`[data-fight-target="${id}"]`);
+  const sel = side === "ally" ? `[data-party-member="${id}"]` : `[data-fight-target="${id}"]`;
+  const tokenLayer = document.getElementById("fightTacticalTokenLayer");
+  if (tokenLayer && !tokenLayer.classList.contains("hidden")) {
+    const tok = tokenLayer.querySelector(sel);
+    if (tok) return tok;
+  }
+  const hud = document.getElementById("fightHud");
+  if (hud) {
+    const card = hud.querySelector(sel);
+    if (card) return card;
+  }
+  return document.querySelector(sel);
 }
 
 const FIGHT_CARD_FX_MS = 1100;
@@ -18719,6 +18778,29 @@ function computeTacticalReachableKeys(st, activeMember) {
   return new Set(reachable.map((c) => TG.coordKey(c.x, c.y)));
 }
 
+function computeTacticalMovePathKeys(st, member, tx, ty) {
+  const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
+  const empty = { green: new Set(), red: new Set() };
+  if (!TG || !member || member.hp <= 0) return empty;
+  if (typeof member.gridX !== "number" || typeof member.gridY !== "number") return empty;
+  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return empty;
+  if (member.gridX === tx && member.gridY === ty) return empty;
+
+  const occ = TG.buildOccupancy(TG.allCombatUnits(st));
+  const path = TG.shortestPath(member.gridX, member.gridY, tx, ty, st.board, occ, member.uid);
+  if (!path || path.length < 2) return empty;
+
+  const mp = Math.max(0, Math.floor(member.movePoints || 0));
+  const green = new Set();
+  const red = new Set();
+  for (let i = 1; i < path.length; i++) {
+    const key = TG.coordKey(path[i].x, path[i].y);
+    if (i <= mp) green.add(key);
+    else red.add(key);
+  }
+  return { green, red };
+}
+
 function tacticalSkillNeedsTilePick(skillName) {
   if (!skillName || !combatState?.tactical) return false;
   if (typeof TacticalSkillTargeting === "undefined") return true;
@@ -18734,6 +18816,8 @@ function toggleTacticalSkillTargeting(st, skillName) {
     st.tacticalPendingSkill = skillName;
     st.tacticalSkillHoverX = null;
     st.tacticalSkillHoverY = null;
+    st.tacticalMoveHoverX = null;
+    st.tacticalMoveHoverY = null;
   }
   renderTurnBattle();
   return true;
@@ -18814,6 +18898,12 @@ function clearTacticalPendingSkill(st) {
   st.tacticalSkillHoverY = null;
 }
 
+function clearTacticalMoveHover(st) {
+  if (!st) return;
+  st.tacticalMoveHoverX = null;
+  st.tacticalMoveHoverY = null;
+}
+
 function getCombatActorForMember(st, member) {
   if (!member) return typeof player !== "undefined" ? player : null;
   if (member.kind === "hero") return typeof player !== "undefined" ? player : member;
@@ -18833,22 +18923,57 @@ function whenTacticalMoveAnimationsSettled() {
 
 function onTacticalBoardPointerMove(ev) {
   const st = combatState;
-  if (!st?.tactical || !st.tacticalPendingSkill || st.phase !== "player") return;
+  if (!st?.tactical || st.phase !== "player") return;
   const cell = ev.target.closest("[data-tactical-cell]");
   if (!cell) {
+    let changed = false;
     if (st.tacticalSkillHoverX != null) {
       st.tacticalSkillHoverX = null;
       st.tacticalSkillHoverY = null;
-      scheduleTacticalSkillHoverRender();
+      changed = true;
     }
+    if (st.tacticalMoveHoverX != null) {
+      st.tacticalMoveHoverX = null;
+      st.tacticalMoveHoverY = null;
+      changed = true;
+    }
+    if (changed) scheduleTacticalSkillHoverRender();
     return;
   }
   const x = parseInt(cell.getAttribute("data-tactical-x"), 10);
   const y = parseInt(cell.getAttribute("data-tactical-y"), 10);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-  if (st.tacticalSkillHoverX === x && st.tacticalSkillHoverY === y) return;
-  st.tacticalSkillHoverX = x;
-  st.tacticalSkillHoverY = y;
+  const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
+
+  if (st.tacticalPendingSkill) {
+    if (active && typeof TacticalGrid !== "undefined") {
+      const rangeKeys = computeTacticalSkillRangeKeys(st, active, st.tacticalPendingSkill);
+      if (!rangeKeys.has(TacticalGrid.coordKey(x, y))) {
+        if (st.tacticalSkillHoverX != null) {
+          st.tacticalSkillHoverX = null;
+          st.tacticalSkillHoverY = null;
+          scheduleTacticalSkillHoverRender();
+        }
+        return;
+      }
+    }
+    if (st.tacticalSkillHoverX === x && st.tacticalSkillHoverY === y) return;
+    st.tacticalSkillHoverX = x;
+    st.tacticalSkillHoverY = y;
+    scheduleTacticalSkillHoverRender();
+    return;
+  }
+
+  if (!active || (active.movePoints || 0) <= 0) {
+    if (st.tacticalMoveHoverX != null) {
+      clearTacticalMoveHover(st);
+      scheduleTacticalSkillHoverRender();
+    }
+    return;
+  }
+  if (st.tacticalMoveHoverX === x && st.tacticalMoveHoverY === y) return;
+  st.tacticalMoveHoverX = x;
+  st.tacticalMoveHoverY = y;
   scheduleTacticalSkillHoverRender();
 }
 
@@ -19423,7 +19548,8 @@ function isTacticalFoeUnit(st, unit) {
 function buildTacticalGridHtml(
   st,
   uiPhase,
-  reachableKeys,
+  movePathGreenKeys,
+  movePathRedKeys,
   skillRangeKeys,
   skillAoeKeys,
   tokenPositionSnap
@@ -19453,7 +19579,8 @@ function buildTacticalGridHtml(
           : showSpawnZones && TG.isEnemyColumn(x)
             ? "fight-tactical-cell--enemy-zone"
             : "";
-      const reachable = reachableKeys && reachableKeys.has(key);
+      const movePathGreen = movePathGreenKeys && movePathGreenKeys.has(key);
+      const movePathRed = movePathRedKeys && movePathRedKeys.has(key);
       const skillRange = skillRangeKeys && skillRangeKeys.has(key);
       const skillAoe = skillAoeKeys && skillAoeKeys.has(key);
       const isActiveCell = active && active.gridX === x && active.gridY === y;
@@ -19464,7 +19591,8 @@ function buildTacticalGridHtml(
         "fight-tactical-cell",
         checkerCls,
         zoneCls,
-        reachable ? "fight-tactical-cell--reachable" : "",
+        movePathGreen ? "fight-tactical-cell--move-path-green" : "",
+        movePathRed ? "fight-tactical-cell--move-path-red" : "",
         skillRange ? "fight-tactical-cell--skill-range" : "",
         skillAoe ? "fight-tactical-cell--skill-aoe" : "",
         isActiveCell ? "fight-tactical-cell--active" : "",
@@ -19531,6 +19659,9 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   if (st.phase !== "player" && st.tacticalPendingSkill) {
     clearTacticalPendingSkill(st);
   }
+  if (st.phase !== "player") {
+    clearTacticalMoveHover(st);
+  }
   if (st.phase === "ended") {
     if (_tacticalLayoutObserver) {
       _tacticalLayoutObserver.disconnect();
@@ -19540,26 +19671,39 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
     hud.innerHTML = `<div class="fight-tactical fight-tactical--ended" aria-hidden="true"></div>`;
     return;
   }
-  let reachableKeys = null;
+  let movePathGreenKeys = null;
+  let movePathRedKeys = null;
   let skillRangeKeys = null;
   let skillAoeKeys = null;
   if (isTacticalPlayerTurnUi(st)) {
     ensureTacticalUnitsPlaced(st);
     const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
-    if (active && (active.movePoints || 0) > 0) {
-      const canControl =
-        !st.serverAuthoritative ||
-        (typeof window !== "undefined" &&
-          window.ServerCombat &&
-          typeof window.ServerCombat.canControlActiveMember === "function" &&
-          window.ServerCombat.canControlActiveMember());
-      if (canControl) {
-        reachableKeys = computeTacticalReachableKeys(st, active);
-      }
+    const canControl =
+      !st.serverAuthoritative ||
+      (typeof window !== "undefined" &&
+        window.ServerCombat &&
+        typeof window.ServerCombat.canControlActiveMember === "function" &&
+        window.ServerCombat.canControlActiveMember());
+    if (
+      active &&
+      canControl &&
+      !st.tacticalPendingSkill &&
+      (active.movePoints || 0) > 0 &&
+      Number.isFinite(st.tacticalMoveHoverX) &&
+      Number.isFinite(st.tacticalMoveHoverY)
+    ) {
+      const pathKeys = computeTacticalMovePathKeys(st, active, st.tacticalMoveHoverX, st.tacticalMoveHoverY);
+      movePathGreenKeys = pathKeys.green;
+      movePathRedKeys = pathKeys.red;
     }
     if (active && st.tacticalPendingSkill && tacticalSkillNeedsTilePick(st.tacticalPendingSkill)) {
       skillRangeKeys = computeTacticalSkillRangeKeys(st, active, st.tacticalPendingSkill);
-      if (Number.isFinite(st.tacticalSkillHoverX) && Number.isFinite(st.tacticalSkillHoverY)) {
+      if (
+        skillRangeKeys &&
+        Number.isFinite(st.tacticalSkillHoverX) &&
+        Number.isFinite(st.tacticalSkillHoverY) &&
+        skillRangeKeys.has(TacticalGrid.coordKey(st.tacticalSkillHoverX, st.tacticalSkillHoverY))
+      ) {
         skillAoeKeys = computeTacticalSkillAoeKeys(
           st,
           active,
@@ -19574,7 +19718,8 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   const grid = buildTacticalGridHtml(
     st,
     uiPhase,
-    reachableKeys,
+    movePathGreenKeys,
+    movePathRedKeys,
     skillRangeKeys,
     skillAoeKeys,
     pendingMoveAnim
@@ -19606,11 +19751,18 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
     boardViewport.addEventListener("mouseleave", () => {
       const s = combatState;
       if (!s) return;
+      let changed = false;
       if (s.tacticalSkillHoverX != null) {
         s.tacticalSkillHoverX = null;
         s.tacticalSkillHoverY = null;
-        renderTurnBattle();
+        changed = true;
       }
+      if (s.tacticalMoveHoverX != null) {
+        s.tacticalMoveHoverX = null;
+        s.tacticalMoveHoverY = null;
+        changed = true;
+      }
+      if (changed) renderTurnBattle();
     });
   }
   if (pendingMoveAnim) {
@@ -20013,6 +20165,7 @@ function runEnemyPhase() {
       setTimeout(nextHit, 240);
       return;
     }
+    if (foe.combat) foe.combat.__pendingSkillKey = null;
     foe.attackUntil = Date.now() + 320;
     if (foe.combat) {
       foe.combat.forceBasicThisTurn = !!(
@@ -21388,7 +21541,7 @@ function onFightOverlayClick(ev) {
     ) {
       return;
     }
-    const moveCell = t.closest(".fight-tactical-cell--reachable");
+    const moveCell = t.closest(".fight-tactical-cell--move-path-green");
     if (moveCell && st.tactical && !st.tacticalPendingSkill) {
       const x = parseInt(moveCell.getAttribute("data-tactical-x"), 10);
       const y = parseInt(moveCell.getAttribute("data-tactical-y"), 10);

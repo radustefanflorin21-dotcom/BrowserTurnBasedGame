@@ -16,6 +16,8 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const TacticalEnemyResolve = require("../../shared/tactical_enemy_resolve.js");
 const EnemyTacticalTargeting = require("../../shared/enemy_tactical_targeting.js");
+const EnemyTacticalCombat = require("../../shared/enemy_tactical_combat.js");
+require("../../shared/enemy_tactical_skills_data.js");
 
 function countEquippedSetPieces(equipment, setName) {
   const want = typeof setName === "string" ? setName.trim() : "";
@@ -243,6 +245,7 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
     },
     setCd(key, turns) {
       cd[key] = Math.max(0, Math.floor(turns));
+      foe.combat.__pendingSkillKey = key;
     },
     pickTarget(rule) {
       if (st?.tactical && typeof foe.gridX === "number") {
@@ -260,45 +263,20 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       return pickPartyTarget(st, rule || "bruiser", rng, foe);
     },
     applySkill(skillKey, opts) {
-      const cfg = skillCfg(skillKey);
-      const raw = opts?.raw ?? 0;
-      const verb = opts?.verb || "hits";
-      const primary = opts?.member || this.pickTargetForSkill(skillKey, opts?.rule || "bruiser");
-
-      if (!st?.tactical || typeof foe.gridX !== "number") {
-        if (cfg.aoe === "global_players" || cfg.target === "global_players") {
-          for (const m of TacticalEnemyResolve.livingParty(st)) {
-            this.hit(m, raw, verb);
-          }
-          return;
-        }
-        if (primary) this.hit(primary, raw, verb);
-        if (opts?.pull && primary) TacticalEnemyResolve.pullUnitToward(st, primary, foe.gridX, foe.gridY);
-        return;
-      }
-
-      const ax = primary?.gridX;
-      const ay = primary?.gridY;
-      const resolved = TacticalEnemyResolve.resolveTargets(st, foe, cfg, ax, ay);
-
-      if (cfg.buffOnly || opts?.buffOnly) {
-        for (const f of resolved.foes) {
-          if (!f.combat) f.combat = { skillCd: {}, actCount: 0 };
-          f.combat.outgoingDamageBonusPct = Math.max(f.combat.outgoingDamageBonusPct || 0, 8);
-          f.combat.outgoingDamageBonusTurns = Math.max(f.combat.outgoingDamageBonusTurns || 0, 2);
-        }
-        if (resolved.foes.length) {
-          appendLog(`${foe.name} empowers nearby allies.`);
-        }
-        return;
-      }
-
-      for (const m of resolved.players) {
-        this.hit(m, raw, verb);
-        if (cfg.pull) TacticalEnemyResolve.pullUnitToward(st, m, foe.gridX, foe.gridY);
-      }
+      EnemyTacticalCombat.applyEnemySkill(st, foe, scriptId, role, skillKey, { ...opts, rng }, {
+        hitMember: (member, raw, verb) => this.hit(member, raw, verb),
+        log: (line) => this.log(line),
+        healSelf: (pct) => this.healSelf(pct),
+        healFoe: (targetFoe, amount) => this.healFoe(targetFoe, amount)
+      });
     },
     hit(member, raw, verb) {
+      const pending = foe.combat?.__pendingSkillKey;
+      if (pending && st?.tactical && typeof foe.gridX === "number") {
+        foe.combat.__pendingSkillKey = null;
+        this.applySkill(pending, { member, raw, verb });
+        return;
+      }
       if (!member) return;
       const res = dealFoeDamageToMember(st, foe, member, raw, verb, rng, player);
       const hitRecord = {
@@ -322,6 +300,12 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
       if (recorder) recorder.flushStep();
     },
     hitAdjacent(centerMember, raw, verb, adjacentCount = 1, perTargetMult = 1) {
+      const pending = foe.combat?.__pendingSkillKey;
+      if (pending && st?.tactical && typeof foe.gridX === "number") {
+        foe.combat.__pendingSkillKey = null;
+        this.applySkill(pending, { member: centerMember, raw, verb });
+        return;
+      }
       if (!centerMember) return;
       const mult = typeof perTargetMult === "number" && perTargetMult > 0 ? perTargetMult : 1;
       const targets = [centerMember, ...getAdjacentPartyMembers(st, centerMember, adjacentCount)];
@@ -385,6 +369,7 @@ export function runSingleEnemyTurn(foe, st, rng, appendLog, player, enemyHits, r
     return;
   }
   foe.combat.actCount = (foe.combat.actCount || 0) + 1;
+  if (foe.combat) foe.combat.__pendingSkillKey = null;
 
   const def = getEnemyDefByName(foe.name);
   const scriptId = def?.combatScript?.trim?.() || foe.combat.script || "";

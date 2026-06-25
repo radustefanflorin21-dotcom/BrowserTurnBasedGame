@@ -630,7 +630,7 @@ const SCRIPT_HANDLERS = {
       ctx.setCd("withering_cry", 3);
       rollBlindAll(st, ctx, 50, 8, 2);
       const dmg = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult * accMult));
-      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Withering Cries at");
+      ctx.applySkill("withering_cry", { raw: dmg, verb: "Withering Cries at" });
       return true;
     }
     if (ctx.ready("drought_curse")) {
@@ -760,7 +760,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("stone_breath")) {
       ctx.setCd("stone_breath", 4);
       const dmg = Math.max(1, Math.floor(intv * 0.65 * ctx.outMult));
-      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Stone Breath washes over");
+      ctx.applySkill("stone_breath", { raw: dmg, verb: "Stone Breath washes over" });
       return true;
     }
     if (ctx.ready("mountainhide")) {
@@ -879,7 +879,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("lullaby_of_snow")) {
       ctx.setCd("lullaby_of_snow", 3);
       const dmg = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * magicMult));
-      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Lullaby of Snow drifts over");
+      ctx.applySkill("lullaby_of_snow", { raw: dmg, verb: "Lullaby of Snow drifts over" });
       return true;
     }
     if (ctx.ready("innocent_grasp")) {
@@ -961,7 +961,7 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("soul_chill")) {
       ctx.setCd("soul_chill", 3);
       const dmg = Math.max(1, Math.floor(intv * 0.4 * ctx.outMult));
-      for (const m of (st.party || []).filter((x) => x && x.hp > 0)) ctx.hit(m, dmg, "Soul Chill washes over");
+      ctx.applySkill("soul_chill", { raw: dmg, verb: "Soul Chill washes over", member });
       return true;
     }
     if (ctx.ready("banner_curse")) {
@@ -1041,8 +1041,8 @@ const SCRIPT_HANDLERS = {
     if (foe.combat.warmasterPhase3 && ctx.ready("final_order")) {
       ctx.setCd("final_order", 5);
       const hit = Math.max(1, Math.floor(strv * 0.55 * ctx.outMult * dmgBonus * accBonus));
+      ctx.applySkill("final_order", { raw: hit, verb: "Final Order shakes the chamber" });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Final Order shakes the chamber");
         tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
       }
       return true;
@@ -1213,8 +1213,8 @@ const SCRIPT_HANDLERS = {
     if (ctx.ready("sporefall")) {
       ctx.setCd("sporefall", 4);
       const hit = Math.max(1, Math.floor(intv * 0.45 * ctx.outMult * dmgBonus));
+      ctx.applySkill("sporefall", { raw: hit, verb: "Sporefall rains", member });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Sporefall rains");
         if (ctx.rng.chance(45)) applyPlayerPoison(st, Math.max(1, Math.floor(hit * 0.12)), 2);
         if (ctx.rng.chance(35)) applyPartyMemberBlind(st, m, 6, 1);
       }
@@ -1238,8 +1238,8 @@ const SCRIPT_HANDLERS = {
     if (foe.combat.heartbloomPhase3 && ctx.ready("gaia_heartbreak")) {
       ctx.setCd("gaia_heartbreak", 5);
       const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * dmgBonus * accBonus));
+      ctx.applySkill("gaia_heartbreak", { raw: hit, verb: "Gaia Heartbreak shatters" });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Gaia Heartbreak shatters");
         tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
       }
       return true;
@@ -1408,8 +1408,8 @@ const SCRIPT_HANDLERS = {
     if (phase3 && ctx.ready("worldhate_judgment")) {
       ctx.setCd("worldhate_judgment", 5);
       const hit = Math.max(1, Math.floor(intv * 0.55 * ctx.outMult * dmgBonus * accBonus));
+      ctx.applySkill("worldhate_judgment", { raw: hit, verb: "Worldhate Judgment blinds" });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Worldhate Judgment blinds");
         tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
       }
       return true;
@@ -1617,8 +1617,8 @@ const SCRIPT_HANDLERS = {
     if (phase3 && ctx.ready("absolute_zero_pulse")) {
       ctx.setCd("absolute_zero_pulse", 6);
       const hit = Math.max(1, Math.floor(intv * 0.58 * ctx.outMult * magicBonus * accBonus));
+      ctx.applySkill("absolute_zero_pulse", { raw: hit, verb: "Absolute Zero Pulse freezes" });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Absolute Zero Pulse freezes");
         tryPartyMemberStun(st, m, ctx.rng, 0.2, ctx.player, ctx.log);
         if (ctx.rng.chance(45)) applyPartyMemberMagicDamageDown(st, m, 8, 2);
       }
@@ -1627,8 +1627,8 @@ const SCRIPT_HANDLERS = {
     if (phase2 && ctx.ready("fracture_the_surface") && livingPartyCount(st) >= 3) {
       ctx.setCd("fracture_the_surface", 5);
       const hit = Math.max(1, Math.floor(strv * 0.5 * ctx.outMult));
+      ctx.applySkill("fracture_the_surface", { raw: hit, verb: "Fracture the Surface shakes", member });
       for (const m of (st.party || []).filter((x) => x && x.hp > 0)) {
-        ctx.hit(m, hit, "Fracture the Surface shakes");
         tryPartyMemberStun(st, m, ctx.rng, 0.18, ctx.player, ctx.log);
         if (ctx.rng.chance(35)) applyPartyMemberCripple(st, m, 1);
       }

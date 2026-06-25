@@ -168,6 +168,72 @@
     return autoPlaceUnits(foes, cells, (f) => roleColumnPreference(roleForFoe ? roleForFoe(f) : "bruiser"));
   }
 
+  function reconstructPath(parent, end) {
+    const path = [];
+    let cur = end;
+    while (cur) {
+      path.push({ x: cur.x, y: cur.y });
+      cur = parent.get(coordKey(cur.x, cur.y));
+    }
+    path.reverse();
+    return path;
+  }
+
+  /** Shortest orthogonal path for movement preview (may append unwalkable goal for display). */
+  function shortestPath(fromX, fromY, toX, toY, board, occupancy, ignoreUid) {
+    if (fromX === toX && fromY === toY) return [{ x: fromX, y: fromY }];
+    const parent = new Map();
+    parent.set(coordKey(fromX, fromY), null);
+    const queue = [{ x: fromX, y: fromY }];
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
+    ];
+    let goal = null;
+    while (queue.length) {
+      const cur = queue.shift();
+      if (cur.x === toX && cur.y === toY) {
+        goal = cur;
+        break;
+      }
+      for (const [dx, dy] of dirs) {
+        const nx = cur.x + dx;
+        const ny = cur.y + dy;
+        const key = coordKey(nx, ny);
+        if (parent.has(key)) continue;
+        if (!isCellWalkable(nx, ny, board, occupancy, ignoreUid)) continue;
+        parent.set(key, cur);
+        queue.push({ x: nx, y: ny });
+      }
+    }
+    if (goal) return reconstructPath(parent, goal);
+
+    let bestKey = coordKey(fromX, fromY);
+    let bestDist = manhattan(fromX, fromY, toX, toY);
+    for (const key of parent.keys()) {
+      const c = parseCoordKey(key);
+      if (!c) continue;
+      const d = manhattan(c.x, c.y, toX, toY);
+      if (d < bestDist) {
+        bestDist = d;
+        bestKey = key;
+      }
+    }
+    const closest = parseCoordKey(bestKey);
+    if (!closest || (closest.x === fromX && closest.y === fromY)) {
+      return [
+        { x: fromX, y: fromY },
+        { x: toX, y: toY }
+      ];
+    }
+    const path = reconstructPath(parent, closest);
+    const last = path[path.length - 1];
+    if (!last || last.x !== toX || last.y !== toY) path.push({ x: toX, y: toY });
+    return path;
+  }
+
   function bfsReachable(fromX, fromY, movePoints, board, occupancy, ignoreUid) {
     const maxMp = Math.max(0, Math.floor(movePoints || 0));
     const dist = new Map();
@@ -234,6 +300,7 @@
     autoPlaceAllies,
     autoPlaceEnemies,
     bfsReachable,
+    shortestPath,
     findUnitByUid,
     allCombatUnits
   });

@@ -137,6 +137,18 @@
     if (!st?.tactical || !foe || typeof foe.gridX !== "number") {
       return { players: livingParty(st), foes: livingFoes(st), tiles: [] };
     }
+    if (cfg.target === "players_in_range") {
+      const rMin = typeof cfg.rangeMin === "number" ? cfg.rangeMin : 1;
+      const rMax = typeof cfg.rangeMax === "number" ? cfg.rangeMax : 4;
+      const players = livingParty(st).filter((m) =>
+        inSkillRange(st, foe, m.gridX, m.gridY, { ...cfg, rangeMin: rMin, rangeMax: rMax })
+      );
+      return { players, foes: [], tiles: [] };
+    }
+    if (cfg.anchorSelf && cfg.aoe === "cross1") {
+      const tiles = TT().cross1Tiles(foe.gridX, foe.gridY, 1);
+      return { players: unitsOnTiles(st, tiles, "player"), foes: [], tiles };
+    }
     if (cfg.target === "global_players" || cfg.aoe === "global_players") {
       return { players: livingParty(st), foes: [], tiles: [] };
     }

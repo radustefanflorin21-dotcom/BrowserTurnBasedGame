@@ -36,3 +36,4 @@ Mage / Controller / Support / 4       Single player unit in range + LoS
 Summoner / Harasser / Buffer
 
 See shared/enemy_tactical_targeting.js for per-skill overrides.
+Regenerate the skill table after edits: node scripts/generate_enemy_tactical_skills.mjs

@@ -6963,13 +6963,21 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   background: rgba(188, 118, 118, 0.92);
 }
 
-.fight-tactical-cell--reachable {
-  box-shadow: inset 0 0 0 2px rgba(64, 140, 255, 0.95);
+.fight-tactical-cell--move-path-green {
+  box-shadow: inset 0 0 0 2px rgba(80, 200, 120, 0.95);
+  background: rgba(70, 180, 100, 0.24);
   cursor: pointer;
 }
 
+.fight-tactical-cell--move-path-red {
+  box-shadow: inset 0 0 0 2px rgba(220, 90, 90, 0.95);
+  background: rgba(200, 70, 70, 0.24);
+  cursor: not-allowed;
+}
+
 .fight-tactical-cell--skill-range {
-  box-shadow: inset 0 0 0 2px rgba(180, 120, 255, 0.85);
+  box-shadow: inset 0 0 0 2px rgba(180, 120, 255, 0.95);
+  background: rgba(150, 90, 255, 0.24);
   cursor: crosshair;
 }
 
@@ -6980,6 +6988,7 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-tactical-cell--skill-range.fight-tactical-cell--skill-aoe {
   box-shadow: inset 0 0 0 2px rgba(255, 120, 80, 0.95);
+  background: rgba(255, 100, 60, 0.2);
 }
 
 .fight-tactical-cell--placeable {
@@ -7099,6 +7108,43 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
 
 .fight-tactical-token--selected {
   filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95));
+}
+
+.fight-tactical-token.fight-card--attacking {
+  z-index: 25;
+  filter: brightness(1.14) saturate(1.08);
+}
+
+.fight-tactical-token.fight-card--shaking {
+  animation: fightTacticalTokenShake 0.9s ease-in-out;
+  z-index: 26;
+}
+
+.fight-tactical-token.fight-card--hit {
+  filter: brightness(1.16) saturate(1.1);
+}
+
+.fight-tactical-token.fight-card--healed {
+  filter: brightness(1.2) saturate(1.12);
+}
+
+@keyframes fightTacticalTokenShake {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  12% {
+    filter: brightness(1.2) hue-rotate(-4deg);
+  }
+  28% {
+    filter: brightness(1.15) hue-rotate(4deg);
+  }
+  44% {
+    filter: brightness(1.22);
+  }
+  60% {
+    filter: brightness(1.12);
+  }
 }
 
 .fight-tactical-token--active {

@@ -417,8 +417,14 @@
     });
     applyCombatVisualSnapshot(st, step);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
-    if (step.hits && step.hits.length) playServerEnemyHitEffects(step.hits);
-    if (step.heals && step.heals.length) playServerHealEffects(step.heals);
+    const hits = step.hits && step.hits.length ? step.hits : null;
+    const heals = step.heals && step.heals.length ? step.heals : null;
+    if (hits || heals) {
+      requestAnimationFrame(() => {
+        if (hits) playServerEnemyHitEffects(hits);
+        if (heals) playServerHealEffects(heals);
+      });
+    }
     if (typeof shakeFightOverlay === "function") shakeFightOverlay();
   }
 

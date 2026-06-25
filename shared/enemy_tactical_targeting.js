@@ -34,49 +34,15 @@
   const GLOBAL_P = S(0, "global_players", "global_players", { requireUnitOnTile: false });
   const GLOBAL_F = S(0, "global_foes", "global_foes", { requireUnitOnTile: false });
 
+  const DATA =
+    typeof EnemyTacticalSkillsData !== "undefined"
+      ? EnemyTacticalSkillsData.ENEMY_TACTICAL_SKILLS
+      : typeof require !== "undefined"
+        ? require("./enemy_tactical_skills_data.js").ENEMY_TACTICAL_SKILLS
+        : {};
+
   /** @type {Record<string, object>} */
-  const SKILL = {
-    // --- Mismatch fixes (design doc authoritative) ---
-    "gorilla:ground_rupture": { ...S(3, "line", "player"), lineMax: 3, stopAtOccupied: true },
-    "primordial_silverback:ground_roar": { ...S(0, "self_radius", "player"), selfRadius: 2 },
-    "field_wolf:pack_howl": { ...S(0, "self_radius", "global_foes"), selfRadius: 3, buffOnly: true },
-    "tide_hopper:dragging_current": { ...S(4, "single", "player"), pull: 1 },
-    "tide_hopper:foam_feint": S(3, "single", "player"),
-    "inferno_oracle:flameveil_ward": { ...S(4, "single", "foe_ally"), targetSelfOrAlly: true },
-    "the_riftforge_tyrant:forgefire_decree": GLOBAL_P,
-
-    // Tank samples
-    "cinder_husk:dead_flesh": SELF,
-    "cinder_husk:grave_fortitude": SELF,
-    "tusk_boar:thick_hide": SELF,
-    "tusk_boar:war_boar_taunt": S(4, "global_players", "global_players"),
-    "tusk_boar:gore_charge": { ...S(3, "single", "player"), charge: true, straightLine: true },
-    "thornback_graveguard:thorn_challenge": GLOBAL_P,
-    "hermit_crab:anchoring_taunt": S(4, "global_players", "global_players"),
-    "hermit_crab:crushing_clamp": MELEE,
-
-    // Bruiser samples
-    "plains_raptor:pounce": { ...S(3, "single", "player"), leap: true },
-    "plains_raptor:claw_rend": MELEE,
-    "ashmaw_titan:ashmaw_crush": MELEE,
-    "ashmaw_titan:slagquake_slam": { ...MELEE, aoe: "cross1" },
-    "stormwake_leviathan:endless_maelstrom": GLOBAL_P,
-    "stormwake_leviathan:tempest_roar": GLOBAL_P,
-    "stormwake_leviathan:cataclysm_strike": MELEE,
-    "the_last_warmaster:ruststorm_slash": { ...MELEE, aoe: "cross1" },
-    "the_last_warmaster:final_order": GLOBAL_P,
-
-    // Controller samples
-    "burrow_hare:burrow_instinct": SELF,
-    "burrow_hare:dust_flick": S(3, "single", "player"),
-    "burrow_hare:bleed_scratch": MELEE,
-    "mirage_maw:thirsting_haze": { ...S(4, "3x3", "player"), allowEmptyTile: true },
-
-    // Support samples
-    "bramblehorn_matriarch:rootmend": { ...S(4, "single", "foe_ally"), targetSelfOrAlly: true },
-    "bramblehorn_matriarch:thorn_prayer": GLOBAL_P,
-    "whitebark_matron:frozen_prayer": GLOBAL_F
-  };
+  const SKILL = { ...DATA };
 
   function getBasicAttackForRole(role) {
     const r = String(role || "bruiser").toLowerCase();
