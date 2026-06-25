@@ -14175,10 +14175,168 @@ function syncFightSceneBackdropFromAdventure() {
   if (!adventureBgLastUrl) {
     mirror.removeAttribute("src");
     mirror.classList.remove("fight-scene-backdrop__img--city");
+    syncTacticalBoardColorsFromBackdrop();
     return;
   }
   mirror.classList.toggle("fight-scene-backdrop__img--city", !!adventureBgLastIsCity);
   mirror.src = adventureBgLastUrl;
+  syncTacticalBoardColorsFromBackdrop();
+}
+
+const TACTICAL_BOARD_COLOR_DEFAULTS = {
+  light: "rgba(214, 184, 132, 0.32)",
+  dark: "rgba(146, 108, 62, 0.38)",
+  allyLight: "rgba(176, 204, 232, 0.34)",
+  allyDark: "rgba(122, 156, 196, 0.4)",
+  enemyLight: "rgba(232, 176, 176, 0.34)",
+  enemyDark: "rgba(188, 118, 118, 0.4)",
+  frameLight: "rgba(154, 107, 61, 0.38)",
+  frameMid: "rgba(107, 69, 37, 0.44)",
+  frameDark: "rgba(90, 56, 32, 0.5)",
+  border: "rgba(0, 0, 0, 0.2)"
+};
+
+function clampTacticalBoardByte(n) {
+  return Math.max(0, Math.min(255, Math.round(n)));
+}
+
+function mixTacticalBoardRgb(r, g, b, tr, tg, tb, t) {
+  const u = 1 - t;
+  return {
+    r: clampTacticalBoardByte(r * u + tr * t),
+    g: clampTacticalBoardByte(g * u + tg * t),
+    b: clampTacticalBoardByte(b * u + tb * t)
+  };
+}
+
+function tacticalBoardRgba(rgb, alpha) {
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+}
+
+function sampleAverageRgbFromBackdropImage(img, sampleSize = 28) {
+  const canvas = document.createElement("canvas");
+  canvas.width = sampleSize;
+  canvas.height = sampleSize;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  const iw = img.naturalWidth || img.width || 0;
+  const ih = img.naturalHeight || img.height || 0;
+  if (iw < 1 || ih < 1) return null;
+  const scale = Math.max(sampleSize / iw, sampleSize / ih);
+  const sw = iw * scale;
+  const sh = ih * scale;
+  ctx.drawImage(img, (sampleSize - sw) * 0.5, (sampleSize - sh) * 0.5, sw, sh);
+  const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 64) continue;
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+    n++;
+  }
+  if (!n) return null;
+  return { r: r / n, g: g / n, b: b / n };
+}
+
+function buildTacticalBoardPaletteFromRgb(rgb) {
+  const light = mixTacticalBoardRgb(rgb.r, rgb.g, rgb.b, 255, 255, 255, 0.28);
+  const dark = mixTacticalBoardRgb(rgb.r, rgb.g, rgb.b, 0, 0, 0, 0.22);
+  const allyLight = mixTacticalBoardRgb(light.r, light.g, light.b, 120, 175, 235, 0.38);
+  const allyDark = mixTacticalBoardRgb(dark.r, dark.g, dark.b, 80, 130, 200, 0.34);
+  const enemyLight = mixTacticalBoardRgb(light.r, light.g, light.b, 235, 120, 120, 0.38);
+  const enemyDark = mixTacticalBoardRgb(dark.r, dark.g, dark.b, 200, 70, 70, 0.34);
+  const frameLight = mixTacticalBoardRgb(rgb.r, rgb.g, rgb.b, 255, 255, 255, 0.12);
+  const frameMid = { r: rgb.r, g: rgb.g, b: rgb.b };
+  const frameDark = mixTacticalBoardRgb(rgb.r, rgb.g, rgb.b, 0, 0, 0, 0.35);
+  return {
+    light: tacticalBoardRgba(light, 0.34),
+    dark: tacticalBoardRgba(dark, 0.42),
+    allyLight: tacticalBoardRgba(allyLight, 0.36),
+    allyDark: tacticalBoardRgba(allyDark, 0.44),
+    enemyLight: tacticalBoardRgba(enemyLight, 0.36),
+    enemyDark: tacticalBoardRgba(enemyDark, 0.44),
+    frameLight: tacticalBoardRgba(frameLight, 0.34),
+    frameMid: tacticalBoardRgba(frameMid, 0.42),
+    frameDark: tacticalBoardRgba(frameDark, 0.48),
+    border: tacticalBoardRgba(dark, 0.2)
+  };
+}
+
+function applyTacticalBoardPalette(palette) {
+  const overlay = document.getElementById("fightOverlay");
+  if (!overlay) return;
+  const p = palette || TACTICAL_BOARD_COLOR_DEFAULTS;
+  overlay.style.setProperty("--tactical-cell-light", p.light);
+  overlay.style.setProperty("--tactical-cell-dark", p.dark);
+  overlay.style.setProperty("--tactical-cell-ally-light", p.allyLight);
+  overlay.style.setProperty("--tactical-cell-ally-dark", p.allyDark);
+  overlay.style.setProperty("--tactical-cell-enemy-light", p.enemyLight);
+  overlay.style.setProperty("--tactical-cell-enemy-dark", p.enemyDark);
+  overlay.style.setProperty("--tactical-board-frame-light", p.frameLight);
+  overlay.style.setProperty("--tactical-board-frame-mid", p.frameMid);
+  overlay.style.setProperty("--tactical-board-frame-dark", p.frameDark);
+  overlay.style.setProperty("--tactical-cell-border", p.border);
+}
+
+let _tacticalBoardColorSampleToken = 0;
+
+/** Derive semi-transparent checker colors from the mirrored fight backdrop. */
+function syncTacticalBoardColorsFromBackdrop() {
+  const overlay = document.getElementById("fightOverlay");
+  const mirror = document.getElementById("fightSceneBackdropImg");
+  if (!overlay || !overlay.classList.contains("fight-active")) return;
+  if (!overlay.classList.contains("fight-overlay--tactical")) return;
+  const token = ++_tacticalBoardColorSampleToken;
+  const finish = (palette) => {
+    if (token !== _tacticalBoardColorSampleToken) return;
+    applyTacticalBoardPalette(palette);
+  };
+  if (!mirror || !mirror.getAttribute("src")) {
+    finish(null);
+    return;
+  }
+  const applyFrom = (img) => {
+    const rgb = sampleAverageRgbFromBackdropImage(img);
+    finish(rgb ? buildTacticalBoardPaletteFromRgb(rgb) : null);
+  };
+  if (mirror.complete && mirror.naturalWidth > 0) {
+    applyFrom(mirror);
+    return;
+  }
+  const onLoad = () => {
+    mirror.removeEventListener("load", onLoad);
+    mirror.removeEventListener("error", onErr);
+    if (token !== _tacticalBoardColorSampleToken) return;
+    applyFrom(mirror);
+  };
+  const onErr = () => {
+    mirror.removeEventListener("load", onLoad);
+    mirror.removeEventListener("error", onErr);
+    finish(null);
+  };
+  mirror.addEventListener("load", onLoad);
+  mirror.addEventListener("error", onErr);
+}
+
+function clearTacticalBoardPalette() {
+  const overlay = document.getElementById("fightOverlay");
+  if (!overlay) return;
+  [
+    "--tactical-cell-light",
+    "--tactical-cell-dark",
+    "--tactical-cell-ally-light",
+    "--tactical-cell-ally-dark",
+    "--tactical-cell-enemy-light",
+    "--tactical-cell-enemy-dark",
+    "--tactical-board-frame-light",
+    "--tactical-board-frame-mid",
+    "--tactical-board-frame-dark",
+    "--tactical-cell-border"
+  ].forEach((prop) => overlay.style.removeProperty(prop));
 }
 
 /**
@@ -21019,6 +21177,7 @@ function renderTurnBattle() {
   const megaLeviathanPortrait = isStormbreakHollowLeviathanBossRoomFight(st);
   const overlay = document.getElementById("fightOverlay");
   if (overlay) overlay.classList.toggle("fight-overlay--tactical", !!st.tactical);
+  if (st.tactical) syncTacticalBoardColorsFromBackdrop();
 
   if (st.tactical && typeof TacticalGrid !== "undefined" && !deferBoardRender) {
     renderTacticalBattlefield(hud, st, uiPhase);
@@ -23987,6 +24146,7 @@ function closeFightOverlay() {
   _tacticalBoardScreenBottom = null;
   lastDungeonPhaseBgCrossfadeKey = "";
   pendingLeviathanPhaseCeremony = null;
+  clearTacticalBoardPalette();
   hideItemTooltip();
   hideFightResults();
   const overlay = document.getElementById("fightOverlay");
