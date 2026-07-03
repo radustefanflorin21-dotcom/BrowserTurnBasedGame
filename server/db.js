@@ -79,6 +79,48 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_player_mail_user ON player_mail(user_id, read_at);
+
+  CREATE TABLE IF NOT EXISTS arena_profile (
+    user_id INTEGER NOT NULL,
+    slot_index INTEGER NOT NULL,
+    season_id TEXT NOT NULL DEFAULT 'season_1',
+    rating INTEGER NOT NULL DEFAULT 1000,
+    honor INTEGER NOT NULL DEFAULT 0,
+    war_medals INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    win_streak INTEGER NOT NULL DEFAULT 0,
+    highest_rating INTEGER NOT NULL DEFAULT 1000,
+    daily_reset_key TEXT NOT NULL DEFAULT '',
+    daily_wins INTEGER NOT NULL DEFAULT 0,
+    daily_matches INTEGER NOT NULL DEFAULT 0,
+    daily_first_win_claimed INTEGER NOT NULL DEFAULT 0,
+    daily_objectives_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, slot_index),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS arena_match_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id TEXT NOT NULL,
+    mode_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    slot_index INTEGER NOT NULL,
+    opponent_user_id INTEGER,
+    opponent_name TEXT,
+    victory INTEGER NOT NULL DEFAULT 0,
+    rating_before INTEGER NOT NULL DEFAULT 0,
+    rating_after INTEGER NOT NULL DEFAULT 0,
+    honor_earned INTEGER NOT NULL DEFAULT 0,
+    war_medals_earned INTEGER NOT NULL DEFAULT 0,
+    rounds INTEGER NOT NULL DEFAULT 0,
+    stats_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_arena_match_history_user ON arena_match_history(user_id, created_at);
 `);
 
 try {

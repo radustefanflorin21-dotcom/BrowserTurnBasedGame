@@ -9,6 +9,7 @@ import { registerPlayerRoutes } from "./player_routes.js";
 import { registerWorldRoutes } from "./world_routes.js";
 import { registerMmoRoutes } from "./mmo_routes.js";
 import { registerMarketRoutes } from "./market_routes.js";
+import { registerArenaRoutes } from "./arena/routes.js";
 import { registerPresenceRoutes } from "./presence/routes.js";
 import { attachPresenceWebSocket } from "./presence/ws.js";
 import { loadGameConfig } from "./load_game_config.js";
@@ -61,6 +62,7 @@ registerPlayerRoutes(app);
 registerWorldRoutes(app);
 registerMmoRoutes(app);
 registerMarketRoutes(app);
+registerArenaRoutes(app);
 registerPresenceRoutes(app);
 
 app.use((err, _req, res, _next) => {

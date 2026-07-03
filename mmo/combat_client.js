@@ -173,6 +173,8 @@
       ),
       selectedAllyUid: st.selectedAllyUid,
       activePartyUid: st.activePartyUid,
+      activePvpFoeUid: st.activePvpFoeUid ?? null,
+      arenaMatch: !!(extra.arena || st.arena),
       fightLog: Array.isArray(st.fightLog) ? st.fightLog.slice() : [],
       worldMapContext: worldMapContext || st.worldMapContext || null,
       stamina: typeof st.stamina === "number" ? st.stamina : undefined,
@@ -556,12 +558,23 @@
     if (isEnemyPhaseUiActive()) return false;
     const uid = resolveMyUserId();
     if (typeof uid !== "number") return false;
+    const myUid = Number(uid);
+    if (combatState.activePvpFoeUid != null) {
+      const foe = (combatState.foes || []).find(
+        (f) =>
+          f &&
+          f.isPvpUnit &&
+          f.uid === combatState.activePvpFoeUid &&
+          f.hp > 0 &&
+          !f.acted
+      );
+      if (foe && Number(foe.pvpControllerUserId) === myUid) return true;
+    }
     if (!combatState.serverAuthoritative) {
       const active =
         typeof getActivePartyMember === "function" ? getActivePartyMember(combatState) : null;
       return !!active;
     }
-    const myUid = Number(uid);
     const active =
       typeof getActivePartyMember === "function" ? getActivePartyMember(combatState) : null;
     if (active && Number(active.controllerUserId) === myUid) return true;
@@ -982,6 +995,23 @@
     clearEnemyPhaseUi();
   }
 
+  function startArena(payload) {
+    if (!isOnlineCombat() || !payload?.sessionId || !payload.state) return false;
+    sessionId = payload.sessionId;
+    applyServerMeta(payload);
+    if (typeof payload.hostUserId === "number") hostUserId = payload.hostUserId;
+    applyServerStateToCombat(payload.state, null, null, null, {
+      participants: payload.participants,
+      participantCount: Array.isArray(payload.participants) ? payload.participants.length : undefined,
+      arena: true
+    });
+    if (payload.player && typeof mergeServerPlayer === "function") {
+      mergeServerPlayer(payload.player, null);
+    }
+    openFightUi();
+    return true;
+  }
+
   root.ServerCombat = {
     isActive,
     hasSession,
@@ -994,6 +1024,7 @@
     getMyUserId: resolveMyUserId,
     fetchPartySession,
     start,
+    startArena,
     join,
     resume,
     submitAction,

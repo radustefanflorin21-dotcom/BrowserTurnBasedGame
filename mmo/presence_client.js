@@ -408,6 +408,30 @@
       root.onCombatState(msg);
       return;
     }
+    if (msg.type === "arena_queue_status" && root.MMOArena?.onQueueStatus) {
+      root.MMOArena.onQueueStatus(msg);
+      return;
+    }
+    if (msg.type === "arena_match_found" && root.MMOArena?.onMatchFound) {
+      root.MMOArena.onMatchFound(msg);
+      return;
+    }
+    if (msg.type === "arena_match_ready" && root.MMOArena?.onMatchReady) {
+      root.MMOArena.onMatchReady(msg);
+      return;
+    }
+    if (msg.type === "arena_match_canceled" && root.MMOArena?.onMatchCanceled) {
+      root.MMOArena.onMatchCanceled(msg);
+      return;
+    }
+    if (msg.type === "arena_match_start" && root.MMOArena?.onMatchStart) {
+      root.MMOArena.onMatchStart(msg);
+      return;
+    }
+    if (msg.type === "arena_match_result" && root.MMOArena?.onMatchResult) {
+      root.MMOArena.onMatchResult(msg);
+      return;
+    }
     if (msg.type === "presence") {
       if (Array.isArray(msg.players)) nearbyPlayers = msg.players;
       if (Array.isArray(msg.sameMap)) sameMapPlayers = msg.sameMap;

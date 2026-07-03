@@ -21,7 +21,8 @@ import { preparePlayerForCombat, applySkillBarPayloadToPlayer } from "./combat/p
 import { applyCombatWorldMapOutcome, resolveAuthoritativeEncounter } from "./progression/world_map.js";
 import { syncPresenceDungeonRun } from "./progression/dungeon.js";
 import { setSharedDefeat } from "./presence/map_cells.js";
-import { broadcastMapCellToTile } from "./presence/hub.js";
+import { broadcastMapCellToTile, sendJsonToUser } from "./presence/hub.js";
+import { computeArenaMvpUserId } from "./arena/pvp_finish.js";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -282,6 +283,45 @@ export function registerCombatRoutes(app) {
 
       const coopResults = out.participantResults;
       if (out.finished && coopResults && Object.keys(coopResults).length > 0) {
+        if (session.mode === "arena_pvp") {
+          const mvpUserId = computeArenaMvpUserId(session);
+          const rosters = await persistCoopResults(session, coopResults);
+          broadcastCoopCombatFinished(session, coopResults, rosters, {
+            lastHits: out.lastHits,
+            lastHeals: out.lastHeals,
+            lastEnemyHits: out.lastEnemyHits,
+            actorPartyUid: out.actorPartyUid,
+            enemyActionSteps: out.enemyActionSteps,
+            preEnemySnapshot: out.preEnemySnapshot
+          });
+          for (const [uid, result] of Object.entries(coopResults)) {
+            sendJsonToUser(Number(uid), {
+              type: "arena_match_result",
+              matchId: session.matchId,
+              mvpUserId,
+              victory: !!result.victory,
+              arenaOutcome: result.arenaOutcome || null
+            });
+          }
+          endSession(sessionId);
+          const myResult = coopResults[req.user.id];
+          const myPart = session.participants.get(req.user.id);
+          res.json({
+            state: out.state,
+            finished: true,
+            result: myResult,
+            participantResults: coopResults,
+            lastHits: out.lastHits || undefined,
+            lastHeals: out.lastHeals || undefined,
+            lastEnemyHits: out.lastEnemyHits || undefined,
+            enemyActionSteps: out.enemyActionSteps,
+            preEnemySnapshot: out.preEnemySnapshot,
+            actorPartyUid: out.actorPartyUid,
+            player: myPart?.player,
+            roster: rosters[req.user.id]
+          });
+          return;
+        }
         const victoryResult = Object.values(coopResults).find((r) => r?.victory);
         if (victoryResult) applyWorldMapVictory(session, victoryResult);
         for (const [userId, result] of Object.entries(coopResults)) {

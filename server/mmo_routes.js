@@ -3,9 +3,9 @@ import { getEconomyEventsForUser } from "./economy/audit.js";
 
 const MMO_FEATURES = Object.freeze({
   arena: {
-    status: "planned",
+    status: "live",
     title: "Arena",
-    message: "PvP matchmaking and ranked fights will be server-authoritative. Not available yet."
+    message: "Ranked PvP on the tactical board. Earn Honor and climb the seasonal ladder."
   },
   alliance: {
     status: "planned",
@@ -42,10 +42,6 @@ export function registerMmoRoutes(app) {
     const limit = Number(req.query?.limit);
     const events = getEconomyEventsForUser(req.user.id, Number.isFinite(limit) ? limit : 50);
     res.json({ events });
-  });
-
-  app.post("/api/arena/queue", requireAuth, (_req, res) => {
-    notImplemented("arena", res);
   });
 
   app.post("/api/trade/offer", requireAuth, (_req, res) => {

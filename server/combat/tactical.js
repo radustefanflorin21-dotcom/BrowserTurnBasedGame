@@ -171,3 +171,96 @@ export function ensureAllAlliesPlaced(st) {
   }
   return true;
 }
+
+function findArenaUnitForUser(st, userId, unitUid) {
+  const uid = Number(userId);
+  const inParty = TacticalGrid.findUnitByUid(st.party, unitUid);
+  if (inParty && Number(inParty.controllerUserId) === uid) return inParty;
+  const inFoe = TacticalGrid.findUnitByUid(st.foes, unitUid);
+  if (inFoe?.isPvpUnit && Number(inFoe.pvpControllerUserId) === uid) return inFoe;
+  return null;
+}
+
+export function validateArenaPlaceAction(st, session, userId, unitUid, x, y) {
+  if (st.phase !== "prep") return { ok: false, message: "Fight has already started." };
+  if (isUnitPlacementLocked(st, session, userId)) {
+    return { ok: false, message: "Your positions are locked." };
+  }
+  const unit = findArenaUnitForUser(st, userId, unitUid);
+  if (!unit) return { ok: false, message: "Invalid unit." };
+  if (!TacticalGrid.isInBounds(x, y)) return { ok: false, message: "Invalid tile." };
+  const isFoeSide = !!unit.isPvpUnit;
+  const { w, h } = TacticalGrid.getUnitFootprint(unit);
+  const cells = TacticalGrid.footprintCells(x, y, w, h);
+  if (isFoeSide) {
+    if (!cells.every((c) => TacticalGrid.isEnemyColumn(c.x))) {
+      return { ok: false, message: "Place your fighter in columns G or H." };
+    }
+  } else if (!cells.every((c) => TacticalGrid.isAllyColumn(c.x))) {
+    return { ok: false, message: "Allies must be placed in columns A or B." };
+  }
+  const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
+  for (const c of cells) {
+    const key = TacticalGrid.coordKey(c.x, c.y);
+    const cur = occ.get(key);
+    if (cur != null && cur !== unit.uid) {
+      return { ok: false, message: "That tile is occupied." };
+    }
+  }
+  return { ok: true, unit };
+}
+
+export function validateArenaMoveAction(st, session, userId, unitUid, x, y) {
+  if (st.phase !== "player") return { ok: false, message: "Not your turn." };
+  ensureTacticalUnitFootprints(st);
+  let unit = TacticalGrid.findUnitByUid(st.party, unitUid);
+  let isPvpFoe = false;
+  if (!unit) {
+    unit = TacticalGrid.findUnitByUid(st.foes, unitUid);
+    isPvpFoe = !!(unit?.isPvpUnit);
+  }
+  if (!unit || unit.hp <= 0) return { ok: false, message: "Invalid unit." };
+  const uid = Number(userId);
+  if (isPvpFoe) {
+    if (Number(unit.pvpControllerUserId) !== uid) {
+      return { ok: false, message: "You can only move your own fighters." };
+    }
+    if (st.activePvpFoeUid !== unit.uid) {
+      return { ok: false, message: "It is not this unit's turn." };
+    }
+  } else {
+    if (Number(unit.controllerUserId) !== uid) {
+      return { ok: false, message: "You can only move your own fighters." };
+    }
+    if (st.activePartyUid !== unit.uid) {
+      return { ok: false, message: "It is not this unit's turn." };
+    }
+  }
+  if (!TacticalGrid.isInBounds(x, y)) return { ok: false, message: "Invalid tile." };
+  const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
+  const reachable = TacticalGrid.bfsReachable(
+    unit.gridX,
+    unit.gridY,
+    unit.movePoints,
+    st.board,
+    occ,
+    unit.uid,
+    TacticalGrid.getUnitFootprint(unit).w,
+    TacticalGrid.getUnitFootprint(unit).h
+  );
+  const dest = reachable.find((c) => c.x === x && c.y === y);
+  if (!dest) return { ok: false, message: "That tile is out of movement range." };
+  return { ok: true, unit, cost: dest.cost };
+}
+
+export function validateArenaMeleeTarget(st, attacker, targetUid) {
+  if (attacker?.isPvpUnit) {
+    const ally = TacticalGrid.findUnitByUid(st.party, targetUid);
+    if (!ally || ally.hp <= 0) return { ok: false, message: "Invalid target." };
+    if (!TacticalGrid.areUnitsOrthogonalAdjacent(attacker, ally)) {
+      return { ok: false, message: "Target is not adjacent." };
+    }
+    return { ok: true, target: ally };
+  }
+  return validateMeleeTarget(st, attacker, targetUid);
+}

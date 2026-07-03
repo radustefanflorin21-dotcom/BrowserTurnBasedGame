@@ -19715,7 +19715,20 @@ function isMyTacticalUnit(unit, st) {
   if (!st?.serverAuthoritative) return true;
   const myUid = getCombatMyUserId();
   if (typeof myUid !== "number") return false;
+  if (unit.isPvpUnit && unit.pvpControllerUserId != null) {
+    return Number(unit.pvpControllerUserId) === Number(myUid);
+  }
   return Number(unit.controllerUserId) === Number(myUid);
+}
+
+function findMyArenaPrepUnit(st, uid) {
+  const n = Number(uid);
+  if (!Number.isFinite(n)) return null;
+  const ally = (st.party || []).find((m) => m && m.uid === n);
+  if (ally && isMyTacticalUnit(ally, st)) return ally;
+  const foe = (st.foes || []).find((f) => f && f.uid === n && f.isPvpUnit);
+  if (foe && isMyTacticalUnit(foe, st)) return foe;
+  return null;
 }
 
 function amTacticalPrepLocked(st) {
@@ -21761,10 +21774,52 @@ function showFightResults(victory, result) {
   if (btn) btn.onclick = () => closeFightOverlay();
 }
 
+/** Arena PvP result overlay (Honor / rating; no PvE loot). */
+function showArenaFightResults(result) {
+  const el = document.getElementById("fightResults");
+  if (!el) return;
+  const outcome = result.arenaOutcome || {};
+  const victory = !!result.victory;
+  const title = victory ? "Arena Victory" : "Arena Defeat";
+  const ratingLine =
+    typeof outcome.ratingBefore === "number" && typeof outcome.ratingAfter === "number"
+      ? `Rating ${outcome.ratingBefore} → ${outcome.ratingAfter} (${outcome.rankLabel || ""})`
+      : outcome.rankLabel || "";
+  const honorLine = `+${outcome.honorEarned || 0} Honor`;
+  const medalsLine =
+    outcome.warMedalsEarned > 0 ? ` · +${outcome.warMedalsEarned} War Medals` : "";
+  const closeFooter = `<div class="fight-results-footer"><button type="button" class="btn" id="fightResultsCloseBtn">Continue</button></div>`;
+  el.innerHTML = `<div class="fight-results-head ${victory ? "fight-results-head--win" : "fight-results-head--lose"}">${escapeHtml(title)}</div>
+    <div class="fight-results-body">
+      <p class="fight-results-msg">${escapeHtml(honorLine)}${escapeHtml(medalsLine)}</p>
+      ${ratingLine ? `<p class="fight-results-msg muted">${escapeHtml(ratingLine)}</p>` : ""}
+    </div>
+    ${closeFooter}`;
+  const btn = document.getElementById("fightResultsCloseBtn");
+  if (btn) btn.onclick = () => closeFightOverlay();
+  if (typeof openFightOverlay === "function") openFightOverlay();
+}
+
 /** Apply server-computed fight outcome (rewards already on {@link player}). */
 function applyServerFightResult(result) {
   const st = combatState;
   if (!st || !result) return;
+  if (result.arena || result.arenaOutcome) {
+    clearTacticalGridBeforeAnim();
+    st.phase = "ended";
+    st.endOutcome = result.victory ? "victory" : "defeat";
+    if (typeof result.finalPlayerHp === "number") {
+      player.hp = Math.max(1, result.finalPlayerHp);
+    }
+    syncCombatPartyHeroMirror(st);
+    migratePlayer(player);
+    showArenaFightResults(result);
+    ensureCharacterRoster();
+    characterRoster.slots[activeCharacterSlotIndex] = player;
+    save({ flush: true });
+    renderTurnBattle();
+    return;
+  }
   clearTacticalGridBeforeAnim();
   st.phase = "ended";
   st.endOutcome = result.leftFight ? "left" : result.victory ? "victory" : "defeat";
@@ -21818,6 +21873,7 @@ function applyServerFightResult(result) {
   renderTurnBattle();
 }
 window.applyServerFightResult = applyServerFightResult;
+window.showArenaResultToast = (msg) => window.MMOArena?.onMatchResult?.(msg);
 
 function finishCombatVictory() {
   console.error("Local combat victory is disabled; all fights must use server combat.");
@@ -22733,6 +22789,17 @@ function eligibleActingMembersClient(st) {
   return (st.party || []).filter((m) => m && m.hp > 0 && !m.acted);
 }
 
+function resolveCombatAttackTargetUid(st) {
+  if (!st) return null;
+  if (st.activePvpFoeUid != null) return st.selectedAllyUid;
+  return st.selectedUid;
+}
+
+function getArenaActingUnit(st) {
+  if (!st || st.activePvpFoeUid == null) return null;
+  return (st.foes || []).find((f) => f && f.uid === st.activePvpFoeUid && f.hp > 0) || null;
+}
+
 function getActivePartyMember(st) {
   if (!st || !Array.isArray(st.party)) return null;
   let m = st.party.find((x) => x && x.uid === st.activePartyUid && x.hp > 0 && !x.acted) || null;
@@ -22803,7 +22870,10 @@ function activeActorAction(kind, skillName) {
   if (!st || st.phase !== "player") return;
   if (st.serverAuthoritative && typeof window !== "undefined" && window.ServerCombat) {
     if (kind === "attack") {
-      void window.ServerCombat.submitAction({ type: "attack", targetUid: st.selectedUid });
+      void window.ServerCombat.submitAction({
+        type: "attack",
+        targetUid: resolveCombatAttackTargetUid(st)
+      });
     } else if (kind === "skill") {
       if (toggleTacticalSkillTargeting(st, skillName || "")) return;
       const mode = skillName ? getFightSkillTargetMode(skillName) : "enemy";
@@ -22953,8 +23023,8 @@ function onFightOverlayClick(ev) {
             allyPick.getAttribute("data-party-member"),
           10
         );
-        const m = (st.party || []).find((x) => x && x.uid === uid);
-        if (m && isMyTacticalUnit(m, st) && !amTacticalPrepLocked(st)) {
+        const m = findMyArenaPrepUnit(st, uid);
+        if (m && !amTacticalPrepLocked(st)) {
           st.tacticalPrepUnitUid = uid;
           updateFightAllySelection();
         }
@@ -22967,8 +23037,8 @@ function onFightOverlayClick(ev) {
         if (Number.isFinite(x) && Number.isFinite(y)) {
           const unitAt = findTacticalUnitAt(st, x, y);
           if (unitAt) {
-            const m = (st.party || []).find((p) => p && p.uid === unitAt.uid);
-            if (m && isMyTacticalUnit(m, st)) {
+            const m = findMyArenaPrepUnit(st, unitAt.uid);
+            if (m) {
               st.tacticalPrepUnitUid = unitAt.uid;
               updateFightAllySelection();
               return;
@@ -23070,7 +23140,10 @@ function onFightOverlayClick(ev) {
       return;
     }
     if (t.closest("[data-fight-action='attack']")) {
-      void window.ServerCombat.submitAction({ type: "attack", targetUid: st.selectedUid });
+      void window.ServerCombat.submitAction({
+        type: "attack",
+        targetUid: resolveCombatAttackTargetUid(st)
+      });
       return;
     }
     const skillBtn = t.closest("[data-fight-skill]");
@@ -28359,6 +28432,7 @@ function buildMenuPanelHtml(kind) {
   if (kind === "crafting") return buildCraftingPanelHtml();
   if (kind === "atlas") return buildAtlasPanelHtml();
   if (kind === "market") return buildShopPanelHtml();
+  if (kind === "arena" && window.MMOArena?.buildArenaPanelHtml) return window.MMOArena.buildArenaPanelHtml();
   return `<div class="game-page"><h1 class="game-page-title">${escapeHtml(meta.title)}</h1><p class="game-page-lead muted">${escapeHtml(
     meta.lead
   )}</p></div>`;
@@ -28368,6 +28442,7 @@ function renderMenuPanelContent() {
   const host = document.getElementById("menuPanelContent");
   if (!host || !isMenuPanelOpen()) return;
   host.innerHTML = buildMenuPanelHtml(activeMenuPanel);
+  if (activeMenuPanel === "arena") window.MMOArena?.wireArenaPanelEvents?.();
 }
 
 function openMenuPanel(kind) {
@@ -28381,6 +28456,11 @@ function openMenuPanel(kind) {
       if (title) title.textContent = refreshed.title;
       if (kind === "market" && isOnlineGameplayMode()) {
         void refreshMarketPanelData("all").then(() => renderMenuPanelContent());
+      } else if (kind === "arena" && isOnlineGameplayMode() && window.MMOArena?.refreshHub) {
+        void window.MMOArena.refreshHub().then(() => {
+          renderMenuPanelContent();
+          window.MMOArena?.wireArenaPanelEvents?.();
+        });
       } else {
         renderMenuPanelContent();
       }

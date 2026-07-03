@@ -1,4 +1,8 @@
 import { createRequire } from "node:module";
+import { finishArenaPvpMatch } from "../arena/pvp_finish.js";
+import { getArenaUnitForUser, getArenaParticipantPlayer } from "../arena/pvp_units.js";
+import { ensureArenaUnitsPlaced } from "../arena/pvp_units.js";
+import { recordArenaCombatStat } from "../arena/pvp_finish.js";
 import {
   buildFoeFromUnit,
   buildPartyFromPlayer,
@@ -69,7 +73,10 @@ import {
   validateMoveAction,
   applyMoveAction,
   validateMeleeTarget,
-  ensureAllAlliesPlaced
+  ensureAllAlliesPlaced,
+  validateArenaPlaceAction,
+  validateArenaMoveAction,
+  validateArenaMeleeTarget
 } from "./tactical.js";
 import { runTacticalEnemyMove } from "./tactical_ai.js";
 import {
@@ -116,6 +123,28 @@ function syncHeroHp(st) {
     st.playerHp = hero.hp;
     st.playerMax = hero.maxHp;
   }
+}
+
+function isArenaPvp(session) {
+  return session?.mode === "arena_pvp";
+}
+
+function finishMatchForSession(session, rng) {
+  if (isArenaPvp(session)) {
+    const win = getArenaWinningTeamKey(session);
+    const key = win || (session.state.party.some((m) => m?.hp > 0) ? "teamA" : "teamB");
+    return finishArenaPvpMatch(session, key);
+  }
+  return finishCoopVictory(session, rng);
+}
+
+function getArenaWinningTeamKey(session) {
+  const st = session.state;
+  const partyAlive = (st.party || []).some((m) => m && m.hp > 0);
+  const foesAlive = (st.foes || []).some((f) => f && f.hp > 0);
+  if (!foesAlive && partyAlive) return "teamA";
+  if (!partyAlive && foesAlive) return "teamB";
+  return null;
 }
 
 function isPartyAlive(st) {
@@ -295,6 +324,16 @@ function advanceCombatTurns(session, rng, replayOut = null) {
 
     st.turnQueueIndex = idx + 1;
     const foe = findLivingFoe(st, slot.uid);
+    if (foe?.isPvpUnit && isArenaPvp(session)) {
+      st.phase = "player";
+      st.activeFoeUid = foe.uid;
+      st.activePvpFoeUid = foe.uid;
+      st.activePartyUid = null;
+      foe.acted = false;
+      refreshUnitTurnResources(foe, foe, foe.maxStamina);
+      finalizeEnemyReplay(replayOut);
+      return { outcome: null, enemyHits, replayOut };
+    }
     st.phase = "enemy";
     st.activeFoeUid = foe ? foe.uid : null;
     openEnemyRoundClassEffects(st);
@@ -406,8 +445,17 @@ function getActorForMember(st, member, player) {
 }
 
 function resolveActorPlayer(session, member) {
-  if (session.coop && member) return getPlayerForMember(session, member);
+  if (session.coop && member) {
+    if (member.isPvpUnit && member.pvpControllerUserId != null) {
+      return getArenaParticipantPlayer(session, member.pvpControllerUserId, member);
+    }
+    return getPlayerForMember(session, member);
+  }
   return session.player;
+}
+
+function finishArenaDefeat(session) {
+  return finishArenaPvpMatch(session, "teamB");
 }
 
 function syncActiveHeroCombatToState(st, member) {
@@ -463,12 +511,15 @@ function afterPlayerAction(session, rng, actingMember = null) {
   const st = session.state;
   syncHpAfterAction(session);
   if (!st.foes.some((f) => f.hp > 0)) {
-    if (session.coop) return finishCoopVictory(session, rng);
+    if (session.coop) return finishMatchForSession(session, rng);
     const result = finishVictory(st, session.player, rng);
     return { state: cloneState(st), result, finished: true };
   }
   if (!isPartyAlive(st)) {
-    if (session.coop) return finishCoopDefeat(session);
+    if (session.coop) {
+      if (isArenaPvp(session)) return finishArenaDefeat(session);
+      return finishCoopDefeat(session);
+    }
     const result = finishDefeat(st, session.player);
     return { state: cloneState(st), result, finished: true };
   }
@@ -480,7 +531,10 @@ function afterPlayerAction(session, rng, actingMember = null) {
   tickFoeDots(st, (line) => appendLog(st, line));
   tickPlayerTurnEndBuffs(st);
   if (!isPartyAlive(st)) {
-    if (session.coop) return finishCoopDefeat(session);
+    if (session.coop) {
+      if (isArenaPvp(session)) return finishArenaDefeat(session);
+      return finishCoopDefeat(session);
+    }
     const result = finishDefeat(st, session.player);
     return { state: cloneState(st), result, finished: true };
   }
@@ -500,12 +554,15 @@ function afterPlayerAction(session, rng, actingMember = null) {
       : {})
   });
   if (turnOutcome.outcome === "victory") {
-    if (session.coop) return withEnemyHits(finishCoopVictory(session, rng));
+    if (session.coop) return withEnemyHits(finishMatchForSession(session, rng));
     const result = finishVictory(st, session.player, rng);
     return withEnemyHits({ state: cloneState(st), result, finished: true });
   }
   if (turnOutcome.outcome === "defeat") {
-    if (session.coop) return withEnemyHits(finishCoopDefeat(session));
+    if (session.coop) {
+      if (isArenaPvp(session)) return withEnemyHits(finishArenaDefeat(session));
+      return withEnemyHits(finishCoopDefeat(session));
+    }
     const result = finishDefeat(st, session.player);
     return withEnemyHits({ state: cloneState(st), result, finished: true });
   }
@@ -545,7 +602,8 @@ export function beginFightFromPrepSession(session) {
   const st = session.state;
   const rng = session.rng;
   if (!ensureAllAlliesPlaced(st)) {
-    TacticalGrid.autoPlaceAllies(st.party || []);
+    if (isArenaPvp(session)) ensureArenaUnitsPlaced(st);
+    else TacticalGrid.autoPlaceAllies(st.party || []);
   }
   if (session.prepTimer) {
     clearTimeout(session.prepTimer);
@@ -556,12 +614,15 @@ export function beginFightFromPrepSession(session) {
   const opening = applyCombatTurnOrderStart(session);
   const out = { state: cloneState(st), result: null, finished: false, began: true, ...opening };
   if (opening._turnOutcome === "victory") {
-    if (session.coop) return { ...finishCoopVictory(session, rng), ...opening, began: true };
+    if (session.coop) return { ...finishMatchForSession(session, rng), ...opening, began: true };
     const result = finishVictory(st, session.player, rng);
     return { state: cloneState(st), result, finished: true, began: true, ...opening };
   }
   if (opening._turnOutcome === "defeat") {
-    if (session.coop) return { ...finishCoopDefeat(session), ...opening, began: true };
+    if (session.coop) {
+      if (isArenaPvp(session)) return { ...finishArenaDefeat(session), ...opening, began: true };
+      return { ...finishCoopDefeat(session), ...opening, began: true };
+    }
     const result = finishDefeat(st, session.player);
     return { state: cloneState(st), result, finished: true, began: true, ...opening };
   }
@@ -592,7 +653,9 @@ export function processCombatAction(session, action, actingUserId = null) {
       const unitUid = Number(action.unitUid);
       const x = Number(action.x);
       const y = Number(action.y);
-      const check = validatePlaceAction(st, session, userId, unitUid, x, y);
+      const check = isArenaPvp(session)
+        ? validateArenaPlaceAction(st, session, userId, unitUid, x, y)
+        : validatePlaceAction(st, session, userId, unitUid, x, y);
       if (!check.ok) {
         const err = new Error(check.message || "Invalid placement.");
         err.status = 400;
@@ -614,9 +677,12 @@ export function processCombatAction(session, action, actingUserId = null) {
         throw err;
       }
       if (!ensureAllAlliesPlaced(st)) {
-        TacticalGrid.autoPlaceAllies(
-          (st.party || []).filter((m) => m && Number(m.controllerUserId) === Number(userId))
-        );
+        if (isArenaPvp(session)) ensureArenaUnitsPlaced(st);
+        else {
+          TacticalGrid.autoPlaceAllies(
+            (st.party || []).filter((m) => m && Number(m.controllerUserId) === Number(userId))
+          );
+        }
       }
       markParticipantReady(session, userId);
       appendLog(st, `${part.player?.name || "A fighter"} is ready.`);
@@ -657,22 +723,38 @@ export function processCombatAction(session, action, actingUserId = null) {
     throw err;
   }
 
-  const activeForTurn = coop ? getCoopMemberForUser(st, session, userId) : getActiveMember(st, session);
+  const activeForTurn = isArenaPvp(session)
+    ? getArenaUnitForUser(st, session, userId)?.unit || null
+    : coop
+      ? getCoopMemberForUser(st, session, userId)
+      : getActiveMember(st, session);
   if (!activeForTurn) {
-    const err = new Error("No active party member.");
-    err.status = 400;
+    const err = new Error("Not your turn.");
+    err.status = 403;
     throw err;
   }
-  if (coop) {
+  const activeIsPvpFoe = isArenaPvp(session) && !!activeForTurn.isPvpUnit;
+  if (coop && !activeIsPvpFoe) {
     st.activePartyUid = activeForTurn.uid;
     st.selectedAllyUid = activeForTurn.uid;
+    st.activePvpFoeUid = null;
     if (Number(activeForTurn.controllerUserId) !== Number(userId)) {
       const err = new Error("Not your turn.");
       err.status = 403;
       throw err;
     }
   }
-  if (activeForTurn.kind === "hero") syncActiveHeroCombatToState(st, activeForTurn);
+  if (activeIsPvpFoe) {
+    st.activePvpFoeUid = activeForTurn.uid;
+    st.activePartyUid = null;
+    st.activeFoeUid = activeForTurn.uid;
+    if (Number(activeForTurn.pvpControllerUserId) !== Number(userId)) {
+      const err = new Error("Not your turn.");
+      err.status = 403;
+      throw err;
+    }
+  }
+  if (activeForTurn.kind === "hero" && !activeIsPvpFoe) syncActiveHeroCombatToState(st, activeForTurn);
 
   if (type === "skill") {
     const skillName = typeof action.skillName === "string" ? action.skillName.trim() : "";
@@ -805,7 +887,9 @@ export function processCombatAction(session, action, actingUserId = null) {
     const member = activeForTurn;
     const x = Number(action.x);
     const y = Number(action.y);
-    const check = validateMoveAction(st, session, userId, member.uid, x, y);
+    const check = isArenaPvp(session)
+      ? validateArenaMoveAction(st, session, userId, member.uid, x, y)
+      : validateMoveAction(st, session, userId, member.uid, x, y);
     if (!check.ok) {
       const err = new Error(check.message || "Invalid move.");
       err.status = 400;
@@ -830,6 +914,45 @@ export function processCombatAction(session, action, actingUserId = null) {
       const err = new Error("Invalid actor.");
       err.status = 400;
       throw err;
+    }
+    if (activeIsPvpFoe) {
+      const targetUid = resolveActionTargetUid(action, st.selectedAllyUid);
+      const target = st.party.find((m) => m && m.uid === targetUid && m.hp > 0);
+      if (!target) {
+        const err = new Error("Invalid target.");
+        err.status = 400;
+        throw err;
+      }
+      if (st.tactical) {
+        const melee = validateArenaMeleeTarget(st, member, target.uid);
+        if (!melee.ok) {
+          const err = new Error(melee.message || "Invalid target.");
+          err.status = 400;
+          throw err;
+        }
+      }
+      const res = resolveOutgoingAttack(actor, target, rng, st, member);
+      let dmg = 0;
+      if (res.missed) {
+        appendLog(st, `${member.name} attacks ${target.name} but misses.`);
+      } else {
+        dmg = Math.max(0, Math.min(target.hp, resolveIncomingToMember(res.damage, target)));
+        target.hp = Math.max(0, target.hp - dmg);
+        if (target.kind === "hero") st.playerHp = target.hp;
+        appendLog(
+          st,
+          `${member.name} attacks ${target.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
+        );
+        recordArenaCombatStat(session, userId, { damageDealt: dmg });
+      }
+      syncStateToActiveHeroCombat(st, member);
+      markCoopHeroActedIfNeeded(member, session);
+      const out = afterPlayerAction(session, rng, member);
+      return {
+        ...out,
+        lastHits: [{ foeUid: target.uid, damage: dmg, missed: res.missed, crit: res.crit }],
+        actorPartyUid: member.uid
+      };
     }
     const targetUid = resolveActionTargetUid(action, st.selectedUid);
     if (!setSelectedFoeUid(st, targetUid)) {
@@ -856,6 +979,7 @@ export function processCombatAction(session, action, actingUserId = null) {
         st,
         `${member.name} attacks ${foe.name} for ${dmg} damage${res.crit ? " (critical hit!)" : ""}.`
       );
+      if (isArenaPvp(session)) recordArenaCombatStat(session, userId, { damageDealt: dmg });
       const graniteLog = tryProcGranitehornPhysResDown(actorPlayer?.equipment, foe, rng, "physical");
       if (graniteLog) appendLog(st, graniteLog);
       const warmasterLog = tryProcWarmasterBothDmgDownOnHit(actorPlayer?.equipment, foe, rng, "physical");

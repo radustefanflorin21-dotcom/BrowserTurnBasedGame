@@ -17,6 +17,10 @@ import { getPartyMemberIds, notifyPartyFightStarted } from "../presence/party.js
 import { applyCombatWorldMapOutcome } from "../progression/world_map.js";
 import { syncPresenceDungeonRun } from "../progression/dungeon.js";
 import { setSharedDefeat } from "../presence/map_cells.js";
+import { bindArenaCombatSessionRefs } from "../arena/queue.js";
+import { ensureArenaUnitsPlaced } from "../arena/pvp_units.js";
+import { computeArenaMvpUserId } from "../arena/pvp_finish.js";
+import { sendJsonToUser } from "../presence/hub.js";
 
 const sessions = new Map();
 /** @type {Map<number, string>} hostUserId -> sessionId while in prep */
@@ -80,22 +84,36 @@ function clearPrepTimer(session) {
 function lockCoopSession(session) {
   if (session.locked) return;
   if (session.state.phase === "prep") {
+    if (session.mode === "arena_pvp") {
+      ensureArenaUnitsPlaced(session.state);
+      for (const part of session.participants.values()) part.ready = true;
+    }
     beginFightFromPrepSession(session);
-    broadcastCoopCombat(session, { began: true });
+    broadcastCoopCombat(session, { began: true, arena: session.mode === "arena_pvp" });
     return;
   }
   clearPrepTimer(session);
   session.locked = true;
 }
 
-function schedulePrepTimeout(session) {
+function schedulePrepTimeout(session, onTimeout) {
   clearPrepTimer(session);
   const ms = Math.max(0, (session.prepEndsAt || 0) - Date.now());
   session.prepTimer = setTimeout(() => {
     session.prepTimer = null;
+    if (onTimeout) {
+      onTimeout(session);
+      return;
+    }
     lockCoopSession(session);
   }, ms);
 }
+
+bindArenaCombatSessionRefs({
+  sessions,
+  prepSessionsByHost,
+  schedulePrepTimeout
+});
 
 export function startCoopSession(hostUserId, { player, slotIndex, encounter, rngSeed }) {
   const { state, rngSeed: seed, rng, prepEndsAt } = createCoopPrepState(
@@ -255,6 +273,29 @@ function applyWorldMapVictory(session, result) {
 async function finalizeCoopVictoryFromOut(session, out) {
   const coopResults = out.participantResults;
   if (!coopResults || !Object.keys(coopResults).length) return;
+  if (session.mode === "arena_pvp") {
+    const mvpUserId = computeArenaMvpUserId(session);
+    const rosters = await persistCoopResults(session, coopResults);
+    broadcastCoopCombatFinished(session, coopResults, rosters, {
+      lastHits: out.lastHits,
+      lastHeals: out.lastHeals,
+      lastEnemyHits: out.lastEnemyHits,
+      actorPartyUid: out.actorPartyUid,
+      enemyActionSteps: out.enemyActionSteps,
+      preEnemySnapshot: out.preEnemySnapshot
+    });
+    for (const [uid, result] of Object.entries(coopResults)) {
+      sendJsonToUser(Number(uid), {
+        type: "arena_match_result",
+        matchId: session.matchId,
+        mvpUserId,
+        victory: !!result.victory,
+        arenaOutcome: result.arenaOutcome || null
+      });
+    }
+    endSession(session.sessionId);
+    return;
+  }
   const victoryResult = Object.values(coopResults).find((r) => r?.victory);
   if (victoryResult) applyWorldMapVictory(session, victoryResult);
   for (const [userId, result] of Object.entries(coopResults)) {
@@ -286,18 +327,39 @@ export function handleCombatUserDisconnect(userId) {
     if (!part) continue;
     part.connected = false;
     if (session.state.phase !== "player") continue;
-    const activeUid = session.state.activePartyUid;
-    const active = (session.state.party || []).find(
-      (m) => m && m.uid === activeUid && m.hp > 0 && !m.acted
+    const st = session.state;
+    const uid = Number(userId);
+    let active = (st.party || []).find(
+      (m) => m && m.uid === st.activePartyUid && m.hp > 0 && !m.acted
     );
-    if (!active || Number(active.controllerUserId) !== Number(userId)) continue;
+    if (active && Number(active.controllerUserId) === uid) {
+      try {
+        const out = runAction(session.sessionId, { type: "pass" }, userId);
+        if (out.participantResults && Object.keys(out.participantResults).length > 0) {
+          void finalizeCoopVictoryFromOut(session, out);
+        }
+      } catch (err) {
+        console.error("Combat disconnect auto-pass failed:", err);
+      }
+      continue;
+    }
+    const pvpFoe = (st.foes || []).find(
+      (f) =>
+        f &&
+        f.isPvpUnit &&
+        f.uid === st.activePvpFoeUid &&
+        f.hp > 0 &&
+        !f.acted &&
+        Number(f.pvpControllerUserId) === uid
+    );
+    if (!pvpFoe) continue;
     try {
       const out = runAction(session.sessionId, { type: "pass" }, userId);
       if (out.participantResults && Object.keys(out.participantResults).length > 0) {
         void finalizeCoopVictoryFromOut(session, out);
       }
     } catch (err) {
-      console.error("Combat disconnect auto-pass failed:", err);
+      console.error("Arena PvP disconnect auto-pass failed:", err);
     }
   }
 }

@@ -363,6 +363,33 @@
     return cachedMmoFeatures;
   }
 
+  async function fetchArenaHub(slotIndex) {
+    return apiFetch(`/api/arena/hub?slotIndex=${encodeURIComponent(slotIndex)}`, { method: "GET" });
+  }
+
+  async function arenaJoinQueue(body) {
+    return apiFetch("/api/arena/queue", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function arenaLeaveQueue(body) {
+    return apiFetch("/api/arena/queue", {
+      method: "POST",
+      body: JSON.stringify({ ...(body || {}), action: "leave" })
+    });
+  }
+
+  async function arenaRespondMatch(body) {
+    return apiFetch("/api/arena/match/respond", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async function fetchArenaHistory(slotIndex, limit) {
+    const qs = new URLSearchParams({
+      slotIndex: String(slotIndex),
+      limit: String(limit || 10)
+    });
+    return apiFetch(`/api/arena/history?${qs}`, { method: "GET" });
+  }
+
   root.GameStorage = {
     isOnlineMode,
     getMode: () => runtime.mode,
@@ -399,6 +426,11 @@
     marketCancel,
     fetchMail,
     markMailRead,
-    fetchMmoFeatures
+    fetchMmoFeatures,
+    fetchArenaHub,
+    arenaJoinQueue,
+    arenaLeaveQueue,
+    arenaRespondMatch,
+    fetchArenaHistory
   };
 })(typeof window !== "undefined" ? window : globalThis);

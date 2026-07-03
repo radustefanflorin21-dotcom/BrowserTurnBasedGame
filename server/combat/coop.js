@@ -253,7 +253,12 @@ export function beginCoopFromPrep(session) {
   ensureClassState(st);
 
   for (const { userId, player } of session.participants.values()) {
-    const hero = st.party.find((m) => m && m.kind === "hero" && m.controllerUserId === userId);
+    let hero = st.party.find((m) => m && m.kind === "hero" && m.controllerUserId === userId);
+    if (!hero && session.mode === "arena_pvp") {
+      hero = (st.foes || []).find(
+        (f) => f?.isPvpUnit && Number(f.pvpControllerUserId) === Number(userId)
+      );
+    }
     if (hero) initHeroCombatOnMember(hero, player);
     initCombatPassives(st, player);
   }
@@ -262,12 +267,20 @@ export function beginCoopFromPrep(session) {
   st.party.forEach((m) => {
     if (m) m.acted = false;
   });
+  (st.foes || []).forEach((f) => {
+    if (f?.isPvpUnit) f.acted = false;
+  });
 }
 
 export function syncAllHeroHpToPlayers(session) {
   const st = session.state;
   for (const { userId, player } of session.participants.values()) {
-    const hero = st.party.find((m) => m && m.kind === "hero" && m.controllerUserId === userId);
+    let hero = st.party.find((m) => m && m.kind === "hero" && m.controllerUserId === userId);
+    if (!hero && session.mode === "arena_pvp") {
+      hero = (st.foes || []).find(
+        (f) => f?.isPvpUnit && Number(f.pvpControllerUserId) === Number(userId)
+      );
+    }
     if (hero && player) {
       player.hp = Math.max(0, hero.hp);
     }

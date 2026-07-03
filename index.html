@@ -280,6 +280,23 @@
   </div>
 </div>
 
+<div id="arenaQueueHud" class="arena-queue-hud hidden" aria-live="polite">
+  <span class="arena-queue-hud-label">Arena</span>
+  <span id="arenaQueueHudText" class="arena-queue-hud-text">Searching…</span>
+  <button type="button" id="arenaQueueCancelBtn" class="arena-queue-hud-cancel btn btn--small">Cancel</button>
+</div>
+
+<div id="arenaMatchModal" class="arena-match-modal hidden" role="dialog" aria-labelledby="arenaMatchTitle" aria-modal="true">
+  <div class="arena-match-card">
+    <h2 id="arenaMatchTitle" class="arena-match-title">Match found</h2>
+    <div id="arenaMatchModalBody" class="arena-match-body"></div>
+    <div class="arena-match-actions">
+      <button type="button" id="arenaMatchAcceptBtn" class="btn">Accept</button>
+      <button type="button" id="arenaMatchDeclineBtn" class="btn btn--ghost">Decline</button>
+    </div>
+  </div>
+</div>
+
 <div id="characterPanelModal" class="character-panel-modal hidden" aria-hidden="true" role="dialog" aria-label="Character">
   <div class="character-panel-shell">
     <div id="characterPanelContent" class="character-panel-content"></div>
@@ -318,6 +335,7 @@
 <script src="shared/enemy_tactical_combat.js"></script>
 <script src="shared/enemy_moods.js"></script>
 <script src="shared/market_listable.js"></script>
+<script src="shared/arena_config.js"></script>
 <script src="shared/craft_material_tier.js"></script>
 <script src="shared/craft_xp.js"></script>
 <script src="shared/enhancing.js"></script>
@@ -327,6 +345,7 @@
 <script src="mmo/config.js"></script>
 <script src="mmo/storage.js"></script>
 <script src="mmo/presence_client.js"></script>
+<script src="mmo/arena_client.js"></script>
 <script src="mmo/chat_client.js"></script>
 <script src="mmo/trade_client.js"></script>
 <script src="world_map_data.js"></script>
