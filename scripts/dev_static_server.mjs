@@ -18,7 +18,9 @@ const types = {
   ".json": "application/json",
   ".woff2": "font/woff2",
   ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  ".glb": "model/gltf-binary",
+  ".gltf": "model/gltf+json"
 };
 
 function resolveSafeFilePath(urlPath) {

@@ -195,12 +195,14 @@
       tokenHeightPct: 100
     },
     tide_hopper: {
-      offsetXPct: -13.490725126475548,
-      offsetYPct: -19.616204690831555,
+      offsetXPct: -6.59558,
+      offsetYPct: 8.181411413169222,
       rotDeg: 0,
-      scalePct: 100,
+      scalePct: 112,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: -45.5,
+      cameraPitch: 33
     },
     coastal_horror: {
       offsetXPct: -6.74536,

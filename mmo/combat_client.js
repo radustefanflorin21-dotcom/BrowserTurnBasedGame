@@ -143,6 +143,13 @@
             if (copy.gridY != null) copy.gridY = Number(copy.gridY);
             if (!Number.isFinite(copy.gridX)) delete copy.gridX;
             if (!Number.isFinite(copy.gridY)) delete copy.gridY;
+            const prevM = (combatState?.party || []).find((p) => p && p.uid === copy.uid);
+            if (prevM && typeof preserveTacticalUnitVisualClientFields === "function") {
+              preserveTacticalUnitVisualClientFields(copy, prevM);
+            }
+            if (typeof maybeStartUnitDeathVisual === "function") {
+              maybeStartUnitDeathVisual(prevM, copy);
+            }
             return copy;
           })
         : [],
@@ -215,6 +222,13 @@
             if (copy.gridY != null) copy.gridY = Number(copy.gridY);
             if (!Number.isFinite(copy.gridX)) delete copy.gridX;
             if (!Number.isFinite(copy.gridY)) delete copy.gridY;
+            const prevF = (combatState?.foes || []).find((p) => p && p.uid === copy.uid);
+            if (prevF && typeof preserveTacticalUnitVisualClientFields === "function") {
+              preserveTacticalUnitVisualClientFields(copy, prevF);
+            }
+            if (typeof maybeStartUnitDeathVisual === "function") {
+              maybeStartUnitDeathVisual(prevF, copy);
+            }
             return copy;
           })
         : []
@@ -354,6 +368,9 @@
       enemyReplayStepTimer = null;
     }
     pendingFinalCombatApply = null;
+    if (typeof UnitModel3D !== "undefined" && typeof UnitModel3D.releaseStuckActionWaits === "function") {
+      UnitModel3D.releaseStuckActionWaits();
+    }
     if (combatState && combatState.uiPhaseOverride === "enemy") {
       delete combatState.uiPhaseOverride;
     }
@@ -363,7 +380,8 @@
 
   function beginEnemyPhaseUi(totalMs, autoFinish) {
     const ms = Math.max(ENEMY_PHASE_MIN_MS, totalMs || ENEMY_PHASE_MIN_MS);
-    enemyPhaseUiUntil = Date.now() + ms;
+    const safetyLead = autoFinish === false ? Math.max(12000, ms + 4000) : ms + 800;
+    enemyPhaseUiUntil = Date.now() + (autoFinish === false ? safetyLead : ms);
     if (combatState) combatState.uiPhaseOverride = "enemy";
     setFightUiPending(true);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
@@ -387,7 +405,7 @@
           if (typeof renderTurnBattle === "function") renderTurnBattle();
         }
       }
-    }, ms + 800);
+    }, safetyLead);
   }
 
   function applyCombatVisualSnapshot(st, snap, opts) {
@@ -398,8 +416,12 @@
         if (!p) return;
         const m = (st.party || []).find((x) => x && x.uid === p.uid);
         if (m) {
+          const prevHp = m.hp;
           m.hp = p.hp;
           if (typeof p.maxHp === "number") m.maxHp = p.maxHp;
+          if (typeof maybeStartUnitDeathVisual === "function") {
+            maybeStartUnitDeathVisual({ hp: prevHp }, m);
+          }
           if (!skipGrid && typeof p.gridX === "number") m.gridX = p.gridX;
           if (!skipGrid && typeof p.gridY === "number") m.gridY = p.gridY;
         }
@@ -410,8 +432,12 @@
         if (!f) return;
         const foe = (st.foes || []).find((x) => x && x.uid === f.uid);
         if (foe) {
+          const prevHp = foe.hp;
           foe.hp = f.hp;
           if (typeof f.maxHp === "number") foe.maxHp = f.maxHp;
+          if (typeof maybeStartUnitDeathVisual === "function") {
+            maybeStartUnitDeathVisual({ hp: prevHp }, foe);
+          }
           if (!skipGrid && typeof f.gridX === "number") foe.gridX = f.gridX;
           if (!skipGrid && typeof f.gridY === "number") foe.gridY = f.gridY;
         }
@@ -430,6 +456,92 @@
     if (typeof syncFightLogFromCombatState === "function") syncFightLogFromCombatState();
   }
 
+  function inferEnemySkillKeyFromLogLines(logLines) {
+    if (!Array.isArray(logLines) || !logLines.length) return null;
+    const line = logLines.find((l) => /\buses\b/i.test(String(l || "")));
+    if (!line) return null;
+    const m = String(line).match(/\buses\s+(.+?)(?:\s+on\b|[.(]|$)/i);
+    if (!m || !m[1]) return null;
+    return m[1].trim().toLowerCase().replace(/\s+/g, "_");
+  }
+
+  function inferFoeUidFromStep(st, step) {
+    if (!st || !step) return null;
+    if (step.hits && step.hits.length) {
+      const hit = step.hits.find((h) => h && h.foeUid != null);
+      if (hit) return hit.foeUid;
+    }
+    const logLines = step.logLines || [];
+    for (const line of logLines) {
+      const m = String(line || "").match(/^(.+?)\s+uses\b/i);
+      if (!m || !m[1]) continue;
+      const name = m[1].trim();
+      const foe = (st.foes || []).find((f) => f && f.name === name);
+      if (foe) return foe.uid;
+    }
+    return typeof st.activeFoeUid === "number" ? st.activeFoeUid : null;
+  }
+
+  function applyGridMoveFacing(st, preSnap, postSt) {
+    if (!st?.tactical || !preSnap || !postSt || typeof computeTacticalMoves !== "function") return;
+    const moves = computeTacticalMoves(preSnap, postSt);
+    moves.forEach((move) => {
+      const unit =
+        move.side === "foe"
+          ? (postSt.foes || []).find((f) => f && f.uid === move.uid)
+          : (postSt.party || []).find((m) => m && m.uid === move.uid);
+      if (unit && typeof setUnitModelFacingFromGridDelta === "function") {
+        setUnitModelFacingFromGridDelta(unit, move.fromX, move.toX);
+      }
+    });
+  }
+
+  function queueEnemyReplayStepVisualAnim(step) {
+    const st = combatState;
+    if (!st || !step || typeof queueUnitVisualAnim !== "function") return;
+    const logLines = step.logLines || [];
+    const hasCombat =
+      logLines.length > 0 || (step.hits && step.hits.length) || (step.heals && step.heals.length);
+    const foeUid = inferFoeUidFromStep(st, step);
+    if (foeUid != null) st.activeFoeUid = foeUid;
+    if (!hasCombat) return;
+    if (foeUid == null) return;
+    const foe = (st.foes || []).find((f) => f && f.uid === foeUid);
+    if (!foe) return;
+    const def = typeof getEnemyDefByName === "function" ? getEnemyDefByName(foe.name) : null;
+    const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+    const skillKey = inferEnemySkillKeyFromLogLines(logLines);
+    const usesSkill = logLines.some((l) => /\buses\b/i.test(String(l || "")));
+    const kind = usesSkill ? "skill" : "attack";
+    const uiDelay =
+      typeof window.COMBAT_MODEL_ACTION_MS === "number"
+        ? window.COMBAT_MODEL_ACTION_MS
+        : typeof UNIT_VISUAL !== "undefined" && typeof UNIT_VISUAL.COMBAT_MODEL_ACTION_MS === "number"
+          ? UNIT_VISUAL.COMBAT_MODEL_ACTION_MS
+          : 1000;
+    let anim = kind === "skill" ? "skill" : "attack";
+    if (typeof resolveCombatVisualAnimForAction === "function") {
+      anim = resolveCombatVisualAnimForAction(kind, skillKey, { scriptId });
+    }
+    const targetGx =
+      typeof resolveEnemyStepTargetGrid === "function"
+        ? resolveEnemyStepTargetGrid(st, step, foe)
+        : null;
+    const facingOpts = typeof targetGx === "number" ? { targetGridX: targetGx } : null;
+    queueUnitVisualAnim(foe, anim, uiDelay, skillKey, facingOpts);
+    const tokenEl =
+      typeof findTacticalTokenElementForUnit === "function"
+        ? findTacticalTokenElementForUnit(foe)
+        : null;
+    if (tokenEl && typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenAnim) {
+      UnitModel3D.setTokenAnim(tokenEl, anim, {
+        force: true,
+        skillName: skillKey || null,
+        durationMs: uiDelay
+      });
+    }
+  }
+
   function applyEnemyActionStep(step) {
     const st = combatState;
     if (!st || !step) return;
@@ -437,11 +549,18 @@
       if (typeof appendFightLog === "function") appendFightLog(String(line || ""));
       else st.fightLog.push(String(line || ""));
     });
-    if (st.tactical && typeof noteTacticalGridBeforeStateUpdate === "function") {
-      noteTacticalGridBeforeStateUpdate();
+    let preSnap = null;
+    if (st.tactical && typeof captureTacticalGridSnapshot === "function") {
+      preSnap = captureTacticalGridSnapshot(st);
+      if (typeof noteTacticalGridBeforeStateUpdate === "function") {
+        noteTacticalGridBeforeStateUpdate();
+      }
     }
     applyCombatVisualSnapshot(st, step);
+    if (preSnap) applyGridMoveFacing(st, preSnap, st);
     if (typeof renderTurnBattle === "function") renderTurnBattle();
+    queueEnemyReplayStepVisualAnim(step);
+    if (typeof syncAllActiveTacticalTokenVisuals === "function") syncAllActiveTacticalTokenVisuals();
     const hits = step.hits && step.hits.length ? step.hits : null;
     const heals = step.heals && step.heals.length ? step.heals : null;
     const playEffects = () => {
@@ -449,7 +568,9 @@
       if (heals) playServerHealEffects(heals);
       if (typeof shakeFightOverlay === "function") shakeFightOverlay();
     };
-    if (st.tactical && typeof whenTacticalMoveAnimationsSettled === "function") {
+    if (st.tactical && typeof whenUnitVisualAnimsSettled === "function") {
+      whenUnitVisualAnimsSettled().then(playEffects);
+    } else if (st.tactical && typeof whenTacticalMoveAnimationsSettled === "function") {
       whenTacticalMoveAnimationsSettled().then(playEffects);
     } else if (hits || heals) {
       requestAnimationFrame(playEffects);
@@ -463,6 +584,9 @@
     pendingFinalCombatApply = null;
     clearEnemyPhaseUi();
     setFightUiPending(false);
+    if (typeof UnitModel3D !== "undefined" && typeof UnitModel3D.releaseStuckActionWaits === "function") {
+      UnitModel3D.releaseStuckActionWaits();
+    }
     if (!pending) {
       if (typeof renderTurnBattle === "function") renderTurnBattle();
       return;
@@ -500,10 +624,10 @@
       ctx.worldMapContext,
       ctx.extra || {}
     );
-    if (typeof setTacticalGridBeforeEnemyPhase === "function") {
-      setTacticalGridBeforeEnemyPhase(preEnemy);
-    }
-    restorePreEnemyVisualState(preEnemy, { skipGrid: !!combatState?.tactical });
+    // Rewind HP/log/grid to pre-enemy positions, then replay each step incrementally.
+    // Do not bulk-animate pre-enemy → final grid (that causes tokens to snap back on each step).
+    restorePreEnemyVisualState(preEnemy, { skipGrid: false });
+    if (typeof clearTacticalGridBeforeAnim === "function") clearTacticalGridBeforeAnim();
     combatState.uiPhaseOverride = "enemy";
     if (typeof renderTurnBattle === "function") renderTurnBattle();
 
@@ -517,10 +641,26 @@
       });
     }
 
-    const totalMs = allyLeadMs + steps.length * ENEMY_ACTION_STEP_MS + 300;
+    const perStepMs =
+      typeof window.COMBAT_MODEL_ACTION_MS === "number" ? window.COMBAT_MODEL_ACTION_MS : 1000;
+    const totalMs = allyLeadMs + steps.length * (perStepMs + 500) + 800;
     beginEnemyPhaseUi(totalMs, false);
 
     let stepIndex = 0;
+    const scheduleEnemyReplayStep = (playNext) => {
+      const gap = 120;
+      const run = () => {
+        enemyReplayStepTimer = setTimeout(playNext, gap);
+      };
+      let settleP = Promise.resolve();
+      if (combatState?.tactical && typeof whenUnitVisualAnimsSettled === "function") {
+        settleP = whenUnitVisualAnimsSettled();
+      } else if (combatState?.tactical && typeof whenTacticalMoveAnimationsSettled === "function") {
+        settleP = whenTacticalMoveAnimationsSettled();
+      }
+      const timeoutP = new Promise((resolve) => setTimeout(resolve, 3500));
+      Promise.race([settleP, timeoutP]).then(run);
+    };
     const playNext = () => {
       try {
         if (!combatState || stepIndex >= steps.length) {
@@ -529,7 +669,7 @@
         }
         const step = steps[stepIndex++];
         applyEnemyActionStep(step);
-        enemyReplayStepTimer = setTimeout(playNext, ENEMY_ACTION_STEP_MS);
+        scheduleEnemyReplayStep(playNext);
       } catch (err) {
         console.error("Enemy phase replay step failed:", err);
         finishPendingCombatApply();
@@ -539,11 +679,7 @@
       enemyReplayStepTimer = setTimeout(playNext, allyLeadMs + 120);
     };
     const beginReplayAfterCeremony = () => {
-      if (typeof whenTacticalMoveAnimationsSettled === "function") {
-        whenTacticalMoveAnimationsSettled().then(startReplaySteps);
-      } else {
-        startReplaySteps();
-      }
+      startReplaySteps();
     };
     if (typeof tryRunPendingBossPhaseCeremony === "function") {
       tryRunPendingBossPhaseCeremony(beginReplayAfterCeremony);
@@ -570,21 +706,11 @@
       );
       if (foe && Number(foe.pvpControllerUserId) === myUid) return true;
     }
-    if (!combatState.serverAuthoritative) {
-      const active =
-        typeof getActivePartyMember === "function" ? getActivePartyMember(combatState) : null;
-      return !!active;
-    }
     const active =
       typeof getActivePartyMember === "function" ? getActivePartyMember(combatState) : null;
-    if (active && Number(active.controllerUserId) === myUid) return true;
-    return (combatState.party || []).some(
-      (m) =>
-        m &&
-        m.hp > 0 &&
-        !m.acted &&
-        Number(m.controllerUserId) === myUid
-    );
+    if (!active) return false;
+    if (!combatState.serverAuthoritative) return true;
+    return Number(active.controllerUserId) === myUid;
   }
 
   function getCombatSkillBarPayload() {

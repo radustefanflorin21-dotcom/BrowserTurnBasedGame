@@ -444,6 +444,13 @@
     const pattern = def.pattern;
     const label = skillName;
 
+    const actingMember = st.__combatActorMember || null;
+    const uiDelay =
+      typeof window.COMBAT_HIT_UI_DELAY_MS === "number" ? window.COMBAT_HIT_UI_DELAY_MS : 1150;
+    if (actingMember && typeof queueAllyCombatVisualAnim === "function") {
+      queueAllyCombatVisualAnim(actingMember, kind, uiDelay, skillName);
+    }
+
     function afterCommit() {
       if (!st.foes.some((f) => f.hp > 0)) {
         if (st.serverAuthoritative) return;

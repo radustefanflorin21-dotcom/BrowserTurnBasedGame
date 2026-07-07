@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:,">
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three/three.module.js",
+    "three/addons/": "/vendor/three/addons/"
+  }
+}
+</script>
 </head>
 <body>
 <div id="mmoAuthScreen" class="mmo-auth-screen hidden" aria-hidden="true">
@@ -335,6 +344,8 @@
 <script src="shared/enemy_tactical_combat.js"></script>
 <script src="shared/enemy_moods.js"></script>
 <script src="shared/market_listable.js"></script>
+<script src="shared/unit_visual_states.js"></script>
+<script type="module" src="mmo/unit_model3d.js"></script>
 <script src="shared/arena_config.js"></script>
 <script src="shared/craft_material_tier.js"></script>
 <script src="shared/craft_xp.js"></script>

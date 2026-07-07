@@ -4537,6 +4537,12 @@ function getTacticalTokenPresets() {
     : {};
 }
 
+function clampModelCameraPitch(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(-10, Math.min(89, n));
+}
+
 function getDefaultTacticalTokenLayout() {
   return {
     offsetXPct: 0,
@@ -4544,7 +4550,9 @@ function getDefaultTacticalTokenLayout() {
     rotDeg: 0,
     scalePct: 100,
     tokenWidthPct: 100,
-    tokenHeightPct: 100
+    tokenHeightPct: 100,
+    modelRotationY: 0,
+    cameraPitch: null
   };
 }
 
@@ -4562,7 +4570,9 @@ function normalizeTacticalTokenLayoutRow(raw) {
     rotDeg: clampPortraitLayoutRotDeg(raw.rotDeg),
     scalePct: clampPortraitLayoutScalePct(raw.scalePct),
     tokenWidthPct: clampTacticalTokenBoxPct(raw.tokenWidthPct),
-    tokenHeightPct: clampTacticalTokenBoxPct(raw.tokenHeightPct)
+    tokenHeightPct: clampTacticalTokenBoxPct(raw.tokenHeightPct),
+    modelRotationY: clampPortraitLayoutRotDeg(raw.modelRotationY),
+    cameraPitch: clampModelCameraPitch(raw.cameraPitch)
   };
 }
 
@@ -4632,7 +4642,11 @@ function setTacticalTokenLayout(key, patch) {
     rotDeg: patch && patch.rotDeg != null ? patch.rotDeg : prev.rotDeg,
     scalePct: patch && patch.scalePct != null ? patch.scalePct : prev.scalePct,
     tokenWidthPct: patch && patch.tokenWidthPct != null ? patch.tokenWidthPct : prev.tokenWidthPct,
-    tokenHeightPct: patch && patch.tokenHeightPct != null ? patch.tokenHeightPct : prev.tokenHeightPct
+    tokenHeightPct: patch && patch.tokenHeightPct != null ? patch.tokenHeightPct : prev.tokenHeightPct,
+    modelRotationY: patch && patch.modelRotationY != null ? patch.modelRotationY : prev.modelRotationY,
+    cameraPitch: patch && Object.prototype.hasOwnProperty.call(patch, "cameraPitch")
+      ? patch.cameraPitch
+      : prev.cameraPitch
   });
   if (!player) return;
   player.tacticalTokenLayouts[key] = next;
@@ -4648,6 +4662,7 @@ function setTacticalTokenLayout(key, patch) {
           applyTacticalTokenBoxForElement(token, getTacticalBoardViewport(hud), next);
           if (isAlly) applyTacticalTokenAnchorTransform(token, next);
         });
+      syncTacticalTokenModel3dViewForKey(key, next);
     }
   }
 }
@@ -6942,7 +6957,10 @@ function applyDamageToFoeHp(foe, dmg) {
   const wasAlive = foe.hp > 0;
   foe.hp -= d;
   if (foe.hp < 0) foe.hp = 0;
-  if (wasAlive && foe.hp <= 0 && combatState) tryFoeOnDeathProcs(combatState, foe);
+  if (wasAlive && foe.hp <= 0 && combatState) {
+    tryFoeOnDeathProcs(combatState, foe);
+    tryStartUnitVisualFall(foe);
+  }
   return d;
 }
 
@@ -7587,6 +7605,7 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
     const hpBefore = m.hp;
     m.hp -= taken;
     if (m.hp < 0) m.hp = 0;
+    if (hpBefore > 0 && m.hp <= 0) tryStartUnitVisualFall(m);
     if (st && st.phase === "enemy") enforceIndomitableEnemyPhaseCap(st, m);
     const effectiveTaken = Math.max(0, hpBefore - m.hp);
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, effectiveTaken));
@@ -7619,8 +7638,10 @@ function dealRawDamageToPartyMember(st, partyUid, rawDamage, foeName, logVerb) {
   } else {
     const dexPart = typeof m.dex === "number" ? m.dex : m.agi || 0;
     const taken = Math.max(1, raw - Math.floor(dexPart / 4) - (m.flatArmor || 0));
+    const hpBeforeComp = m.hp;
     m.hp -= taken;
     if (m.hp < 0) m.hp = 0;
+    if (hpBeforeComp > 0 && m.hp <= 0) tryStartUnitVisualFall(m);
     appendFightLog(formatPartyHitLog(foeName, logVerb, m.name, taken));
     const srcFoeComp = st && st.__monsterDamageSourceFoe ? st.__monsterDamageSourceFoe : null;
     if (srcFoeComp && taken > 0) {
@@ -8146,12 +8167,13 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     ensureCombatStatus(st);
     const accuracyDebuffed = (st.status.playerAccuracyDownTurns || 0) > 0;
     if (!accuracyDebuffed && ready("foam_feint")) {
-      setCd("foam_feint", 2);
       const targetUid = pickPartyTargetForMonsterTargetRule(st, "highest_damage");
+      const t = st.party && typeof targetUid === "number" ? st.party.find((m) => m && m.uid === targetUid) : null;
+      if (t) setUnitModelFacingTowardUnit(foe, t);
+      setCd("foam_feint", 2);
       st.status.playerAccuracyDownPct = Math.min(MONSTER_EFFECT_CAPS.accuracyDown, 12);
       st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 2);
       applyPlayerSuppressedDamageDownBoth(st, 10, 2);
-      const t = st.party && typeof targetUid === "number" ? st.party.find((m) => m && m.uid === targetUid) : null;
       appendFightLogFlavorWithEffects(`${foe.name} uses Foam Feint on ${t && t.name ? t.name : "you"}.`, [
         `Enemies +${roundCombatDisplay(st.status.playerAccuracyDownPct)}% hit vs you`,
         `You deal −${roundCombatDisplay(st.status.playerPhysDamageDownPct)}% physical / −${roundCombatDisplay(st.status.playerMagicDamageDownPct)}% magic damage`,
@@ -8166,6 +8188,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       const stamScore = getPredictedStaminaUsageScoreForPartyMember(target, st);
       const highStaminaUsage = stamScore >= 0.6;
       if (highStaminaUsage) {
+        if (target) setUnitModelFacingTowardUnit(foe, target);
         setCd("dragging_current", 3);
         st.status.playerStaminaCostUpPct = Math.max(
           st.status.playerStaminaCostUpPct || 0,
@@ -11877,6 +11900,8 @@ function enemyCombatRunScriptInner(scriptId, foe, st) {
   const setCd = (key, n) => {
     cd[key] = Math.max(0, Math.floor(n));
     if (foe.combat) foe.combat.__pendingSkillKey = key;
+    const anim = resolveCombatVisualAnimForAction("skill", key, { scriptId });
+    queueUnitVisualAnim(foe, anim, COMBAT_HIT_UI_DELAY_MS, key);
   };
   const ready = (key) => {
     if (foe.combat && foe.combat.forceBasicThisTurn) return false;
@@ -12599,8 +12624,609 @@ function resolveSpriteByState(src, state) {
 function resolveVisualByState(src, state) {
   return {
     image: resolveImageByState(src, state),
-    sprite: resolveSpriteByState(src, state)
+    sprite: resolveSpriteByState(src, state),
+    model3d: resolveUnitModel3dDef(src)
   };
+}
+
+/** Normalized 3D model config from enemy def or unit override. */
+function resolveUnitModel3dDef(src) {
+  if (!src || typeof src !== "object") return null;
+  const raw = src.model3d;
+  if (!raw || typeof raw !== "object") return null;
+  const url = typeof raw.url === "string" ? raw.url.trim() : "";
+  if (!url) return null;
+  const animations =
+    raw.animations && typeof raw.animations === "object" ? { ...raw.animations } : {};
+  return {
+    url,
+    scale: Number.isFinite(raw.scale) && raw.scale > 0 ? raw.scale : 1,
+    baseScale: Number.isFinite(raw.baseScale) && raw.baseScale > 0 ? raw.baseScale : null,
+    yOffset: Number.isFinite(raw.yOffset) ? raw.yOffset : 0,
+    rotationX: Number.isFinite(raw.rotationX) ? raw.rotationX : 0,
+    rotationY: Number.isFinite(raw.rotationY) ? raw.rotationY : 0,
+    rotationZ: Number.isFinite(raw.rotationZ) ? raw.rotationZ : 0,
+    cameraPitch: Number.isFinite(raw.cameraPitch) ? raw.cameraPitch : null,
+    animations,
+    forceSolidMaterial: raw.forceSolidMaterial === true,
+    debugForceVisible: raw.debugForceVisible === true,
+    debugLogBounds: raw.debugLogBounds === true,
+    disableAnimations: raw.disableAnimations === true
+  };
+}
+
+function tacticalScriptKeyHasModel3d(scriptKey) {
+  const key = String(scriptKey || "").trim();
+  if (!key || !Array.isArray(GAME_CONFIG.enemies)) return false;
+  const def = GAME_CONFIG.enemies.find((e) => e && e.combatScript === key);
+  return !!resolveUnitModel3dDef(def);
+}
+
+function getTacticalTokenCameraPitch(unit, layout) {
+  const layoutPitch = layout && layout.cameraPitch != null ? clampModelCameraPitch(layout.cameraPitch) : null;
+  if (layoutPitch != null) return layoutPitch;
+  const baseDef = unit && unit.name ? resolveUnitModel3dDef(getEnemyDefByName(unit.name)) : null;
+  const basePitch = baseDef ? clampModelCameraPitch(baseDef.cameraPitch) : null;
+  return basePitch != null ? basePitch : 12;
+}
+
+function mergeTacticalLayoutIntoModel3dDef(def, unit) {
+  if (!def || !unit) return def;
+  const key = getTacticalFoeScriptKey(unit);
+  if (!key) return def;
+  const layout = getTacticalTokenLayoutForKey(key);
+  const layoutY = Number(layout && layout.modelRotationY);
+  const extraY = Number.isFinite(layoutY) ? layoutY : 0;
+  const baseY = Number(def.rotationY) || 0;
+  return {
+    ...def,
+    rotationY: baseY + extraY,
+    cameraPitch: getTacticalTokenCameraPitch(unit, layout)
+  };
+}
+
+function getTacticalTokenModelRotationY(unit, layout) {
+  const layoutY = Number(layout && layout.modelRotationY);
+  const extraY = Number.isFinite(layoutY) ? layoutY : 0;
+  if (!unit) return extraY;
+  const baseDef = unit.name ? resolveUnitModel3dDef(getEnemyDefByName(unit.name)) : null;
+  const baseY = Number(baseDef && baseDef.rotationY) || 0;
+  return baseY + extraY;
+}
+
+function applyTacticalTokenModel3dRotation(tokenEl, layout, rotationOverride) {
+  if (!tokenEl || typeof UnitModel3D === "undefined" || !UnitModel3D.setTokenModelRotation) return;
+  const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+  if (!unit || !unitHasModel3dVisual(unit)) return;
+  const overrideRot = Number(rotationOverride);
+  const rotationY = Number.isFinite(overrideRot)
+    ? overrideRot
+    : getTacticalTokenModelRotationY(unit, layout);
+  UnitModel3D.setTokenModelRotation(tokenEl, rotationY);
+}
+
+function applyTacticalTokenModel3dCamera(tokenEl, layout, pitchOverride) {
+  if (!tokenEl || typeof UnitModel3D === "undefined" || !UnitModel3D.setTokenCameraPitch) return;
+  const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+  if (!unit || !unitHasModel3dVisual(unit)) return;
+  const overridePitch = clampModelCameraPitch(pitchOverride);
+  const cameraPitch =
+    overridePitch != null ? overridePitch : getTacticalTokenCameraPitch(unit, layout);
+  UnitModel3D.setTokenCameraPitch(tokenEl, cameraPitch);
+}
+
+function applyTacticalTokenModel3dView(tokenEl, layout) {
+  applyTacticalTokenModel3dRotation(tokenEl, layout);
+  applyTacticalTokenModel3dCamera(tokenEl, layout);
+}
+
+function syncTacticalTokenModel3dViewForKey(scriptKey, layout) {
+  if (!scriptKey || !tacticalScriptKeyHasModel3d(scriptKey)) return;
+  const layer = getTacticalTokenLayer();
+  if (!layer) return;
+  layer.querySelectorAll(`.fight-tactical-token[data-tactical-script="${scriptKey}"]`).forEach((token) => {
+    applyTacticalTokenModel3dView(token, layout);
+  });
+}
+
+function syncTacticalTokenModel3dRotationsForKey(scriptKey, layout) {
+  syncTacticalTokenModel3dViewForKey(scriptKey, layout);
+}
+
+function getUnitModel3dDefForUnit(unit) {
+  if (!unit || typeof unit !== "object") return null;
+  const direct = resolveUnitModel3dDef(unit);
+  if (direct) return mergeTacticalLayoutIntoModel3dDef(direct, unit);
+  if (unit.name) {
+    const def = getEnemyDefByName(unit.name);
+    const base = resolveUnitModel3dDef(def);
+    return mergeTacticalLayoutIntoModel3dDef(base, unit);
+  }
+  return null;
+}
+
+function unitHasModel3dVisual(unit) {
+  return !!getUnitModel3dDefForUnit(unit);
+}
+
+const UNIT_VISUAL_FALL_MS =
+  typeof UNIT_VISUAL !== "undefined" && typeof UNIT_VISUAL.COMBAT_MODEL_FALL_MS === "number"
+    ? UNIT_VISUAL.COMBAT_MODEL_FALL_MS
+    : 1000;
+const COMBAT_MODEL_FALL_HOLD_MS =
+  typeof UNIT_VISUAL !== "undefined" && typeof UNIT_VISUAL.COMBAT_MODEL_FALL_HOLD_MS === "number"
+    ? UNIT_VISUAL.COMBAT_MODEL_FALL_HOLD_MS
+    : 1000;
+const COMBAT_MODEL_FALL_FADE_MS =
+  typeof UNIT_VISUAL !== "undefined" && typeof UNIT_VISUAL.COMBAT_MODEL_FALL_FADE_MS === "number"
+    ? UNIT_VISUAL.COMBAT_MODEL_FALL_FADE_MS
+    : 1000;
+
+function clearUnitVisualFallTimer(unit) {
+  if (!unit || unit._visualFallTimer == null) return;
+  clearTimeout(unit._visualFallTimer);
+  unit._visualFallTimer = null;
+}
+
+function resetUnitDeathTokenStyles(tokenEl) {
+  if (!tokenEl) return;
+  tokenEl.classList.remove("fight-tactical-token--dying", "fight-tactical-token--death-fading");
+  tokenEl.style.transition = "";
+  tokenEl.style.opacity = "";
+}
+
+function applyUnitDeathFadeToToken(tokenEl) {
+  if (!tokenEl) return;
+  tokenEl.classList.add("fight-tactical-token--death-fading");
+  tokenEl.style.opacity = "1";
+  void tokenEl.offsetWidth;
+  tokenEl.style.transition = `opacity ${COMBAT_MODEL_FALL_FADE_MS}ms linear`;
+  requestAnimationFrame(() => {
+    tokenEl.style.opacity = "0";
+  });
+}
+
+function finishUnitVisualFall(unit) {
+  if (!unit) return;
+  clearUnitVisualFallTimer(unit);
+  unit._visualFalling = false;
+  unit._visualFallPhase = null;
+  unit._visualGone = true;
+  const tokenEl = findTacticalTokenElementForUnit(unit);
+  resetUnitDeathTokenStyles(tokenEl);
+  if (combatState) renderTurnBattle();
+}
+
+function startUnitDeathFade(unit) {
+  if (!unit || !unit._visualFalling || unit._visualGone || unit._visualFallPhase === "fading") return;
+  unit._visualFallPhase = "fading";
+  const tokenEl = findTacticalTokenElementForUnit(unit);
+  if (tokenEl) applyUnitDeathFadeToToken(tokenEl);
+  clearUnitVisualFallTimer(unit);
+  unit._visualFallTimer = setTimeout(() => {
+    if (unit._visualFalling) finishUnitVisualFall(unit);
+  }, COMBAT_MODEL_FALL_FADE_MS + 80);
+}
+
+function onUnitFallAnimComplete(unit) {
+  if (!unit || !unit._visualFalling || unit._visualGone) return;
+  if (unit._visualFallPhase !== "falling") return;
+  unit._visualFallPhase = "fallen";
+  clearUnitVisualFallTimer(unit);
+  unit._visualFallTimer = setTimeout(() => {
+    if (unit._visualFalling && unit._visualFallPhase === "fallen") startUnitDeathFade(unit);
+  }, COMBAT_MODEL_FALL_HOLD_MS);
+}
+
+function beginUnitDeathVisualSequence(unit) {
+  if (!unit || !unit._visualFalling || unit._visualGone) return;
+  const tokenEl = findTacticalTokenElementForUnit(unit);
+  if (tokenEl) tokenEl.classList.add("fight-tactical-token--dying");
+  if (unit._visualFallPhase === "fading") {
+    startUnitDeathFade(unit);
+    return;
+  }
+  if (unit._visualFallPhase === "fallen") {
+    if (unitHasModel3dVisual(unit)) syncTacticalTokenVisualsForUnit(unit);
+    clearUnitVisualFallTimer(unit);
+    unit._visualFallTimer = setTimeout(() => {
+      if (unit._visualFalling && unit._visualFallPhase === "fallen") startUnitDeathFade(unit);
+    }, COMBAT_MODEL_FALL_HOLD_MS);
+    return;
+  }
+  if (unitHasModel3dVisual(unit)) {
+    syncTacticalTokenVisualsForUnit(unit);
+    clearUnitVisualFallTimer(unit);
+    unit._visualFallTimer = setTimeout(() => {
+      if (unit._visualFalling && unit._visualFallPhase === "falling") onUnitFallAnimComplete(unit);
+    }, UNIT_VISUAL_FALL_MS + 200);
+    return;
+  }
+  clearUnitVisualFallTimer(unit);
+  unit._visualFallTimer = setTimeout(() => {
+    if (unit._visualFalling && unit._visualFallPhase === "falling") onUnitFallAnimComplete(unit);
+  }, UNIT_VISUAL_FALL_MS);
+}
+
+function maybeStartUnitDeathVisual(prevUnit, nextUnit) {
+  if (!nextUnit || nextUnit._visualFalling || nextUnit._visualGone) return;
+  const prevHp = prevUnit && typeof prevUnit.hp === "number" ? prevUnit.hp : 1;
+  const nextHp = typeof nextUnit.hp === "number" ? nextUnit.hp : 0;
+  if (prevHp > 0 && nextHp <= 0) tryStartUnitVisualFall(nextUnit);
+}
+
+/** Keep 3D fall/anim client fields when server replaces unit objects. */
+function preserveTacticalUnitVisualClientFields(copy, prev) {
+  if (!copy || !prev || typeof copy !== "object" || typeof prev !== "object") return copy;
+  if (prev._visualFalling) copy._visualFalling = true;
+  if (prev._visualFallPhase) copy._visualFallPhase = prev._visualFallPhase;
+  if (prev._visualGone) copy._visualGone = true;
+  if (prev._visualAnim) copy._visualAnim = prev._visualAnim;
+  if (prev._visualAnimSkill) copy._visualAnimSkill = prev._visualAnimSkill;
+  if (typeof prev._visualAnimUntil === "number") copy._visualAnimUntil = prev._visualAnimUntil;
+  if (typeof prev._modelFacing === "number") copy._modelFacing = prev._modelFacing;
+  if (copy._visualFalling && !copy._visualGone) {
+    clearUnitVisualFallTimer(copy);
+    requestAnimationFrame(() => beginUnitDeathVisualSequence(copy));
+  }
+  return copy;
+}
+
+function tryStartUnitVisualFall(unit) {
+  if (!unit || unit._visualFalling || unit._visualGone) return;
+  unit._visualFalling = true;
+  unit._visualFallPhase = "falling";
+  clearUnitVisualFallTimer(unit);
+  queueCombatVisualRefresh(0);
+  requestAnimationFrame(() => beginUnitDeathVisualSequence(unit));
+}
+
+const MODEL_FACING_LEFT = 1;
+const MODEL_FACING_RIGHT = -1;
+const COMBAT_MODEL_ACTION_MS =
+  typeof UNIT_VISUAL !== "undefined" && typeof UNIT_VISUAL.COMBAT_MODEL_ACTION_MS === "number"
+    ? UNIT_VISUAL.COMBAT_MODEL_ACTION_MS
+    : 1000;
+
+function getUnitModelFacing(unit) {
+  if (!unit || unit._modelFacing !== MODEL_FACING_RIGHT) return MODEL_FACING_LEFT;
+  return MODEL_FACING_RIGHT;
+}
+
+function setUnitModelFacingFromScreenDelta(unit, fromLeft, toLeft) {
+  if (!unit || typeof fromLeft !== "number" || typeof toLeft !== "number" || fromLeft === toLeft) return;
+  unit._modelFacing = toLeft < fromLeft ? MODEL_FACING_LEFT : MODEL_FACING_RIGHT;
+}
+
+function setUnitModelFacingFromGridDelta(unit, fromX, toX) {
+  if (!unit || typeof fromX !== "number" || typeof toX !== "number" || fromX === toX) return;
+  unit._modelFacing = toX < fromX ? MODEL_FACING_LEFT : MODEL_FACING_RIGHT;
+}
+
+function canClientSelectActivePartyMember(st, member) {
+  if (!st || !member) return false;
+  if (!st.serverAuthoritative) return true;
+  const active = getActivePartyMember(st);
+  if (!active || active.uid !== member.uid) return false;
+  if (
+    typeof window !== "undefined" &&
+    window.ServerCombat &&
+    typeof window.ServerCombat.canControlActiveMember === "function"
+  ) {
+    return window.ServerCombat.canControlActiveMember();
+  }
+  return true;
+}
+
+function setUnitModelFacingTowardGrid(unit, targetGx) {
+  if (!unit || typeof unit.gridX !== "number" || typeof targetGx !== "number" || targetGx === unit.gridX) {
+    return;
+  }
+  unit._modelFacing = targetGx < unit.gridX ? MODEL_FACING_LEFT : MODEL_FACING_RIGHT;
+}
+
+function setUnitModelFacingTowardUnit(unit, targetUnit) {
+  if (!targetUnit || typeof targetUnit.gridX !== "number") return;
+  setUnitModelFacingTowardGrid(unit, targetUnit.gridX);
+}
+
+function findTacticalTokenElementForUnit(unit) {
+  if (!unit || typeof unit.uid !== "number") return null;
+  const layer = getTacticalTokenLayer();
+  if (!layer) return null;
+  const isFoe = (combatState?.foes || []).some((f) => f === unit);
+  const sel = isFoe
+    ? `.fight-tactical-token[data-tactical-foe="${unit.uid}"]`
+    : `.fight-tactical-token[data-tactical-ally="${unit.uid}"]`;
+  return layer.querySelector(sel);
+}
+
+function resolveUnitVisualAnimDurationMs(unit, anim, skillName) {
+  const actionMs =
+    anim === "attack" || anim === "skill" ? COMBAT_MODEL_ACTION_MS : 0;
+  const tokenEl = findTacticalTokenElementForUnit(unit);
+  if (tokenEl && typeof UnitModel3D !== "undefined" && UnitModel3D.estimateClipDurationMs) {
+    const est = UnitModel3D.estimateClipDurationMs(
+      tokenEl,
+      anim,
+      skillName || null,
+      actionMs || null
+    );
+    if (est > 0) return Math.max(est + 60, actionMs || 0);
+  }
+  if (actionMs > 0) return actionMs;
+  const fb =
+    typeof UNIT_VISUAL !== "undefined" &&
+    UNIT_VISUAL.DEFAULT_FALLBACK_MS &&
+    UNIT_VISUAL.DEFAULT_FALLBACK_MS[anim];
+  return typeof fb === "number" && fb > 0 ? fb : COMBAT_HIT_UI_DELAY_MS;
+}
+
+function syncTacticalTokenVisualsForUnit(unit) {
+  if (!unit || unit._visualGone) return;
+  const tokenEl = findTacticalTokenElementForUnit(unit);
+  if (!tokenEl) return;
+  if (unit._visualFalling) {
+    tokenEl.classList.add("fight-tactical-token--dying");
+    if (unit._visualFallPhase === "fading") applyUnitDeathFadeToToken(tokenEl);
+  }
+  if (typeof UnitModel3D === "undefined") return;
+  const scriptKey = tokenEl.getAttribute("data-tactical-script");
+  const layout = getTacticalTokenLayoutForKey(scriptKey);
+  if (UnitModel3D.setTokenFacing) {
+    UnitModel3D.setTokenFacing(tokenEl, getUnitModelFacing(unit));
+  }
+  if (UnitModel3D.setTokenModelRotation) {
+    UnitModel3D.setTokenModelRotation(tokenEl, getTacticalTokenModelRotationY(unit, layout));
+  }
+  const state = getUnitTacticalAnimState(unit, tokenEl);
+  const visualActive =
+    (unit._visualAnim && typeof unit._visualAnimUntil === "number" && unit._visualAnimUntil > Date.now()) ||
+    state === "walk" ||
+    state === "attack" ||
+    state === "skill" ||
+    state === "fall";
+  if (visualActive && UnitModel3D.setTokenAnim) {
+    const animOpts = {
+      force: true,
+      skillName: unit._visualAnimSkill || null
+    };
+    if (state === "attack" || state === "skill") {
+      animOpts.durationMs = COMBAT_MODEL_ACTION_MS;
+    } else if (state === "fall") {
+      animOpts.durationMs = UNIT_VISUAL_FALL_MS;
+    }
+    UnitModel3D.setTokenAnim(tokenEl, state, animOpts);
+  } else if (unit._visualFalling && unit._visualFallPhase === "fading") {
+    applyUnitDeathFadeToToken(tokenEl);
+  }
+}
+
+function syncAllActiveTacticalTokenVisuals() {
+  const layer = getTacticalTokenLayer();
+  if (!layer) return;
+  layer.querySelectorAll(".fight-tactical-token--model3d").forEach((token) => {
+    const unit = resolveTacticalTokenUnitFromElement(token);
+    if (unit) syncTacticalTokenVisualsForUnit(unit);
+  });
+}
+
+function whenUnitVisualAnimsSettled() {
+  const moveP =
+    typeof whenTacticalMoveAnimationsSettled === "function"
+      ? whenTacticalMoveAnimationsSettled()
+      : Promise.resolve();
+  const modelP =
+    typeof UnitModel3D !== "undefined" && UnitModel3D.whenActionAnimsSettled
+      ? UnitModel3D.whenActionAnimsSettled(COMBAT_MODEL_ACTION_MS + 1600)
+      : Promise.resolve();
+  const timerP = new Promise((resolve) => {
+    const deadline = Date.now() + COMBAT_MODEL_ACTION_MS + 1800;
+    const poll = () => {
+      const st = combatState;
+      if (!st || Date.now() >= deadline) {
+        resolve();
+        return;
+      }
+      const units = [...(st.party || []), ...(st.foes || [])];
+      const pending = units.some(
+        (u) => u && typeof u._visualAnimUntil === "number" && u._visualAnimUntil > Date.now()
+      );
+      if (pending) {
+        setTimeout(poll, 40);
+        return;
+      }
+      resolve();
+    };
+    poll();
+  });
+  const moveTimeout = new Promise((resolve) => {
+    setTimeout(() => {
+      if (_tacticalMoveAnimating) {
+        _tacticalMoveAnimating = false;
+        _tacticalMoveAnimPromise = null;
+      }
+      resolve();
+    }, 8000);
+  });
+  return Promise.race([
+    Promise.all([moveP, modelP, timerP]),
+    moveTimeout
+  ]);
+}
+
+function waitNextPaintFrames(frameCount) {
+  const n = Math.max(1, Math.floor(Number(frameCount) || 1));
+  return new Promise((resolve) => {
+    let left = n;
+    const step = () => {
+      left -= 1;
+      if (left <= 0) resolve();
+      else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+function resolveEnemyStepTargetGrid(st, step, foe) {
+  if (!st || !foe) return null;
+  if (step?.hits?.length) {
+    const hit = step.hits.find((h) => h && h.targetPartyUid != null);
+    if (hit) {
+      const m = (st.party || []).find((p) => p && p.uid === hit.targetPartyUid);
+      if (m && typeof m.gridX === "number") return m.gridX;
+    }
+  }
+  const living = (st.party || []).filter((m) => m && m.hp > 0 && typeof m.gridX === "number");
+  if (!living.length || typeof foe.gridX !== "number") return null;
+  let best = living[0];
+  let bestD = Infinity;
+  for (const m of living) {
+    const d = Math.abs(m.gridX - foe.gridX) + Math.abs((m.gridY || 0) - (foe.gridY || 0));
+    if (d < bestD) {
+      bestD = d;
+      best = m;
+    }
+  }
+  return best.gridX;
+}
+
+function resolveCombatVisualAnimForAction(kind, skillName, opts) {
+  if (typeof UNIT_VISUAL !== "undefined" && UNIT_VISUAL.resolveCombatVisualAnim) {
+    return UNIT_VISUAL.resolveCombatVisualAnim(kind, skillName || null, opts || null);
+  }
+  if (kind === "attack" || kind === "basic") return "attack";
+  if (!skillName) return kind === "skill" ? "skill" : "attack";
+  return kind === "skill" ? "skill" : "attack";
+}
+
+function queueUnitVisualAnim(unit, anim, durationMs, skillName, facingOpts) {
+  if (!unit || !anim) return;
+  const opts = facingOpts && typeof facingOpts === "object" ? facingOpts : null;
+  if (opts && typeof opts.targetGridX === "number") {
+    setUnitModelFacingTowardGrid(unit, opts.targetGridX);
+  } else if (opts && opts.targetUnit) {
+    setUnitModelFacingTowardUnit(unit, opts.targetUnit);
+  }
+  unit._visualAnim = anim;
+  if (skillName) unit._visualAnimSkill = skillName;
+  else delete unit._visualAnimSkill;
+  const ms = resolveUnitVisualAnimDurationMs(unit, anim, skillName || null);
+  const waitMs = Math.max(
+    Number.isFinite(durationMs) ? durationMs : 0,
+    ms,
+    typeof COMBAT_HIT_UI_DELAY_MS === "number" ? COMBAT_HIT_UI_DELAY_MS : 1150
+  );
+  unit._visualAnimUntil = Date.now() + waitMs;
+  queueCombatVisualRefresh(waitMs);
+  syncTacticalTokenVisualsForUnit(unit);
+}
+
+function clearUnitCombatVisualAnim(unit) {
+  if (!unit) return;
+  delete unit._visualAnim;
+  delete unit._visualAnimSkill;
+  unit._visualAnimUntil = 0;
+}
+
+function queueAllyCombatVisualAnim(member, kind, durationMs, skillName, targetUnit) {
+  if (!member) return;
+  const anim = resolveCombatVisualAnimForAction(kind, skillName || null);
+  const facingOpts = targetUnit ? { targetUnit } : null;
+  queueUnitVisualAnim(member, anim, durationMs, skillName || null, facingOpts);
+}
+
+function getUnitTacticalAnimState(unit, tokenEl) {
+  if (!unit) return "idle";
+  if (unit._visualFalling) return "fall";
+  if (tokenEl && tokenEl.classList && tokenEl.classList.contains("fight-tactical-token--animating")) {
+    return "walk";
+  }
+  const until = typeof unit._visualAnimUntil === "number" ? unit._visualAnimUntil : 0;
+  if (until > Date.now() && unit._visualAnim) return unit._visualAnim;
+  if (typeof unit.attackUntil === "number" && unit.attackUntil > Date.now()) return "attack";
+  return "idle";
+}
+
+function buildTacticalUnitModel3dInnerHtml(unit, fallbackVisualHtml, className, altText) {
+  const model3d = getUnitModel3dDefForUnit(unit);
+  if (!model3d) {
+    return fallbackVisualHtml;
+  }
+  const fallback =
+    fallbackVisualHtml ||
+    buildVisualHtml(
+      { image: unit && unit.name ? getItemImage(unit.name) : "", sprite: null },
+      className || "tactical-foe-img",
+      altText || "",
+      false
+    );
+  return `<div class="unit-model3d-mount" aria-hidden="true"></div><div class="unit-model3d-fallback">${fallback}</div>`;
+}
+
+function resolveTacticalTokenUnitFromElement(tokenEl) {
+  if (!tokenEl || !combatState) return null;
+  const foeUid = tokenEl.getAttribute("data-tactical-foe");
+  if (foeUid != null) {
+    const uid = parseInt(foeUid, 10);
+    return (combatState.foes || []).find((f) => f && f.uid === uid) || null;
+  }
+  const allyUid = tokenEl.getAttribute("data-tactical-ally");
+  if (allyUid != null) {
+    const uid = parseInt(allyUid, 10);
+    return (combatState.party || []).find((m) => m && m.uid === uid) || null;
+  }
+  return null;
+}
+
+function hydrateUnitModel3dTokens(layerEl, attempt) {
+  const n = typeof attempt === "number" ? attempt : 0;
+  if (typeof UnitModel3D === "undefined" || !UnitModel3D.hydrateLayer) {
+    if (n < 50) setTimeout(() => hydrateUnitModel3dTokens(layerEl, n + 1), 100);
+    return;
+  }
+  UnitModel3D.hydrateLayer(layerEl, {
+    getUnitForToken: resolveTacticalTokenUnitFromElement,
+    getModel3dForToken(tokenEl) {
+      const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+      return getUnitModel3dDefForUnit(unit);
+    },
+    getAnimStateForToken(tokenEl) {
+      const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+      return getUnitTacticalAnimState(unit, tokenEl);
+    },
+    getVisualSkillForToken(tokenEl) {
+      const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+      return unit && unit._visualAnimSkill ? unit._visualAnimSkill : null;
+    },
+    getFacingForToken(tokenEl) {
+      const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+      return unit ? getUnitModelFacing(unit) : MODEL_FACING_LEFT;
+    },
+    shouldForceVisualSync(tokenEl) {
+      const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+      if (!unit) return false;
+      if (unit._visualFalling && unit._visualFallPhase === "falling") return true;
+      return !!(
+        unit._visualAnim &&
+        typeof unit._visualAnimUntil === "number" &&
+        unit._visualAnimUntil > Date.now()
+      );
+    },
+    onActionAnimComplete(unit) {
+      clearUnitCombatVisualAnim(unit);
+    },
+    onFallComplete(unit) {
+      onUnitFallAnimComplete(unit);
+    },
+    onLoadFailed(tokenEl, reason) {
+      if (tokenEl && tokenEl.classList) tokenEl.classList.add("fight-tactical-token--model3d-fallback");
+      if (typeof showToast === "function") {
+        const msg = reason ? `3D load failed: ${reason}` : "3D load failed, using image fallback.";
+        showToast(msg);
+      }
+    }
+  });
 }
 
 function getEnemyDefByName(name) {
@@ -13118,7 +13744,8 @@ function reloadMonsters(opts) {
         ...foe,
         image: resolveImageByState(def, "idle"),
         images: def.images && typeof def.images === "object" ? def.images : null,
-        sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
+        sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null,
+        model3d: resolveUnitModel3dDef(def)
       };
     });
   }
@@ -13580,7 +14207,8 @@ function buildSpawnedFoe(region, def, uid, level, mood, spawnOpts) {
     maxStamina,
     image: resolveImageByState(def, "idle"),
     images: def.images && typeof def.images === "object" ? def.images : null,
-    sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null
+    sprites: def.sprites && typeof def.sprites === "object" ? def.sprites : null,
+    model3d: resolveUnitModel3dDef(def)
   };
   if (typeof EnemyMoods !== "undefined" && typeof EnemyMoods.applyMoodCombatFields === "function") {
     EnemyMoods.applyMoodCombatFields(foe, mood);
@@ -13806,7 +14434,7 @@ function getCoordinateBackgroundUrl(x, y) {
   return typeof u === "string" && u.trim() ? u.trim() : "";
 }
 
-const BIOME_BG_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
+const BIOME_BG_EXTENSIONS = [".png"];
 
 /** Crossfade duration matches `.adventure-bg-stack` defaults in styles.css (normal cell/city moves). */
 const ADVENTURE_BG_CROSSFADE_MS = 520;
@@ -16373,6 +17001,7 @@ let tacticalTokenLayoutDragSuppressedClick = false;
 let tacticalTokenEditScriptKey = "";
 let tacticalTokenEditUnitUid = null;
 let tacticalTokenEditUnitSide = "";
+let tacticalTokenEditSpaceHeld = false;
 let pendingDiscardInventoryItemName = null;
 
 function applyPortraitLayerTransformStyle(layerEl, layout) {
@@ -16711,7 +17340,9 @@ function syncTacticalTokenEditToolbar(st) {
       : key || "click a token on the board";
   const hint = isTacticalAllyTokenKey(key)
     ? `Ally token (${key}): left move, right rotate, Shift+drag/wheel scale, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.`
-    : "Foe token: left move art, right rotate, Shift+drag/wheel scale art, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.";
+    : tacticalScriptKeyHasModel3d(key)
+      ? "3D foe token: left move, hold Space then left-drag to rotate model, Shift+left-drag camera pitch, right-drag/wheel scale, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js."
+      : "Foe token: left move art, right rotate, Shift+drag/wheel scale art, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.";
   bar.innerHTML = `<span class="tactical-token-edit-target">${escapeHtml(label)}</span><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-export>Export token layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-reset>Reset token layout</button><p class="portrait-edit-hint tactical-token-edit-hint">${escapeHtml(
     hint
   )}</p>`;
@@ -16736,13 +17367,39 @@ function onTacticalTokenLayoutPointerDown(e) {
   e.preventDefault();
   e.stopPropagation();
   const allyToken = token.classList.contains("fight-tactical-token--ally");
-  const start =
-    (allyToken ? readTacticalTokenLayoutFromElement(root) : readPortraitLayerLayoutFromElement(root)) ||
-    getTacticalTokenLayoutForKey(scriptKey);
-  const startBox = getTacticalTokenLayoutForKey(scriptKey);
+  const editUnit = resolveTacticalTokenUnitFromElement(token);
+  const editModel3d = !allyToken && editUnit && unitHasModel3dVisual(editUnit);
+  const layoutForKey = getTacticalTokenLayoutForKey(scriptKey);
+  const start = allyToken
+    ? readTacticalTokenLayoutFromElement(token) || layoutForKey
+    : {
+        ...layoutForKey,
+        ...(readPortraitLayerLayoutFromElement(root) || {})
+      };
+  const startBox = layoutForKey;
   const startX = e.clientX;
   const startY = e.clientY;
-  const mode = e.button === 2 ? "rotate" : e.shiftKey ? "scale" : "move";
+  const spaceHeld =
+    tacticalTokenEditSpaceHeld || (e.getModifierState ? e.getModifierState("Space") : false);
+  const startCameraPitch = editModel3d ? getTacticalTokenCameraPitch(editUnit, start) : 12;
+  const startModelRotationY = editModel3d ? Number(start.modelRotationY) || 0 : 0;
+  const modelRotateDrag = editModel3d && e.button === 0 && spaceHeld;
+  const cameraPitchDrag = editModel3d && e.button === 0 && e.shiftKey && !spaceHeld;
+  const mode = editModel3d
+    ? modelRotateDrag
+      ? "rotate"
+      : cameraPitchDrag
+        ? "cameraPitch"
+        : e.button === 2
+          ? "scale"
+          : e.button === 0
+            ? "move"
+            : "move"
+    : e.button === 2
+      ? "rotate"
+      : e.shiftKey
+        ? "scale"
+        : "move";
   let last = { ...start };
   let lastBox = { ...startBox };
   let ended = false;
@@ -16759,6 +17416,14 @@ function onTacticalTokenLayoutPointerDown(e) {
   const applyLive = () => {
     if (allyToken) {
       applyTacticalTokenAnchorTransform(token, last);
+    } else if (editModel3d && mode === "rotate") {
+      applyTacticalTokenModel3dRotation(
+        token,
+        last,
+        getTacticalTokenModelRotationY(editUnit, last)
+      );
+    } else if (editModel3d && mode === "cameraPitch") {
+      applyTacticalTokenModel3dCamera(token, last, last.cameraPitch);
     } else {
       root.style.transform = `translate(${last.offsetXPct}%, ${last.offsetYPct}%) rotate(${last.rotDeg}deg) scale(${last.scalePct / 100})`;
     }
@@ -16774,7 +17439,14 @@ function onTacticalTokenLayoutPointerDown(e) {
     const rect = (allyToken ? token : root).getBoundingClientRect();
     if (mode === "rotate") {
       const dx = ev.clientX - startX;
-      last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
+      if (editModel3d) {
+        last.modelRotationY = clampPortraitLayoutRotDeg(startModelRotationY + dx * 0.5);
+      } else {
+        last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
+      }
+    } else if (mode === "cameraPitch") {
+      const dy = ev.clientY - startY;
+      last.cameraPitch = clampModelCameraPitch(startCameraPitch - dy * 0.5);
     } else if (mode === "scale") {
       const dy = ev.clientY - startY;
       last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45);
@@ -18905,7 +19577,8 @@ function buildTacticalBoardAllyPortraitHtml(member, st) {
     )}</div>${statusAuras}`;
   }
   if (member) {
-    return `<img class="tactical-foe-img" src="${escapeAttr(getItemImage(member.name))}" alt="" />${statusAuras}`;
+    const fallback = `<img class="tactical-foe-img" src="${escapeAttr(getItemImage(member.name))}" alt="" />`;
+    return buildTacticalUnitModel3dInnerHtml(member, fallback, "tactical-foe-img", member.name) + statusAuras;
   }
   return statusAuras;
 }
@@ -18947,13 +19620,20 @@ function buildTacticalFoePortraitHtml(foe, sizeClass) {
   const hideLabel = sizeClass === "tactical-portrait-wrap--board";
   const layout = getTacticalTokenLayoutForFoe(foe);
   const rootStyle = buildTacticalTokenTransformStyle(layout);
-  const visual = buildVisualHtml(
+  const fallbackVisual = buildVisualHtml(
     getCombatFoeVisual(foe),
     "tactical-foe-img",
     hideLabel ? "" : foe.name,
     false
   );
-  return `<div class="${wrapCls}"><div class="tactical-token-root-group" data-tactical-token-root style="${escapeAttr(
+  const visual = buildTacticalUnitModel3dInnerHtml(
+    foe,
+    fallbackVisual,
+    "tactical-foe-img",
+    hideLabel ? "" : foe.name
+  );
+  const model3dCls = unitHasModel3dVisual(foe) ? " fight-tactical-token-visual--model3d" : "";
+  return `<div class="${wrapCls}${model3dCls}"><div class="tactical-token-root-group" data-tactical-token-root style="${escapeAttr(
     rootStyle
   )}">${visual}</div></div>`;
 }
@@ -19537,6 +20217,7 @@ window.playCombatCardStatusEffect = playCombatCardStatusEffect;
 window.playCombatHealFloat = playCombatHealFloat;
 window.FIGHT_CARD_FX_MS = FIGHT_CARD_FX_MS;
 window.COMBAT_HIT_UI_DELAY_MS = COMBAT_HIT_UI_DELAY_MS;
+window.preserveTacticalUnitVisualClientFields = preserveTacticalUnitVisualClientFields;
 
 function playAllyStrikeOnFoe(member, foe, res, damage, dmgKind) {
   if (!member || !foe) return;
@@ -19850,13 +20531,20 @@ function resolveTacticalSkillCastCoords(ev, st, skillName) {
   return resolveTacticalGridCoordsFromPointerTarget(ev.target);
 }
 
-function trySubmitTacticalMoveAtPointer(ev, st) {
+function trySubmitTacticalMoveToCell(st, x, y) {
   if (!st?.tactical || st.tacticalPendingSkill || st.phase !== "player") return false;
-  if (!Number.isFinite(ev?.clientX) || !Number.isFinite(ev?.clientY)) return false;
-  const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
+  if (
+    st.serverAuthoritative &&
+    typeof window !== "undefined" &&
+    window.ServerCombat &&
+    typeof window.ServerCombat.canControlActiveMember === "function" &&
+    !window.ServerCombat.canControlActiveMember()
+  ) {
+    return false;
+  }
+  const active = getActivePartyMember(st);
   if (!active || (active.movePoints || 0) <= 0) return false;
-  const coords = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
-  if (!coords) return false;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
   const TG = typeof TacticalGrid !== "undefined" ? TacticalGrid : null;
   if (!TG) return false;
   ensureTacticalCombatFootprints(st);
@@ -19872,10 +20560,18 @@ function trySubmitTacticalMoveAtPointer(ev, st) {
     fp.w,
     fp.h
   );
-  if (!reachable.some((c) => c.x === coords.x && c.y === coords.y)) return false;
+  if (!reachable.some((c) => c.x === x && c.y === y)) return false;
   if (typeof window === "undefined" || !window.ServerCombat?.submitAction) return false;
-  void window.ServerCombat.submitAction({ type: "move", x: coords.x, y: coords.y });
+  void window.ServerCombat.submitAction({ type: "move", x, y });
   return true;
+}
+
+function trySubmitTacticalMoveAtPointer(ev, st) {
+  if (!st?.tactical || st.tacticalPendingSkill || st.phase !== "player") return false;
+  if (!Number.isFinite(ev?.clientX) || !Number.isFinite(ev?.clientY)) return false;
+  const coords = probeTacticalCellAtScreenPoint(ev.clientX, ev.clientY);
+  if (!coords) return false;
+  return trySubmitTacticalMoveToCell(st, coords.x, coords.y);
 }
 
 function buildTacticalInspectResourcesHtml(unit, st, side) {
@@ -19912,7 +20608,7 @@ function trySelectTacticalUnitAtCell(st, x, y) {
     if (tryCastPendingTacticalSkillOnUnit(st, m, true)) return true;
     if (st.phase !== "prep" && st.phase !== "ended") setTacticalInspect(st, "ally", unit.uid);
     st.selectedAllyUid = unit.uid;
-    if (!m.acted && st.activePartyUid !== unit.uid) st.activePartyUid = unit.uid;
+    if (!m.acted && canClientSelectActivePartyMember(st, m)) st.activePartyUid = unit.uid;
     updateFightAllySelection();
     return true;
   }
@@ -19928,6 +20624,8 @@ function trySelectTacticalUnitAtCell(st, x, y) {
 /** Living units that belong on the tactical board (missing hp treated as alive). */
 function tacticalUnitOnBoard(st, u) {
   if (!u) return false;
+  if (u._visualGone) return false;
+  if (u._visualFalling) return true;
   if (typeof u.hp !== "number") return true;
   return u.hp > 0;
 }
@@ -20101,6 +20799,24 @@ function submitTacticalSkillAt(st, skillName, x, y, targetUid) {
     }
   }
   clearTacticalPendingSkill(st);
+  if (caster) {
+    let skillTarget = null;
+    if (typeof targetUid === "number") {
+      skillTarget = (st.foes || []).find((f) => f && f.uid === targetUid && f.hp > 0) || null;
+    }
+    if (!skillTarget && typeof x === "number" && typeof y === "number" && typeof TacticalGrid !== "undefined") {
+      skillTarget =
+        (st.foes || []).find(
+          (f) =>
+            f &&
+            f.hp > 0 &&
+            typeof f.gridX === "number" &&
+            typeof f.gridY === "number" &&
+            TacticalGrid.getUnitOccupiedCells(f).some((c) => c.x === x && c.y === y)
+        ) || null;
+    }
+    queueAllyCombatVisualAnim(caster, "skill", COMBAT_HIT_UI_DELAY_MS, skillName, skillTarget);
+  }
   void window.ServerCombat.submitAction({
     type: "skill",
     skillName,
@@ -20194,6 +20910,17 @@ let _tacticalSkillHoverRaf = 0;
 function whenTacticalMoveAnimationsSettled() {
   return _tacticalMoveAnimPromise || Promise.resolve();
 }
+
+window.whenUnitVisualAnimsSettled = whenUnitVisualAnimsSettled;
+window.syncAllActiveTacticalTokenVisuals = syncAllActiveTacticalTokenVisuals;
+window.clearUnitCombatVisualAnim = clearUnitCombatVisualAnim;
+window.findTacticalTokenElementForUnit = findTacticalTokenElementForUnit;
+window.COMBAT_MODEL_ACTION_MS = COMBAT_MODEL_ACTION_MS;
+window.COMBAT_MODEL_FALL_MS = UNIT_VISUAL_FALL_MS;
+window.COMBAT_MODEL_FALL_HOLD_MS = COMBAT_MODEL_FALL_HOLD_MS;
+window.COMBAT_MODEL_FALL_FADE_MS = COMBAT_MODEL_FALL_FADE_MS;
+window.waitNextPaintFrames = waitNextPaintFrames;
+window.maybeStartUnitDeathVisual = maybeStartUnitDeathVisual;
 
 function onTacticalBoardPointerMove(ev) {
   const st = combatState;
@@ -20300,6 +21027,7 @@ function queryTacticalBoardTokens(selector) {
 }
 
 function clearTacticalTokenLayer() {
+  if (typeof UnitModel3D !== "undefined" && UnitModel3D.disposeAll) UnitModel3D.disposeAll();
   const layer = document.getElementById("fightTacticalTokenLayer");
   if (!layer) return;
   layer.innerHTML = "";
@@ -20508,6 +21236,12 @@ function layoutTacticalTokens(hud, opts) {
     if (Number.isFinite(yNum)) {
       token.style.zIndex = String(20 + (size - 1 - yNum));
     }
+    if (token.classList.contains("fight-tactical-token--model3d") && typeof UnitModel3D !== "undefined") {
+      const unit = resolveTacticalTokenUnitFromElement(token);
+      if (unit && UnitModel3D.setTokenFacing) {
+        UnitModel3D.setTokenFacing(token, getUnitModelFacing(unit));
+      }
+    }
   });
 }
 
@@ -20642,7 +21376,7 @@ function buildTacticalOrthoPath(fromX, fromY, toX, toY) {
   return steps;
 }
 
-function animateTacticalTokenStep(token, viewport, layer, fromX, fromY, toX, toY, durationMs) {
+function animateTacticalTokenStep(token, viewport, layer, fromX, fromY, toX, toY, durationMs, opts) {
   return new Promise((resolve) => {
     const fw = Number(token.getAttribute("data-tactical-fw")) || 1;
     const fh = Number(token.getAttribute("data-tactical-fh")) || 1;
@@ -20666,22 +21400,52 @@ function animateTacticalTokenStep(token, viewport, layer, fromX, fromY, toX, toY
       token.setAttribute("data-tactical-x", String(toX));
       token.setAttribute("data-tactical-y", String(toY));
       token.removeEventListener("transitionend", onEnd);
+      if (opts && opts.endWithIdle === false) {
+        resolve();
+        return;
+      }
+      if (typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenAnim) {
+        UnitModel3D.setTokenAnim(token, "idle", { force: true });
+      }
       resolve();
     };
     const onEnd = (ev) => {
       if (ev.propertyName === "left" || ev.propertyName === "top") finish();
     };
-    token.classList.add("fight-tactical-token--animating");
-    token.style.position = "absolute";
-    token.style.transition = "none";
-    token.style.left = `${start.left}px`;
-    token.style.top = `${start.top}px`;
-    void token.offsetWidth;
-    token.style.transition = `left ${durationMs}ms linear, top ${durationMs}ms linear`;
-    token.style.left = `${end.left}px`;
-    token.style.top = `${end.top}px`;
-    token.addEventListener("transitionend", onEnd);
-    setTimeout(finish, durationMs + 80);
+    const beginWalk = () => {
+      token.classList.add("fight-tactical-token--animating");
+      if (typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenAnim) {
+        UnitModel3D.setTokenAnim(token, "walk", {
+          force: true,
+          oncePerStep: true,
+          durationMs
+        });
+      }
+      token.style.position = "absolute";
+      token.style.transition = "none";
+      token.style.left = `${start.left}px`;
+      token.style.top = `${start.top}px`;
+      void token.offsetWidth;
+      token.style.transition = `left ${durationMs}ms linear, top ${durationMs}ms linear`;
+      token.style.left = `${end.left}px`;
+      token.style.top = `${end.top}px`;
+      token.addEventListener("transitionend", onEnd);
+      setTimeout(finish, durationMs + 80);
+    };
+    const unit = resolveTacticalTokenUnitFromElement(token);
+    const facingChanged = !!(unit && start.left !== end.left);
+    if (facingChanged) {
+      setUnitModelFacingFromScreenDelta(unit, start.left, end.left);
+      if (typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenFacing) {
+        UnitModel3D.setTokenFacing(token, getUnitModelFacing(unit));
+      }
+      waitNextPaintFrames(2).then(beginWalk);
+      return;
+    }
+    if (unit && typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenFacing) {
+      UnitModel3D.setTokenFacing(token, getUnitModelFacing(unit));
+    }
+    beginWalk();
   });
 }
 
@@ -20711,10 +21475,37 @@ function playTacticalMoveAnimations(hud, before, st) {
                 : `.fight-tactical-token[data-tactical-ally="${move.uid}"]`
             );
             if (!token) return;
+            const fw = Number(token.getAttribute("data-tactical-fw")) || 1;
+            const fh = Number(token.getAttribute("data-tactical-fh")) || 1;
+            const unit = resolveTacticalTokenUnitFromElement(token);
+            const startPos = getTacticalTokenLayerPosition(
+              viewport,
+              layer,
+              move.fromX,
+              move.fromY,
+              fw,
+              fh
+            );
+            const endPos = getTacticalTokenLayerPosition(
+              viewport,
+              layer,
+              move.toX,
+              move.toY,
+              fw,
+              fh
+            );
+            if (unit && startPos && endPos && startPos.left !== endPos.left) {
+              setUnitModelFacingFromScreenDelta(unit, startPos.left, endPos.left);
+              if (typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenFacing) {
+                UnitModel3D.setTokenFacing(token, getUnitModelFacing(unit));
+              }
+              await waitNextPaintFrames(2);
+            }
             const path = buildTacticalOrthoPath(move.fromX, move.fromY, move.toX, move.toY);
             let cx = move.fromX;
             let cy = move.fromY;
-            for (const step of path) {
+            for (let i = 0; i < path.length; i++) {
+              const step = path[i];
               await animateTacticalTokenStep(
                 token,
                 viewport,
@@ -20723,7 +21514,8 @@ function playTacticalMoveAnimations(hud, before, st) {
                 cy,
                 step.x,
                 step.y,
-                TACTICAL_MS_PER_SQUARE
+                TACTICAL_MS_PER_SQUARE,
+                { endWithIdle: i === path.length - 1 }
               );
               cx = step.x;
               cy = step.y;
@@ -21016,6 +21808,7 @@ function buildTacticalGridHtml(
         const tokenCls = [
           "fight-tactical-token",
           isFoe ? "fight-tactical-token--foe" : "fight-tactical-token--ally",
+          unitHasModel3dVisual(unit) ? "fight-tactical-token--model3d" : "",
           selected || prepSelected ? "fight-tactical-token--selected" : "",
           editTarget ? "fight-tactical-token--edit-target" : "",
           isInspected ? "fight-tactical-token--inspected" : "",
@@ -21100,7 +21893,10 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   let skillAoeKeys = null;
   if (isTacticalPlayerTurnUi(st)) {
     ensureTacticalUnitsPlaced(st);
-    const active = getActivePartyMember(st) || getCombatUiPartyMember(st);
+    const active =
+      st.serverAuthoritative
+        ? getActivePartyMember(st)
+        : getActivePartyMember(st) || getCombatUiPartyMember(st);
     const canControl =
       !st.serverAuthoritative ||
       (typeof window !== "undefined" &&
@@ -21159,6 +21955,8 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   syncTacticalTokenLayerVars(hud);
   hydrateSpriteAnimations(hud);
   hydrateSpriteAnimations(tokenLayer);
+  hydrateUnitModel3dTokens(tokenLayer);
+  syncAllActiveTacticalTokenVisuals();
   layoutTacticalTokens(hud);
   if (pendingMoveAnim) {
     syncTacticalBoardVerticalFit(hud);
@@ -21544,6 +22342,17 @@ function runEnemyPhase() {
 
   function beginEnemyAttackLoop() {
   let i = 0;
+  function scheduleNextEnemyHit(delayMs) {
+    const gap = Number.isFinite(delayMs) ? delayMs : 200;
+    const run = () => setTimeout(nextHit, gap);
+    if (typeof whenUnitVisualAnimsSettled === "function") {
+      whenUnitVisualAnimsSettled().then(run);
+    } else if (typeof whenTacticalMoveAnimationsSettled === "function") {
+      whenTacticalMoveAnimationsSettled().then(run);
+    } else {
+      run();
+    }
+  }
   function nextHit() {
     const cur = combatState;
     if (!cur || cur.phase !== "enemy") return;
@@ -21590,12 +22399,13 @@ function runEnemyPhase() {
       appendFightLog(`${foe.name} is staggered and cannot act.`);
       tickEnemySkillCooldownsEndOfTurn(foe);
       renderTurnBattle();
-      setTimeout(nextHit, 240);
+      scheduleNextEnemyHit(240);
       return;
     }
     if (foe.combat) foe.combat.__pendingSkillKey = null;
     const def = getEnemyDefByName(foe.name);
     const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+    let enemyMoved = false;
     if (cur.tactical && typeof foe.gridX === "number" && typeof TacticalEnemyAi !== "undefined") {
       foe.movePoints = typeof foe.movePoints === "number" ? foe.movePoints : TacticalGrid.DEFAULT_MOVE_POINTS;
       const roleKey = getEnemyCombatRoleKey(def) || "bruiser";
@@ -21609,18 +22419,27 @@ function runEnemyPhase() {
         foe.gridX = plan.x;
         foe.gridY = plan.y;
         foe.movePoints = Math.max(0, (foe.movePoints || 0) - Math.max(1, plan.cost || 1));
+        enemyMoved = true;
       }
     }
-    foe.attackUntil = Date.now() + 320;
     if (foe.combat) {
       foe.combat.forceBasicThisTurn = !!(
         (typeof foe.combat.staggerSkillTaxTurns === "number" && foe.combat.staggerSkillTaxTurns > 0) ||
         (typeof foe.combat.channelerStaminaTaxTurns === "number" && foe.combat.channelerStaminaTaxTurns > 0)
       );
     }
-    queueCombatVisualRefresh(340);
     if (scriptId) {
       enemyCombatRunScript(scriptId, foe, cur);
+      const visualActive =
+        typeof foe._visualAnimUntil === "number" && foe._visualAnimUntil > Date.now();
+      if (!visualActive) {
+        queueUnitVisualAnim(
+          foe,
+          resolveCombatVisualAnimForAction("attack", null, { scriptId }),
+          COMBAT_HIT_UI_DELAY_MS
+        );
+        foe.attackUntil = Date.now() + 320;
+      }
     } else {
       const prev = cur.__monsterDamageSourceFoe;
       cur.__monsterDamageSourceFoe = foe;
@@ -21630,6 +22449,8 @@ function runEnemyPhase() {
       } finally {
         cur.__monsterDamageSourceFoe = prev;
       }
+      queueUnitVisualAnim(foe, "attack", COMBAT_HIT_UI_DELAY_MS);
+      foe.attackUntil = Date.now() + 320;
     }
     despawnSummonsWithDeadSummoners(cur);
     tickEnemySkillCooldownsEndOfTurn(foe);
@@ -21640,7 +22461,7 @@ function runEnemyPhase() {
       setTimeout(() => finishCombatDefeat(), 400);
       return;
     }
-    setTimeout(nextHit, 380);
+    scheduleNextEnemyHit(enemyMoved ? 200 : 380);
   }
 
   setTimeout(nextHit, 200);
@@ -22467,29 +23288,16 @@ function getPartyMemberStamina(member, st) {
 function getCombatUiPartyMember(st) {
   if (!st) return null;
   if (!st.serverAuthoritative) return getActivePartyMember(st);
-  const canControl =
-    typeof window !== "undefined" &&
-    window.ServerCombat &&
-    typeof window.ServerCombat.canControlActiveMember === "function" &&
-    window.ServerCombat.canControlActiveMember();
-  if (!canControl) return getActivePartyMember(st);
+  const active = getActivePartyMember(st);
+  if (!active) return null;
   const myUid =
     typeof window !== "undefined" && window.ServerCombat && window.ServerCombat.getMyUserId
       ? window.ServerCombat.getMyUserId()
       : typeof window !== "undefined" && window.MMOPresence && window.MMOPresence.getMyUserId
         ? window.MMOPresence.getMyUserId()
         : null;
-  if (typeof myUid !== "number") return getActivePartyMember(st);
-  const active = getActivePartyMember(st);
-  if (active && Number(active.controllerUserId) === Number(myUid)) return active;
-  const mine = (st.party || []).find(
-    (m) =>
-      m &&
-      m.hp > 0 &&
-      !m.acted &&
-      Number(m.controllerUserId) === Number(myUid)
-  );
-  return mine || active;
+  if (typeof myUid === "number" && Number(active.controllerUserId) === Number(myUid)) return active;
+  return null;
 }
 
 function syncCombatStaminaUiFromMember(st, member) {
@@ -22505,18 +23313,9 @@ function syncCombatStaminaUiFromMember(st, member) {
 /** Keep action-panel stamina in sync after server state (online). */
 function syncCombatStaminaUiForServerState(st) {
   if (!st?.serverAuthoritative || st.phase !== "player") return;
-  const canControl =
-    typeof window !== "undefined" &&
-    window.ServerCombat &&
-    typeof window.ServerCombat.canControlActiveMember === "function" &&
-    window.ServerCombat.canControlActiveMember();
-  const member = getCombatUiPartyMember(st);
+  const member = getCombatUiPartyMember(st) || getActivePartyMember(st);
   if (!member) return;
   syncCombatStaminaUiFromMember(st, member);
-  if (canControl && member.uid != null) {
-    st.activePartyUid = member.uid;
-    st.selectedAllyUid = member.uid;
-  }
 }
 
 function setPartyMemberStamina(member, st, value) {
@@ -22653,8 +23452,8 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
     if (member.kind === "hero") applyPlayerClassSkillCast(st, skillName, living[0] || null);
     clearPlayerTurnTimer();
     st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
+    queueAllyCombatVisualAnim(member, kind, COMBAT_HIT_UI_DELAY_MS, skillName || null, living[0] || null);
     for (const foe of living) {
-      if (!foe.combat) foe.combat = {};
       const baseDmg = resolveOutgoingBaseDamage(foe);
       if (foe.combat && typeof foe.combat.evadeNextChance === "number" && foe.combat.evadeNextChance > 0) {
         const p = Math.min(1, Math.max(0, foe.combat.evadeNextChance));
@@ -22708,6 +23507,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
     applyPlayerClassSkillCast(st, skillName, null);
     clearPlayerTurnTimer();
     st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
+    queueAllyCombatVisualAnim(member, kind, COMBAT_HIT_UI_DELAY_MS, skillName || null);
     afterHitsCommit();
     return;
   }
@@ -22728,6 +23528,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
     if (Math.random() < p) {
       clearPlayerTurnTimer();
       st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
+      queueAllyCombatVisualAnim(member, kind, COMBAT_HIT_UI_DELAY_MS, skillName || null, foe);
       appendFightLog(`${actorName} uses ${label} on ${foe.name}, but ${foe.name} evades!`);
       if (foe.combat && foe.combat.splitMirageBlindOnDodge) {
         foe.combat.splitMirageBlindOnDodge = false;
@@ -22746,6 +23547,7 @@ function partyMemberCombatAction(member, actor, kind, skillName) {
   const res = resolveActorOutgoingDamageVsFoe(foe, baseDmg, kind, skillName || null, actor, member);
   clearPlayerTurnTimer();
   st.heroAttackUntil = Date.now() + COMBAT_HIT_UI_DELAY_MS;
+  queueAllyCombatVisualAnim(member, kind, COMBAT_HIT_UI_DELAY_MS, skillName || null, foe);
   if (res.missed) {
     appendFightLog(`${actorName} uses ${label} on ${foe.name}, but ${foe.name} evades.`);
     playAllyStrikeOnFoe(member, foe, res, 0, outgoingDmgKind);
@@ -22802,21 +23604,25 @@ function getArenaActingUnit(st) {
 
 function getActivePartyMember(st) {
   if (!st || !Array.isArray(st.party)) return null;
-  let m = st.party.find((x) => x && x.uid === st.activePartyUid && x.hp > 0 && !x.acted) || null;
-  if (!m && st.phase === "player") {
+  const m =
+    st.party.find((x) => x && x.uid === st.activePartyUid && x.hp > 0 && !x.acted) || null;
+  if (m || st.serverAuthoritative) return m;
+  if (st.phase === "player") {
     const elig = eligibleActingMembersClient(st);
-    m = elig[0] || null;
-    if (m) {
-      st.activePartyUid = m.uid;
-      st.selectedAllyUid = m.uid;
+    const pick = elig[0] || null;
+    if (pick) {
+      st.activePartyUid = pick.uid;
+      st.selectedAllyUid = pick.uid;
     }
+    return pick;
   }
-  return m;
+  return null;
 }
 
 function ensureActivePartyUid(st) {
   if (!st || !Array.isArray(st.party)) return;
   if (st.phase !== "player") return;
+  if (st.serverAuthoritative) return;
   const elig = eligibleActingMembersClient(st);
   if (!elig.length) {
     st.activePartyUid = null;
@@ -23067,7 +23873,7 @@ function onFightOverlayClick(ev) {
       const x = parseInt(moveCell.getAttribute("data-tactical-x"), 10);
       const y = parseInt(moveCell.getAttribute("data-tactical-y"), 10);
       if (Number.isFinite(x) && Number.isFinite(y)) {
-        void window.ServerCombat.submitAction({ type: "move", x, y });
+        trySubmitTacticalMoveToCell(st, x, y);
       }
       return;
     }
@@ -23110,7 +23916,7 @@ function onFightOverlayClick(ev) {
           setTacticalInspect(st, "ally", uid);
         }
         st.selectedAllyUid = uid;
-        if (!m.acted && st.activePartyUid !== uid) st.activePartyUid = uid;
+        if (!m.acted && canClientSelectActivePartyMember(st, m)) st.activePartyUid = uid;
         updateFightAllySelection();
       }
       return;
@@ -23175,7 +23981,7 @@ function onFightOverlayClick(ev) {
     const m = (st.party || []).find((x) => x && x.uid === uid);
     if (m && m.hp > 0) {
       st.selectedAllyUid = uid;
-      if (!m.acted && st.activePartyUid !== uid) {
+      if (!m.acted && canClientSelectActivePartyMember(st, m)) {
         st.activePartyUid = uid;
         renderTurnBattle();
         startPlayerTurnTimer();
@@ -29252,6 +30058,10 @@ function initWorldMapModal() {
   });
 }
 
+function onDocumentKeyup(e) {
+  if (e.code === "Space") tacticalTokenEditSpaceHeld = false;
+}
+
 function onDocumentKeydown(e) {
   if (e.key === "Escape" && isSkillsPanelOpen()) {
     e.preventDefault();
@@ -29279,6 +30089,11 @@ function onDocumentKeydown(e) {
     return;
   }
   if (e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
+  if (e.code === "Space" && isLayoutEditActive() && combatState?.tactical) {
+    tacticalTokenEditSpaceHeld = true;
+    e.preventDefault();
+    return;
+  }
   if (e.key === "Escape" && isFightOverlayOpen()) {
     const st = combatState;
     if (st?.tacticalPendingSkill) {
@@ -31181,6 +31996,20 @@ function initUi() {
   }
 
   document.addEventListener("keydown", onDocumentKeydown);
+  document.addEventListener("keyup", onDocumentKeyup);
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.code !== "Space") return;
+      if (!isLayoutEditActive() || !combatState?.tactical) return;
+      tacticalTokenEditSpaceHeld = true;
+      e.preventDefault();
+    },
+    true
+  );
+  window.addEventListener("blur", () => {
+    tacticalTokenEditSpaceHeld = false;
+  });
   initWorldMapModal();
 
   if (outOfCombatHpRegenTick) clearInterval(outOfCombatHpRegenTick);

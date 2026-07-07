@@ -6908,6 +6908,53 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   pointer-events: none;
 }
 
+.unit-model3d-mount {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.unit-model3d-mount--failed {
+  display: none;
+}
+
+.unit-model3d-fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.unit-model3d-mount--failed + .unit-model3d-fallback,
+.fight-tactical-token--model3d-fallback .unit-model3d-fallback {
+  display: block;
+}
+
+.unit-model3d-mount--ready + .unit-model3d-fallback {
+  display: none;
+}
+
+.fight-tactical-token--model3d-ready .unit-model3d-fallback {
+  display: none !important;
+}
+
+.unit-model3d-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  position: relative;
+  z-index: 4;
+}
+
+.tactical-token-root-group .unit-model3d-mount,
+.tactical-token-root-group .unit-model3d-fallback {
+  width: 100%;
+  height: 100%;
+}
+
 body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   pointer-events: auto;
 }
@@ -6936,6 +6983,14 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
 .fight-tactical-combat-fx-layer .fight-combat-fx-burst {
   position: fixed;
   z-index: 3;
+}
+
+.fight-tactical-token--dying {
+  pointer-events: none;
+}
+
+.fight-tactical-token--death-fading {
+  pointer-events: none;
 }
 
 .fight-tactical-token--animating {
@@ -7274,6 +7329,7 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
 }
 
 .fight-tactical-token--foe .tactical-token-root-group {
+  position: relative;
   width: 100%;
   height: 100%;
   transform-origin: bottom center;

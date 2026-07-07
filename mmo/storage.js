@@ -10,6 +10,7 @@
 
   let rosterRevision = 0;
   let cachedMmoFeatures = null;
+  let rosterSaveChain = Promise.resolve();
 
   function setRosterRevision(revision) {
     if (typeof revision === "number" && Number.isFinite(revision)) {
@@ -158,26 +159,29 @@
     if (!isOnlineMode()) {
       throw new Error("Local-only mode is disabled. Remove ?mmo=local or use the online server.");
     }
-    try {
-      const out = await ApiStorageAdapter.saveRosterJson(json);
-      if (out && typeof out === "object" && out.rosterJson != null) {
-        return out;
-      }
-      return { rosterJson: out || json, warnings: [] };
-    } catch (err) {
-      if (err.status === 409 && err.body && err.body.roster) {
-        const restored = JSON.stringify(err.body.roster);
-        if (err.body.revision != null) setRosterRevision(err.body.revision);
-        if (typeof root.applyAuthoritativeRosterJson === "function") {
-          root.applyAuthoritativeRosterJson(restored, { noRender: true });
+    rosterSaveChain = rosterSaveChain.then(async () => {
+      try {
+        const out = await ApiStorageAdapter.saveRosterJson(json);
+        if (out && typeof out === "object" && out.rosterJson != null) {
+          return out;
         }
-        if (typeof root.showToast === "function") {
-          root.showToast("Your save was out of date — synced from the server.");
+        return { rosterJson: out || json, warnings: [] };
+      } catch (err) {
+        if (err.status === 409 && err.body && err.body.roster) {
+          const restored = JSON.stringify(err.body.roster);
+          if (err.body.revision != null) setRosterRevision(err.body.revision);
+          if (typeof root.applyAuthoritativeRosterJson === "function") {
+            root.applyAuthoritativeRosterJson(restored, { noRender: true });
+          }
+          if (typeof root.showToast === "function") {
+            root.showToast("Your save was out of date — synced from the server.");
+          }
+          return { rosterJson: restored, warnings: err.body.violations || [], revision: err.body.revision };
         }
-        return { rosterJson: restored, warnings: err.body.violations || [], revision: err.body.revision };
+        throw err;
       }
-      throw err;
-    }
+    });
+    return rosterSaveChain;
   }
 
   async function validateSession() {

@@ -168,6 +168,19 @@ const GAME_CONFIG = {
       combatRole: "bruiser",
       spawnRarity: "epic",
       image: "Assets/Monsters/greenleaf_gorilla.png",
+      model3d: {
+        url: "Assets/Models/gorilla.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Death"
+        }
+      },
       possibleLevels: [39, 40, 41, 42],
     },
     {
@@ -635,6 +648,19 @@ const GAME_CONFIG = {
       combatRole: "controller",
       spawnRarity: "common",
       image: "Assets/Monsters/tide_hopper.png",
+      model3d: {
+        url: "Assets/Models/tide_hopper.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [1, 2, 3, 4, 5],
     },
     {
