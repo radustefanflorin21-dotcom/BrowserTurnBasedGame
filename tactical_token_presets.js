@@ -179,46 +179,59 @@
       tokenHeightPct: 100
     },
     hermit_crab: {
-      offsetXPct: -17.5379,
-      offsetYPct: 17.0576,
+      offsetXPct: -6.74525,
+      offsetYPct: 2.5587,
       rotDeg: 0,
       scalePct: 100,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 18.5,
+      cameraYaw: 20
     },
     driftling: {
-      offsetXPct: -20.2361,
-      offsetYPct: 4.26439,
+      offsetXPct: -9.35652,
+      offsetYPct: 13.8937,
       rotDeg: 0,
       scalePct: 124,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 47,
+      cameraYaw: -153.5
     },
     tide_hopper: {
-      offsetXPct: -6.59558,
-      offsetYPct: 8.181411413169222,
+      offsetXPct: -21.0499,
+      offsetYPct: 5.1354,
       rotDeg: 0,
       scalePct: 112,
       tokenWidthPct: 100,
       tokenHeightPct: 100,
       modelRotationY: -45.5,
-      cameraPitch: 33
+      cameraPitch: 33,
+      cameraYaw: 0
     },
     coastal_horror: {
-      offsetXPct: -6.74536,
-      offsetYPct: 11.9403,
+      offsetXPct: -11.420359802210811,
+      offsetYPct: 44.873258807692935,
       rotDeg: 0,
       scalePct: 202,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 28.5,
+      cameraYaw: 7
     },
     tidemeld_revenant: {
-      offsetXPct: -16.188867639123103,
-      offsetYPct: -3.411513859275053,
+      offsetXPct: -10.432487959443225,
+      offsetYPct: 4.600183978365489,
       rotDeg: 0,
       scalePct: 142,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenWidthPct: 148,
+      tokenHeightPct: 148,
+      modelRotationY: 0,
+      cameraPitch: 19,
+      cameraYaw: 39.5
     },
     tideharrow: {
       offsetXPct: -14.839797639123104,

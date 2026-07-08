@@ -669,6 +669,19 @@ const GAME_CONFIG = {
       combatRole: "tank",
       spawnRarity: "common",
       image: "Assets/Monsters/hermit_crab.png",
+      model3d: {
+        url: "Assets/Models/hermit_crab.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [3, 4, 5, 6, 7],
     },
     {
@@ -677,6 +690,19 @@ const GAME_CONFIG = {
       combatRole: "support",
       spawnRarity: "rare",
       image: "Assets/Monsters/driftling.png",
+      model3d: {
+        url: "Assets/Models/driftling.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [5, 6, 7, 8, 9],
     },
     {
@@ -685,6 +711,19 @@ const GAME_CONFIG = {
       combatRole: "summoner",
       spawnRarity: "epic",
       image: "Assets/Monsters/tidemeld_revenant.png",
+      model3d: {
+        url: "Assets/Models/tidemeld_revenant.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [7, 8, 9, 10],
     },
     {
@@ -693,6 +732,19 @@ const GAME_CONFIG = {
       combatRole: "controller",
       spawnRarity: "epic",
       image: "Assets/Monsters/coastal_horror.png",
+      model3d: {
+        url: "Assets/Models/coastal_horror.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [9, 10, 11],
     },
     {

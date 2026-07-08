@@ -301,6 +301,7 @@ class TokenViewer {
     this.modelHeight = 1;
     this.modelRotationY = null;
     this.cameraPitchDeg = null;
+    this.cameraYawDeg = null;
     this.uniformScale = 1;
     this.facingFlip = 1;
     this.flipRoot = null;
@@ -381,6 +382,7 @@ class TokenViewer {
       this.mountEl.classList.add("unit-model3d-mount--ready");
       this.resize();
       this.syncFromBridge();
+      if (this.tokenEl && bridge?.onTokenViewerReady) bridge.onTokenViewerReady(this.tokenEl);
       ensureTick();
     } else if (this.failed) {
       this.mountEl.classList.add("unit-model3d-mount--failed");
@@ -433,6 +435,7 @@ class TokenViewer {
         (this.tokenEl && bridge?.getAnimStateForToken?.(this.tokenEl)) || STATES.IDLE;
       this.playState(initial, { force: true });
       this.resize();
+      if (this.tokenEl && bridge?.onTokenViewerReady) bridge.onTokenViewerReady(this.tokenEl);
       ensureTick();
     } catch (err) {
       this.loading = false;
@@ -496,7 +499,15 @@ class TokenViewer {
       : Number(this.model3dDef?.cameraPitch);
     const pitchDeg = Number.isFinite(pitchRaw) ? Math.max(-10, Math.min(89, pitchRaw)) : 12;
     const pitch = THREE.MathUtils.degToRad(pitchDeg);
-    this.camera.position.set(0, targetY + Math.sin(pitch) * dist, Math.cos(pitch) * dist);
+    const yawOverride = Number(this.cameraYawDeg);
+    const yawRaw = Number.isFinite(yawOverride) ? yawOverride : Number(this.model3dDef?.cameraYaw);
+    const yawDeg = Number.isFinite(yawRaw) ? yawRaw : 0;
+    const yaw = THREE.MathUtils.degToRad(yawDeg);
+    const horiz = Math.cos(pitch) * dist;
+    const camX = horiz * Math.sin(yaw);
+    const camZ = horiz * Math.cos(yaw);
+    const camY = targetY + Math.sin(pitch) * dist;
+    this.camera.position.set(camX, camY, camZ);
     this.camera.near = Math.max(0.01, dist * 0.02);
     this.camera.far = Math.max(20, dist + this.modelRadius * 8);
     this.camera.lookAt(0, targetY, 0);
@@ -632,6 +643,15 @@ class TokenViewer {
     this.renderer.render(this.scene, this.camera);
   }
 
+  setCameraYaw(yawDeg) {
+    const deg = Number(yawDeg);
+    if (!Number.isFinite(deg)) return;
+    this.cameraYawDeg = Math.max(-180, Math.min(180, deg));
+    if (!this.loaded || this.failed) return;
+    this.resize();
+    this.renderer.render(this.scene, this.camera);
+  }
+
   update(dt) {
     if (!this.loaded || this.failed) return;
     if (this.mixer) this.mixer.update(dt);
@@ -711,6 +731,8 @@ function hydrateLayer(layerEl, nextBridge) {
     if (!viewer) {
       viewer = new TokenViewer(key, model3dDef);
       viewers.set(key, viewer);
+    } else if (model3dDef) {
+      viewer.model3dDef = model3dDef;
     }
     viewer.attach(token, mount);
   });
@@ -744,6 +766,13 @@ function setTokenCameraPitch(tokenEl, pitchDeg) {
   if (!key) return;
   const viewer = viewers.get(key);
   if (viewer) viewer.setCameraPitch(pitchDeg);
+}
+
+function setTokenCameraYaw(tokenEl, yawDeg) {
+  const key = tokenKeyFromEl(tokenEl);
+  if (!key) return;
+  const viewer = viewers.get(key);
+  if (viewer) viewer.setCameraYaw(yawDeg);
 }
 
 function setTokenFacing(tokenEl, facingSign) {
@@ -805,6 +834,7 @@ window.UnitModel3D = {
   setTokenAnim,
   setTokenModelRotation,
   setTokenCameraPitch,
+  setTokenCameraYaw,
   setTokenFacing,
   estimateClipDurationMs,
   whenActionAnimsSettled,

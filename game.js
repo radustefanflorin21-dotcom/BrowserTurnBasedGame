@@ -4543,6 +4543,12 @@ function clampModelCameraPitch(v) {
   return Math.max(-10, Math.min(89, n));
 }
 
+function clampModelCameraYaw(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(-180, Math.min(180, n));
+}
+
 function getDefaultTacticalTokenLayout() {
   return {
     offsetXPct: 0,
@@ -4552,7 +4558,8 @@ function getDefaultTacticalTokenLayout() {
     tokenWidthPct: 100,
     tokenHeightPct: 100,
     modelRotationY: 0,
-    cameraPitch: null
+    cameraPitch: null,
+    cameraYaw: 0
   };
 }
 
@@ -4572,7 +4579,8 @@ function normalizeTacticalTokenLayoutRow(raw) {
     tokenWidthPct: clampTacticalTokenBoxPct(raw.tokenWidthPct),
     tokenHeightPct: clampTacticalTokenBoxPct(raw.tokenHeightPct),
     modelRotationY: clampPortraitLayoutRotDeg(raw.modelRotationY),
-    cameraPitch: clampModelCameraPitch(raw.cameraPitch)
+    cameraPitch: clampModelCameraPitch(raw.cameraPitch),
+    cameraYaw: clampModelCameraYaw(raw.cameraYaw) ?? 0
   };
 }
 
@@ -4646,7 +4654,9 @@ function setTacticalTokenLayout(key, patch) {
     modelRotationY: patch && patch.modelRotationY != null ? patch.modelRotationY : prev.modelRotationY,
     cameraPitch: patch && Object.prototype.hasOwnProperty.call(patch, "cameraPitch")
       ? patch.cameraPitch
-      : prev.cameraPitch
+      : prev.cameraPitch,
+    cameraYaw:
+      patch && Object.prototype.hasOwnProperty.call(patch, "cameraYaw") ? patch.cameraYaw : prev.cameraYaw
   });
   if (!player) return;
   player.tacticalTokenLayouts[key] = next;
@@ -4661,6 +4671,7 @@ function setTacticalTokenLayout(key, patch) {
           const isAlly = token.classList.contains("fight-tactical-token--ally");
           applyTacticalTokenBoxForElement(token, getTacticalBoardViewport(hud), next);
           if (isAlly) applyTacticalTokenAnchorTransform(token, next);
+          else applyTacticalFoeTokenRootTransform(token, next);
         });
       syncTacticalTokenModel3dViewForKey(key, next);
     }
@@ -4699,6 +4710,14 @@ function applyTacticalTokenAnchorTransform(tokenEl, layout) {
   const l = layout || getDefaultTacticalTokenLayout();
   tokenEl.style.transformOrigin = "50% 100%";
   tokenEl.style.transform = `translate(-50%, -100%) translate(${l.offsetXPct}%, ${l.offsetYPct}%) rotate(${l.rotDeg}deg) scale(${l.scalePct / 100})`;
+}
+
+function applyTacticalFoeTokenRootTransform(tokenEl, layout) {
+  if (!tokenEl || tokenEl.classList.contains("fight-tactical-token--ally")) return;
+  const root = getTacticalTokenLayoutEditRoot(tokenEl);
+  if (!root) return;
+  const l = layout || getDefaultTacticalTokenLayout();
+  root.style.transform = `translate(${l.offsetXPct}%, ${l.offsetYPct}%) rotate(${l.rotDeg}deg) scale(${l.scalePct / 100})`;
 }
 
 function getTacticalTokenLayoutEditRoot(token) {
@@ -12647,6 +12666,7 @@ function resolveUnitModel3dDef(src) {
     rotationY: Number.isFinite(raw.rotationY) ? raw.rotationY : 0,
     rotationZ: Number.isFinite(raw.rotationZ) ? raw.rotationZ : 0,
     cameraPitch: Number.isFinite(raw.cameraPitch) ? raw.cameraPitch : null,
+    cameraYaw: Number.isFinite(raw.cameraYaw) ? raw.cameraYaw : 0,
     animations,
     forceSolidMaterial: raw.forceSolidMaterial === true,
     debugForceVisible: raw.debugForceVisible === true,
@@ -12670,6 +12690,14 @@ function getTacticalTokenCameraPitch(unit, layout) {
   return basePitch != null ? basePitch : 12;
 }
 
+function getTacticalTokenCameraYaw(unit, layout) {
+  const layoutYaw = layout && layout.cameraYaw != null ? clampModelCameraYaw(layout.cameraYaw) : null;
+  if (layoutYaw != null) return layoutYaw;
+  const baseDef = unit && unit.name ? resolveUnitModel3dDef(getEnemyDefByName(unit.name)) : null;
+  const baseYaw = baseDef ? clampModelCameraYaw(baseDef.cameraYaw) : null;
+  return baseYaw != null ? baseYaw : 0;
+}
+
 function mergeTacticalLayoutIntoModel3dDef(def, unit) {
   if (!def || !unit) return def;
   const key = getTacticalFoeScriptKey(unit);
@@ -12681,7 +12709,8 @@ function mergeTacticalLayoutIntoModel3dDef(def, unit) {
   return {
     ...def,
     rotationY: baseY + extraY,
-    cameraPitch: getTacticalTokenCameraPitch(unit, layout)
+    cameraPitch: getTacticalTokenCameraPitch(unit, layout),
+    cameraYaw: getTacticalTokenCameraYaw(unit, layout)
   };
 }
 
@@ -12705,14 +12734,17 @@ function applyTacticalTokenModel3dRotation(tokenEl, layout, rotationOverride) {
   UnitModel3D.setTokenModelRotation(tokenEl, rotationY);
 }
 
-function applyTacticalTokenModel3dCamera(tokenEl, layout, pitchOverride) {
-  if (!tokenEl || typeof UnitModel3D === "undefined" || !UnitModel3D.setTokenCameraPitch) return;
+function applyTacticalTokenModel3dCamera(tokenEl, layout, pitchOverride, yawOverride) {
+  if (!tokenEl || typeof UnitModel3D === "undefined") return;
   const unit = resolveTacticalTokenUnitFromElement(tokenEl);
   if (!unit || !unitHasModel3dVisual(unit)) return;
   const overridePitch = clampModelCameraPitch(pitchOverride);
+  const overrideYaw = clampModelCameraYaw(yawOverride);
   const cameraPitch =
     overridePitch != null ? overridePitch : getTacticalTokenCameraPitch(unit, layout);
-  UnitModel3D.setTokenCameraPitch(tokenEl, cameraPitch);
+  const cameraYaw = overrideYaw != null ? overrideYaw : getTacticalTokenCameraYaw(unit, layout);
+  if (UnitModel3D.setTokenCameraPitch) UnitModel3D.setTokenCameraPitch(tokenEl, cameraPitch);
+  if (UnitModel3D.setTokenCameraYaw) UnitModel3D.setTokenCameraYaw(tokenEl, cameraYaw);
 }
 
 function applyTacticalTokenModel3dView(tokenEl, layout) {
@@ -12976,9 +13008,7 @@ function syncTacticalTokenVisualsForUnit(unit) {
   if (UnitModel3D.setTokenFacing) {
     UnitModel3D.setTokenFacing(tokenEl, getUnitModelFacing(unit));
   }
-  if (UnitModel3D.setTokenModelRotation) {
-    UnitModel3D.setTokenModelRotation(tokenEl, getTacticalTokenModelRotationY(unit, layout));
-  }
+  applyTacticalTokenModel3dView(tokenEl, layout);
   const state = getUnitTacticalAnimState(unit, tokenEl);
   const visualActive =
     (unit._visualAnim && typeof unit._visualAnimUntil === "number" && unit._visualAnimUntil > Date.now()) ||
@@ -13008,6 +13038,15 @@ function syncAllActiveTacticalTokenVisuals() {
   layer.querySelectorAll(".fight-tactical-token--model3d").forEach((token) => {
     const unit = resolveTacticalTokenUnitFromElement(token);
     if (unit) syncTacticalTokenVisualsForUnit(unit);
+  });
+}
+
+function syncAllTacticalTokenModel3dLayouts() {
+  const layer = getTacticalTokenLayer();
+  if (!layer || typeof UnitModel3D === "undefined") return;
+  layer.querySelectorAll(".fight-tactical-token--model3d").forEach((token) => {
+    const scriptKey = token.getAttribute("data-tactical-script");
+    applyTacticalTokenModel3dView(token, getTacticalTokenLayoutForKey(scriptKey));
   });
 }
 
@@ -13225,6 +13264,13 @@ function hydrateUnitModel3dTokens(layerEl, attempt) {
         const msg = reason ? `3D load failed: ${reason}` : "3D load failed, using image fallback.";
         showToast(msg);
       }
+    },
+    onTokenViewerReady(tokenEl) {
+      const unit = resolveTacticalTokenUnitFromElement(tokenEl);
+      if (!unit) return;
+      const scriptKey = tokenEl.getAttribute("data-tactical-script");
+      applyTacticalTokenModel3dView(tokenEl, getTacticalTokenLayoutForKey(scriptKey));
+      syncTacticalTokenVisualsForUnit(unit);
     }
   });
 }
@@ -17341,7 +17387,7 @@ function syncTacticalTokenEditToolbar(st) {
   const hint = isTacticalAllyTokenKey(key)
     ? `Ally token (${key}): left move, right rotate, Shift+drag/wheel scale, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.`
     : tacticalScriptKeyHasModel3d(key)
-      ? "3D foe token: left move, hold Space then left-drag to rotate model, Shift+left-drag camera pitch, right-drag/wheel scale, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js."
+      ? "3D foe token: left move, hold Space then left-drag to rotate model, Shift+left-drag camera (up/down pitch, left/right orbit), right-drag/wheel scale, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js."
       : "Foe token: left move art, right rotate, Shift+drag/wheel scale art, Ctrl+wheel resize box. Export JSON → paste into tactical_token_presets.js.";
   bar.innerHTML = `<span class="tactical-token-edit-target">${escapeHtml(label)}</span><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-export>Export token layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-reset>Reset token layout</button><p class="portrait-edit-hint tactical-token-edit-hint">${escapeHtml(
     hint
@@ -17382,6 +17428,7 @@ function onTacticalTokenLayoutPointerDown(e) {
   const spaceHeld =
     tacticalTokenEditSpaceHeld || (e.getModifierState ? e.getModifierState("Space") : false);
   const startCameraPitch = editModel3d ? getTacticalTokenCameraPitch(editUnit, start) : 12;
+  const startCameraYaw = editModel3d ? getTacticalTokenCameraYaw(editUnit, start) : 0;
   const startModelRotationY = editModel3d ? Number(start.modelRotationY) || 0 : 0;
   const modelRotateDrag = editModel3d && e.button === 0 && spaceHeld;
   const cameraPitchDrag = editModel3d && e.button === 0 && e.shiftKey && !spaceHeld;
@@ -17423,7 +17470,7 @@ function onTacticalTokenLayoutPointerDown(e) {
         getTacticalTokenModelRotationY(editUnit, last)
       );
     } else if (editModel3d && mode === "cameraPitch") {
-      applyTacticalTokenModel3dCamera(token, last, last.cameraPitch);
+      applyTacticalTokenModel3dCamera(token, last, last.cameraPitch, last.cameraYaw);
     } else {
       root.style.transform = `translate(${last.offsetXPct}%, ${last.offsetYPct}%) rotate(${last.rotDeg}deg) scale(${last.scalePct / 100})`;
     }
@@ -17445,8 +17492,10 @@ function onTacticalTokenLayoutPointerDown(e) {
         last.rotDeg = clampPortraitLayoutRotDeg(start.rotDeg + dx * 0.5);
       }
     } else if (mode === "cameraPitch") {
+      const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       last.cameraPitch = clampModelCameraPitch(startCameraPitch - dy * 0.5);
+      last.cameraYaw = clampModelCameraYaw(startCameraYaw + dx * 0.5) ?? 0;
     } else if (mode === "scale") {
       const dy = ev.clientY - startY;
       last.scalePct = clampPortraitLayoutScalePct(start.scalePct - dy * 0.45);
@@ -21226,6 +21275,8 @@ function layoutTacticalTokens(hud, opts) {
     applyTacticalTokenBoxForElement(token, viewport, tokenLayout);
     if (isAlly) {
       applyTacticalTokenAnchorTransform(token, tokenLayout);
+    } else {
+      applyTacticalFoeTokenRootTransform(token, tokenLayout);
     }
     token.style.position = "absolute";
     token.style.left = `${pos.left}px`;
@@ -21288,6 +21339,7 @@ function scheduleTacticalTokenLayout(hud) {
       if (_tacticalMoveAnimating || _tacticalGridBeforeAnim) return;
       syncTacticalBoardVerticalFit(hud);
       layoutTacticalTokens(hud);
+      syncAllTacticalTokenModel3dLayouts();
       const layer = getTacticalTokenLayer();
       if (layer) hydrateSpriteAnimations(layer);
     });
@@ -21956,8 +22008,9 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   hydrateSpriteAnimations(hud);
   hydrateSpriteAnimations(tokenLayer);
   hydrateUnitModel3dTokens(tokenLayer);
-  syncAllActiveTacticalTokenVisuals();
   layoutTacticalTokens(hud);
+  syncAllActiveTacticalTokenVisuals();
+  syncAllTacticalTokenModel3dLayouts();
   if (pendingMoveAnim) {
     syncTacticalBoardVerticalFit(hud);
   } else {
