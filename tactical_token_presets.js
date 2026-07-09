@@ -237,10 +237,10 @@
       cameraYaw: 7
     },
     tidemeld_revenant: {
-      offsetXPct: 1.45441,
-      offsetYPct: 19.9303,
+      offsetXPct: 1.2659,
+      offsetYPct: 8.64951,
       rotDeg: 0,
-      scalePct: 142,
+      scalePct: 112,
       tokenWidthPct: 100,
       tokenHeightPct: 100,
       modelRotationY: 0,
@@ -656,37 +656,37 @@
       tokenHeightPct: 100
     },
     drowned_channeler: {
-      offsetXPct: 2.14414,
-      offsetYPct: 14.4637,
+      offsetXPct: 2.87897,
+      offsetYPct: 16.7862,
       rotDeg: 0,
       scalePct: 136,
       tokenWidthPct: 100,
       tokenHeightPct: 100,
       modelRotationY: 0,
-      cameraPitch: 0,
-      cameraYaw: 0
+      cameraPitch: 14.5,
+      cameraYaw: -1
     },
     tidebound_crusher: {
-      offsetXPct: 12.8394,
-      offsetYPct: 32.0807,
+      offsetXPct: 11.8196,
+      offsetYPct: 44.0061,
       rotDeg: 0,
       scalePct: 196,
       tokenWidthPct: 100,
       tokenHeightPct: 100,
       modelRotationY: 0,
-      cameraPitch: 0,
-      cameraYaw: 0
+      cameraPitch: 31.5,
+      cameraYaw: 6
     },
     tidemother_aberration: {
-      offsetXPct: -1.80656,
-      offsetYPct: 27.2339,
+      offsetXPct: -0.683754,
+      offsetYPct: 28.2986,
       rotDeg: 0,
       scalePct: 178,
       tokenWidthPct: 100,
       tokenHeightPct: 100,
       modelRotationY: 0,
-      cameraPitch: 0,
-      cameraYaw: 0
+      cameraPitch: 18.5,
+      cameraYaw: -1
     },
     stormwake_leviathan: {
       offsetXPct: 18.43600757394787,
@@ -705,7 +705,7 @@
       tokenHeightPct: 100
     }
   };
-  const TOKEN_PRESET_REV = "2026-07-09-sunken-grotto-3d";
+  const TOKEN_PRESET_REV = "2026-07-09-tidemeld-revenant";
   if (typeof GAME_CONFIG !== "undefined" && GAME_CONFIG) {
     GAME_CONFIG.tacticalTokenPresets = presets;
     GAME_CONFIG.tacticalTokenPresetRev = TOKEN_PRESET_REV;
