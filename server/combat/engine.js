@@ -68,6 +68,7 @@ import {
 import {
   initTacticalState,
   refreshUnitTurnResources,
+  repositionTacticalSpawns,
   validatePlaceAction,
   applyPlaceAction,
   validateMoveAction,
@@ -342,7 +343,18 @@ function advanceCombatTurns(session, rng, replayOut = null) {
         foe.movePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
         foe.maxMovePoints = TacticalGrid.DEFAULT_MOVE_POINTS;
         const moveRes = runTacticalEnemyMove(foe, st, append, rng);
-        if (moveRes?.moved && recorder) recorder.flushStep(true);
+        if (moveRes?.moved && recorder) {
+          recorder.flushStep(true, [
+            {
+              uid: foe.uid,
+              fromX: moveRes.fromX,
+              fromY: moveRes.fromY,
+              toX: moveRes.toX,
+              toY: moveRes.toY,
+              cost: moveRes.cost
+            }
+          ]);
+        }
       }
       runSingleEnemyTurn(foe, st, rng, append, enemyPlayer, enemyHits, recorder);
     }
@@ -611,6 +623,7 @@ export function beginFightFromPrepSession(session) {
   }
   session.locked = true;
   beginCoopFromPrep(session);
+  repositionTacticalSpawns(st);
   const opening = applyCombatTurnOrderStart(session);
   const out = { state: cloneState(st), result: null, finished: false, began: true, ...opening };
   if (opening._turnOutcome === "victory") {

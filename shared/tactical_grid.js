@@ -1,13 +1,15 @@
 /**
- * 8×8 tactical board helpers (client + server).
- * Columns A–H map to x=0..7; row 1 = y=0 (bottom) through row 8 = y=7 (top) in UI terms.
+ * 8×12 tactical board helpers (client + server).
+ * Columns A–B (x=0–1) are ally placement; K–L (x=10–11) are enemy placement.
  */
 (function (root) {
-  const GRID_SIZE = 8;
+  const GRID_WIDTH = 12;
+  const GRID_HEIGHT = 8;
+  const GRID_SIZE = GRID_WIDTH;
   const ALLY_COL_MIN = 0;
   const ALLY_COL_MAX = 1;
-  const ENEMY_COL_MIN = 6;
-  const ENEMY_COL_MAX = 7;
+  const ENEMY_COL_MIN = 10;
+  const ENEMY_COL_MAX = 11;
   const DEFAULT_MOVE_POINTS = 3;
 
   const FRONT_ROLES = new Set(["tank", "bruiser"]);
@@ -15,7 +17,7 @@
   const MID_ROLES = new Set(["assassin", "harasser", "controller"]);
 
   function colToLetter(x) {
-    return String.fromCharCode(65 + Math.max(0, Math.min(7, x)));
+    return String.fromCharCode(65 + Math.max(0, Math.min(GRID_WIDTH - 1, x)));
   }
 
   function coordKey(x, y) {
@@ -33,7 +35,7 @@
   }
 
   function isInBounds(x, y) {
-    return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
   }
 
   function isAllyColumn(x) {
@@ -42,6 +44,25 @@
 
   function isEnemyColumn(x) {
     return x >= ENEMY_COL_MIN && x <= ENEMY_COL_MAX;
+  }
+
+  function isUnitOnEnemySide(unit) {
+    if (!unit || typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return false;
+    const { w, h } = getUnitFootprint(unit);
+    return footprintCells(unit.gridX, unit.gridY, w, h).some((c) => isEnemyColumn(c.x));
+  }
+
+  function isUnitOnAllySide(unit) {
+    if (!unit || typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return false;
+    const { w, h } = getUnitFootprint(unit);
+    return footprintCells(unit.gridX, unit.gridY, w, h).some((c) => isAllyColumn(c.x));
+  }
+
+  /** True when the unit anchor is a valid spawn tile for its side (cols A–B or K–L). */
+  function isUnitAnchorOnPlacementCells(unit, side) {
+    if (!unit || typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return false;
+    const cells = placementCellsForUnit(unit, side);
+    return cells.some((c) => c.x === unit.gridX && c.y === unit.gridY);
   }
 
   function manhattan(ax, ay, bx, by) {
@@ -54,8 +75,8 @@
 
   function createBoard() {
     return {
-      width: GRID_SIZE,
-      height: GRID_SIZE,
+      width: GRID_WIDTH,
+      height: GRID_HEIGHT,
       obstacles: []
     };
   }
@@ -74,8 +95,8 @@
     const w = unit?.gridFootprintW;
     const h = unit?.gridFootprintH;
     return {
-      w: Math.max(1, Math.min(GRID_SIZE, Math.floor(Number.isFinite(w) ? w : 1))),
-      h: Math.max(1, Math.min(GRID_SIZE, Math.floor(Number.isFinite(h) ? h : 1)))
+      w: Math.max(1, Math.min(GRID_WIDTH, Math.floor(Number.isFinite(w) ? w : 1))),
+      h: Math.max(1, Math.min(GRID_HEIGHT, Math.floor(Number.isFinite(h) ? h : 1)))
     };
   }
 
@@ -98,7 +119,7 @@
   }
 
   function isFootprintInBounds(ax, ay, fw, fh) {
-    return ax >= 0 && ay >= 0 && ax + fw <= GRID_SIZE && ay + fh <= GRID_SIZE;
+    return ax >= 0 && ay >= 0 && ax + fw <= GRID_WIDTH && ay + fh <= GRID_HEIGHT;
   }
 
   function isFootprintPlaceable(ax, ay, fw, fh, board, occupancy, ignoreUid) {
@@ -183,7 +204,7 @@
 
   function enumerateAllySpawnCells() {
     const out = [];
-    for (let y = 0; y < GRID_SIZE; y++) {
+    for (let y = 0; y < GRID_HEIGHT; y++) {
       for (let x = ALLY_COL_MIN; x <= ALLY_COL_MAX; x++) {
         out.push({ x, y });
       }
@@ -193,7 +214,7 @@
 
   function enumerateEnemySpawnCells() {
     const out = [];
-    for (let y = 0; y < GRID_SIZE; y++) {
+    for (let y = 0; y < GRID_HEIGHT; y++) {
       for (let x = ENEMY_COL_MIN; x <= ENEMY_COL_MAX; x++) {
         out.push({ x, y });
       }
@@ -201,14 +222,14 @@
     return out;
   }
 
-  /** Valid anchor tiles for multi-cell foes that must still overlap the enemy side (cols G–H). */
+  /** Valid anchor tiles for multi-cell foes that must still overlap the enemy side (cols K–L). */
   function enumerateEnemyPlacementAnchorCells(fw, fh) {
     const footprintW = Math.max(1, Math.floor(fw || 1));
     const footprintH = Math.max(1, Math.floor(fh || 1));
     if (footprintW === 1 && footprintH === 1) return enumerateEnemySpawnCells();
     const out = [];
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      for (let x = 0; x < GRID_WIDTH; x++) {
         if (!isFootprintInBounds(x, y, footprintW, footprintH)) continue;
         let overlapsEnemy = false;
         for (const c of footprintCells(x, y, footprintW, footprintH)) {
@@ -279,8 +300,8 @@
       let spot = firstFreeFootprintCell(unitCells, w, h, occupancy, u.uid);
       if (!spot) {
         const fallback = [];
-        for (let fy = 0; fy < GRID_SIZE; fy++) {
-          for (let fx = 0; fx < GRID_SIZE; fx++) fallback.push({ x: fx, y: fy });
+        for (let fy = 0; fy < GRID_HEIGHT; fy++) {
+          for (let fx = 0; fx < GRID_WIDTH; fx++) fallback.push({ x: fx, y: fy });
         }
         spot = firstFreeFootprintCell(fallback, w, h, occupancy, u.uid);
       }
@@ -416,6 +437,8 @@
 
   const api = Object.freeze({
     GRID_SIZE,
+    GRID_WIDTH,
+    GRID_HEIGHT,
     ALLY_COL_MIN,
     ALLY_COL_MAX,
     ENEMY_COL_MIN,
@@ -427,6 +450,9 @@
     isInBounds,
     isAllyColumn,
     isEnemyColumn,
+    isUnitOnAllySide,
+    isUnitOnEnemySide,
+    isUnitAnchorOnPlacementCells,
     manhattan,
     areOrthogonalAdjacent,
     createBoard,

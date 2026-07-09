@@ -25,6 +25,53 @@ export function ensureTacticalUnitFootprints(st) {
   });
 }
 
+function enemyRoleForFoe(foe) {
+  const def = foe?.name ? getEnemyDefByName(foe.name) : null;
+  return getEnemyCombatRoleKey(def);
+}
+
+/** Fix units still on legacy/wrong spawn columns after grid resize (e.g. foes at x=6–7 on 12-wide board). */
+export function repositionTacticalSpawns(st) {
+  if (!st?.tactical) return;
+  ensureTacticalUnitFootprints(st);
+  if (!st.board || typeof st.board !== "object") {
+    st.board = TacticalGrid.createBoard();
+  } else {
+    st.board.width = TacticalGrid.GRID_WIDTH;
+    st.board.height = TacticalGrid.GRID_HEIGHT;
+  }
+
+  const livingFoes = (st.foes || []).filter((f) => f && f.hp > 0);
+  const foeNeedsReposition = (f) => {
+    if (typeof f.gridX !== "number" || typeof f.gridY !== "number") return true;
+    // Legacy 8-column board used enemy spawn cols 6–7; on 12-wide that's between the zones.
+    if (f.gridX > TacticalGrid.ALLY_COL_MAX && f.gridX < TacticalGrid.ENEMY_COL_MIN) return true;
+    if (st.phase === "prep") {
+      return (
+        !TacticalGrid.isUnitOnEnemySide(f) || !TacticalGrid.isUnitAnchorOnPlacementCells(f, "foe")
+      );
+    }
+    return !TacticalGrid.isUnitOnEnemySide(f);
+  };
+  if (livingFoes.some(foeNeedsReposition)) {
+    TacticalGrid.autoPlaceEnemies(livingFoes, enemyRoleForFoe);
+  }
+
+  if (st.phase === "prep") {
+    const livingAllies = (st.party || []).filter((m) => m && m.hp > 0);
+    const allyNeedsReposition = (m) => {
+      if (typeof m.gridX !== "number" || typeof m.gridY !== "number") return true;
+      if (m.gridX > TacticalGrid.ALLY_COL_MAX && m.gridX < TacticalGrid.ENEMY_COL_MIN) return true;
+      return (
+        !TacticalGrid.isUnitOnAllySide(m) || !TacticalGrid.isUnitAnchorOnPlacementCells(m, "ally")
+      );
+    };
+    if (livingAllies.some(allyNeedsReposition)) {
+      TacticalGrid.autoPlaceAllies(livingAllies);
+    }
+  }
+}
+
 export function initTacticalState(st, { autoPlace = true } = {}) {
   if (!st) return;
   st.tactical = true;
@@ -44,6 +91,7 @@ export function initTacticalState(st, { autoPlace = true } = {}) {
   (st.foes || []).forEach((f) => {
     if (f) initUnitTacticalFields(f, st, "foe");
   });
+  repositionTacticalSpawns(st);
 }
 
 export function initUnitTacticalFields(unit, st, side) {
@@ -112,6 +160,30 @@ export function applyPlaceAction(st, unit, x, y) {
   unit.gridY = y;
 }
 
+/** BFS check: can this unit reach (x,y) with its current move points? */
+export function checkTacticalMoveDestination(st, unit, x, y) {
+  if (!st?.tactical || !unit || unit.hp <= 0) return { ok: false };
+  if (typeof unit.gridX !== "number" || typeof unit.gridY !== "number") return { ok: false };
+  if (!TacticalGrid.isInBounds(x, y)) return { ok: false };
+  ensureTacticalUnitFootprints(st);
+  const fp = TacticalGrid.getUnitFootprint(unit);
+  const mp = typeof unit.movePoints === "number" ? unit.movePoints : TacticalGrid.DEFAULT_MOVE_POINTS;
+  const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
+  const reachable = TacticalGrid.bfsReachable(
+    unit.gridX,
+    unit.gridY,
+    mp,
+    st.board,
+    occ,
+    unit.uid,
+    fp.w,
+    fp.h
+  );
+  const dest = reachable.find((c) => c.x === x && c.y === y);
+  if (!dest) return { ok: false };
+  return { ok: true, cost: dest.cost };
+}
+
 export function validateMoveAction(st, session, userId, unitUid, x, y) {
   if (st.phase !== "player") return { ok: false, message: "Not your turn." };
   ensureTacticalUnitFootprints(st);
@@ -123,27 +195,18 @@ export function validateMoveAction(st, session, userId, unitUid, x, y) {
   if (st.activePartyUid !== unit.uid) {
     return { ok: false, message: "It is not this unit's turn." };
   }
-  if (!TacticalGrid.isInBounds(x, y)) return { ok: false, message: "Invalid tile." };
-  const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
-  const reachable = TacticalGrid.bfsReachable(
-    unit.gridX,
-    unit.gridY,
-    unit.movePoints,
-    st.board,
-    occ,
-    unit.uid,
-    TacticalGrid.getUnitFootprint(unit).w,
-    TacticalGrid.getUnitFootprint(unit).h
-  );
-  const dest = reachable.find((c) => c.x === x && c.y === y);
-  if (!dest) return { ok: false, message: "That tile is out of movement range." };
-  return { ok: true, unit, cost: dest.cost };
+  const check = checkTacticalMoveDestination(st, unit, x, y);
+  if (!check.ok) return { ok: false, message: "That tile is out of movement range." };
+  return { ok: true, unit, cost: check.cost };
 }
 
-export function applyMoveAction(st, unit, x, y, cost) {
+export function applyMoveAction(st, unit, x, y, _cost) {
+  const check = checkTacticalMoveDestination(st, unit, x, y);
+  if (!check.ok) return false;
   unit.gridX = x;
   unit.gridY = y;
-  unit.movePoints = Math.max(0, (unit.movePoints || 0) - Math.max(1, cost || 1));
+  unit.movePoints = Math.max(0, (unit.movePoints || 0) - check.cost);
+  return true;
 }
 
 export function findAdjacentFoeForMelee(st, ally) {
@@ -194,7 +257,7 @@ export function validateArenaPlaceAction(st, session, userId, unitUid, x, y) {
   const cells = TacticalGrid.footprintCells(x, y, w, h);
   if (isFoeSide) {
     if (!cells.every((c) => TacticalGrid.isEnemyColumn(c.x))) {
-      return { ok: false, message: "Place your fighter in columns G or H." };
+      return { ok: false, message: "Place your fighter in columns K or L." };
     }
   } else if (!cells.every((c) => TacticalGrid.isAllyColumn(c.x))) {
     return { ok: false, message: "Allies must be placed in columns A or B." };
@@ -237,20 +300,9 @@ export function validateArenaMoveAction(st, session, userId, unitUid, x, y) {
     }
   }
   if (!TacticalGrid.isInBounds(x, y)) return { ok: false, message: "Invalid tile." };
-  const occ = TacticalGrid.buildOccupancy(TacticalGrid.allCombatUnits(st));
-  const reachable = TacticalGrid.bfsReachable(
-    unit.gridX,
-    unit.gridY,
-    unit.movePoints,
-    st.board,
-    occ,
-    unit.uid,
-    TacticalGrid.getUnitFootprint(unit).w,
-    TacticalGrid.getUnitFootprint(unit).h
-  );
-  const dest = reachable.find((c) => c.x === x && c.y === y);
-  if (!dest) return { ok: false, message: "That tile is out of movement range." };
-  return { ok: true, unit, cost: dest.cost };
+  const check = checkTacticalMoveDestination(st, unit, x, y);
+  if (!check.ok) return { ok: false, message: "That tile is out of movement range." };
+  return { ok: true, unit, cost: check.cost };
 }
 
 export function validateArenaMeleeTarget(st, attacker, targetUid) {

@@ -274,8 +274,8 @@
     const grid = TG();
     const out = [];
     if (!grid) return out;
-    for (let y = 0; y < grid.GRID_SIZE; y++) {
-      for (let x = 0; x < grid.GRID_SIZE; x++) {
+    for (let y = 0; y < grid.GRID_HEIGHT; y++) {
+      for (let x = 0; x < grid.GRID_WIDTH; x++) {
         if (!isInRange(casterX, casterY, x, y, rangeMin, rangeMax)) continue;
         if (!hasLineOfSight(st, casterX, casterY, x, y)) continue;
         out.push({ x, y });

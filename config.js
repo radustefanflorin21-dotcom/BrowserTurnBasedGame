@@ -781,6 +781,19 @@ const GAME_CONFIG = {
       combatRole: "controller",
       spawnRarity: "rare",
       image: "Assets/Monsters/tide_echo.png",
+      model3d: {
+        url: "Assets/Models/tide_echo.glb",
+        scale: 1,
+        baseScale: 1.4,
+        yOffset: 0,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [6],
     },
     {

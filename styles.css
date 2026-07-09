@@ -6587,14 +6587,23 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   overflow: visible;
   align-items: center;
   position: relative;
-  /* ~57px baseline (+10%); tokens scale with cells */
-  --tactical-cell-size: calc(min(57.2px, calc((100vh - 360px) / 8.182), calc((100vw - 240px) / 8.182)));
+  /* 8 rows × 12 cols; ~77px baseline (10% smaller than prior) */
+  --tactical-grid-cols: 12;
+  --tactical-grid-rows: 8;
+  --tactical-cell-size-unscaled: calc(1.35 * min(57.2px, calc((100vh - 360px) / 8.182), calc((100vw - 240px) / 12.273)));
+  --tactical-board-scale: 1;
+  --tactical-cell-size: calc(var(--tactical-cell-size-unscaled) * var(--tactical-board-scale));
+  --tactical-board-base-offset-y: calc(var(--tactical-cell-size-unscaled) * 0.25);
+  --tactical-cell-row-h: calc(var(--tactical-cell-size) * 0.5);
   --tactical-token-width: calc(var(--tactical-cell-size) * 1.296);
   --tactical-token-height: calc(var(--tactical-cell-size) * 2.05);
   --tactical-turn-card-size: min(50px, calc((100vw - 48px) / 14));
-  --tactical-board-tilt: 52deg;
+  --tactical-board-tilt: 0deg;
   --tactical-board-frame: 7px;
   --tactical-board-thickness: 10px;
+  --tactical-diamond-clip: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  --tactical-diamond-inner-clip: polygon(50% 3.5%, 96.5% 50%, 50% 96.5%, 3.5% 50%);
+  --tactical-diamond-stroke: rgba(72, 52, 36, 0.72);
 }
 
 .fight-tactical-timeline {
@@ -6894,7 +6903,11 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   z-index: 1005;
   overflow: visible;
   /* Body-mounted layer does not inherit .fight-tactical vars — mirror sizing here. */
-  --tactical-cell-size: calc(min(57.2px, calc((100vh - 360px) / 8.182), calc((100vw - 240px) / 8.182)));
+  --tactical-grid-cols: 12;
+  --tactical-grid-rows: 8;
+  --tactical-cell-size-unscaled: calc(1.35 * min(57.2px, calc((100vh - 360px) / 8.182), calc((100vw - 240px) / 12.273)));
+  --tactical-board-scale: 1;
+  --tactical-cell-size: calc(var(--tactical-cell-size-unscaled) * var(--tactical-board-scale));
   --tactical-token-width: calc(var(--tactical-cell-size) * 1.296);
   --tactical-token-height: calc(var(--tactical-cell-size) * 2.05);
 }
@@ -7009,7 +7022,7 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   --tactical-board-frame-light: rgba(154, 107, 61, 0.34);
   --tactical-board-frame-mid: rgba(107, 69, 37, 0.4);
   --tactical-board-frame-dark: rgba(90, 56, 32, 0.46);
-  --tactical-cell-border: rgba(0, 0, 0, 0.18);
+  --tactical-cell-border: rgba(72, 52, 36, 0.72);
 }
 
 .fight-tactical-board-wrap {
@@ -7022,7 +7035,24 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
 }
 
 .fight-overlay--tactical .fight-tactical-board-wrap {
-  transform: translateY(var(--tactical-board-nudge-y, 0px));
+  transform: translateX(var(--tactical-board-layout-offset-x, 0%))
+    translateY(calc(var(--tactical-board-base-offset-y, 0px) + var(--tactical-board-nudge-y, 0px)))
+    translateY(var(--tactical-board-layout-offset-y, 0%));
+}
+
+.fight-tactical-board-wrap--layout-editing,
+.fight-tactical-board-wrap--layout-selected {
+  outline: 2px dashed rgba(255, 220, 120, 0.85);
+  outline-offset: 3px;
+}
+
+.fight-tactical-board-wrap--layout-editing,
+.fight-tactical-board-wrap--layout-selected {
+  cursor: move;
+}
+
+.fight-tactical-board-wrap--layout-editing-scale {
+  cursor: ns-resize;
 }
 
 .fight-tactical-board-viewport {
@@ -7033,17 +7063,14 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
 
 .fight-tactical-board-tilt {
   position: relative;
-  transform: perspective(780px) rotateX(var(--tactical-board-tilt));
-  transform-origin: 50% 0%;
-  transform-style: preserve-3d;
   width: fit-content;
   max-width: 100%;
-  backface-visibility: hidden;
 }
 
 .fight-tactical-board-stage {
   position: relative;
-  transform-style: preserve-3d;
+  display: flex;
+  justify-content: center;
   padding: var(--tactical-board-frame);
   border-radius: 4px;
   background: linear-gradient(
@@ -7060,21 +7087,7 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
 }
 
 .fight-tactical-board-stage::after {
-  content: "";
-  position: absolute;
-  left: var(--tactical-board-frame);
-  right: var(--tactical-board-frame);
-  bottom: calc(-1 * var(--tactical-board-thickness));
-  height: var(--tactical-board-thickness);
-  transform-origin: top center;
-  transform: rotateX(-90deg);
-  background: linear-gradient(
-    180deg,
-    var(--tactical-board-frame-mid) 0%,
-    var(--tactical-board-frame-dark) 100%
-  );
-  opacity: 0.55;
-  pointer-events: none;
+  display: none;
 }
 
 .fight-tactical-col-labels {
@@ -7085,17 +7098,16 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   display: flex;
   flex-direction: column;
   gap: 0;
-  width: calc(8 * var(--tactical-cell-size));
+  width: calc(var(--tactical-grid-cols) * var(--tactical-cell-size));
   flex-shrink: 0;
-  transform-style: preserve-3d;
 }
 
 .fight-tactical-row {
   display: grid;
-  grid-template-columns: repeat(8, var(--tactical-cell-size));
+  grid-template-columns: repeat(var(--tactical-grid-cols), var(--tactical-cell-size));
   gap: 0;
+  height: var(--tactical-cell-size);
   flex-shrink: 0;
-  transform-style: preserve-3d;
 }
 
 .fight-tactical-cell {
@@ -7105,11 +7117,25 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   min-width: var(--tactical-cell-size);
   min-height: var(--tactical-cell-size);
   box-sizing: border-box;
-  border: 1px solid var(--tactical-cell-border);
+  border: none;
+  background: transparent;
   cursor: default;
-  flex-shrink: 0;
   overflow: visible;
-  transform-style: preserve-3d;
+}
+
+.fight-tactical-cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--tactical-cell-border);
+  background: transparent;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.fight-tactical-cell::after {
+  display: none;
 }
 
 .fight-tactical-col-label,
@@ -7151,70 +7177,96 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   border-color: #f5df7a;
 }
 
-.fight-tactical-cell--light {
-  background: var(--tactical-cell-light);
-}
-
+.fight-tactical-cell--light,
 .fight-tactical-cell--dark {
-  background: var(--tactical-cell-dark);
+  background: transparent;
 }
 
-.fight-tactical-board-wrap--prep .fight-tactical-cell--ally-zone.fight-tactical-cell--light {
-  background: var(--tactical-cell-ally-light);
-}
-
-.fight-tactical-board-wrap--prep .fight-tactical-cell--ally-zone.fight-tactical-cell--dark {
-  background: var(--tactical-cell-ally-dark);
-}
-
-.fight-tactical-board-wrap--prep .fight-tactical-cell--enemy-zone.fight-tactical-cell--light {
-  background: var(--tactical-cell-enemy-light);
-}
-
+.fight-tactical-board-wrap--prep .fight-tactical-cell--ally-zone.fight-tactical-cell--light,
+.fight-tactical-board-wrap--prep .fight-tactical-cell--ally-zone.fight-tactical-cell--dark,
+.fight-tactical-board-wrap--prep .fight-tactical-cell--enemy-zone.fight-tactical-cell--light,
 .fight-tactical-board-wrap--prep .fight-tactical-cell--enemy-zone.fight-tactical-cell--dark {
-  background: var(--tactical-cell-enemy-dark);
+  background: transparent;
+}
+
+.fight-tactical-cell--move-path-green::before {
+  background: rgba(70, 180, 100, 0.24);
+  border-color: rgba(80, 200, 120, 0.95);
+}
+
+.fight-tactical-cell--move-path-red::before {
+  background: rgba(200, 70, 70, 0.24);
+  border-color: rgba(220, 90, 90, 0.95);
+}
+
+.fight-tactical-cell--skill-range::before {
+  background: rgba(150, 90, 255, 0.24);
+  border-color: rgba(180, 120, 255, 0.95);
+}
+
+.fight-tactical-cell--skill-aoe::before {
+  background: rgba(255, 100, 60, 0.12);
+  border-color: rgba(255, 120, 80, 0.9);
+}
+
+.fight-tactical-cell--skill-range.fight-tactical-cell--skill-aoe::before {
+  background: rgba(255, 100, 60, 0.2);
+  border-color: rgba(255, 120, 80, 0.95);
+}
+
+.fight-tactical-cell--edit-selected::before {
+  background: rgba(255, 220, 120, 0.2);
+  border-color: rgba(255, 220, 120, 0.95);
+}
+
+.fight-tactical-cell--footprint.fight-tactical-cell--edit-selected::before {
+  background: rgba(255, 220, 120, 0.22);
+  border-color: rgba(255, 220, 120, 0.95);
+}
+
+.fight-tactical-cell--placeable:hover::before {
+  border-color: rgba(126, 184, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(126, 184, 255, 0.35);
+}
+
+.fight-tactical-cell--active::before {
+  background: rgba(232, 197, 71, 0.18);
+  border-color: #e8c547;
+  border-width: 2px;
 }
 
 .fight-tactical-cell--move-path-green {
-  box-shadow: inset 0 0 0 2px rgba(80, 200, 120, 0.95);
-  background: rgba(70, 180, 100, 0.24);
+  background: transparent;
   cursor: pointer;
 }
 
 .fight-tactical-cell--move-path-red {
-  box-shadow: inset 0 0 0 2px rgba(220, 90, 90, 0.95);
-  background: rgba(200, 70, 70, 0.24);
+  background: transparent;
   cursor: not-allowed;
 }
 
 .fight-tactical-cell--skill-range {
-  box-shadow: inset 0 0 0 2px rgba(180, 120, 255, 0.95);
-  background: rgba(150, 90, 255, 0.24);
+  background: transparent;
   cursor: crosshair;
 }
 
 .fight-tactical-cell--skill-aoe {
-  box-shadow: inset 0 0 0 2px rgba(255, 120, 80, 0.9);
-  background: rgba(255, 100, 60, 0.12);
+  background: transparent;
 }
 
 .fight-tactical-cell--skill-range.fight-tactical-cell--skill-aoe {
-  box-shadow: inset 0 0 0 2px rgba(255, 120, 80, 0.95);
-  background: rgba(255, 100, 60, 0.2);
+  background: transparent;
 }
 
 .fight-tactical-cell--footprint {
-  box-shadow: inset 0 0 0 1px rgba(255, 120, 120, 0.35);
-  background: rgba(120, 40, 40, 0.08);
+  background: transparent;
 }
 
 .fight-tactical-cell--edit-selected {
-  box-shadow: inset 0 0 0 2px rgba(255, 220, 120, 0.95);
   background: rgba(255, 220, 120, 0.2);
 }
 
 .fight-tactical-cell--footprint.fight-tactical-cell--edit-selected {
-  box-shadow: inset 0 0 0 2px rgba(255, 220, 120, 0.95);
   background: rgba(255, 220, 120, 0.22);
 }
 
@@ -7226,18 +7278,10 @@ body.edit-mode-on .fight-tactical-token-layer .fight-tactical-token {
   cursor: pointer;
 }
 
-.fight-tactical-cell--placeable:hover {
-  box-shadow: inset 0 0 0 2px rgba(126, 184, 255, 0.75);
-}
-
-.fight-tactical-cell--active {
-  box-shadow: inset 0 0 0 3px #e8c547;
-}
-
 .tactical-cell-anchor {
   position: absolute;
   left: 50%;
-  bottom: 2px;
+  top: 100%;
   width: 0;
   height: 0;
   pointer-events: none;

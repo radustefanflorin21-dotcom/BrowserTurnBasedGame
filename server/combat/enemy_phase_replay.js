@@ -62,18 +62,23 @@ export function createEnemyPhaseStepRecorder(st) {
   let pendingLogs = [];
   let pendingHits = [];
   let pendingHeals = [];
+  let pendingMeta = null;
 
-  function flushStep(forceSnapshot) {
+  function flushStep(forceSnapshot, extraMeta = null) {
     if (!forceSnapshot && !pendingLogs.length && !pendingHits.length && !pendingHeals.length) return;
+    if (extraMeta) pendingMeta = extraMeta;
     steps.push({
+      actorFoeUid: typeof st.activeFoeUid === "number" ? st.activeFoeUid : undefined,
       logLines: pendingLogs.slice(),
       hits: pendingHits.map((h) => ({ ...h })),
       heals: pendingHeals.map((h) => ({ ...h })),
-      ...captureStepSnapshot(st)
+      ...captureStepSnapshot(st),
+      tacticalMoves: pendingMeta || undefined
     });
     pendingLogs = [];
     pendingHits = [];
     pendingHeals = [];
+    pendingMeta = null;
   }
 
   function wrapAppendLog(baseAppend) {

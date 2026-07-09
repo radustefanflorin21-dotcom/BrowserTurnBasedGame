@@ -121,9 +121,14 @@
   const prevTacticalPendingSkill = combatState?.tacticalPendingSkill;
   const prevTacticalSkillHoverX = combatState?.tacticalSkillHoverX;
   const prevTacticalSkillHoverY = combatState?.tacticalSkillHoverY;
+  const leavingPrep = combatState?.phase === "prep" && st.phase !== "prep";
+  if (leavingPrep && typeof window.clearTacticalBoardVerticalLock === "function") {
+    window.clearTacticalBoardVerticalLock();
+  }
   const shouldSnapshotTacticalGrid =
     combatState?.tactical &&
     st.phase !== "prep" &&
+    combatState.phase !== "prep" &&
     combatState.phase !== "ended" &&
     typeof noteTacticalGridBeforeStateUpdate === "function";
   if (shouldSnapshotTacticalGrid) {
@@ -233,10 +238,7 @@
           })
         : []
     };
-    if (combatState.tactical && typeof ensureTacticalUnitsPlaced === "function") {
-      ensureTacticalUnitsPlaced(combatState);
-    }
-    if (typeof ensureTacticalCombatFootprints === "function") {
+    if (combatState.tactical && typeof ensureTacticalCombatFootprints === "function") {
       ensureTacticalCombatFootprints(combatState);
     }
     ensureCombatStatus(combatState);
@@ -458,26 +460,30 @@
 
   function inferEnemySkillKeyFromLogLines(logLines) {
     if (!Array.isArray(logLines) || !logLines.length) return null;
-    const line = logLines.find((l) => /\buses\b/i.test(String(l || "")));
+    const line = logLines.find((l) => /\b(uses|casts)\b/i.test(String(l || "")));
     if (!line) return null;
-    const m = String(line).match(/\buses\s+(.+?)(?:\s+on\b|[.(]|$)/i);
+    const m = String(line).match(/\b(?:uses|casts)\s+(.+?)(?:\s+on\b|[.(]|$)/i);
     if (!m || !m[1]) return null;
     return m[1].trim().toLowerCase().replace(/\s+/g, "_");
   }
 
   function inferFoeUidFromStep(st, step) {
     if (!st || !step) return null;
+    if (step.actorFoeUid != null) {
+      const uid = Number(step.actorFoeUid);
+      if (Number.isFinite(uid)) return uid;
+    }
     if (step.hits && step.hits.length) {
       const hit = step.hits.find((h) => h && h.foeUid != null);
       if (hit) return hit.foeUid;
     }
     const logLines = step.logLines || [];
     for (const line of logLines) {
-      const m = String(line || "").match(/^(.+?)\s+uses\b/i);
+      const m = String(line || "").match(/^(.+?)\s+(?:uses|casts|attacks)\b/i);
       if (!m || !m[1]) continue;
       const name = m[1].trim();
-      const foe = (st.foes || []).find((f) => f && f.name === name);
-      if (foe) return foe.uid;
+      const matches = (st.foes || []).filter((f) => f && f.name === name);
+      if (matches.length === 1) return matches[0].uid;
     }
     return typeof st.activeFoeUid === "number" ? st.activeFoeUid : null;
   }
@@ -511,7 +517,7 @@
     const def = typeof getEnemyDefByName === "function" ? getEnemyDefByName(foe.name) : null;
     const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
     const skillKey = inferEnemySkillKeyFromLogLines(logLines);
-    const usesSkill = logLines.some((l) => /\buses\b/i.test(String(l || "")));
+    const usesSkill = logLines.some((l) => /\b(uses|casts)\b/i.test(String(l || "")));
     const kind = usesSkill ? "skill" : "attack";
     const uiDelay =
       typeof window.COMBAT_MODEL_ACTION_MS === "number"
@@ -558,6 +564,8 @@
     }
     applyCombatVisualSnapshot(st, step);
     if (preSnap) applyGridMoveFacing(st, preSnap, st);
+    // Hints from the server about tactical movement cost (used for animation edge-count).
+    st._tacticalMoveCostHints = Array.isArray(step.tacticalMoves) ? step.tacticalMoves : null;
     if (typeof renderTurnBattle === "function") renderTurnBattle();
     queueEnemyReplayStepVisualAnim(step);
     if (typeof syncAllActiveTacticalTokenVisuals === "function") syncAllActiveTacticalTokenVisuals();

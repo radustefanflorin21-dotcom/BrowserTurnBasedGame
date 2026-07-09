@@ -144,7 +144,7 @@
     }
     const rules = [
       ["Team size", mode.teamSize ? `${mode.teamSize} vs ${mode.teamSize}` : "—"],
-      ["Board", mode.boardSize ? `${mode.boardSize}×${mode.boardSize}` : "8×8"],
+      ["Board", mode.boardWidth && mode.boardHeight ? `${mode.boardWidth}×${mode.boardHeight}` : "12×8"],
       ["Turn timer", mode.turnTimerSec ? `${mode.turnTimerSec}s` : "45s"],
       ["Placement", mode.placementPhase ? "Yes" : "No"],
       ["Gear", mode.gear ? "Enabled" : "Normalized"],

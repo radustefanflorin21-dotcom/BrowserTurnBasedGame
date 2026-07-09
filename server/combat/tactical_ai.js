@@ -22,8 +22,19 @@ export function runTacticalEnemyMove(foe, st, appendLog, rng = null) {
   const plan = TacticalEnemyAi.planTacticalEnemyMove(st, foe, { role, scriptId, rng });
   if (!plan.moved) return { moved: false };
 
-  applyMoveAction(st, foe, plan.x, plan.y, plan.cost);
-  return { moved: true };
+  const fromX = foe.gridX;
+  const fromY = foe.gridY;
+  if (!applyMoveAction(st, foe, plan.x, plan.y, plan.cost)) {
+    return { moved: false };
+  }
+  return {
+    moved: true,
+    fromX,
+    fromY,
+    toX: foe.gridX,
+    toY: foe.gridY,
+    cost: plan.cost
+  };
 }
 
 export function pickTacticalMeleeTarget(foe, st) {

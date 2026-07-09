@@ -12,6 +12,7 @@ import {
   canAddParticipantParty
 } from "./coop.js";
 import { preparePlayerForCombat } from "./player_prep.js";
+import { repositionTacticalSpawns } from "./tactical.js";
 import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./broadcast.js";
 import { getPartyMemberIds, notifyPartyFightStarted } from "../presence/party.js";
 import { applyCombatWorldMapOutcome } from "../progression/world_map.js";
@@ -250,6 +251,9 @@ export function resumeCoopSession(sessionId, userId, { player, slotIndex }) {
   part.slotIndex = slotIndex;
   part.connected = true;
   session.state.fightLog.push(`— ${part.player?.name || "Hero"} rejoined the fight —`);
+  if (session.state.phase === "prep") {
+    repositionTacticalSpawns(session.state);
+  }
   return session;
 }
 

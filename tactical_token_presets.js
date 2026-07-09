@@ -11,12 +11,15 @@
 (function () {
   const presets = {
     tactical_ally_male: {
-      offsetXPct: -10.455388518080511,
-      offsetYPct: -33.64221367563232,
+      offsetXPct: -20.440603013089856,
+      offsetYPct: -20.8294,
       rotDeg: 0,
-      scalePct: 160,
+      scalePct: 112,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 0,
+      cameraYaw: 0
     },
     tactical_ally_female: {
       offsetXPct: -16.94309491521011,
@@ -179,37 +182,48 @@
       tokenHeightPct: 100
     },
     hermit_crab: {
-      offsetXPct: -6.74525,
-      offsetYPct: 2.5587,
+      offsetXPct: -0.43358157386480367,
+      offsetYPct: 8.510016054032992,
       rotDeg: 0,
       scalePct: 100,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100,
+      tokenWidthPct: 76,
+      tokenHeightPct: 76,
       modelRotationY: 0,
       cameraPitch: 18.5,
       cameraYaw: 20
     },
     driftling: {
-      offsetXPct: -9.35652,
-      offsetYPct: 13.8937,
+      offsetXPct: 4.344592605428934,
+      offsetYPct: 25.611168498567974,
       rotDeg: 0,
       scalePct: 124,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100,
+      tokenWidthPct: 84,
+      tokenHeightPct: 84,
       modelRotationY: 0,
       cameraPitch: 47,
       cameraYaw: -153.5
     },
     tide_hopper: {
-      offsetXPct: -21.0499,
-      offsetYPct: 5.1354,
+      offsetXPct: -4.0962,
+      offsetYPct: 18.6724,
       rotDeg: 0,
       scalePct: 112,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100,
+      tokenWidthPct: 80,
+      tokenHeightPct: 80,
       modelRotationY: -45.5,
       cameraPitch: 33,
       cameraYaw: 0
+    },
+    tide_echo: {
+      offsetXPct: 2.5545667854243352,
+      offsetYPct: 24.602261667269893,
+      rotDeg: 0,
+      scalePct: 120,
+      tokenWidthPct: 72,
+      tokenHeightPct: 72,
+      modelRotationY: -45.5,
+      cameraPitch: 30.5,
+      cameraYaw: -21.5
     },
     coastal_horror: {
       offsetXPct: -11.420359802210811,
@@ -223,12 +237,12 @@
       cameraYaw: 7
     },
     tidemeld_revenant: {
-      offsetXPct: -10.432487959443225,
-      offsetYPct: 4.600183978365489,
+      offsetXPct: 1.45441,
+      offsetYPct: 19.9303,
       rotDeg: 0,
       scalePct: 142,
-      tokenWidthPct: 148,
-      tokenHeightPct: 148,
+      tokenWidthPct: 100,
+      tokenHeightPct: 100,
       modelRotationY: 0,
       cameraPitch: 19,
       cameraYaw: 39.5

@@ -17,6 +17,7 @@ import {
 } from "./combat/sessions.js";
 import { broadcastCoopCombat, broadcastCoopCombatFinished } from "./combat/broadcast.js";
 import { publicParticipantsList } from "./combat/coop.js";
+import { repositionTacticalSpawns } from "./combat/tactical.js";
 import { preparePlayerForCombat, applySkillBarPayloadToPlayer } from "./combat/player_prep.js";
 import { applyCombatWorldMapOutcome, resolveAuthoritativeEncounter } from "./progression/world_map.js";
 import { syncPresenceDungeonRun } from "./progression/dungeon.js";
@@ -408,6 +409,9 @@ export function registerCombatRoutes(app) {
     if (!isSessionParticipant(session, req.user.id)) {
       res.status(404).json({ error: "Combat session not found." });
       return;
+    }
+    if (session.state?.phase === "prep") {
+      repositionTacticalSpawns(session.state);
     }
     res.json({
       sessionId: session.sessionId,
