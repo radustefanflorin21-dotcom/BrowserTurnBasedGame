@@ -656,28 +656,37 @@
       tokenHeightPct: 100
     },
     drowned_channeler: {
-      offsetXPct: -23.08548589928126,
-      offsetYPct: -20.064085132128547,
+      offsetXPct: 2.14414,
+      offsetYPct: 14.4637,
       rotDeg: 0,
-      scalePct: 208,
+      scalePct: 136,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 0,
+      cameraYaw: 0
     },
     tidebound_crusher: {
-      offsetXPct: -7.709005505072783,
-      offsetYPct: -10.72190960955071,
+      offsetXPct: 12.8394,
+      offsetYPct: 32.0807,
       rotDeg: 0,
-      scalePct: 280,
+      scalePct: 196,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 0,
+      cameraYaw: 0
     },
     tidemother_aberration: {
-      offsetXPct: -6.578477633801565,
-      offsetYPct: -5.4169848342805205,
+      offsetXPct: -1.80656,
+      offsetYPct: 27.2339,
       rotDeg: 0,
       scalePct: 178,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 0,
+      cameraYaw: 0
     },
     stormwake_leviathan: {
       offsetXPct: 18.43600757394787,
@@ -696,7 +705,7 @@
       tokenHeightPct: 100
     }
   };
-  const TOKEN_PRESET_REV = "2026-07-09-coastal-horror";
+  const TOKEN_PRESET_REV = "2026-07-09-sunken-grotto-3d";
   if (typeof GAME_CONFIG !== "undefined" && GAME_CONFIG) {
     GAME_CONFIG.tacticalTokenPresets = presets;
     GAME_CONFIG.tacticalTokenPresetRev = TOKEN_PRESET_REV;

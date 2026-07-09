@@ -754,6 +754,20 @@ const GAME_CONFIG = {
       combatRole: "bruiser",
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise South/Sunken Grotto/tidebound_crusher.png",
+      model3d: {
+        url: "Assets/Models/tidebound_crusher.glb",
+        scale: 1,
+        baseScale: 2,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [14],
       statBudgetMultiplier: 1.1
     },
@@ -763,6 +777,20 @@ const GAME_CONFIG = {
       combatRole: "controller",
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise South/Sunken Grotto/drowned_channeler.png",
+      model3d: {
+        url: "Assets/Models/drowned_channeler.glb",
+        scale: 1,
+        baseScale: 1.7,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [13],
       statBudgetMultiplier: 1.1
     },
@@ -773,6 +801,20 @@ const GAME_CONFIG = {
       spawnRarity: "epic",
       tacticalFootprint: { w: 2, h: 1 },
       image: "Assets/Biomes/Paradise South/Sunken Grotto/tidemother_aberraiton.png",
+      model3d: {
+        url: "Assets/Models/tidemother_aberraiton.glb",
+        scale: 1,
+        baseScale: 2.2,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [15],
       statBudgetMultiplier: 1.1
     },

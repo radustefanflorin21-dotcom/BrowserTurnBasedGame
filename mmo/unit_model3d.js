@@ -24,8 +24,68 @@ const CLIP_ALIASES =
   };
 
 const LOOPING = new Set([STATES.IDLE]);
+
+/** ImageBitmapLoader + embedded GLB blobs often fail under parallel decode; use TextureLoader instead. */
+class GLTFTextureLoaderPatch {
+  constructor(parser) {
+    this.name = "GLTFTextureLoaderPatch";
+    parser.textureLoader = new THREE.TextureLoader(parser.options.manager);
+    parser.textureLoader.setCrossOrigin(parser.options.crossOrigin);
+    parser.textureLoader.setRequestHeader(parser.options.requestHeader);
+  }
+}
+
 const loader = new GLTFLoader();
+loader.register((parser) => new GLTFTextureLoaderPatch(parser));
+
 const modelCache = new Map();
+const GLB_LOAD_SLOTS = 2;
+let activeGlbLoads = 0;
+const glbLoadWaiters = [];
+
+function acquireGlbLoadSlot() {
+  if (activeGlbLoads < GLB_LOAD_SLOTS) {
+    activeGlbLoads += 1;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    glbLoadWaiters.push(resolve);
+  });
+}
+
+function releaseGlbLoadSlot() {
+  activeGlbLoads = Math.max(0, activeGlbLoads - 1);
+  const next = glbLoadWaiters.shift();
+  if (next) {
+    activeGlbLoads += 1;
+    next();
+  }
+}
+
+function loadGltf(url) {
+  const key = String(url || "").trim();
+  if (!key) return Promise.reject(new Error("empty model url"));
+  if (modelCache.has(key)) return modelCache.get(key);
+  const p = acquireGlbLoadSlot()
+    .then(
+      () =>
+        new Promise((resolve, reject) => {
+          loader.load(
+            key,
+            (gltf) => resolve(gltf),
+            undefined,
+            (err) => reject(err || new Error(`failed to load ${key}`))
+          );
+        })
+    )
+    .finally(() => {
+      releaseGlbLoadSlot();
+    });
+  modelCache.set(key, p);
+  p.catch(() => modelCache.delete(key));
+  return p;
+}
+
 /** @type {Map<string, TokenViewer>} */
 const viewers = new Map();
 let rafId = null;
@@ -39,23 +99,6 @@ function tokenKeyFromEl(tokenEl) {
   const ally = tokenEl.getAttribute("data-tactical-ally");
   if (ally != null) return `ally:${ally}`;
   return "";
-}
-
-function loadGltf(url) {
-  const key = String(url || "").trim();
-  if (!key) return Promise.reject(new Error("empty model url"));
-  if (modelCache.has(key)) return modelCache.get(key);
-  const p = new Promise((resolve, reject) => {
-    loader.load(
-      key,
-      (gltf) => resolve(gltf),
-      undefined,
-      (err) => reject(err || new Error(`failed to load ${key}`))
-    );
-  });
-  modelCache.set(key, p);
-  p.catch(() => modelCache.delete(key));
-  return p;
 }
 
 function normalizeAnimState(state) {
@@ -95,6 +138,19 @@ function resolveClipName(state, model3dDef, gltf, skillName) {
     }
   }
   return clips[0] ? clips[0].name : null;
+}
+
+/** Each token viewer needs its own materials — SkeletonUtils.clone shares them with the GLTF cache. */
+function isolateMeshMaterials(root) {
+  if (!root) return;
+  root.traverse((obj) => {
+    if (!obj.isMesh || !obj.material) return;
+    if (Array.isArray(obj.material)) {
+      obj.material = obj.material.map((m) => (m && typeof m.clone === "function" ? m.clone() : m));
+    } else if (typeof obj.material.clone === "function") {
+      obj.material = obj.material.clone();
+    }
+  });
 }
 
 function applyMeshMaterialFixes(obj, model3dDef) {
@@ -427,6 +483,7 @@ class TokenViewer {
       this.gltf = gltf;
       // Rigged GLBs must be cloned via SkeletonUtils, not scene.clone(true).
       const content = cloneSkinned(gltf.scene);
+      isolateMeshMaterials(content);
       const fitted = normalizeModel(content, this.model3dDef);
       this.modelRadius = fitted.radius;
       this.modelHeight = fitted.height;
@@ -717,12 +774,11 @@ class TokenViewer {
       this.scene.remove(this.model);
     }
     if (this.model) {
+      // Geometry is shared with the cached GLTF + other viewers; only dispose per-instance materials.
       this.model.traverse((obj) => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach((m) => m.dispose && m.dispose());
-        }
+        if (!obj.isMesh || !obj.material) return;
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        mats.forEach((m) => m && m.dispose && m.dispose());
       });
     }
     this.renderer.dispose();
