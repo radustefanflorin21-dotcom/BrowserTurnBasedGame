@@ -65,16 +65,41 @@ export function createEnemyPhaseStepRecorder(st) {
   let pendingMeta = null;
 
   function flushStep(forceSnapshot, extraMeta = null) {
-    if (!forceSnapshot && !pendingLogs.length && !pendingHits.length && !pendingHeals.length) return;
-    if (extraMeta) pendingMeta = extraMeta;
-    steps.push({
+    let tacticalMoves;
+    let skillKey;
+    let summonSpawn;
+    if (Array.isArray(extraMeta)) {
+      tacticalMoves = extraMeta;
+    } else if (extraMeta && typeof extraMeta === "object") {
+      tacticalMoves = extraMeta.tacticalMoves;
+      skillKey = extraMeta.skillKey;
+      summonSpawn = extraMeta.summonSpawn;
+    }
+    if (
+      !forceSnapshot &&
+      !pendingLogs.length &&
+      !pendingHits.length &&
+      !pendingHeals.length &&
+      !tacticalMoves &&
+      !skillKey &&
+      !summonSpawn
+    ) {
+      return;
+    }
+    if (extraMeta && typeof extraMeta === "object" && !Array.isArray(extraMeta)) {
+      pendingMeta = extraMeta;
+    }
+    const step = {
       actorFoeUid: typeof st.activeFoeUid === "number" ? st.activeFoeUid : undefined,
       logLines: pendingLogs.slice(),
       hits: pendingHits.map((h) => ({ ...h })),
       heals: pendingHeals.map((h) => ({ ...h })),
-      ...captureStepSnapshot(st),
-      tacticalMoves: pendingMeta || undefined
-    });
+      ...captureStepSnapshot(st)
+    };
+    if (tacticalMoves) step.tacticalMoves = tacticalMoves;
+    if (skillKey) step.skillKey = skillKey;
+    if (summonSpawn) step.summonSpawn = summonSpawn;
+    steps.push(step);
     pendingLogs = [];
     pendingHits = [];
     pendingHeals = [];

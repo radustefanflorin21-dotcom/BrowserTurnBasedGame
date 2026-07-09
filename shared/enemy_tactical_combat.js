@@ -152,7 +152,7 @@
 
     if (cfg.summonAdjacent) {
       if (hooks.summonAdjacent && opts?.summonName) {
-        hooks.summonAdjacent(opts.summonName);
+        hooks.summonAdjacent(opts.summonName, skillKey);
       }
       return { summon: true };
     }

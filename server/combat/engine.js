@@ -89,6 +89,7 @@ import {
   firstQueuedSlot
 } from "./turn_order.js";
 import { setupFightTurnOrder } from "./initiative.js";
+import { despawnSummonsWithDeadSummoners } from "./summons.js";
 
 const require = createRequire(import.meta.url);
 const { createCombatRng } = require("../../shared/combat_rng.js");
@@ -857,6 +858,7 @@ export function processCombatAction(session, action, actingUserId = null) {
         if (line) appendLog(st, line);
       }
       if (foe.hp <= 0) {
+        despawnSummonsWithDeadSummoners(st, (line) => appendLog(st, line));
         for (const line of onFoeKilledPassives(st, actor, member)) {
           if (line) appendLog(st, line);
         }
@@ -1005,6 +1007,7 @@ export function processCombatAction(session, action, actingUserId = null) {
       if (rimeboundLog) appendLog(st, rimeboundLog);
     }
     if (foe.hp <= 0) {
+      despawnSummonsWithDeadSummoners(st, (line) => appendLog(st, line));
       const meltdownLog = tryEmberForgelingMeltdown(st, foe, rng, appendLog, actorPlayer);
       if (meltdownLog) appendLog(st, meltdownLog);
       const fadeColdLog = tryPaleRimeWispFadeCold(st, foe, rng, appendLog, actorPlayer);

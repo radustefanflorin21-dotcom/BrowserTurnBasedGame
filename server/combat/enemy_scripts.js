@@ -298,6 +298,17 @@ const SCRIPT_HANDLERS = {
     return true;
   },
 
+  tide_echo(foe, st, ctx) {
+    const member = ctx.pickTarget("weakest");
+    if (!member) return true;
+    const dmg = Math.max(1, Math.floor(ctx.atk * 0.7 * ctx.outMult));
+    ctx.hit(member, dmg, "Echo Strikes");
+    ensureCombatStatus(st);
+    st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 5);
+    st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 1);
+    return true;
+  },
+
   tide_hopper(foe, st, ctx) {
     const member = ctx.pickTargetForSkill("foam_feint", "controller");
     if (ctx.ready("foam_feint")) {
@@ -372,7 +383,7 @@ const SCRIPT_HANDLERS = {
     const echoes = (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === foe.uid);
     if (echoes.length < 2 && ctx.ready("spawn_tide_echo")) {
       ctx.setCd("spawn_tide_echo", 3);
-      ctx.summonAdjacent("Tide Echo");
+      ctx.applySkill("spawn_tide_echo", { summonName: "Tide Echo" });
       return true;
     }
     if (ctx.ready("crushing_undertow")) {
@@ -986,7 +997,7 @@ const SCRIPT_HANDLERS = {
     const livingFoes = (st.foes || []).filter((f) => f && f.hp > 0).length;
     if (ctx.ready("call_fallen") && livingFoes < 8) {
       ctx.setCd("call_fallen", 4);
-      ctx.summonAdjacent("Fallen Echo");
+      ctx.applySkill("call_fallen", { summonName: "Fallen Echo" });
       return true;
     }
     if (ctx.ready("soul_chill")) {
@@ -1033,7 +1044,7 @@ const SCRIPT_HANDLERS = {
     const fallenCount = (st.foes || []).filter((f) => f && f.hp > 0 && f.name === "Fallen Echo").length;
     if (ctx.ready("raise_the_fallen") && fallenCount < 3 && (st.foes || []).filter((f) => f && f.hp > 0).length < 8) {
       ctx.setCd("raise_the_fallen", 5);
-      ctx.summonAdjacent("Fallen Echo");
+      ctx.applySkill("raise_the_fallen", { summonName: "Fallen Echo" });
       return true;
     }
     if (ctx.ready("commanding_ruin")) {

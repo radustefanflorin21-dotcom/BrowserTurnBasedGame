@@ -413,6 +413,7 @@
   function applyCombatVisualSnapshot(st, snap, opts) {
     if (!st || !snap) return;
     const skipGrid = !!(opts && opts.skipGrid);
+    const skipGridUids = opts && opts.skipGridUids instanceof Set ? opts.skipGridUids : null;
     if (Array.isArray(snap.party)) {
       snap.party.forEach((p) => {
         if (!p) return;
@@ -424,8 +425,8 @@
           if (typeof maybeStartUnitDeathVisual === "function") {
             maybeStartUnitDeathVisual({ hp: prevHp }, m);
           }
-          if (!skipGrid && typeof p.gridX === "number") m.gridX = p.gridX;
-          if (!skipGrid && typeof p.gridY === "number") m.gridY = p.gridY;
+          if (!skipGrid && !(skipGridUids && skipGridUids.has(m.uid)) && typeof p.gridX === "number") m.gridX = p.gridX;
+          if (!skipGrid && !(skipGridUids && skipGridUids.has(m.uid)) && typeof p.gridY === "number") m.gridY = p.gridY;
         }
       });
     }
@@ -440,8 +441,8 @@
           if (typeof maybeStartUnitDeathVisual === "function") {
             maybeStartUnitDeathVisual({ hp: prevHp }, foe);
           }
-          if (!skipGrid && typeof f.gridX === "number") foe.gridX = f.gridX;
-          if (!skipGrid && typeof f.gridY === "number") foe.gridY = f.gridY;
+          if (!skipGrid && !(skipGridUids && skipGridUids.has(foe.uid)) && typeof f.gridX === "number") foe.gridX = f.gridX;
+          if (!skipGrid && !(skipGridUids && skipGridUids.has(foe.uid)) && typeof f.gridY === "number") foe.gridY = f.gridY;
         }
       });
     }
@@ -454,8 +455,30 @@
     if (Array.isArray(preEnemySnapshot.fightLog)) {
       combatState.fightLog = preEnemySnapshot.fightLog.slice();
     }
+    const preFoeUids = new Set(
+      (preEnemySnapshot.foes || [])
+        .filter((f) => f && typeof f.uid === "number")
+        .map((f) => f.uid)
+    );
+    combatState.foes = (combatState.foes || []).filter((f) => f && preFoeUids.has(f.uid));
     applyCombatVisualSnapshot(combatState, preEnemySnapshot, opts);
     if (typeof syncFightLogFromCombatState === "function") syncFightLogFromCombatState();
+  }
+
+  function ensurePendingSummonFoeFromStep(st, step) {
+    const spawn = step?.summonSpawn;
+    if (!st || !spawn || spawn.summonUid == null) return;
+    const uid = Number(spawn.summonUid);
+    if (!Number.isFinite(uid)) return;
+    if ((st.foes || []).some((f) => f && f.uid === uid)) return;
+    const finalFoes = pendingFinalCombatApply?.state?.foes;
+    const template = Array.isArray(finalFoes) ? finalFoes.find((f) => f && f.uid === uid) : null;
+    if (!template) return;
+    const copy = { ...template };
+    delete copy.gridX;
+    delete copy.gridY;
+    copy._pendingSummonReveal = true;
+    st.foes.push(copy);
   }
 
   function inferEnemySkillKeyFromLogLines(logLines) {
@@ -479,6 +502,12 @@
     }
     const logLines = step.logLines || [];
     for (const line of logLines) {
+      const summoned = String(line || "").match(/^(.+?)\s+summoned\b/i);
+      if (summoned && summoned[1]) {
+        const name = summoned[1].trim();
+        const matches = (st.foes || []).filter((f) => f && f.name === name);
+        if (matches.length === 1) return matches[0].uid;
+      }
       const m = String(line || "").match(/^(.+?)\s+(?:uses|casts|attacks)\b/i);
       if (!m || !m[1]) continue;
       const name = m[1].trim();
@@ -516,8 +545,9 @@
     if (!foe) return;
     const def = typeof getEnemyDefByName === "function" ? getEnemyDefByName(foe.name) : null;
     const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
-    const skillKey = inferEnemySkillKeyFromLogLines(logLines);
-    const usesSkill = logLines.some((l) => /\b(uses|casts)\b/i.test(String(l || "")));
+    const skillKey = step.skillKey || inferEnemySkillKeyFromLogLines(logLines);
+    const usesSkill =
+      !!step.skillKey || logLines.some((l) => /\b(uses|casts)\b/i.test(String(l || ""))) || !!step.summonSpawn;
     const kind = usesSkill ? "skill" : "attack";
     const uiDelay =
       typeof window.COMBAT_MODEL_ACTION_MS === "number"
@@ -548,6 +578,20 @@
     }
   }
 
+  function revealSummonSpawnFromStep(step) {
+    const st = combatState;
+    const spawn = step?.summonSpawn;
+    if (!st || !spawn || spawn.summonUid == null) return;
+    const snapFoe = (step.foes || []).find((f) => f && f.uid === spawn.summonUid);
+    const foe = (st.foes || []).find((f) => f && f.uid === spawn.summonUid);
+    if (!foe || !snapFoe) return;
+    if (typeof snapFoe.gridX === "number") foe.gridX = snapFoe.gridX;
+    if (typeof snapFoe.gridY === "number") foe.gridY = snapFoe.gridY;
+    delete foe._pendingSummonReveal;
+    if (typeof renderTurnBattle === "function") renderTurnBattle();
+    if (typeof syncAllActiveTacticalTokenVisuals === "function") syncAllActiveTacticalTokenVisuals();
+  }
+
   function applyEnemyActionStep(step) {
     const st = combatState;
     if (!st || !step) return;
@@ -562,7 +606,11 @@
         noteTacticalGridBeforeStateUpdate();
       }
     }
-    applyCombatVisualSnapshot(st, step);
+    const summonUid = step.summonSpawn?.summonUid;
+    if (summonUid != null) ensurePendingSummonFoeFromStep(st, step);
+    const skipGridUids =
+      summonUid != null && Number.isFinite(Number(summonUid)) ? new Set([Number(summonUid)]) : null;
+    applyCombatVisualSnapshot(st, step, { skipGridUids });
     if (preSnap) applyGridMoveFacing(st, preSnap, st);
     // Hints from the server about tactical movement cost (used for animation edge-count).
     st._tacticalMoveCostHints = Array.isArray(step.tacticalMoves) ? step.tacticalMoves : null;
@@ -572,11 +620,14 @@
     const hits = step.hits && step.hits.length ? step.hits : null;
     const heals = step.heals && step.heals.length ? step.heals : null;
     const playEffects = () => {
+      if (step.summonSpawn) revealSummonSpawnFromStep(step);
       if (hits) playServerEnemyHitEffects(hits);
       if (heals) playServerHealEffects(heals);
       if (typeof shakeFightOverlay === "function") shakeFightOverlay();
     };
-    if (st.tactical && typeof whenUnitVisualAnimsSettled === "function") {
+    if (st.tactical && (step.skillKey || step.summonSpawn) && typeof whenUnitVisualAnimsSettled === "function") {
+      whenUnitVisualAnimsSettled().then(playEffects);
+    } else if (st.tactical && typeof whenUnitVisualAnimsSettled === "function") {
       whenUnitVisualAnimsSettled().then(playEffects);
     } else if (st.tactical && typeof whenTacticalMoveAnimationsSettled === "function") {
       whenTacticalMoveAnimationsSettled().then(playEffects);

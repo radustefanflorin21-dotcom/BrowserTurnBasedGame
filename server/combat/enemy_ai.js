@@ -10,6 +10,7 @@ import { trySecondBreath } from "./combat_passives.js";
 import { getFoeEffectiveAttack, getFoeOutgoingDamageMult, getEnemyCombatRoleKey } from "./monster_stats.js";
 import { runEnemyScriptTurn } from "./enemy_scripts.js";
 import { isFoeStunned, applyPlayerBurn, ensureCombatStatus } from "./status.js";
+import { insertSummonIntoTurnOrder } from "./summons.js";
 import { tryProcFrosthornCrippleOnHit, tryProcHeldColossusCrippleOnHit } from "./set_procs.js";
 import { createRequire } from "node:module";
 
@@ -297,21 +298,22 @@ export function createEnemyTurnContext(st, foe, rng, appendLog, player, enemyHit
         moveUnit: () => {
           if (recorder) recorder.flushStep(true);
         },
-        summonAdjacent: (name) => this.summonAdjacent(name)
+        summonAdjacent: (name, skillKey) => this.summonAdjacent(name, skillKey)
       });
       if (recorder) recorder.flushStep();
     },
-    summonAdjacent(name) {
+    summonAdjacent(name, skillKey = null) {
       const { spawnReinforcement } = require("./dungeon_mechanics.js");
       const spawned = spawnReinforcement(st, name, rng, { adjacentTo: foe });
       if (spawned) {
-        const grid = TacticalGrid;
-        const label =
-          typeof spawned.gridX === "number"
-            ? `${grid.colToLetter(spawned.gridX)}${spawned.gridY + 1}`
-            : "";
-        appendLog(`${spawned.name} emerges${label ? ` at ${label}` : ""}.`);
-        if (recorder) recorder.flushStep();
+        insertSummonIntoTurnOrder(st, spawned.uid, foe.uid);
+        appendLog(`${foe.name} summoned ${spawned.name}.`);
+        if (recorder) {
+          recorder.flushStep(false, {
+            skillKey: skillKey || undefined,
+            summonSpawn: { summonUid: spawned.uid, summonerUid: foe.uid }
+          });
+        }
       }
       return spawned;
     },

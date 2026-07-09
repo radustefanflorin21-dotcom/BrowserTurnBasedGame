@@ -3,6 +3,7 @@
  */
 
 import { createRequire } from "node:module";
+import { expandTurnQueueWithSummons } from "./summons.js";
 
 const require = createRequire(import.meta.url);
 const CombatInitiative = require("../../shared/initiative.js");
@@ -30,16 +31,19 @@ function buildLegacyInterleavedTurnQueue(party, foes) {
 export function buildInterleavedTurnQueue(st) {
   const party = st?.party;
   const foes = st?.foes;
+  let base;
   if (Array.isArray(st?.turnOrderAllies) && Array.isArray(st?.turnOrderFoes)) {
-    return CombatInitiative.buildInterleavedTurnQueueFromOrder(
+    base = CombatInitiative.buildInterleavedTurnQueueFromOrder(
       party,
       foes,
       st.turnOrderAllies,
       st.turnOrderFoes,
       st.alliesStartFirst !== false
     );
+  } else {
+    base = buildLegacyInterleavedTurnQueue(party, foes);
   }
-  return buildLegacyInterleavedTurnQueue(party, foes);
+  return expandTurnQueueWithSummons(st, base);
 }
 
 export function initTurnOrder(st) {

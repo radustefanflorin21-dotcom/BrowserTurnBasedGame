@@ -8,6 +8,7 @@ import { getCombatPassiveBonuses } from "./passives.js";
 import { getActorCombatMaxStamina, getCombatStaminaBaseMax } from "./stamina.js";
 import { getPlayerForMember } from "./coop.js";
 import { initTurnOrder } from "./turn_order.js";
+import { isCombatSummon } from "./summons.js";
 
 const require = createRequire(import.meta.url);
 const CombatInitiative = require("../../shared/initiative.js");
@@ -161,7 +162,7 @@ export function setupFightTurnOrder(st, ctx = {}) {
     .filter(Boolean);
 
   const foeEntries = (st.foes || [])
-    .filter((f) => f && f.hp > 0)
+    .filter((f) => f && f.hp > 0 && !isCombatSummon(f))
     .map((foe) => {
       const stats = buildInitiativeEntryFromFoe(foe);
       if (!stats) return null;

@@ -226,10 +226,10 @@
       cameraYaw: -21.5
     },
     coastal_horror: {
-      offsetXPct: -11.420359802210811,
-      offsetYPct: 44.873258807692935,
+      offsetXPct: 2.30133,
+      offsetYPct: 33.2607,
       rotDeg: 0,
-      scalePct: 202,
+      scalePct: 136,
       tokenWidthPct: 100,
       tokenHeightPct: 100,
       modelRotationY: 0,
@@ -696,7 +696,12 @@
       tokenHeightPct: 100
     }
   };
+  const TOKEN_PRESET_REV = "2026-07-09-coastal-horror";
   if (typeof GAME_CONFIG !== "undefined" && GAME_CONFIG) {
     GAME_CONFIG.tacticalTokenPresets = presets;
+    GAME_CONFIG.tacticalTokenPresetRev = TOKEN_PRESET_REV;
+  }
+  if (typeof window !== "undefined") {
+    window.TACTICAL_TOKEN_PRESET_REV = TOKEN_PRESET_REV;
   }
 })();

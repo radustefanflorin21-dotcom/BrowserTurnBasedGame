@@ -48,6 +48,10 @@ export function spawnReinforcement(st, name, rng, opts) {
   initFoeCombatRuntime(foe);
   st.foes.push(foe);
   const anchor = opts && typeof opts === "object" ? opts.adjacentTo : null;
+  if (anchor && typeof anchor.uid === "number") {
+    if (!foe.combat) foe.combat = { skillCd: {} };
+    foe.combat.summonerUid = anchor.uid;
+  }
   if (st.tactical && anchor && typeof anchor.gridX === "number") {
     EnemyTacticalMovement.placeSummonAdjacent(st, foe, anchor);
   }

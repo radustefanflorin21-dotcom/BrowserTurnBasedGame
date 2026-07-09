@@ -6698,6 +6698,29 @@ body.edit-mode-on .scene-object-anchor.scene-object-anchor--resizing {
   min-width: var(--tactical-turn-card-size);
 }
 
+.fight-tactical-timeline-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.fight-tactical-timeline .fight-enemy-card--summon {
+  width: calc(var(--tactical-turn-card-size) * 0.72);
+  min-width: calc(var(--tactical-turn-card-size) * 0.72);
+  max-width: calc(var(--tactical-turn-card-size) * 0.72);
+}
+
+.fight-tactical-timeline .fight-enemy-card--summon .fight-portrait-wrap {
+  width: calc(var(--tactical-turn-card-size) * 0.72 - 8px);
+  height: calc(var(--tactical-turn-card-size) * 0.72 - 8px);
+}
+
+.fight-tactical-timeline .fight-enemy-card--summon .fight-portrait-wrap--enemy .fight-portrait-img--enemy {
+  width: calc(var(--tactical-turn-card-size) * 0.72 - 12px);
+  height: calc(var(--tactical-turn-card-size) * 0.72 - 12px);
+}
+
 .fight-tactical-turn-num {
   position: absolute;
   top: 1px;

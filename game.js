@@ -4691,21 +4691,37 @@ function resetTacticalTokenLayout(key) {
   persistTacticalTokenLayoutsLocal();
 }
 
-function getTacticalLayoutPresetRev() {
+function getTacticalBoardPresetRev() {
   const rev =
+    GAME_CONFIG.tacticalBoardPresetRev ||
+    (typeof window !== "undefined" ? window.TACTICAL_BOARD_PRESET_REV : null) ||
     GAME_CONFIG.tacticalLayoutPresetRev ||
     (typeof window !== "undefined" ? window.TACTICAL_LAYOUT_PRESET_REV : null);
   return rev != null ? String(rev) : "0";
 }
 
-function importTacticalLayoutPresetsToPlayer(owner) {
+function getTacticalTokenPresetRev() {
+  const rev =
+    GAME_CONFIG.tacticalTokenPresetRev ||
+    (typeof window !== "undefined" ? window.TACTICAL_TOKEN_PRESET_REV : null);
+  return rev != null ? String(rev) : "0";
+}
+
+function importTacticalBoardPresetToPlayer(owner) {
   const p = owner && typeof owner === "object" ? owner : player;
   if (!p) return;
   ensureTacticalBoardLayoutStoreFor(p);
-  ensureTacticalTokenLayoutsStoreFor(p);
   p.tacticalBoardLayout = normalizeTacticalBoardLayoutRow(getTacticalBoardPreset());
+}
+
+function importTacticalTokenPresetsToPlayer(owner, opts) {
+  const p = owner && typeof owner === "object" ? owner : player;
+  if (!p) return;
+  const force = !!(opts && opts.force);
+  ensureTacticalTokenLayoutsStoreFor(p);
   const presets = getTacticalTokenPresets();
   Object.keys(presets).forEach((key) => {
+    if (!force && p.tacticalTokenLayouts[key]) return;
     p.tacticalTokenLayouts[key] = normalizeTacticalTokenLayoutRow(presets[key]);
   });
 }
@@ -4713,13 +4729,40 @@ function importTacticalLayoutPresetsToPlayer(owner) {
 function maybeApplyTacticalLayoutPresetRev(owner) {
   const p = owner && typeof owner === "object" ? owner : player;
   if (!p) return;
-  const rev = getTacticalLayoutPresetRev();
-  if (p.tacticalLayoutPresetRev === rev) return;
-  p.tacticalLayoutPresetRev = rev;
-  importTacticalLayoutPresetsToPlayer(p);
-  if (p === player) {
-    persistTacticalTokenLayoutsLocal();
-    persistTacticalBoardLayoutLocal();
+  if (isLayoutEditActive()) return;
+  const boardRev = getTacticalBoardPresetRev();
+  const tokenRev = getTacticalTokenPresetRev();
+  const legacyRev = typeof p.tacticalLayoutPresetRev === "string" ? p.tacticalLayoutPresetRev : "";
+  let changed = false;
+
+  if (p.tacticalBoardPresetRev == null && legacyRev === boardRev) {
+    p.tacticalBoardPresetRev = boardRev;
+  } else if (p.tacticalBoardPresetRev !== boardRev) {
+    p.tacticalBoardPresetRev = boardRev;
+    importTacticalBoardPresetToPlayer(p);
+    changed = true;
+  }
+
+  if (p.tacticalTokenPresetRev == null && legacyRev === tokenRev) {
+    p.tacticalTokenPresetRev = tokenRev;
+  } else if (p.tacticalTokenPresetRev !== tokenRev) {
+    p.tacticalTokenPresetRev = tokenRev;
+    importTacticalTokenPresetsToPlayer(p, { force: true });
+    changed = true;
+  }
+
+  if (changed) {
+    p.tacticalLayoutPresetRev = tokenRev || boardRev;
+    if (p === player) {
+      persistTacticalTokenLayoutsLocal();
+      persistTacticalBoardLayoutLocal();
+      const hud = document.getElementById("fightHud");
+      if (hud?.querySelector(".fight-tactical") && getTacticalTokenLayer()) {
+        syncTacticalTokenLayerVars(hud);
+        layoutTacticalTokens(hud, { force: true });
+        syncAllTacticalTokenModel3dLayouts();
+      }
+    }
   }
 }
 
@@ -4914,7 +4957,14 @@ function buildTacticalTokenTransformStyle(layout) {
 
 function readTacticalTokenLayoutFromElement(tokenEl) {
   if (!tokenEl || !(tokenEl instanceof HTMLElement)) return null;
-  const tf = String(tokenEl.style.transform || "").trim();
+  let tf = String(tokenEl.style.transform || "").trim();
+  if (!tf) {
+    const attr = tokenEl.getAttribute("style");
+    if (attr) {
+      const sm = attr.match(/transform\s*:\s*([^;]+)/i);
+      if (sm) tf = sm[1].trim();
+    }
+  }
   if (!tf) return null;
   const m = tf.match(
     /translate\(\s*-50%\s*,\s*-100%\s*\)\s*translate\(\s*(-?\d+(?:\.\d+)?)%\s*,\s*(-?\d+(?:\.\d+)?)%\s*\)\s*rotate\(\s*(-?\d+(?:\.\d+)?)deg\s*\)\s*scale\(\s*(-?\d+(?:\.\d+)?)\s*\)/i
@@ -7938,12 +7988,17 @@ function tryApplyEnemyTacticalSkillDamage(st, foe, rawDamage, logVerb, opts) {
     moveUnit() {
       renderTurnBattle();
     },
-    summonAdjacent(name) {
+    summonAdjacent(name, skillKey) {
       const spawned = summonCombatMinion(st, foe, name, 0.35, 0.35);
-      if (spawned && st.tactical && typeof spawned.gridX === "number" && typeof TacticalGrid !== "undefined") {
-        const label = `${TacticalGrid.colToLetter(spawned.gridX)}${spawned.gridY + 1}`;
-        appendFightLog(`${spawned.name} emerges at ${label}.`);
-        renderTurnBattle();
+      if (spawned && st.tactical) renderTurnBattle();
+      if (skillKey && st.tactical && typeof queueUnitVisualAnim === "function") {
+        const def = getEnemyDefByName(foe.name);
+        const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+        let anim = "skill";
+        if (typeof resolveCombatVisualAnimForAction === "function") {
+          anim = resolveCombatVisualAnimForAction("skill", skillKey, { scriptId });
+        }
+        queueUnitVisualAnim(foe, anim, 1000, skillKey);
       }
     }
   });
@@ -8303,17 +8358,44 @@ function summonCombatMinion(st, summoner, label, hpFrac, atkFrac) {
     sprites: (minionDef && minionDef.sprites) || summoner.sprites
   };
   initFoeCombatRuntime(minion);
-  minion.combat.script = "";
+  if (minionDef?.combatScript) minion.combat.script = String(minionDef.combatScript).trim();
   minion.combat.summonerUid = summoner.uid;
   st.foes.push(minion);
   if (st.tactical && summoner && typeof summoner.gridX === "number" && typeof EnemyTacticalMovement !== "undefined") {
     EnemyTacticalMovement.placeSummonAdjacent(st, minion, summoner);
   }
-  appendFightLog(`${summoner.name} summons ${label}!`);
+  if (typeof CombatSummons !== "undefined" && Array.isArray(st.turnQueue)) {
+    CombatSummons.insertSummonIntoTurnOrder(st, uid, summoner.uid);
+  }
+  appendFightLog(`${summoner.name} summoned ${label}.`);
   return minion;
 }
 
+function applyEnemySummonSkill(st, foe, skillKey, name, hpFrac, atkFrac) {
+  if (st?.tactical && typeof queueUnitVisualAnim === "function") {
+    const def = getEnemyDefByName(foe.name);
+    const scriptId = def && typeof def.combatScript === "string" ? def.combatScript.trim() : "";
+    let anim = "skill";
+    if (typeof resolveCombatVisualAnimForAction === "function") {
+      anim = resolveCombatVisualAnimForAction("skill", skillKey, { scriptId });
+    }
+    queueUnitVisualAnim(foe, anim, 1000, skillKey);
+    const tokenEl =
+      typeof findTacticalTokenElementForUnit === "function"
+        ? findTacticalTokenElementForUnit(foe)
+        : null;
+    if (tokenEl && typeof UnitModel3D !== "undefined" && UnitModel3D.setTokenAnim) {
+      UnitModel3D.setTokenAnim(tokenEl, anim, { force: true, skillName: skillKey || null, durationMs: 1000 });
+    }
+  }
+  return summonCombatMinion(st, foe, name, hpFrac, atkFrac);
+}
+
 function despawnSummonsWithDeadSummoners(st) {
+  if (typeof CombatSummons !== "undefined") {
+    CombatSummons.despawnSummonsWithDeadSummoners(st, appendFightLog);
+    return;
+  }
   if (!st || !Array.isArray(st.foes)) return;
   const deadSummoners = new Set();
   for (const f of st.foes) {
@@ -8405,6 +8487,18 @@ function setFoeReflect(foe, turns, frac) {
  * @returns {boolean} true if this script handled the turn
  */
 function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd, ready) {
+  if (scriptId === "tide_echo") {
+    const targetUid = pickPartyTargetForMonsterTargetRule(st, "weakest");
+    const dmg = Math.max(1, Math.floor(atk * 0.7 * outMult));
+    dealRawDamageToPlayer(st, dmg, foe.name, "Echo Strikes you", {
+      partyUid: typeof targetUid === "number" ? targetUid : null
+    });
+    ensureCombatStatus(st);
+    st.status.playerAccuracyDownPct = Math.max(st.status.playerAccuracyDownPct || 0, 5);
+    st.status.playerAccuracyDownTurns = Math.max(st.status.playerAccuracyDownTurns || 0, 1);
+    return true;
+  }
+
   if (scriptId === "tide_hopper") {
     ensureCombatStatus(st);
     const accuracyDebuffed = (st.status.playerAccuracyDownTurns || 0) > 0;
@@ -8547,11 +8641,8 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     if (activeSummons < 2 && ready("summon_tide_echo")) {
       setCd("summon_tide_echo", 4);
       const sp = 1 + formulaIntSkillPowerBonusPct(foe.int || 0) / 100;
-      const hpFrac = Math.max(0.1, (0.25 * sp));
-      if (activeSummons < 2) {
-        summonCombatMinion(st, foe, "Tide Echo", hpFrac, 0.35);
-      }
-      runTideEchoStrikes(st, foe);
+      const hpFrac = Math.max(0.1, 0.25 * sp);
+      applyEnemySummonSkill(st, foe, "summon_tide_echo", "Tide Echo", hpFrac, 0.35);
       return true;
     }
 
@@ -8562,7 +8653,6 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       const dmg = Math.max(1, Math.floor(monsterIntScaledValue(foe, 12, "effect") * overloadMult * outMult));
       dealRawDamageToPlayer(st, dmg, foe.name, "Soul Currents you", { partyUid: pickPartyTargetLowestHpUid(st) });
       foe.hp = Math.min(foe.maxHp, foe.hp + Math.max(1, Math.floor(dmg * 0.15)));
-      runTideEchoStrikes(st, foe);
       return true;
     }
 
@@ -8571,13 +8661,11 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
       dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you", {
         partyUid: pickPartyTargetLowestHpUid(st)
       });
-      runTideEchoStrikes(st, foe);
       return true;
     }
 
     // Fallback: basic attack.
     dealRawDamageToPlayer(st, Math.max(1, Math.floor(atk * 0.55 * outMult)), foe.name, "strikes you");
-    runTideEchoStrikes(st, foe);
     return true;
   }
 
@@ -8679,7 +8767,7 @@ function runExtendedBiomeEnemyScripts(scriptId, foe, st, atk, outMult, cd, setCd
     const echoes = st.foes.filter((f) => f && f.hp > 0 && f.name === "Tide Echo" && f.combat && f.combat.summonerUid === foe.uid);
     if (echoes.length < 2 && ready("spawn_tide_echo")) {
       setCd("spawn_tide_echo", 3);
-      summonCombatMinion(st, foe, "Tide Echo", 0.22, 0.32);
+      applyEnemySummonSkill(st, foe, "spawn_tide_echo", "Tide Echo", 0.22, 0.32);
       return true;
     }
 
@@ -12892,6 +12980,7 @@ function resolveUnitModel3dDef(src) {
     cameraYaw: Number.isFinite(raw.cameraYaw) ? raw.cameraYaw : 0,
     animations,
     forceSolidMaterial: raw.forceSolidMaterial === true,
+    stripEmissive: raw.stripEmissive !== false,
     debugForceVisible: raw.debugForceVisible === true,
     debugLogBounds: raw.debugLogBounds === true,
     disableAnimations: raw.disableAnimations === true
@@ -17338,7 +17427,14 @@ function applyPortraitLayerTransformStyle(layerEl, layout) {
 
 function readPortraitLayerLayoutFromElement(layerEl) {
   if (!layerEl || !(layerEl instanceof HTMLElement)) return null;
-  const tf = String(layerEl.style.transform || "").trim();
+  let tf = String(layerEl.style.transform || "").trim();
+  if (!tf) {
+    const attr = layerEl.getAttribute("style");
+    if (attr) {
+      const sm = attr.match(/transform\s*:\s*([^;]+)/i);
+      if (sm) tf = sm[1].trim();
+    }
+  }
   if (!tf) return null;
   const m = tf.match(
     /translate\(\s*(-?\d+(?:\.\d+)?)%\s*,\s*(-?\d+(?:\.\d+)?)%\s*\)\s*rotate\(\s*(-?\d+(?:\.\d+)?)deg\s*\)\s*scale\(\s*(-?\d+(?:\.\d+)?)\s*\)/i
@@ -17688,7 +17784,7 @@ function syncTacticalTokenEditToolbar(st) {
   const hint = isTacticalAllyTokenKey(key)
     ? `Ally token (${key}): left move, right rotate, Shift+drag/wheel scale, Ctrl+wheel resize box. Click empty board area to edit board. Export JSON → paste into tactical_token_presets.js.`
     : tacticalScriptKeyHasModel3d(key)
-      ? "3D foe token: left move, hold Space then left-drag to rotate model, Shift+left-drag camera (up/down pitch, left/right orbit), right-drag/wheel scale, Ctrl+wheel resize box. Click empty board area to edit board. Export JSON → paste into tactical_token_presets.js."
+      ? "3D foe token: left move, hold Space then left-drag to rotate model, Alt+left-drag camera (pitch/orbit), Shift+left-drag or right-drag/wheel scale, Ctrl+wheel resize box. Click empty board area to edit board. Export JSON → paste into tactical_token_presets.js."
       : "Foe token: left move art, right rotate, Shift+drag/wheel scale art, Ctrl+wheel resize box. Click empty board area to edit board. Export JSON → paste into tactical_token_presets.js.";
   bar.innerHTML = `<span class="tactical-token-edit-target">${escapeHtml(label)}</span><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-export>Export token layout</button><button type="button" class="btn-secondary portrait-edit-btn" data-tactical-token-layout-reset>Reset token layout</button><p class="portrait-edit-hint tactical-token-edit-hint">${escapeHtml(
     hint
@@ -17733,13 +17829,13 @@ function onTacticalTokenLayoutPointerDown(e) {
   const startCameraYaw = editModel3d ? getTacticalTokenCameraYaw(editUnit, start) : 0;
   const startModelRotationY = editModel3d ? Number(start.modelRotationY) || 0 : 0;
   const modelRotateDrag = editModel3d && e.button === 0 && spaceHeld;
-  const cameraPitchDrag = editModel3d && e.button === 0 && e.shiftKey && !spaceHeld;
+  const cameraPitchDrag = editModel3d && e.button === 0 && e.altKey && !spaceHeld;
   const mode = editModel3d
     ? modelRotateDrag
       ? "rotate"
       : cameraPitchDrag
         ? "cameraPitch"
-        : e.button === 2
+        : e.button === 2 || (e.button === 0 && e.shiftKey && !spaceHeld)
           ? "scale"
           : e.button === 0
             ? "move"
@@ -17825,15 +17921,29 @@ function onTacticalTokenLayoutPointerDown(e) {
     }
     const dist = Math.hypot((ev.clientX || startX) - startX, (ev.clientY || startY) - startY);
     if (dist > 2) tacticalTokenLayoutDragSuppressedClick = true;
-    setTacticalTokenLayout(scriptKey, {
+    const domLayout = allyToken
+      ? readTacticalTokenLayoutFromElement(token)
+      : readPortraitLayerLayoutFromElement(root);
+    const curSaved = getTacticalTokenLayoutForKey(scriptKey);
+    const commit = {
+      ...curSaved,
       ...last,
-      tokenWidthPct: lastBox.tokenWidthPct,
-      tokenHeightPct: lastBox.tokenHeightPct
-    });
+      ...(domLayout || {})
+    };
+    setTacticalTokenLayout(scriptKey, commit);
     persistLayoutEditState();
     syncTacticalTokenEditToolbar(combatState);
     const hud = document.getElementById("fightHud");
-    if (hud) scheduleTacticalTokenLayout(hud);
+    if (hud) {
+      syncTacticalTokenLayerVars(hud);
+      const viewport = getTacticalBoardViewport(hud);
+      const saved = getTacticalTokenLayoutForKey(scriptKey);
+      applyTacticalTokenBoxForElement(token, viewport, saved);
+      if (allyToken) applyTacticalTokenAnchorTransform(token, saved);
+      else applyTacticalFoeTokenRootTransform(token, saved);
+      syncTacticalTokenModel3dViewForKey(scriptKey, saved);
+      layoutTacticalTokens(hud);
+    }
   };
   document.addEventListener("pointermove", move);
   document.addEventListener("pointerup", done);
@@ -20144,10 +20254,14 @@ function buildTacticalFightEnemyCardHtml(foe, st, opts = {}) {
   const statusCls = auraTypes.map((t) => `fight-card--status-${t}`).join(" ");
   const isInspected =
     opts.inspectable && st.tacticalInspectSide === "foe" && st.tacticalInspectUid === foe.uid;
+  const timelineSummon = opts.timeline && opts.timelineRole === "summon";
+  const timelineSummoner = opts.timeline && opts.timelineRole === "summoner";
   const cardCls = [
     "fight-enemy-card",
     opts.inspect ? "fight-tactical-inspect-card" : "",
     opts.timeline ? "fight-tactical-timeline-card" : "",
+    timelineSummon ? "fight-enemy-card--summon" : "",
+    timelineSummoner ? "fight-enemy-card--summoner" : "",
     bossCard ? "fight-enemy-card--boss" : "",
     statusCls,
     sel ? "fight-enemy-card--selected" : "",
@@ -21672,6 +21786,7 @@ function syncTacticalBoardVerticalFit(hud) {
 
 function layoutTacticalTokens(hud, opts) {
   if (_tacticalMoveAnimating && !(opts && opts.force)) return;
+  const preserveLayoutTransforms = !!(opts && opts.preserveLayoutTransforms);
   const viewport = getTacticalBoardViewport(hud);
   const layer = getTacticalTokenLayer();
   if (!viewport || !layer) return;
@@ -21688,11 +21803,15 @@ function layoutTacticalTokens(hud, opts) {
     const scriptKey = token.getAttribute("data-tactical-script");
     const tokenLayout = getTacticalTokenLayoutForKey(scriptKey);
     const isAlly = token.classList.contains("fight-tactical-token--ally");
-    applyTacticalTokenBoxForElement(token, viewport, tokenLayout);
-    if (isAlly) {
-      applyTacticalTokenAnchorTransform(token, tokenLayout);
-    } else {
-      applyTacticalFoeTokenRootTransform(token, tokenLayout);
+    const skipTransform =
+      preserveLayoutTransforms || token.classList.contains("fight-tactical-token--layout-editing");
+    if (!skipTransform) {
+      applyTacticalTokenBoxForElement(token, viewport, tokenLayout);
+      if (isAlly) {
+        applyTacticalTokenAnchorTransform(token, tokenLayout);
+      } else {
+        applyTacticalFoeTokenRootTransform(token, tokenLayout);
+      }
     }
     token.style.position = "absolute";
     token.style.left = `${pos.left}px`;
@@ -22299,29 +22418,62 @@ function buildTacticalTimelineHtml(st, uiPhase) {
     return "";
   }
   const inspectable = st.phase !== "prep" && st.phase !== "ended";
+  const isSummonFoe = (foe) =>
+    !!(foe && foe.combat && typeof foe.combat.summonerUid === "number");
   let html = `<div class="fight-tactical-timeline fight-party-row" aria-label="Turn order">`;
-  queue.forEach((slot, i) => {
-    if (!slot) return;
+  let i = 0;
+  while (i < queue.length) {
+    const slot = queue[i];
+    if (!slot) {
+      i++;
+      continue;
+    }
     const isCurrent = i === idx && st.phase !== "prep" && st.phase !== "ended";
-    let unit = null;
-    if (slot.side === "ally") unit = (st.party || []).find((m) => m && m.uid === slot.uid);
-    else unit = (st.foes || []).find((f) => f && f.uid === slot.uid);
     if (slot.side === "ally") {
+      const unit = (st.party || []).find((m) => m && m.uid === slot.uid);
       html += buildTacticalFightAllyCardHtml(unit, st, uiPhase, {
         timeline: true,
         forceActive: isCurrent,
         turnIndex: i,
         inspectable
       });
-    } else {
-      html += buildTacticalFightEnemyCardHtml(unit, st, {
-        timeline: true,
-        forceActive: isCurrent,
-        turnIndex: i,
-        inspectable
-      });
+      i++;
+      continue;
     }
-  });
+    const unit = (st.foes || []).find((f) => f && f.uid === slot.uid);
+    if (isSummonFoe(unit)) {
+      i++;
+      continue;
+    }
+    const summons = [];
+    let j = i + 1;
+    while (j < queue.length && queue[j]?.side === "foe") {
+      const sUnit = (st.foes || []).find((f) => f && f.uid === queue[j].uid);
+      if (sUnit && isSummonFoe(sUnit) && sUnit.combat.summonerUid === unit.uid) {
+        summons.push({ unit: sUnit, index: j });
+        j++;
+      } else break;
+    }
+    html += `<div class="fight-tactical-timeline-group fight-enemy-group">`;
+    html += buildTacticalFightEnemyCardHtml(unit, st, {
+      timeline: true,
+      forceActive: isCurrent,
+      turnIndex: i,
+      inspectable,
+      timelineRole: "summoner"
+    });
+    summons.forEach((s) => {
+      html += buildTacticalFightEnemyCardHtml(s.unit, st, {
+        timeline: true,
+        forceActive: s.index === idx,
+        turnIndex: s.index,
+        inspectable,
+        timelineRole: "summon"
+      });
+    });
+    html += `</div>`;
+    i = j;
+  }
   html += `</div>`;
   return html;
 }
@@ -22350,6 +22502,7 @@ function buildTacticalGridHtml(
   const footprintOwnerByCell = new Map();
   TG.allCombatUnits(st).forEach((u) => {
     if (!tacticalUnitOnBoard(st, u)) return;
+    if (u._pendingSummonReveal) return;
     if (typeof u.gridX !== "number" || typeof u.gridY !== "number") return;
     if (!u.gridFootprintW && u.name) {
       applyTacticalFootprintFromDef(u, getEnemyDefByName(u.name));
@@ -22558,7 +22711,10 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
     pendingMoveAnim
   );
   const tokenLayer = ensureTacticalTokenLayer();
-  tokenLayer.innerHTML = grid.tokenLayerHtml;
+  const preserveTokensInLayoutEdit = isLayoutEditActive() && tokenLayer.childElementCount > 0;
+  if (!preserveTokensInLayoutEdit) {
+    tokenLayer.innerHTML = grid.tokenLayerHtml;
+  }
   hud.innerHTML = `<div class="fight-tactical${st.phase === "prep" ? " fight-tactical--prep" : ""}">
     ${buildTacticalTimelineHtml(st, uiPhase)}
     ${buildTacticalInspectPanelHtml(st, uiPhase)}
@@ -22570,13 +22726,20 @@ function renderTacticalBattlefield(hud, st, uiPhase) {
   applyTacticalBoardLayout(hud);
   syncTacticalBoardVerticalFit(hud);
   hydrateSpriteAnimations(hud);
-  hydrateSpriteAnimations(tokenLayer);
-  hydrateUnitModel3dTokens(tokenLayer);
+  if (!preserveTokensInLayoutEdit) {
+    hydrateSpriteAnimations(tokenLayer);
+    hydrateUnitModel3dTokens(tokenLayer);
+  }
   layoutTacticalTokens(hud);
-  syncAllActiveTacticalTokenVisuals();
-  syncAllTacticalTokenModel3dLayouts();
+  if (!isLayoutEditActive()) {
+    syncAllActiveTacticalTokenVisuals();
+    syncAllTacticalTokenModel3dLayouts();
+  }
   if (pendingMoveAnim) {
     syncTacticalBoardVerticalFit(hud);
+  } else if (isLayoutEditActive()) {
+    syncTacticalBoardVerticalFit(hud);
+    layoutTacticalTokens(hud);
   } else {
     scheduleTacticalTokenLayout(hud);
   }

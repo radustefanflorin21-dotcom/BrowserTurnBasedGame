@@ -15,8 +15,10 @@
   };
   if (typeof GAME_CONFIG !== "undefined") {
     GAME_CONFIG.tacticalBoardPreset = preset;
+    GAME_CONFIG.tacticalBoardPresetRev = PRESET_REV;
     GAME_CONFIG.tacticalLayoutPresetRev = PRESET_REV;
   }
   window.TACTICAL_BOARD_PRESET = preset;
+  window.TACTICAL_BOARD_PRESET_REV = PRESET_REV;
   window.TACTICAL_LAYOUT_PRESET_REV = PRESET_REV;
 })();

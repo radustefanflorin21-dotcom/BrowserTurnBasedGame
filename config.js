@@ -716,6 +716,7 @@ const GAME_CONFIG = {
         scale: 1,
         baseScale: 1.6,
         yOffset: 0,
+        stripEmissive: true,
         animations: {
           idle: "Idle",
           walk: "Walk",
@@ -777,7 +778,7 @@ const GAME_CONFIG = {
     },
     {
       name: "Tide Echo",
-      combatScript: "tide_hopper",
+      combatScript: "tide_echo",
       combatRole: "controller",
       spawnRarity: "rare",
       image: "Assets/Monsters/tide_echo.png",

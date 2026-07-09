@@ -121,6 +121,26 @@ function applyMeshMaterialFixes(obj, model3dDef) {
     m.opacity = 1;
     m.side = THREE.DoubleSide;
     m.depthWrite = true;
+    m.toneMapped = true;
+    if (model3dDef?.stripEmissive !== false) {
+      if (m.emissiveMap) {
+        m.emissiveMap = null;
+      }
+      if (m.emissive) {
+        if (typeof m.emissive.setRGB === "function") m.emissive.setRGB(0, 0, 0);
+        else if (typeof m.emissive.setHex === "function") m.emissive.setHex(0x000000);
+      }
+      m.emissiveIntensity = 0;
+      if (typeof m.specularIntensity === "number") m.specularIntensity = 0;
+      if (m.specularColor && typeof m.specularColor.setRGB === "function") {
+        m.specularColor.setRGB(0.08, 0.08, 0.08);
+      }
+      if (typeof m.envMapIntensity === "number") m.envMapIntensity = 0;
+      if (m.clearcoat != null) m.clearcoat = 0;
+      if (m.sheen != null) m.sheen = 0;
+    }
+    if (typeof m.metalness === "number") m.metalness = Math.min(m.metalness, 0.15);
+    if (typeof m.roughness === "number") m.roughness = Math.max(m.roughness, 0.65);
     m.needsUpdate = true;
   });
 }
@@ -271,9 +291,9 @@ class TokenViewer {
     this.renderer.setClearColor(debugBg ? 0x2a003f : 0x000000, debugBg ? 0.35 : 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x3a3028, 1.05);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x3a3028, 0.82);
     this.scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xfff2dd, 1.15);
+    const key = new THREE.DirectionalLight(0xfff2dd, 0.88);
     key.position.set(2.2, 4.5, 3.2);
     this.scene.add(key);
     const fill = new THREE.DirectionalLight(0xb8c8ff, 0.35);
@@ -325,6 +345,7 @@ class TokenViewer {
       }
       if (st === STATES.ATTACK || st === STATES.SKILL) {
         this.finishActionWait();
+        this.resetMaterialEmissiveBurst();
         const unit = this.tokenEl && bridge?.getUnitForToken?.(this.tokenEl);
         if (unit && bridge?.onActionAnimComplete) bridge.onActionAnimComplete(unit, st);
         this.playState(STATES.IDLE, { force: true });
@@ -369,6 +390,14 @@ class TokenViewer {
     }
   }
 
+  resetMaterialEmissiveBurst() {
+    if (!this.model) return;
+    this.model.traverse((obj) => {
+      if (!obj.isMesh) return;
+      applyMeshMaterialFixes(obj, this.model3dDef);
+    });
+  }
+
   attach(tokenEl, mountEl) {
     this.tokenEl = tokenEl;
     this.mountEl = mountEl;
@@ -380,6 +409,7 @@ class TokenViewer {
       this.load();
     } else if (this.loaded) {
       this.mountEl.classList.add("unit-model3d-mount--ready");
+      this.resetMaterialEmissiveBurst();
       this.resize();
       this.syncFromBridge();
       if (this.tokenEl && bridge?.onTokenViewerReady) bridge.onTokenViewerReady(this.tokenEl);
@@ -593,10 +623,24 @@ class TokenViewer {
       action.setEffectiveTimeScale(1);
     }
     action.setEffectiveWeight(1);
+    if (
+      !shouldLoop &&
+      (next === STATES.ATTACK || next === STATES.SKILL) &&
+      this.mixer
+    ) {
+      this.mixer.stopAllAction();
+      action.reset();
+    }
     action.play();
     if (prev && prev !== action) {
-      prev.crossFadeTo(action, 0.12, false);
+      if (next === STATES.ATTACK || next === STATES.SKILL) {
+        prev.stop();
+        prev.setEffectiveWeight(0);
+      } else {
+        prev.crossFadeTo(action, 0.12, false);
+      }
     }
+    this.resetMaterialEmissiveBurst();
     if (!shouldLoop && next !== STATES.IDLE && next !== STATES.FALL) {
       this.beginActionWait();
     }

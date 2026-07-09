@@ -487,7 +487,7 @@ export const BIOME_SCRIPT_HANDLERS = {
     const member = ctx.pickTarget("weakest");
     if ((st.foes || []).filter((f) => f && f.hp > 0).length < 8 && ctx.ready("call_fallen")) {
       ctx.setCd("call_fallen", 4);
-      ctx.summonAdjacent("Fallen Echo");
+      ctx.applySkill("call_fallen", { summonName: "Fallen Echo" });
       return true;
     }
     if (ctx.ready("soul_chill")) {
@@ -1179,8 +1179,7 @@ export const BIOME_SCRIPT_HANDLERS = {
     const member = ctx.pickTarget("bruiser");
     if (activeSummons < 2 && ctx.ready("summon_tide_echo")) {
       ctx.setCd("summon_tide_echo", 4);
-      ctx.summonAdjacent("Tide Echo");
-      runTideEchoStrikes(st, foe, ctx);
+      ctx.applySkill("summon_tide_echo", { summonName: "Tide Echo" });
       return true;
     }
     if (ctx.foeHpFrac() < 0.5 && ctx.ready("soul_current")) {
@@ -1191,7 +1190,6 @@ export const BIOME_SCRIPT_HANDLERS = {
         verb: "Soul Currents"
       });
       ctx.healSelf(0.15);
-      runTideEchoStrikes(st, foe, ctx);
       return true;
     }
     ctx.hit(member, Math.max(1, Math.floor(ctx.atk * 0.55 * ctx.outMult)), "hits");
