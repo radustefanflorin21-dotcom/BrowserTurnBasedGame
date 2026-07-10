@@ -878,6 +878,20 @@ const GAME_CONFIG = {
       combatRole: "assassin",
       spawnRarity: "common",
       image: "Assets/Monsters/saltwind_skimmer.png",
+      model3d: {
+        url: "Assets/Models/saltwind_skimmer.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [1, 2, 3, 4, 5],
     },
     {
@@ -886,6 +900,20 @@ const GAME_CONFIG = {
       combatRole: "mage",
       spawnRarity: "common",
       image: "Assets/Monsters/brinegullet_spitter.png",
+      model3d: {
+        url: "Assets/Models/brinegullet_spitter.glb",
+        scale: 1,
+        baseScale: 1.6,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [3, 4, 5, 6, 7],
     },
     {
@@ -894,6 +922,20 @@ const GAME_CONFIG = {
       combatRole: "tank",
       spawnRarity: "rare",
       image: "Assets/Monsters/wavebreaker_idol.png",
+      model3d: {
+        url: "Assets/Models/wavebreaker_idol.glb",
+        scale: 1,
+        baseScale: 1.8,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [5, 6, 7, 8, 9],
     },
     {
@@ -902,6 +944,20 @@ const GAME_CONFIG = {
       combatRole: "assassin",
       spawnRarity: "epic",
       image: "Assets/Monsters/cliff_lurker.png",
+      model3d: {
+        url: "Assets/Models/cliff_lurker.glb",
+        scale: 1,
+        baseScale: 1.7,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [7, 8, 9, 10],
     },
     {
@@ -910,6 +966,20 @@ const GAME_CONFIG = {
       combatRole: "controller",
       spawnRarity: "epic",
       image: "Assets/Monsters/tideharrow.png",
+      model3d: {
+        url: "Assets/Models/tideharrow.glb",
+        scale: 1,
+        baseScale: 1.9,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [9, 10, 11],
     }
   ],

@@ -248,44 +248,59 @@
       cameraYaw: 39.5
     },
     tideharrow: {
-      offsetXPct: -14.839797639123104,
-      offsetYPct: -4.264392324093817,
+      offsetXPct: -2.74211,
+      offsetYPct: 30.5956,
       rotDeg: 0,
-      scalePct: 190,
+      scalePct: 130,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 21,
+      cameraYaw: 38
     },
     brinegullet_spitter: {
-      offsetXPct: 1.34907,
-      offsetYPct: -7.675907675906184,
+      offsetXPct: 6.92736,
+      offsetYPct: 29.1042,
       rotDeg: 0,
       scalePct: 136,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenWidthPct: 88,
+      tokenHeightPct: 88,
+      modelRotationY: 0,
+      cameraPitch: 39.5,
+      cameraYaw: 47
     },
     saltwind_skimmer: {
-      offsetXPct: 10.792580101180437,
-      offsetYPct: -12.79317697228145,
+      offsetXPct: 4.79879,
+      offsetYPct: 41.8542,
       rotDeg: 0,
       scalePct: 172,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenWidthPct: 76,
+      tokenHeightPct: 76,
+      modelRotationY: 0,
+      cameraPitch: 46,
+      cameraYaw: -38
     },
     wavebreaker_idol: {
-      offsetXPct: -13.490745025295109,
-      offsetYPct: -10.234543070362474,
+      offsetXPct: -1.08382,
+      offsetYPct: 17.908,
       rotDeg: 0,
-      scalePct: 214,
+      scalePct: 111,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 24.5,
+      cameraYaw: 46
     },
     cliff_lurker: {
-      offsetXPct: 6.745362563237774,
-      offsetYPct: 5.970149253731343,
+      offsetXPct: 10.2408,
+      offsetYPct: 36.7491,
       rotDeg: 0,
-      scalePct: 178,
-      tokenWidthPct: 100,
-      tokenHeightPct: 100
+      scalePct: 174,
+      tokenWidthPct: 72,
+      tokenHeightPct: 72,
+      modelRotationY: 0,
+      cameraPitch: 53,
+      cameraYaw: 55.5
     },
     cinder_husk: {
       offsetXPct: -13.490725126475548,
@@ -705,7 +720,7 @@
       tokenHeightPct: 100
     }
   };
-  const TOKEN_PRESET_REV = "2026-07-09-tidemeld-revenant";
+  const TOKEN_PRESET_REV = "2026-07-10-tideharrow-wavebreaker";
   if (typeof GAME_CONFIG !== "undefined" && GAME_CONFIG) {
     GAME_CONFIG.tacticalTokenPresets = presets;
     GAME_CONFIG.tacticalTokenPresetRev = TOKEN_PRESET_REV;
