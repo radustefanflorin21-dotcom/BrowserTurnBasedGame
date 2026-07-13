@@ -575,20 +575,26 @@
       tokenHeightPct: 100
     },
     stormfang_ravager: {
-      offsetXPct: -53.96288010118043,
-      offsetYPct: 3.4115123667377407,
+      offsetXPct: -9.27605,
+      offsetYPct: 22.6096,
       rotDeg: 0,
-      scalePct: 184,
+      scalePct: 136,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 20,
+      cameraYaw: 41
     },
     abyssal_tempest_caller: {
-      offsetXPct: -37.77402748735245,
-      offsetYPct: -6.822984605543709,
+      offsetXPct: 1.95323,
+      offsetYPct: 25.8827,
       rotDeg: 0,
-      scalePct: 346,
+      scalePct: 130,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 36.5,
+      cameraYaw: 45
     },
     bramblehorn_matriarch: {
       offsetXPct: -32.35022778182014,
@@ -704,12 +710,15 @@
       cameraYaw: -1
     },
     stormwake_leviathan: {
-      offsetXPct: 18.43600757394787,
-      offsetYPct: -20.468159419002355,
+      offsetXPct: 5.12401,
+      offsetYPct: 31.8133,
       rotDeg: 0,
-      scalePct: 232,
+      scalePct: 124,
       tokenWidthPct: 100,
-      tokenHeightPct: 100
+      tokenHeightPct: 100,
+      modelRotationY: 0,
+      cameraPitch: 43.5,
+      cameraYaw: -20
     },
     the_stillness_below: {
       offsetXPct: 23.38225545563128,
@@ -720,7 +729,7 @@
       tokenHeightPct: 100
     }
   };
-  const TOKEN_PRESET_REV = "2026-07-10-tideharrow-wavebreaker";
+  const TOKEN_PRESET_REV = "2026-07-13-stormbreak-3d";
   if (typeof GAME_CONFIG !== "undefined" && GAME_CONFIG) {
     GAME_CONFIG.tacticalTokenPresets = presets;
     GAME_CONFIG.tacticalTokenPresetRev = TOKEN_PRESET_REV;

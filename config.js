@@ -852,6 +852,20 @@ const GAME_CONFIG = {
       combatRole: "bruiser",
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/stormfang_ravager.png",
+      model3d: {
+        url: "Assets/Models/stormfang_ravager.glb",
+        scale: 1,
+        baseScale: 2,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [14],
     },
     {
@@ -860,6 +874,20 @@ const GAME_CONFIG = {
       combatRole: "controller",
       spawnRarity: "epic",
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/abyssal_tempest_caller.png",
+      model3d: {
+        url: "Assets/Models/abyssal_tempest_caller.glb",
+        scale: 1,
+        baseScale: 1.8,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [13],
     },
     {
@@ -870,6 +898,20 @@ const GAME_CONFIG = {
       isBoss: true,
       tacticalFootprint: { w: 3, h: 3 },
       image: "Assets/Biomes/Paradise North/Stormbreak Hollow/the_stormwake_leviathan.png",
+      model3d: {
+        url: "Assets/Models/the_stormwake_leviathan.glb",
+        scale: 1,
+        baseScale: 2.8,
+        yOffset: 0,
+        stripEmissive: true,
+        animations: {
+          idle: "Idle",
+          walk: "Walk",
+          attack: "Attack",
+          skill: "Skill",
+          fall: "Fall"
+        }
+      },
       possibleLevels: [15],
     },
     {
